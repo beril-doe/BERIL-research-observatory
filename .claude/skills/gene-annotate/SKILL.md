@@ -9,6 +9,118 @@ user-invocable: true
 
 Run the `gene-annotate` CLI to produce GeneRIF-style functional annotations for protein sequences. The tool integrates five BERDL evidence layers — PaperBLAST homology (literature-curated), pangenome cluster annotations, Fitness Browser phenotypic data, fitness-browser gene neighborhoods, and pangenome gene neighborhoods (syntenic context across the GTDB clade) — plus InterProScan domain analysis and LLM reasoning to generate evidence-tiered annotations. Additional BERDL datasets can be layered on top via `--berdl-source-config`.
 
+## Prior Run Context
+
+The following organisms have been annotated in prior gene-annotate runs in this project.
+Read this section before any new run to avoid redundant BERDL queries and to calibrate
+cost/yield expectations.
+
+### Completed pilots
+
+| Pilot label | Organism | FASTA | Core n | Aux n | Tier A | Key finding |
+|---|---|---|---|---|---:|---|
+| PA hyp300 | *Pseudomonas aeruginosa* PAO1 | pa_hypothetical_300_clean.faa | 121 | 179 | 5 | Aux Tier-A dominated by phage/prophage cassettes (13/15 hits) |
+| BS hyp421 | *Bacillus subtilis* 168 | bs_hyp421.faa | 21 | 400 | 0 core; aux unclear | Zero core Tier-A (heavily curated model organism); aux signal = TA/sporulation/competence |
+| DOE-4 core | *P. putida* KT2440 + *S. oneidensis* + *D. vulgaris* + *G. sulfurreducens* | doe4_core.faa | ~134 each | 0 | 32 total (18 DV alone) | Fitness browser dominates; *G. sulfurreducens* evidence-sparse (75% no-evidence) |
+| PF+SS+PS | *P. fluorescens*, *P. simiae*, *Stutzerimonas stutzeri* | pf_ss_ps_hyp.faa | mix | mix | — | Multi-strain Pseudomonas environmental/soil context |
+| SS hyp500 | *Stutzerimonas stutzeri* | ss_hyp500.faa | — | 500 | — | Stutzeri standalone aux run |
+| ME hyp767 | *Methylobacterium extorquens* | me_hyp767.faa | — | 767 | — | One-carbon/C2 metabolism chassis |
+
+v2 re-runs of all pilots (with pangenome neighborhood evidence) completed 2026-05-10.
+Results in `data/*_annotations_v2/`; per-organism summaries in `data/v2_per_organism_summaries/`.
+
+> **Environment note:** The `data/` directory and all pilot FASTAs, metadata TSVs, and
+> annotation outputs exist only within the JupyterHub/cluster environment at
+> `/home/cjneely/repos/BERIL-research-observatory/data/`. They are **not** present on a
+> local developer machine. Spark queries and gene-annotate runs also require the JupyterHub
+> cluster environment (BERDL access, `/global_share/gene-annotation-predictor/` package,
+> and a running Spark Connect server). Do not assume these paths exist in a local session.
+
+### Resolved GTDB clade IDs (validated from prior runs)
+
+Always use accession-based lookup (`genome_id LIKE '%<numeric>%'`) rather than species-name
+matching — GTDB renames and clade splits make name matching unreliable.
+
+| Common name | Canonical strain | Target accession | GTDB clade ID in BERDL |
+|---|---|---|---|
+| *Pseudomonas aeruginosa* PAO1 | PAO1 | GCF_000006765.1 | `s__Pseudomonas_aeruginosa--RS_GCF_001457615.1` |
+| *Bacillus subtilis* 168 | 168 | GCF_000009045.1 | `s__Bacillus_subtilis--RS_GCF_000009045.1` |
+| *Geobacter sulfurreducens* PCA | PCA | GCF_000007985.2 | `s__Geobacter_sulfurreducens--RS_GCF_000007985.2` |
+| *Nitratidesulfovibrio vulgaris* Hildenborough | Hildenborough | GCA_000195755.1 | `s__Nitratidesulfovibrio_vulgaris--RS_GCF_000195755.1` |
+| *Pseudomonas putida* KT2440 | KT2440 | GCF_000007565.2 | `s__Pseudomonas_E_alloputida--RS_GCF_021282585.1` |
+| *Shewanella oneidensis* MR-1 | MR-1 | GCF_000146165.2 | `s__Shewanella_oneidensis--RS_GCF_000146165.2` |
+| *Mycobacterium tuberculosis* H37Rv | H37Rv | GCF_000195955.2 | `s__Mycobacterium_tuberculosis--RS_GCF_000195955.2` |
+| *Vibrio cholerae* O1 N16961 | N16961 | GCF_000006745.1 | `s__Vibrio_cholerae--RS_GCF_000621645.1` |
+| *Salmonella enterica* Typhimurium LT2 | LT2 | GCF_000006945.2 | `s__Salmonella_enterica--RS_GCF_000006945.2` |
+| *Staphylococcus aureus* USA300 | USA300_FPR3757 | GCF_000013465.1 | `s__Staphylococcus_aureus--RS_GCF_001027105.1` |
+| *Streptococcus pneumoniae* TIGR4 | TIGR4 | GCF_000006885.1 | `s__Streptococcus_pneumoniae--RS_GCF_001457635.1` |
+| *Klebsiella pneumoniae* MGH 78578 | MGH 78578 | GCF_000016305.1 | `s__Klebsiella_pneumoniae--RS_GCF_000742135.1` |
+| *Clostridioides difficile* 630 | 630 | GCF_000009205.2 | `s__Clostridioides_difficile--RS_GCF_001077535.1` |
+| *Corynebacterium glutamicum* ATCC 13032 | ATCC 13032 | GCF_000011325.1 | `s__Corynebacterium_glutamicum--RS_GCF_000011325.1` |
+| *Streptomyces avermitilis* MA-4680 | MA-4680 | GCF_000009765.2 | `s__Streptomyces_avermitilis--RS_GCF_000009765.2` |
+| *Zymomonas mobilis* ZM4 | ZM4 | GCA_000007105.1 | `s__Zymomonas_mobilis--RS_GCF_000175255.2` |
+| *Cupriavidus necator* H16 | H16 | GCF_004798725.1 | `s__Cupriavidus_necator--RS_GCF_000219215.1` |
+| *Lactococcus lactis* IL1403 | IL1403 | GCF_000006865.1 | `s__Lactococcus_lactis--RS_GCF_900099625.1` |
+| *Lactiplantibacillus plantarum* WCFS1 | WCFS1 | GCF_000203855.3 | `s__Lactiplantibacillus_plantarum--RS_GCF_014131735.1` |
+| *Thermus thermophilus* HB8 | HB8 | GCF_000091545.1 | `s__Thermus_thermophilus--RS_GCF_000091545.1` |
+| *Acetivibrio thermocellus* ATCC 27405 | ATCC 27405 | GCF_000015865.1 | `s__Hungateiclostridium_thermocellum--RS_GCF_000015865.1` |
+| *Caldicellulosiruptor bescii* DSM 6725 | DSM 6725 | GCF_000022325.1 | `s__Caldicellulosiruptor_bescii--RS_GCF_000022325.1` |
+| *Thermoanaerobacterium saccharolyticum* JW/SL | JW/SL-YS485 | GCA_000307585.2 | `s__Thermoanaerobacterium_aotearoense--RS_GCF_009905255.1` |
+| *Clostridium ljungdahlii* DSM 13528 | DSM 13528 | GCF_000143685.1 | `s__Clostridium_B_ljungdahlii--RS_GCF_000143685.1` |
+| *Dehalococcoides mccartyi* 195 | 195 | GCA_000011905.1 | `s__Dehalococcoides_mccartyi--RS_GCF_000011905.1` |
+| *Paraburkholderia xenovorans* LB400 | LB400 | GCF_000756045.1 | `s__Paraburkholderia_xenovorans--RS_GCF_000013645.1` |
+| *Prochlorococcus marinus* MIT 9313 | MIT 9313 | GCF_000011485.1 | `s__Prochlorococcus_C_marinus_B--RS_GCF_000011485.1` |
+| *Candidatus Pelagibacter ubique* HTCC1062 | HTCC1062 | GCF_000012345.1 | `s__Pelagibacter_ubique--RS_GCF_000012345.1` |
+| *Nitrosomonas europaea* ATCC 19718 | ATCC 19718 | GCF_000009145.1 | `s__Nitrosomonas_europaea--RS_GCF_900167395.1` |
+| *Azotobacter vinelandii* DJ | DJ | GCF_000021045.1 | `s__Azotobacter_vinelandii--RS_GCF_000380335.1` |
+| *Sinorhizobium meliloti* 1021 | 1021 | GCF_000006965.1 | `s__Sinorhizobium_meliloti--RS_GCF_017876815.1` |
+| *Rhizobium johnstonii* 3841 | 3841 | GCF_000009265.1 | `s__Rhizobium_leguminosarum_L--RS_GCF_000009265.1` |
+| *Bacteroides thetaiotaomicron* VPI-5482 | VPI-5482 | GCF_000011065.1 | `s__Bacteroides_thetaiotaomicron--RS_GCF_000011065.1` |
+| *Akkermansia muciniphila* ATCC BAA-835 | ATCC BAA-835 | GCF_000020225.1 | `s__Akkermansia_muciniphila--RS_GCF_000020225.1` |
+
+**NOT in BERDL pangenome (confirmed 2026-05-20):**
+- *Acinetobacter baumannii* ATCC 17978 (GCF_000015425.1)
+- *Helicobacter pylori* 26695 (GCF_000008525.1)
+- *Streptomyces coelicolor* A3(2) (GCF_000203835.1)
+- *Anaeromyxobacter dehalogenans* 2CP-C (GCA_000013385.1)
+- *Nitrosopumilus maritimus* SCM1 (GCF_000018465.1) — archaeon
+- *Synechococcus elongatus* PCC 7942 (GCF_000012525.1)
+
+**Common GTDB rename traps:**
+- *Desulfovibrio vulgaris* → genus renamed to *Nitratidesulfovibrio* in GTDB; search for `Nitratidesulfovibrio_vulgaris`
+- *Pseudomonas putida* KT2440 → lives in clade `Pseudomonas_E_alloputida`, NOT `Pseudomonas_E_putida`
+- *Bacillus subtilis* has a `_G` variant clade — verify accession matches `GCF_000009045.1`
+
+### Evidence density patterns (from pilots)
+
+**High Tier-A yield** (fitness browser coverage + many characterized homologs):
+- *S. oneidensis* MR-1, *P. putida* KT2440, *D. vulgaris* Hildenborough, *P. aeruginosa* PAO1
+- Fitness browser dominates: phenotype-class annotations (e.g., "required for growth on putrescine as N source")
+
+**Low Tier-A yield, structural**:
+- *G. sulfurreducens* PCA: 75% no-evidence rate is expected (thin fitness browser coverage for *Geobacter*)
+- Model organisms (*B. subtilis*, *M. tuberculosis*, *S. aureus*): core genome is already well-curated by Bakta — expect near-zero core Tier-A; focus interest on aux
+
+### Pre-filter recommendations (from pilot writeups)
+
+Applying an upstream classifier before LLM spend can reduce cost significantly:
+
+| Organism class | Pre-filter | Rationale |
+|---|---|---|
+| Gram-negative aux hypotheticals | Phage/MGE classifier | PA pilot: 13/15 Tier-A aux were phage/prophage cassettes — large proportion of aux signal is mobile element cargo |
+| Gram-positive aux hypotheticals | Sporulation/TA classifier | BS pilot: most aux signal = toxin-antitoxin, sporulation, competence — predictable categories |
+| Evidence-sparse organisms (*Geobacter*, *Dehalococcoides* class) | None (but budget accordingly) | 75% no-evidence rate is structural; pre-filtering won't help, but cost per useful annotation is high |
+
+### Cost calibration
+
+Per-sequence token cost varies ~3× across organisms:
+- ~2.6K tokens/seq: BS aux (mostly no-evidence skips)
+- ~5K tokens/seq: average across all pilots (use for planning)
+- ~10K tokens/seq: *S. oneidensis* core (most have evidence requiring full LLM evaluation)
+
+Rule of thumb: organisms in the Fitness Browser pay off disproportionately — check the
+fitness browser organism list against any shortlist before scoping cost.
+
 ## When to Use
 
 - The user has protein sequences in any format — FASTA files, raw sequences, TSV/CSV tables, GenBank records, BERDL query results, or pasted text
