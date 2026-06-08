@@ -87,37 +87,12 @@
 
 ---
 
-### [cog_analysis] Lifestyle-Based COG Stratification
-**Status**: PROPOSED
+### [lifestyle_cog] Lifestyle-Based COG Stratification
+**Status**: COMPLETED (2026-06-08)
 **Priority**: HIGH
 **Effort**: Low (1 week)
 
-**Research Question**: How does lifestyle (free-living vs host-associated) affect pangenome functional composition?
-
-**Approach**:
-- Join `genome` → `sample` → `ncbi_env` to get environment metadata
-- Stratify species by lifestyle: free-living, host-associated, pathogen
-- Compare COG enrichment patterns across lifestyles
-
-**Hypotheses**:
-- Host-associated bacteria:
-  - Higher V (defense) enrichment for immune evasion
-  - Lower M (cell wall) enrichment (less environmental stress)
-  - Different metabolic profiles (E, G, I) due to nutrient availability
-- Free-living bacteria:
-  - Higher metabolic diversity
-  - More environmental sensing (T, K)
-
-**Impact**: Moderate - extends universal pattern to show ecological context matters
-
-**Dependencies**:
-- Need to explore `ncbi_env` table coverage
-- May need manual curation of lifestyle categories
-
-**Next Steps**:
-1. Query `ncbi_env` to assess data availability
-2. Define lifestyle categories (free-living, host-associated, pathogen, environmental)
-3. Run COG analysis stratified by lifestyle
+**Results**: All three pre-registered hypotheses supported across 2,529 species (1,705 host-associated, 824 free-living) in 10 phyla. **H1**: Defense (V) median accessory-enrichment host 1.09 vs free 0.77 (p_adj=2.3e-21, rank-biserial r=−0.23 "small"), holds in 8/10 phyla. **H2**: Metabolic E/G/C/P/I all show free-living accessory-enrichment with p_adj < 3e-24 and rank-biserial r=+0.25 (G) to +0.46 (E, I); survives BH in 42/110 within-phylum tests. **H3**: Host-associated median core fraction 0.255 vs free 0.320 (p=1.3e-23, host smaller), holds in 6/8 phyla — direction is opposite the classical reductive-evolution story because the ≥10-genome filter excludes obligate endosymbionts; the result lives in the facultative-host-associated regime where mobile-element traffic *expands* accessory pools. **Striking unexpected finding**: S (function unknown) is the LARGEST-effect category overall (r=−0.57, p_adj=7.8e-117) — host accessory genomes carry 23.2% uncharacterized vs 16.8% in free-living. The 1.3 pp annotation-rate gap (host 56.5% vs free 57.9%, p=8.9e-3, r=+0.064 negligible) is far smaller than the 6.4 pp S share gap, so the S finding is real compositional shift, not coverage artifact alone. Log-ratio pseudocount sensitivity check preserves direction for all 24 categories; the A-category Δ rescales from −2.40 (artifact) to −0.31 (conservative). 12-item REVIEW.md round-1 fully addressed; round-2 review confirmed all items closed. See `projects/lifestyle_cog/`.
 
 ---
 
