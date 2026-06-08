@@ -30,7 +30,7 @@ How does bacterial lifestyle (free-living vs host-associated) affect pangenome f
 
 ## Status
 
-Analysis — report drafted, awaiting `/berdl-review` and `/submit`.
+Completed — all three pre-registered hypotheses (defense V accessory-enrichment in host-associated, metabolism E/G/C/P/I accessory-enrichment in free-living, host smaller core fraction) supported across 2,529 species in 10 phyla; S (function unknown) is the most lifestyle-discriminating category (LARGE effect, r=−0.57).
 
 ## Key Findings
 
