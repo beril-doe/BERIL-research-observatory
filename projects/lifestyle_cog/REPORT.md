@@ -65,7 +65,14 @@ Largest phyla in the analysis: Pseudomonadota (859), Bacillota_A (361), Bacteroi
 
 Host-associated species have systematically more genomes per species (median 20 vs 14, p = 5.1 × 10⁻³⁵) and slightly more gene clusters (median 8,006 vs 7,481, p = 3.8 × 10⁻⁶). This reflects clinical-isolate over-sampling: pathogens have been sequenced more aggressively, so their pangenomes are more deeply resolved. The genome-count confound *amplifies* host accessory size (more genomes = more discovered accessory genes), which would inflate host accessory-enrichment scores symmetrically across categories. The differential pattern across COG categories (V/L/K/U/S host-favoring, E/G/C/P/I free-favoring) therefore cannot be explained by uniform inflation.
 
-**Annotation coverage**: a separate concern raised at review is whether the fraction of gene clusters carrying any COG annotation differs by lifestyle (which would skew within-COG proportion comparisons even though within-species proportions sum to 1). The per-species COG-annotation rate (annotated_clusters / total_clusters) was computed against `gene_cluster ⨝ eggnog_mapper_annotations` for the full 2,529-species cohort. *Results from `src/annotation_coverage.py` are saved in `data/review_addenda/annotation_coverage_*.csv`; the median host vs free annotation rates and Mann-Whitney p-value are reported there.* This addresses review-feedback item #6; see `REVIEW.md`.
+**Annotation coverage**: a separate concern raised at review is whether the fraction of gene clusters carrying any COG annotation differs by lifestyle (which would skew within-COG proportion comparisons even though within-species proportions sum to 1). The per-species COG-annotation rate (cog_annotated_clusters / total_clusters) was computed against `gene_cluster ⨝ eggnog_mapper_annotations` for the full 2,529-species cohort (`src/annotation_coverage.py`, results in `data/review_addenda/annotation_coverage_*.csv`):
+
+| Lifestyle | n | Median COG-anno rate | Mean |
+|---|---|---|---|
+| Host-associated | 1,705 | **56.5%** | 55.7% |
+| Free-living | 824 | **57.9%** | 57.1% |
+
+Mann-Whitney U: 657,416; p = 8.9 × 10⁻³; median diff = −0.013 (host slightly lower); rank-biserial r = +0.064 (NEGLIGIBLE effect by Cohen-style cutoffs). The signal is statistically present but biologically tiny (~1.3 percentage-point absolute difference). This *is* consistent with the S-category accessory inflation in host species being partly an annotation-lag artifact: host pangenomes have slightly more uncharacterized clusters overall AND a higher S share of the *annotated* fraction. Quantitatively, the 1.3 pp coverage gap is far smaller than the 6.4 pp gap in S accessory share (23.2% vs 16.8%), so the bulk of the S finding remains a real compositional shift, not a coverage artifact alone.
 
 ### Methods note: multi-character COG categories
 
