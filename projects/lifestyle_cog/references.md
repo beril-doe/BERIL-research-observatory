@@ -24,3 +24,15 @@ Query: "pangenome core accessory COG functional categories lifestyle free-living
 7. Brockhurst MA, et al. (2019). "The Ecology and Evolution of Pangenomes." *Current Biology*, 29(20), R1094-R1103. DOI: 10.1016/j.cub.2019.08.012
 
 8. Maistrenko OM, et al. (2020). "Disentangling the impact of environmental and phylogenetic constraints on prokaryotic within-species diversity." *The ISME Journal*, 14(5), 1247-1259. DOI: 10.1038/s41396-020-0600-z
+
+### Added during synthesis (2026-06-08)
+
+9. Wang T, Shi Y, Zheng M, Zheng J. (2024). "Comparative Genomics Unveils Functional Diversity, Pangenome Openness, and Underlying Biological Drivers among Bacillus subtilis Group." *Microorganisms*, 12(5), 986. Cited for confirmation that accessory genes are V-enriched in a single-species-group analysis.
+
+10. McCutcheon JP, Moran NA. (2012). "Extreme genome reduction in symbiotic bacteria." *Nature Reviews Microbiology*, 10, 13-26. DOI: 10.1038/nrmicro2670. Cited for the classical reductive-evolution endosymbiont regime that the ≥10-genome filter excludes from this analysis.
+
+11. Klasson L, Andersson SGE. (2004). "Evolution of minimal-gene-sets in host-dependent bacteria." *Trends in Microbiology*, 12(1), 37-43. DOI: 10.1016/j.tim.2003.11.006. Cited alongside McCutcheon & Moran for endosymbiont streamlining context.
+
+12. Tong X, Luo D, Leung MHY, Lee JYY, et al. (2024). "Diverse and specialized metabolic capabilities of microbes in oligotrophic built environments." *Microbiome*, 12, 224. Cited as ecological corroboration of free-living metabolic accessory enrichment.
+
+13. Awad MM, Abdelmoteleb M, et al. (2025). "Genomic Insights into Enterobacteriaceae: Pan-Genome Analysis and Functional Profiling." Egyptian journals (EKB). Cited for the MDR/AMR-in-accessory observation that aligns with our V and L host-favoring signal in Enterobacteriaceae-dominated host pangenomes.

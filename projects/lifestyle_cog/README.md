@@ -28,9 +28,20 @@ How does bacterial lifestyle (free-living vs host-associated) affect pangenome f
   - `pangenome` — Per-species pangenome statistics (27K rows)
   - `gtdb_species_clade` — Taxonomy (27K rows)
 
+## Status
+
+Analysis — report drafted, awaiting `/berdl-review` and `/submit`.
+
 ## Key Findings
 
-*TBD -- run notebooks and use `/synthesize` to complete this section.*
+All three pre-registered hypotheses supported across 2,529 species (1,705 host-associated, 824 free-living) in 10 phyla.
+
+- **H1 SUPPORTED**: Defense (V) more accessory-enriched in host-associated species (median 1.09 vs 0.77, p_adj = 2.3 × 10⁻²¹; 8/10 phyla agree).
+- **H2 SUPPORTED**: Metabolic categories (E, G, C, P, I) more accessory-enriched in free-living species (all p_adj < 3 × 10⁻²⁴; 9/10 phyla agree for most).
+- **H3 SUPPORTED**: Host-associated species have smaller median core fraction (0.255 vs 0.320, p = 1.3 × 10⁻²³; 6/8 phyla agree).
+- **Striking unexpected finding**: S (function unknown) is the single most lifestyle-discriminating category (p_adj = 7.8 × 10⁻¹¹⁷). Host accessory genomes carry ~23% uncharacterized vs ~17% in free-living.
+
+See [REPORT.md](REPORT.md) for full results, interpretation, and literature context.
 
 ## Notebooks
 
@@ -44,7 +55,10 @@ How does bacterial lifestyle (free-living vs host-associated) affect pangenome f
 
 | Figure | Description |
 |--------|-------------|
-| *TBD* | |
+| `figures/lifestyle_cog_heatmap.png` | Side-by-side heatmap of median COG enrichment by lifestyle with significance markers |
+| `figures/enrichment_heatmap.png` | Per-species enrichment matrix clustered by lifestyle |
+| `figures/phylum_stratified.png` | Within-phylum host-vs-free comparisons across the 10 testable phyla |
+| `figures/core_fraction_comparison.png` | Distribution of core fraction by lifestyle |
 
 ## Data Files
 
@@ -66,8 +80,13 @@ How does bacterial lifestyle (free-living vs host-associated) affect pangenome f
 
 ## Authors
 
-*TBD*
+- Justin Reese, Lawrence Berkeley National Laboratory, ORCID 0000-0002-2170-2250
 
 ## Future Directions
 
-*TBD -- use `/synthesize` to complete this section.*
+See [REPORT.md § Future Directions](REPORT.md#future-directions) for the full list. Highlights:
+
+1. Decompose the V signal by defense-system class (CRISPR-Cas, R-M, T-A) using `defense-finder` / `padloc`.
+2. Re-annotate host-associated accessory S-class genes with bakta v1.12.0 to separate annotation-lag from genuine novelty.
+3. Phylogenetically-controlled GLM at genus/family resolution to formalize H1/H2/H3 effect sizes.
+4. Three-way classification (free-living / commensal / pathogen) to separate phage-pressure from pathogen-specific selection.

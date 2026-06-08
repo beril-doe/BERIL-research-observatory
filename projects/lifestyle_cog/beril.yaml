@@ -1,7 +1,7 @@
 project_id: lifestyle_cog
 status: analysis
 created_at: "2026-02-18T20:00:00Z"
-last_session_at: "2026-06-08T14:00:04Z"
+last_session_at: "2026-06-08T14:15:00Z"
 branch: projects/lifestyle_cog
 engine:
   name: claude
@@ -12,5 +12,5 @@ authors:
 artifacts:
   readme: true
   research_plan: true
-  report: false
+  report: true
   review: false
