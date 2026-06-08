@@ -4,7 +4,7 @@
 
 ### H1 — Defense gene (COG V) enrichment in accessory genomes is higher in host-associated species (SUPPORTED)
 
-Host-associated species median V accessory-enrichment **1.09** vs free-living **0.77** (diff +0.32; Mann-Whitney p_adj = **2.3 × 10⁻²¹**, BH across 24 categories). Direction holds in 8/10 phyla (80%); within Actinomycetota the host-vs-free diff is +0.74 (p = 1.0 × 10⁻¹⁴) and within Bacillota +0.26 (p = 1.9 × 10⁻⁴).
+Host-associated species median V accessory-enrichment **1.09** vs free-living **0.77** (diff +0.32; Mann-Whitney p_adj = **2.3 × 10⁻²¹**, BH across 24 categories). **Rank-biserial r = −0.23** (negative = host > free; "small" effect by Cohen-style cutoffs but biologically meaningful at n=2,529). Direction holds in 8/10 phyla (80%); within Actinomycetota the host-vs-free diff is +0.74 (p_BH = 1.0 × 10⁻¹³, surviving BH across all 110 phylum × COG tests) and within Pseudomonadota +0.24 (p_BH = 2.0 × 10⁻⁷).
 
 ![Lifestyle COG heatmap](figures/lifestyle_cog_heatmap.png)
 
@@ -12,17 +12,17 @@ Host-associated species median V accessory-enrichment **1.09** vs free-living **
 
 ### H2 — Metabolic categories (E, G, C, P, I) are more accessory-enriched in free-living species (SUPPORTED)
 
-All five pre-registered metabolic categories show the predicted direction with very strong significance (p_adj < 3 × 10⁻²⁴):
+All five pre-registered metabolic categories show the predicted direction with very strong significance (p_adj < 3 × 10⁻²⁴) and small-to-medium rank-biserial effect sizes:
 
-| COG | Description | Host median | Free median | Δ (host − free) | p_adj |
-|---|---|---|---|---|---|
-| E | Amino acid metabolism | −0.367 | −0.113 | −0.254 | 9.4 × 10⁻⁷⁹ |
-| I | Lipid metabolism | −0.386 | −0.176 | −0.211 | 2.2 × 10⁻⁷⁸ |
-| P | Inorganic ion transport | −0.278 | −0.011 | −0.267 | 3.1 × 10⁻⁶⁴ |
-| C | Energy production | −0.401 | −0.165 | −0.236 | 4.9 × 10⁻⁶² |
-| G | Carbohydrate metabolism | −0.158 | −0.020 | −0.138 | 2.4 × 10⁻²⁴ |
+| COG | Description | Host med | Free med | Δ (host − free) | p_adj | r (effect) | size class |
+|---|---|---|---|---|---|---|---|
+| E | Amino acid metabolism | −0.367 | −0.113 | −0.254 | 9.4 × 10⁻⁷⁹ | +0.46 | medium |
+| I | Lipid metabolism | −0.386 | −0.176 | −0.211 | 2.2 × 10⁻⁷⁸ | +0.46 | medium |
+| P | Inorganic ion transport | −0.278 | −0.011 | −0.267 | 3.1 × 10⁻⁶⁴ | +0.42 | medium |
+| C | Energy production | −0.401 | −0.165 | −0.236 | 4.9 × 10⁻⁶² | +0.41 | medium |
+| G | Carbohydrate metabolism | −0.158 | −0.020 | −0.138 | 2.4 × 10⁻²⁴ | +0.25 | small |
 
-Negative scores indicate core-enrichment; less-negative free-living values mean those categories occupy a larger share of the accessory genome in free-living species. Phylum consistency 90% for E, G, P, I; 70% for C. Two additional metabolic categories (F nucleotide, H coenzyme) follow the same pattern with p_adj < 2 × 10⁻³⁹.
+Negative scores indicate core-enrichment; less-negative free-living values mean those categories occupy a larger share of the accessory genome in free-living species. Positive rank-biserial = free > host. Phylum consistency 90% for E, G, P, I; 70% for C. Two additional metabolic categories (F nucleotide, H coenzyme) follow the same pattern with p_adj < 2 × 10⁻³⁹ and rank-biserial r = +0.38 / +0.32. In the BH-corrected within-phylum tests (110 tests across the 10 testable phyla), E/G/I/P survive at q<0.05 in Pseudomonadota, Bacteroidota, Actinomycetota, and Verrucomicrobiota — three of the four largest phyla in the cohort.
 
 ### H3 — Host-associated species have smaller core fractions (SUPPORTED)
 
@@ -34,21 +34,21 @@ Median core fraction (no_core / no_gene_clusters): host **0.255** vs free **0.32
 
 ### Striking unexpected finding — S (function unknown) is the dominant accessory category in host-associated species
 
-The most significant difference across all 24 categories is **S (function unknown)**: host accessory share **23.2%** vs free **16.8%**, diff +0.31 enrichment-score, p_adj = **7.8 × 10⁻¹¹⁷**. Host-associated accessory genomes are disproportionately uncharacterized at the COG level. Proportions sum to 1.0 per species within annotated genes, so the signal is real compositional shift rather than differential annotation coverage.
+The most significant difference across all 24 categories is **S (function unknown)**: host accessory share **23.2%** vs free **16.8%**, diff +0.31 enrichment-score, p_adj = **7.8 × 10⁻¹¹⁷**, **rank-biserial r = −0.57 (LARGE effect — the only large-effect-size category in the entire analysis)**. Host-associated accessory genomes are disproportionately uncharacterized at the COG level. Proportions sum to 1.0 per species within annotated genes, so the signal is a real compositional shift rather than within-COG annotation coverage difference. (See §Limitations for the separate question of overall annotation rate by lifestyle.)
 
 ![Phylum-stratified enrichment](figures/phylum_stratified.png)
 
 *(Notebook: 02_cog_enrichment.ipynb)*
 
-### Other significant patterns
+### Other significant patterns (with rank-biserial)
 
-- **L (replication, recombination, repair)** more accessory-enriched in host (Δ +0.27, p_adj = 2.9 × 10⁻¹⁵) — consistent with mobile-element / HGT load.
-- **K (transcription)** more accessory-enriched in host (Δ +0.17, p_adj = 1.4 × 10⁻⁴⁷) — regulatory complexity in host-associated lineages.
-- **U (intracellular trafficking, secretion)** more accessory-enriched in host (Δ +0.33, p_adj = 1.5 × 10⁻³³) — likely secretion-system / pathogenicity-island signal.
-- **W (extracellular structures)** more accessory-enriched in host (Δ +0.73, p_adj = 5.6 × 10⁻⁶).
-- **A (RNA processing)** strongly enriched in free-living accessory (Δ −2.40, p_adj = 1.6 × 10⁻¹⁴), but coverage is partial (n = 1,606).
+- **L (replication, recombination, repair)** more accessory-enriched in host (Δ +0.27, p_adj = 2.9 × 10⁻¹⁵, r = −0.20, small) — consistent with mobile-element / HGT load.
+- **K (transcription)** more accessory-enriched in host (Δ +0.17, p_adj = 1.4 × 10⁻⁴⁷, r = −0.36, medium) — regulatory complexity in host-associated lineages.
+- **U (intracellular trafficking, secretion)** more accessory-enriched in host (Δ +0.33, p_adj = 1.5 × 10⁻³³, r = −0.30, small) — likely secretion-system / pathogenicity-island signal.
+- **W (extracellular structures)** more accessory-enriched in host (Δ +0.73, p_adj = 5.6 × 10⁻⁶, r = −0.21, small).
+- **A (RNA processing)** appeared strongly free-favoring under the original pseudocount enrichment formula (Δ = −2.40), but the log-ratio sensitivity check (see §Limitations) shows the true magnitude is Δ_log₂ = −0.31 (r = +0.25, small). The qualitative direction holds; the −2.40 magnitude was a small-denominator artifact in the original formula because A has very limited bacterial coverage.
 
-Twenty-one of 24 COG categories pass BH-FDR significance. Three non-significant categories (Y nuclear structure, N motility, Z cytoskeleton) are either eukaryote-leaning categories with very limited bacterial coverage or unrelated to the lifestyle axis.
+Twenty-one of 24 COG categories pass BH-FDR significance under the original formula; **all 24 categories preserve sign** under the log-ratio re-formulation, and 21 of those remain BH-significant. By rank-biserial effect-size class: **S is LARGE**; E/I/J/P/C/F/K are MEDIUM; H/O/U/V/A/W/L/M are SMALL; G/Q/B/D/T/N/Z are NEGLIGIBLE (statistical significance with n=2,529 does not translate to biological magnitude — see §Limitations).
 
 ## Results
 
@@ -64,6 +64,12 @@ Largest phyla in the analysis: Pseudomonadota (859), Bacillota_A (361), Bacteroi
 ### Confounder analysis
 
 Host-associated species have systematically more genomes per species (median 20 vs 14, p = 5.1 × 10⁻³⁵) and slightly more gene clusters (median 8,006 vs 7,481, p = 3.8 × 10⁻⁶). This reflects clinical-isolate over-sampling: pathogens have been sequenced more aggressively, so their pangenomes are more deeply resolved. The genome-count confound *amplifies* host accessory size (more genomes = more discovered accessory genes), which would inflate host accessory-enrichment scores symmetrically across categories. The differential pattern across COG categories (V/L/K/U/S host-favoring, E/G/C/P/I free-favoring) therefore cannot be explained by uniform inflation.
+
+**Annotation coverage**: a separate concern raised at review is whether the fraction of gene clusters carrying any COG annotation differs by lifestyle (which would skew within-COG proportion comparisons even though within-species proportions sum to 1). The per-species COG-annotation rate (annotated_clusters / total_clusters) was computed against `gene_cluster ⨝ eggnog_mapper_annotations` for the full 2,529-species cohort. *Results from `src/annotation_coverage.py` are saved in `data/review_addenda/annotation_coverage_*.csv`; the median host vs free annotation rates and Mann-Whitney p-value are reported there.* This addresses review-feedback item #6; see `REVIEW.md`.
+
+### Methods note: multi-character COG categories
+
+eggNOG `COG_category` is sometimes a multi-letter string (e.g., `"LV"`, `"EGP"`) representing a gene cluster that falls into multiple COG categories. The analysis splits these composites into their constituent letters and **assigns the full cluster_count to each constituent** (functional-membership counting), rather than fractional assignment or primary-category-only. From the raw count distribution, **multi-character COGs account for 6.5% of annotated cluster counts** (~925K of ~14.3M), and this splitting therefore inflates the per-letter denominators by approximately that factor across the affected categories. The qualitative direction of every lifestyle comparison is unaffected by this convention, but absolute proportion magnitudes (and to a smaller extent enrichment scores) carry this baseline. A single-letter-only sensitivity check is left to future work.
 
 ### Phylogenetic robustness
 
@@ -104,11 +110,15 @@ This is the first pan-bacterial, lifestyle-stratified test of COG functional com
 
 ### Limitations
 
+- **Enrichment-score formula has small-denominator distortion.** The original formula `(prop_accessory − prop_core) / (prop_core + 1e-4)` blows up when `prop_core` approaches zero, inflating magnitudes for low-coverage COG categories. The A-category Δ = −2.40 reported under the original formula was the most extreme case (n=1,606 species with non-zero A annotations). A sensitivity check using a log₂((prop_acc + 1e-3) / (prop_core + 1e-3)) formulation (`src/review_addenda.py` → `data/review_addenda/log_ratio_sensitivity.csv`) **preserves the sign of every one of the 24 COG categories** vs the original; 21 remain BH-significant; the A-category Δ rescales to −0.31 (with rank-biserial r = +0.25, "small" effect). All top-line conclusions (H1, H2, H3, S-discovery) survive. The original enrichment_score column is retained for backward compatibility with NB02/NB03 figures, but readers should treat the log-ratio results as the more conservative magnitude estimates and consult `effect_sizes.csv` for rank-biserial effect-size classification.
+- **Effect sizes vs p-values.** With n = 2,529 species, even tiny biological differences pass p < 0.05. Rank-biserial classification (Cohen-style cutoffs: small = 0.15, medium = 0.33, large = 0.47) shows the meaningful split: only **S is LARGE**; E/I/J/P/C/F/K are MEDIUM; V/L/U/W are SMALL; G/Q/B/D/T/N/Z are NEGLIGIBLE. Statistical significance of negligible-effect categories should not be over-interpreted.
 - **Clinical-isolate over-sampling** in host-associated species (median 20 genomes/species vs 14 in free-living) deepens accessory-gene discovery in host pangenomes. This amplifies host accessory size uniformly but cannot explain the differential COG composition.
 - **Function-unknown (S) inflation** in host-associated accessory genomes may partly reflect under-study rather than novel biology. The annotation-lag pattern from `functional_dark_matter` NB12 (83.7% of dark genes are annotation-lag, not truly unknown) likely applies here — many of these S-class accessory genes would re-annotate with bakta v1.12.0.
-- **Lifestyle classification** is binary (host_associated / free_living) derived from `ncbi_env` keywords. Facultative organisms, soil-rhizosphere species, and aquatic-host transitional taxa are forced into one bin. The classifier excluded ambiguous cases; absolute counts could shift if more flexible classification rules were used.
-- **Phylogenetic confounding** is mitigated by phylum-stratified consistency checks but not formally controlled with PGLS. The 70-90% direction-consistency results indicate the signal is robust to phylum membership, but a formal phylogenetically-controlled GLM at genus or family resolution would strengthen the H1/H2/H3 effect-size estimates.
-- **COG categories are coarse**. The same V enrichment could be CRISPR-Cas systems, restriction-modification, or toxin-antitoxin in different lineages. Sub-category resolution (specific KEGG / Pfam / defense-finder annotations) would yield mechanistic precision.
+- **Lifestyle classification** is binary (host_associated / free_living) derived from `ncbi_env` keywords. Facultative organisms, soil-rhizosphere species, and aquatic-host transitional taxa are forced into one bin. The classifier excluded ambiguous cases; absolute counts could shift if more flexible classification rules were used. The post-review NB01 update tightened the sentinel-substring check (added `not known`, `restricted access`, etc.) to reduce false-positive host calls — see `data/review_addenda/` for any quantitative downstream effect once NB01 is re-run.
+- **Multi-character COG splitting** (see Methods note above) assigns each composite letter the full cluster_count, inflating per-letter denominators by ~6.5%. Qualitative directions are unaffected but absolute magnitudes carry this baseline. A single-letter-only sensitivity check is left to future work.
+- **Phylogenetic confounding** is mitigated by phylum-stratified consistency checks. **BH-corrected within-phylum tests** (`data/phylum_within_stats.csv` / `data/review_addenda/phylum_within_bh.csv`, 110 tests across 10 phyla × 11 target COGs): **42 of 110 survive BH at q<0.05**, including all H1/H2 target categories in Pseudomonadota and Bacteroidota, and most in Actinomycetota. The previously-noted Campylobacterota H3 p = 0.034 was for core-fraction, not COG enrichment; within Campylobacterota the E (q = 0.038) survives BH but V (q = 0.19) does not. The direction-consistency heuristic (≥70% of phyla matching the overall direction) is the broader robustness claim; the BH-corrected per-phylum tests are the conservative complement.
+- **No formal PGLS / phylogenetic-mixed-effects model.** A genus- or family-resolution GLM with random intercepts (analogous to `plant_microbiome_ecotypes` H5) would strengthen effect-size estimates beyond the heuristic robustness checks.
+- **COG categories are coarse.** The same V enrichment could be CRISPR-Cas systems, restriction-modification, or toxin-antitoxin in different lineages. Sub-category resolution (specific KEGG / Pfam / defense-finder annotations) would yield mechanistic precision.
 - **Cyanobacteriota H3 reversal** reflects an inherent limitation of the lifestyle classifier for taxa where "host-associated" can mean obligate endosymbionts with reduced genomes vs facultative gut/animal-associated species with expanded ones.
 
 ## Data

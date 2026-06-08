@@ -66,6 +66,12 @@ See [REPORT.md](REPORT.md) for full results, interpretation, and literature cont
 |------|-------------|
 | `data/species_lifestyle_classification.csv` | Species-level lifestyle assignments |
 | `data/cog_enrichment_by_lifestyle.csv` | COG enrichment scores by lifestyle group |
+| `data/cog_lifestyle_stats.csv` | Per-COG Mann-Whitney + BH-FDR (24 categories) |
+| `data/phylum_within_stats.csv` | Per-phylum × COG within-phylum tests with BH correction |
+| `data/review_addenda/effect_sizes.csv` | Rank-biserial / Cliff's δ effect sizes |
+| `data/review_addenda/log_ratio_sensitivity.csv` | Pseudocount sensitivity (log₂ ratio formulation) |
+| `data/review_addenda/phylum_within_bh.csv` | Same as `phylum_within_stats.csv` (computed by `src/review_addenda.py` for self-contained reproduction) |
+| `data/review_addenda/annotation_coverage_*.csv` | Per-species COG-annotation rate by lifestyle |
 
 ## Related Projects
 
@@ -74,9 +80,30 @@ See [REPORT.md](REPORT.md) for full results, interpretation, and literature cont
 
 ## Reproduction
 
-1. Upload notebooks to BERDL JupyterHub
-2. Run notebooks 01-03 in order
-3. Outputs saved to `data/` and `figures/`
+### Prerequisites
+- Access to BERDL JupyterHub (`hub.berdl.kbase.us`) with read access to the `kbase_ke_pangenome` database
+- Python environment with packages in `requirements.txt`. On JupyterHub the kernel already includes pyspark/scipy/pandas/numpy/matplotlib/seaborn; locally `pip install -r requirements.txt` after activating `.venv-berdl`.
+- For the off-cluster path: working SSH tunnels (1337/1338) and pproxy (8123) per `scripts/berdl_env.py --check`.
+
+### Steps and runtime
+
+| Step | Where | Approx. runtime |
+|---|---|---|
+| **NB01 `01_data_exploration.ipynb`** — full notebook is Spark-bound (queries `ncbi_env`, `genome`, joins; writes `data/species_lifestyle_classification.csv`) | BERDL JupyterHub | ~5-10 min |
+| **NB02 `02_cog_enrichment.ipynb` cells 1-4** — Spark per-species batched query (`gene_cluster` ⨝ `eggnog_mapper_annotations`, BATCH_SIZE=20, ~127 batches over 2,529 species; writes `data/cog_raw_counts.csv` internally) | BERDL JupyterHub | ~30-60 min (heaviest step) |
+| **NB02 cells 5+** — pandas/scipy stats and figure generation; runs on cached CSVs | Local or JupyterHub | <2 min |
+| **NB03 `03_phylogenetic_controls.ipynb`** — entirely pandas/scipy on cached CSVs from NB01 and NB02 | Local or JupyterHub | <2 min |
+| **`src/review_addenda.py`** — post-hoc rank-biserial / phylum-BH / log-ratio sensitivity, all on cached CSVs | Local or JupyterHub | <30 s |
+| **`src/annotation_coverage.py`** — Spark-bound; per-species annotation rate against `gene_cluster` ⨝ `eggnog_mapper_annotations` | BERDL JupyterHub | ~30-60 min |
+
+### Quick-start (full reproduction)
+1. Upload `notebooks/` and `src/` to BERDL JupyterHub
+2. Run NB01 → NB02 → NB03 in order on JupyterHub
+3. Run `python src/review_addenda.py` and `python src/annotation_coverage.py` for the post-review addenda
+4. All outputs land under `data/` (CSVs) and `figures/` (PNGs)
+
+### Working with cached results
+If you only want to reproduce statistics or figures from existing CSVs without re-running the Spark steps, NB03 and `src/review_addenda.py` can run locally on the committed CSVs.
 
 ## Authors
 

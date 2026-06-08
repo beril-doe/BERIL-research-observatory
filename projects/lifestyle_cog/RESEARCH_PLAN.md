@@ -156,4 +156,4 @@ GROUP BY gc.is_core, ann.COG_category
 
 ## Authors
 
-*To be filled in*
+- Justin Reese, Lawrence Berkeley National Laboratory, ORCID 0000-0002-2170-2250
