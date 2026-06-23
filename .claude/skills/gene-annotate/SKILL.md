@@ -169,6 +169,7 @@ Pass `--api-key KEY` only to override with a literal key value.
 | InterProScan | `/global_share/gene-annotation-predictor/bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh` |
 | BERDL DIAMOND databases | `/global_share/gene-annotation-predictor/data_sources/sequences/` |
 | Summaries parquet | `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet` |
+| STRING v12 database | `/global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12/` (`string_proteins.dmnd` + `string.sqlite`) |
 
 ### BERDL Evidence Layer
 
@@ -189,8 +190,20 @@ The pangenome neighborhood source (`pangenome_neighborhoods`) provides syntenic/
 
 Config-driven sources from `--berdl-source-config` are **additive** — they run alongside the six defaults, not instead of them.
 
+### STRING Network Evidence (optional, independent of BERDL)
+
+When `--string-dir` is provided, a seventh evidence source is added:
+
+| Source | Input | Flag | Output column |
+|--------|-------|------|---------------|
+| STRING v12.0 network associations | `STRING_v12/string_proteins.dmnd` + `string.sqlite` | `--string-dir <dir>` | `string_evidence` |
+
+`BatchStringToolkit` DIAMOND-searches query proteins against the STRING v12 proteome, then transfers two kinds of evidence from the best hit: COG/NOG orthogroup(s) (family-level identity prior) and high-confidence functional network partners (guilt-by-association from experiments, curated databases, gene neighborhood, fusion, co-occurrence, co-expression, and text-mining). Partners are gated at `combined_score ≥ 700`; top 8 are returned with specific-function partners ranked first and ubiquitous hub proteins (ribosomal/RNA-pol subunits with > 50 partners) flagged `[hub]` and demoted.
+
+This source is **independent of `--berdl-data-dir`** — it can be used with or without the BERDL layer.
+
 Requires:
-- `KBASE_AUTH_TOKEN` set in `.env`
+- `KBASE_AUTH_TOKEN` set in `$REPO/.env`
 - BERDL data directory (path above)
 - `--berdl-use-spark` for Spark-based annotation queries
 
@@ -381,7 +394,8 @@ Run these checks before building the command:
 [ -d /global_share/gene-annotation-predictor/.venv ] && echo "Poetry venv: OK"
 
 # Check API key availability (priority order)
-set -a && source .env 2>/dev/null; set +a
+# Always source from the BERIL repo — NOT from the gene-annotation-predictor package dir
+set -a && source $REPO/.env 2>/dev/null; set +a
 if [ -n "${CBORG_API_KEY:-}" ]; then
     echo "API: CBORG"
 elif [ -n "${OPENAI_API_KEY:-}" ]; then
@@ -403,6 +417,13 @@ fi
 
 # Check KBASE_AUTH_TOKEN for BERDL layer
 [ -n "${KBASE_AUTH_TOKEN:-}" ] && echo "KBASE_AUTH_TOKEN: set"
+
+# Check MinIO credentials (required for --cts-interproscan)
+[ -n "${MINIO_ACCESS_KEY:-}" ] && [ -n "${MINIO_SECRET_KEY:-}" ] && echo "MinIO credentials: set"
+
+# Check STRING database (optional, needed for --string-dir)
+[ -f /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12/string_proteins.dmnd ] && \
+  echo "STRING database: OK"
 ```
 
 If any critical check fails, inform the user and suggest remediation before proceeding.
@@ -413,7 +434,7 @@ Skip this step when no `--berdl-source-config` was generated in Step 1.5.
 
 For each source in `berdl_sources.yaml`, check whether its `diamond_db` file exists. If not, the CLI can build it under `--berdl-build-missing-dbs`, but builds can take 10–30 minutes for large tables — confirm before proceeding.
 
-**Spark session for standalone build scripts.** Any Python script that calls `get_spark_session()` outside a running notebook kernel must call `refresh_spark_environment()` first to start the local Spark Connect server. Without it, `get_spark_session()` will hang indefinitely. In JupyterHub the server is pre-started automatically; in CLI scripts it is not.
+**Spark session for standalone build scripts.** `BERDLSparkClient` now uses `berdl_notebook_utils.get_spark_session()` directly (the `spark_connect_remote` package and manual proxy setup are no longer required). Any Python script that calls `get_spark_session()` outside a running notebook kernel must call `refresh_spark_environment()` first to start the local Spark Connect server. Without it, `get_spark_session()` will hang indefinitely. In JupyterHub the server is pre-started automatically; in CLI scripts it is not.
 
 ```python
 from berdl_notebook_utils.refresh import refresh_spark_environment
@@ -469,34 +490,40 @@ Construct the command from the package directory using `poetry run`:
 ```bash
 cd /global_share/gene-annotation-predictor
 
-set -a && source /home/cjneely/repos/BERIL-research-observatory/.env 2>/dev/null; set +a
+set -a && source $REPO/.env 2>/dev/null; set +a
 
 PATH=./bin:$PATH poetry run gene-annotate \
   --input <FASTA_FILE(S)> \
   --model gpt-5.4 \
-  <API_KEY_FLAGS> \
   --berdl-data-dir /global_share/gene-annotation-predictor/data_sources/sequences/ \
   --summaries-parquet /global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet \
   --interproscan ./bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh \
   --output-dir <OUTPUT_DIR> \
-  --threads 64 \
+  --threads 4 \
   --berdl-use-spark \
   <OPTIONAL_FLAGS>
 ```
 
-**API key**: No flag needed — the CLI auto-detects `CBORG_API_KEY` (CBORG gateway) or `ANTHROPIC_API_KEY` from the environment. Pass `--api-key KEY` only to override with an explicit value.
+**API key**: No flag needed — the CLI auto-detects `CBORG_API_KEY` (CBORG gateway) or `ANTHROPIC_API_KEY` from the environment. Pass `--api-key KEY` only to override with an explicit value. Pass `--use-cborg` to explicitly force CBORG routing even when auto-detection would pick a different path.
 
-**`--description-is-organism`**: Include this flag when organism names were placed in the FASTA description lines during input preparation (Step 1) — i.e., when the FASTA was prepared with organism context in the header descriptions. Omit when no organism information is available for any sequence.
+**`--description-is-organism`**: Include this flag when organism names were placed in the FASTA description lines during input preparation (Step 1). Omit when no organism information is available for any sequence.
 
 **`--model` is a required CLI flag** — always include it. Use `gpt-5.4` (matching prior pilots) unless the user requests a different model. The CLI has no compiled-in default and will exit with an error if omitted. Do not prefix with `openai/` — the CLI accepts the short form only (`gpt-5.4`, not `openai/gpt-5.4`); the CBORG gateway adds the provider prefix internally.
 
-**Optional flags** (include only if user requested):
+**InterProScan mode — one of the following is required** (mutually exclusive):
+- `--interproscan <path>` — local InterProScan executable (default path: `./bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh`)
+- `--cts-interproscan` — submit InterProScan to the CDM Task Service (CTS) remotely; requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY` in `$REPO/.env`. Use this when running on a machine without a local InterProScan install, or when sequences should be processed on a dedicated compute node. Companion flags: `--cts-username <user>` (default: `$USERNAME`), `--cts-cpus <N>` (default: 8), `--cts-memory <MEM>` (default: 16GB), `--cts-runtime <ISO8601>` (default: PT2H).
+
+**Optional flags** (include only if needed):
 - `--description-is-organism` — include when FASTA descriptions contain organism names
+- `--use-cborg` — explicitly force CBORG gateway routing
+- `--summarizer-url <URL>` — override the summarization API endpoint (default: BERDL production)
 - `--evalue`, `--min-identity`, `--query-coverage`, `--subject-coverage` — DIAMOND thresholds
-- `--threads <N>` — override default 64
+- `--threads <N>` — override default 4
 - `--prompt-file <path>` — custom LLM prompt
 - `--berdl-source-config <output_dir>/berdl_sources.yaml` — include when Step 1.5 produced a YAML
 - `--berdl-build-missing-dbs` — include when at least one source from Step 2.5 was approved for build
+- `--string-dir /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12` — adds STRING v12 network-association evidence (orthogroup identity + functional network partners). Recommended for any run where BERDL evidence may be sparse; independent of `--berdl-data-dir`.
 - `--tier <comma-list>` — include only when Step 2.6 produced a strict subset of `A,B,C` (e.g., `--tier A` or `--tier A,B`). Omit when all three tiers are selected (the CLI default is `A,B,C`).
 
 ### Step 4: Monitor Execution
@@ -569,6 +596,7 @@ For each row in the TSV, produce a block of this form:
 | `pangenome_neighborhoods` | `Gene neighborhoods (pangenome)` | No — syntenic context across GTDB clade, bakta-annotated flanks |
 | `berdl_pangenome_evidence` | `Pangenome` | No — comparative/computational clustering |
 | `ipr_annotations` | `InterProScan` | No — computational domain/family prediction |
+| `string_evidence` | `STRING v12` | No — network guilt-by-association (orthogroup + high-confidence partners ≥700) |
 
 **Dynamic source columns.** When `--berdl-source-config` was used, the TSV contains additional `evidence_<source_name>` columns (one per active source). Discover them at read-time and look up each source's `description` and `evidence_type` from the YAML:
 
@@ -732,8 +760,16 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--model` | `gpt-5.4` | LLM model: `gpt-5.1`, `gpt-5.2`, `gpt-5.3`, `gpt-5.4`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `claude-opus-4.5` |
-| `--threads` | `64` | CPU threads for DIAMOND and InterProScan |
+| `--model` | *(required)* | LLM model — valid choices: `gpt-5.1`, `gpt-5.2`, `gpt-5.3`, `gpt-5.4`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `claude-opus-4.5`. Use `gpt-5.4` to match prior pilots. |
+| `--interproscan` | *(one required)* | Path to local `interproscan.sh`. Mutually exclusive with `--cts-interproscan`. |
+| `--cts-interproscan` | *(one required)* | Run InterProScan remotely via CTS. Needs `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`. |
+| `--cts-username` | `$USERNAME` | KBase username for CTS S3 path construction (used with `--cts-interproscan`). |
+| `--cts-cpus` | `8` | CPUs for the CTS InterProScan job. |
+| `--cts-memory` | `16GB` | Memory for the CTS InterProScan job. |
+| `--cts-runtime` | `PT2H` | Max runtime for the CTS InterProScan job (ISO 8601 duration). |
+| `--use-cborg` | `false` | Explicitly route both models through CBORG gateway. Auto-enabled when `CBORG_API_KEY` is set. |
+| `--summarizer-url` | BERDL production | Base URL for the external summarization API. |
+| `--threads` | `4` | CPU threads for DIAMOND and InterProScan |
 | `--output-dir` | `./output` | Where to write results |
 | `--evalue` | `1e-3` | E-value cutoff for DIAMOND hits |
 | `--min-identity` | `0.3` | Minimum sequence identity (0-1) |
@@ -742,6 +778,7 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 | `--fitness-threshold` | `0.4` | Minimum absolute fitness score |
 | `--t-threshold` | `2.0` | Minimum T-statistic for fitness data |
 | `--prompt-file` | built-in | Custom system prompt for the LLM |
+| `--string-dir` | *(omit to skip)* | Path to STRING v12 data directory (`string_proteins.dmnd` + `string.sqlite`). Use `/global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12`. Independent of `--berdl-data-dir`; adds `string_evidence` column to output. |
 
 ## Evidence Tiers
 
@@ -772,11 +809,14 @@ DIAMOND results, InterProScan output, and batch evidence files are cached under 
 |-------|-------|----------|
 | `poetry: command not found` | Poetry not installed or not on PATH | Install Poetry or ensure it's on PATH |
 | `.venv` missing | Virtual environment not created | Run `poetry install` from `/global_share/gene-annotation-predictor` |
-| No API key found | Neither `CBORG_API_KEY` nor `ANTHROPIC_API_KEY` in environment | Set `CBORG_API_KEY` (preferred) or `ANTHROPIC_API_KEY` in `.env` |
+| No API key found | Neither `CBORG_API_KEY` nor `ANTHROPIC_API_KEY` in environment | Set `CBORG_API_KEY` (preferred) or `ANTHROPIC_API_KEY` in `$REPO/.env` |
 | InterProScan not found | Binary missing or not executable | Verify `/global_share/gene-annotation-predictor/bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh` exists and is executable |
+| `--interproscan and --cts-interproscan are mutually exclusive` | Both flags passed at once | Remove one; use `--interproscan` for local, `--cts-interproscan` for CTS remote |
+| `One of --interproscan or --cts-interproscan is required` | Neither flag provided | Add `--interproscan <path>` (local) or `--cts-interproscan` (CTS) |
+| `MinIO credentials not found` (CTS skipped) | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` missing from `.env` when using `--cts-interproscan` | Add both keys to `$REPO/.env`; obtain from the BERDL MinIO console |
 | `InterProScan failed (exit 231)` — tool continues without IPR | A sequence contains `*` (stop-codon marker from ORF predictors like Prodigal). InterProScan rejects the entire batch, not just the offending sequence. | Strip `*` from all sequences during FASTA preparation (Step 1) |
 | Summaries parquet not found | File missing from data_sources | Verify `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet` exists |
-| BERDL auth error | `KBASE_AUTH_TOKEN` missing or expired | Set or refresh token in `.env` |
+| BERDL auth error | `KBASE_AUTH_TOKEN` missing or expired | Set or refresh `KBASE_AUTH_TOKEN` in `$REPO/.env` — **not** in the gene-annotation-predictor package directory |
 | DIAMOND not found | `./bin/` not on PATH | Ensure the `PATH=./bin:$PATH` prefix is included and command is run after `cd /global_share/gene-annotation-predictor` |
 | Spark session error | Spark not available in environment | Check that Spark dependencies are installed in the Poetry venv |
 
