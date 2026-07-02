@@ -6,6 +6,26 @@ Periodically refactor stable insights into the appropriate structured doc (schem
 
 ---
 
+## 2026-07
+
+### [toxin_antitoxin_lifestyle] Host-associated bacteria carry MORE Type II TA loci per Mb, not fewer
+
+Across the 2,403-species lifestyle_cog cohort, host-associated species carry 6.80 Type II TA loci per Mb vs 5.21 in free-living (Mann-Whitney U p=1.7e-7, rank-biserial r=−0.133), **inverting** the classical reductive-evolution prediction. 7/9 testable phyla preserve host-higher direction. This mirrors the COG-V accessory-enrichment pattern from lifestyle_cog at TA-family resolution and suggests the reductive-evolution intuition applies to obligate endosymbionts (excluded by the ≥10-genome filter) not to facultative host-associated lineages.
+
+### [toxin_antitoxin_lifestyle] RelBE vs VapBC family split is ecologically polar and invisible at COG-V
+
+All 10 detectable TA families are BH-FDR significant in the per-Mb rate test, with two LARGE-effect polarities:
+- **RelBE** ribonuclease TAs: host-enriched (r=−0.41)
+- **VapBC** PIN-domain TAs: free-enriched (r=+0.32)
+
+Both fall under COG-V "defense" — the split is invisible at COG-category resolution but obvious at Pfam-family resolution. Persister-associated HipBA is also host-enriched (r=−0.14, medium), supporting persister-cell selection rather than phage defense as the driver of host-TA density.
+
+### [toxin_antitoxin_lifestyle] TA loci are accessory with rank-biserial r=+0.625 (LARGE)
+
+Paired Wilcoxon non-core fraction TA vs baseline: p=2e-155, median Δ=+0.113 (11.3 percentage points more non-core than baseline), rank-biserial r=+0.625. TA loci are shifted from both core AND singleton toward the accessory bucket (present-but-not-universal), consistent with mobile-defense-island residency. Direction preserved in 10/11 phyla — only 24-species Patescibacteria (all free-living) inverts.
+
+---
+
 ## 2026-01
 
 ### [ecotype_analysis] Environment vs Phylogeny: Phylogeny usually dominates

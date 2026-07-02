@@ -30,7 +30,7 @@ How does bacterial lifestyle (host-associated vs free-living) shape the carriage
 
 ## Status
 
-**Analysis complete.** See [REPORT.md](REPORT.md) for full findings.
+Completed — H1 accessory-enrichment strongly supported (r=+0.625, LARGE); H2 host-lower prediction rejected with direction opposite (host 6.80 vs free 5.21 TA/Mb); H3 family composition asymmetry supported with LARGE-effect RelBE (host-enriched) vs VapBC (free-enriched) polarity. See [REPORT.md](REPORT.md) for full findings.
 
 - **H1 STRONGLY SUPPORTED** (LARGE effect): TA loci are predominantly accessory. Paired Wilcoxon p = 2 × 10⁻¹⁵⁵; rank-biserial r = +0.625; 10/11 phyla preserve direction.
 - **H2 REJECTED — direction OPPOSITE prediction**: host-associated species carry MORE TA per Mb (6.80 vs 5.21), not fewer. 7/9 testable phyla preserve host-higher direction.
@@ -61,6 +61,6 @@ jupyter nbconvert --to notebook --execute --inplace notebooks/NB02_lifestyle_par
 jupyter nbconvert --to notebook --execute --inplace notebooks/NB03_family_composition.ipynb
 ```
 
-## Author
+## Authors
 
-Justin Reese ([0000-0002-2170-2250](https://orcid.org/0000-0002-2170-2250)), LBNL.
+- Justin Reese ([0000-0002-2170-2250](https://orcid.org/0000-0002-2170-2250)), LBNL.

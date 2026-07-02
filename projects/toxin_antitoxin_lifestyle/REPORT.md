@@ -1,6 +1,6 @@
 # Report — Type II Toxin-Antitoxin Systems Across Bacterial Lifestyles
 
-## Executive summary
+## Key Findings
 
 Across 25,043 species with pangenome data, 407,884 gene clusters carry at least one Type II TA-family Pfam signature. Testing the three pre-registered hypotheses on the 2,403-species cohort with lifestyle labels (1,660 host-associated, 743 free-living, 11 testable phyla) inherited verbatim from `projects/lifestyle_cog`:
 

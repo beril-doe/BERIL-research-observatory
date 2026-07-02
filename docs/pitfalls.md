@@ -75,6 +75,39 @@ This affects: `kescience_fitnessbrowser` (all columns), `kbase_genomes` (coordin
 
 ## Pangenome (`kbase_ke_pangenome`) Pitfalls
 
+### `eggnog_mapper_annotations.PFAMs` stores Pfam NAMES, not accessions
+
+The `PFAMs` column of `kbase_ke_pangenome.eggnog_mapper_annotations` is a comma-delimited list of Pfam **family names** (e.g., `RelE`, `HipA_C`, `MazE_antitoxin`), NOT `PFxxxxx` accession numbers. Searching by accession returns zero hits across the whole 83M non-null-PFAMs row set.
+
+```sql
+-- WRONG: 0 hits
+WHERE PFAMs LIKE '%PF06769%'
+
+-- RIGHT: token-safe name matching
+WHERE PFAMs = 'RelE'
+   OR PFAMs LIKE 'RelE,%'
+   OR PFAMs LIKE '%,RelE'
+   OR PFAMs LIKE '%,RelE,%'
+```
+
+Substring matching by name (`LIKE '%RelE%'`) is unsafe because it also matches `RelE_family`, `RelE_toxin`, etc. Use the four-way comma-token pattern above. [`toxin_antitoxin_lifestyle`]
+
+### `genome_size` lives on `gtdb_metadata`, not on `genome`
+
+The `genome` table has only genome_id / gtdb_species_clade_id / paths — no size, no length column. Median genome size per species requires joining `gtdb_metadata.genome_size` via `gtdb_metadata.accession = genome.genome_id`:
+
+```sql
+SELECT g.gtdb_species_clade_id,
+       PERCENTILE_APPROX(m.genome_size, 0.5) AS median_size_bp
+FROM kbase_ke_pangenome.gtdb_metadata m
+JOIN kbase_ke_pangenome.genome g ON m.accession = g.genome_id
+WHERE g.gtdb_species_clade_id IN (...)
+  AND m.genome_size IS NOT NULL
+GROUP BY g.gtdb_species_clade_id
+```
+
+[`toxin_antitoxin_lifestyle`]
+
 ### SQL Syntax Issues
 
 ### The `--` Non-Issue in Species IDs
@@ -266,7 +299,24 @@ This is injected by `/configs/ipython_startup/00-notebookutils.py` in notebooks,
 
 **[conservation_vs_fitness]** The Spark Connect service runs as a Java process on port 15002. Killing Java processes (e.g., when cleaning up stale notebook processes) will take down Spark Connect, and `get_spark_session()` will fail with `RETRIES_EXCEEDED` / `Connection refused`.
 
-**Recovery**: Log out of JupyterHub and start a new session. Then run `get_spark_session()` from a notebook to restart the Spark Connect daemon. You cannot restart it from the CLI.
+**Recovery**: Log out of JupyterHub and start a new session. Then run `get_spark_session()` from a notebook to restart the Spark Connect daemon. **However, from a shell, you CAN restart it — see next entry.**
+
+### Restarting Spark Connect from a shell needs `get_credentials()` FIRST
+
+**[toxin_antitoxin_lifestyle]** If Spark Connect is down (e.g., after crash or `kill`), you can restart it from a shell using:
+
+```python
+from berdl_notebook_utils.governance.operations import get_credentials
+from berdl_notebook_utils.spark import start_spark_connect_server
+
+get_credentials()  # MUST run before start_spark_connect_server
+info = start_spark_connect_server(force_restart=True)
+# Then wait for port 15002 to open (typically 3-15s)
+```
+
+Without `get_credentials()` first, the Spark Connect server JVM starts but immediately fails with HTTP 403 on `s3a://cdm-spark-job-logs/spark-job-logs/{user}/` — the event-log writer needs valid MinIO credentials. The default env vars (`AWS_ACCESS_KEY_ID=<username>`, `AWS_SECRET_ACCESS_KEY=<placeholder>`) are seed values, not real. `get_credentials()` calls the MMS service and populates `S3_ACCESS_KEY` / `S3_SECRET_KEY` in the environment; the SC-server JVM subprocess inherits those.
+
+Note: `get_credentials` lives at `berdl_notebook_utils.governance.operations`, NOT `berdl_notebook_utils.clients` (the latter has other `get_*_client` helpers).
 
 ### Running Notebooks from CLI
 
