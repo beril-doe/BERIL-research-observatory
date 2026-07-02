@@ -60,7 +60,7 @@ panel_coverage = pd.read_csv(DATA / 'ta_panel_coverage.tsv', sep='\\t')
 
 print(f"ta_species: {len(ta_species):,} species with TA hits")
 print(f"baseline: {len(baseline):,} species with baseline gene-cluster counts")
-print(f"panel_coverage: {len(panel_coverage)} Pfams; zero-hit = {(panel_coverage['n_hits'] == 0).sum()}")"""
+print(f"panel_coverage: {len(panel_coverage)} Pfams; zero-hit = {(panel_coverage['n_annotations'] == 0).sum()}")"""
     ),
     code_cell(
         """lifestyle = pd.read_csv('../../lifestyle_cog/data/species_lifestyle_classification.csv')

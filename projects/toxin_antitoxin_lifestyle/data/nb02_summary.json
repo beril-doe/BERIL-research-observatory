@@ -1,0 +1,11 @@
+{
+  "n_species_cohort": 2403,
+  "n_host": 1660,
+  "n_free": 743,
+  "H1_pooled_chi2": 14696.972205138993,
+  "H1_pooled_p": 0.0,
+  "H1_wilcoxon_p": 1.9747937928324234e-155,
+  "H1_rank_biserial": 0.6249523093360144,
+  "H2_ta_per_mb_median_host": 6.8006488137822,
+  "H2_ta_per_mb_median_free": 5.2124671093325405
+}
