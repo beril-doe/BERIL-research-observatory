@@ -1,0 +1,13 @@
+family	toxin_pfam	toxin_pfam_name	antitoxin_pfam	antitoxin_pfam_name	notes
+RelBE	PF06769	RelE	PF04221	RelB	Ribonuclease; ribosome-dependent mRNA cleavage
+MazEF	PF04552	PemK_toxin	PF04014	MazE_antitoxin	Endoribonuclease; ACA-site cleavage
+ParDE	PF05016	ParE_toxin	PF03693	ParD_antitoxin	Gyrase inhibitor; plasmid maintenance
+YoeB-YefM	PF06769	RelE_family	PF02604	PhdYeFM_antitox	YoeB is RelE-family; PhdYeFM covers YefM + Phd antitoxins
+CcdAB	PF01845	CcdB	PF07362	CcdA	F-plasmid classic; gyrase poison
+HipBA	PF07803	HipA_C	PF13412	HTH_24	Serine/threonine kinase; persister formation
+VapBC	PF01850	PIN	PF08681	VapB_antitoxin	PIN-domain ribonuclease; heavy Mtb expansion
+HicAB	PF07927	HicA	PF05534	HicB	Ribonuclease; ribosome-independent
+MqsRA	PF13970	MqsR	PF15731	MqsA	Biofilm and persister; also DNA-binding regulator
+HigBA	PF05015	HigB_toxin	PF09907	HigA	Stress response; ribonuclease
+DarTG	PF10578	DarT_ART	PF12684	DarG_macro	ADP-ribosyltransferase; DNA ADP-ribosylation
+Zeta-Epsilon	PF06414	Zeta_toxin	PF08681	VapB_family	Phosphotransferase; peptidoglycan biosynthesis inhibitor
