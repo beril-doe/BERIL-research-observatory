@@ -2,7 +2,7 @@
 
 ## Key Findings
 
-Across 25,043 species with pangenome data, 407,884 gene clusters carry at least one Type II TA-family Pfam signature. Testing the three pre-registered hypotheses on the 2,403-species cohort with lifestyle labels (1,660 host-associated, 743 free-living, 11 testable phyla) inherited verbatim from `projects/lifestyle_cog`:
+Across 25,043 species with pangenome data, 407,118 distinct gene clusters carry at least one Type II TA-family Pfam signature. Testing the three pre-registered hypotheses on the 2,403-species cohort with lifestyle labels (1,660 host-associated, 743 free-living, 11 testable phyla) inherited verbatim from `projects/lifestyle_cog`:
 
 | Hypothesis | Verdict | Key statistic |
 |---|---|---|
@@ -14,9 +14,9 @@ The **major finding** is that host-associated species carry a *denser* Type II T
 
 ## Cohort
 
-- **Extraction**: `kbase_ke_pangenome.eggnog_mapper_annotations` scanned for gene clusters carrying any Pfam name in the 12-family Type II TA seed panel. The `PFAMs` column stores comma-delimited Pfam **names** (not PF-accession numbers); token-safe matching used throughout.
+- **Extraction**: `kbase_ke_pangenome.eggnog_mapper_annotations` scanned for gene clusters carrying any Pfam name in the 10-family Type II TA seed panel (`data/ta_families_seed.tsv`: RelBE, MazEF, ParDE, YoeB-YefM, CcdAB, HipBA, VapBC, HicAB, HigBA, Zeta-Epsilon; 17 unique Pfam names across toxin + antitoxin sides). The `PFAMs` column stores comma-delimited Pfam **names** (not PF-accession numbers); token-safe matching used throughout.
 - **Panel audit**: 15/17 seed names hit non-zero. `HicA` and `HigA` returned zero — HicAB and HipBA families are still detectable via partner Pfams (`HicB`, `HipA_C`).
-- **Panel scope**: The final executed panel is 10 detectable Type II families (RelBE, MazEF, ParDE, YoeB-YefM, CcdAB, HipBA, VapBC, HicAB, HigBA, Zeta-Epsilon). The 12-family RESEARCH_PLAN.md seed included two families (DarTG, part of Zeta-Epsilon) whose Pfam names produced zero eggNOG hits. Expanding to the broader ~40-family TADB 3.0 set (e.g. BREX-associated, SocAB) is deferred to future work.
+- **Panel scope**: The final executed panel is the 10 seed families listed above. The RESEARCH_PLAN.md initially discussed a broader ~14-family candidate list; families with unstable eggNOG naming (DarTG, orphan Doc/Phd) or insufficient TADB backing were dropped during seed curation. Expanding to the broader ~40-family TADB 3.0 set (e.g. BREX-associated, SocAB) is deferred to future work.
 - **Cohort sizes**:
   - 25,043 species with ≥1 TA hit
   - 2,529 species with lifestyle labels (from lifestyle_cog)
@@ -196,7 +196,7 @@ jupyter nbconvert --to notebook --execute --inplace notebooks/NB04_rele_reattrib
 The `src/build_nb01.py` .. `build_nb04.py` scripts are the diff-friendly authoring source for the notebook JSON — run them if you edit and want to regenerate `.ipynb` files cleanly.
 
 **Data**:
-- `data/ta_families_seed.tsv` — 12-family Type II TA Pfam-name panel
+- `data/ta_families_seed.tsv` — 10-family Type II TA Pfam-name panel
 - `data/ta_panel_coverage.tsv` — panel audit (per-name hit counts, side, family)
 - `data/ta_per_species.tsv` — 25,043 species × TA counts (core/accessory/singleton) + genome size + per-Mb
 - `data/ta_family_composition_per_species.tsv` — species × 10 families

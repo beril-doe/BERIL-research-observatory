@@ -73,6 +73,8 @@ Primary panel (Type II TA, Pfam accessions from TADB 3.0):
 
 *(final list assembled programmatically from TADB 3.0 in NB01; the table above is the review-audit target.)*
 
+**Executed panel (post-audit)**: 10 families listed in `data/ta_families_seed.tsv` — RelBE, MazEF, ParDE, YoeB-YefM, CcdAB, HipBA, VapBC, HicAB, HigBA, Zeta-Epsilon. The `PFAMs` column of `eggnog_mapper_annotations` stores Pfam NAMES rather than PF-accession numbers, so the panel is defined by name tokens rather than the accession-lookup shown in the audit table above. Candidate families dropped during curation: **MqsRA** (both MqsR and MqsA hit zero in eggNOG naming); **DarTG** (both DarT_ART and DarG_macro hit zero); **Kid/Kis** (subsumed under MazEF via PF04552/PF04014 which are the same Pfams); **Doc/Phd** (name ambiguity with ParDE's ParD_antitoxin); **RatA/RatB** (rare and uncertain). See REPORT.md §Cohort for the final scope rationale.
+
 ## Data Sources
 
 | Table | Purpose | Rows | Filter Strategy |

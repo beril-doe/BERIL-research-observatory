@@ -92,6 +92,12 @@ WHERE PFAMs = 'RelE'
 
 Substring matching by name (`LIKE '%RelE%'`) is unsafe because it also matches `RelE_family`, `RelE_toxin`, etc. Use the four-way comma-token pattern above. [`toxin_antitoxin_lifestyle`]
 
+### `eggnog_mapper_annotations` is per-gene: paired TA operons rarely co-annotate
+
+**[toxin_antitoxin_lifestyle]** When enforcing "toxin + antitoxin both present" as a defensive filter using the `PFAMs` column, expect a very high false-negative rate. Across 407,118 gene clusters carrying any Type II TA family Pfam name, only **85 (0.02%)** had BOTH a toxin-side name AND an antitoxin-side name on the same PFAMs string. Reason: eggNOG annotates each gene individually — TA toxin and antitoxin sit on adjacent but distinct genes in the same operon, so a single gene's PFAMs record almost never contains both halves.
+
+**Implication**: if you need true toxin+antitoxin pairing at the operon level, join through `bakta_annotations` for gene coordinates and enforce within-N-genes co-occurrence, don't try to enforce it within a single eggnog row.
+
 ### `genome_size` lives on `gtdb_metadata`, not on `genome`
 
 The `genome` table has only genome_id / gtdb_species_clade_id / paths — no size, no length column. Median genome size per species requires joining `gtdb_metadata.genome_size` via `gtdb_metadata.accession = genome.genome_id`:
