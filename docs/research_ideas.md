@@ -87,6 +87,35 @@
 
 ---
 
+### [toxin_antitoxin_lifestyle] Type II TA Systems Across Bacterial Lifestyles
+**Status**: IN_PROGRESS (started 2026-07-02)
+**Priority**: HIGH
+**Effort**: Low-Medium (1-2 weeks)
+
+**Research Question**: How does bacterial lifestyle (host-associated vs free-living) shape carriage, family composition, and pangenome partitioning of Type II toxin-antitoxin loci? Direct mechanistic follow-up to lifestyle_cog's COG-V accessory-enrichment signal.
+
+**Hypotheses**:
+- H1: TA loci are predominantly accessory (mirror COG-V pattern)
+- H2: Host-associated species carry fewer TA loci per Mb (reductive evolution + reduced phage predation)
+- H3: TA family composition differs by lifestyle (Shannon diversity + per-family fractions)
+
+**Approach**: Reuses lifestyle_cog's 2,529-species cohort verbatim. 12-family seed panel of Type II TA Pfams (RelBE, MazEF, ParDE, YoeB-YefM, CcdAB, HipBA, VapBC, HicAB, MqsRA, HigBA, DarTG, Zeta-Epsilon). Extraction via `eggnog_mapper_annotations.PFAMs`.
+
+**Novelty verification (2026-07-02)**: Checked across all 42 project branches, 75 project dirs on origin/main, every commit message, and this docs file — no dedicated TA-focused project exists. Only incidental "antitoxin" keyword mentions in costly_dispensable_genes and t4ss_cazy_environmental_hgt broader mobile/defense filters.
+
+**Progress**:
+- ✅ Scaffold committed on `projects/toxin_antitoxin_lifestyle` branch
+- ✅ RESEARCH_PLAN.md with 3 hypotheses + 5 pre-registered sensitivity checks
+- ✅ TA family panel seeded (data/ta_families_seed.tsv)
+- ✅ NB01 authored (Spark extraction) — pending JupyterHub execution
+- ✅ NB02 authored (local H1/H2 analysis) — waits on NB01 output
+- ⏳ NB03 (H3 family composition + phylum stratification) — scaffold after NB01/NB02 run
+- ⏳ REPORT.md — after all notebooks execute
+
+**Location**: `projects/toxin_antitoxin_lifestyle/`
+
+---
+
 ### [lifestyle_cog] Lifestyle-Based COG Stratification
 **Status**: COMPLETED (2026-06-08)
 **Priority**: HIGH
