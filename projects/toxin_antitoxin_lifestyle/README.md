@@ -26,7 +26,7 @@ How does bacterial lifestyle (host-associated vs free-living) shape the carriage
   - `genome` — Genome metadata including size (293K rows)
   - `pangenome` — Per-species gene-cluster counts (27K rows)
   - `gtdb_species_clade` — Taxonomy for phylogenetic controls (27K rows)
-- **Lifestyle labels**: Reused from `projects/lifestyle_cog/data/species_lifestyle.tsv` (already computed).
+- **Lifestyle labels**: Reused from `projects/lifestyle_cog/data/species_lifestyle_classification.csv` (already computed).
 
 ## Status
 
@@ -59,7 +59,11 @@ jupyter nbconvert --to notebook --execute --inplace notebooks/NB01_ta_pfam_extra
 jupyter nbconvert --to notebook --execute --inplace notebooks/NB02_lifestyle_partition.ipynb
 # Step 3: Family-composition and phylum-stratified controls
 jupyter nbconvert --to notebook --execute --inplace notebooks/NB03_family_composition.ipynb
+# Step 4: RelE reattribution + paired-Pfam sensitivity (post-review addendum)
+jupyter nbconvert --to notebook --execute --inplace notebooks/NB04_rele_reattribution.ipynb
 ```
+
+The `src/build_nb0*.py` scripts are diff-friendly authoring source for the notebook JSON — edit and re-run to regenerate `.ipynb` files cleanly.
 
 ## Authors
 

@@ -16,11 +16,12 @@ The **major finding** is that host-associated species carry a *denser* Type II T
 
 - **Extraction**: `kbase_ke_pangenome.eggnog_mapper_annotations` scanned for gene clusters carrying any Pfam name in the 12-family Type II TA seed panel. The `PFAMs` column stores comma-delimited Pfam **names** (not PF-accession numbers); token-safe matching used throughout.
 - **Panel audit**: 15/17 seed names hit non-zero. `HicA` and `HigA` returned zero — HicAB and HipBA families are still detectable via partner Pfams (`HicB`, `HipA_C`).
+- **Panel scope**: The final executed panel is 10 detectable Type II families (RelBE, MazEF, ParDE, YoeB-YefM, CcdAB, HipBA, VapBC, HicAB, HigBA, Zeta-Epsilon). The 12-family RESEARCH_PLAN.md seed included two families (DarTG, part of Zeta-Epsilon) whose Pfam names produced zero eggNOG hits. Expanding to the broader ~40-family TADB 3.0 set (e.g. BREX-associated, SocAB) is deferred to future work.
 - **Cohort sizes**:
   - 25,043 species with ≥1 TA hit
   - 2,529 species with lifestyle labels (from lifestyle_cog)
-  - **2,403 species used** for H1–H3 (species with both TA hits AND lifestyle label AND genome_size in gtdb_metadata)
-  - 126 species dropped: 45 host / 81 free with lifestyle label but zero TA hits (free-living MORE likely to have zero TA at 9.8% vs host 2.6% — itself evidence against H2)
+  - **2,403 species used** for H1–H3 — the intersection (species with TA hits ∩ lifestyle label ∩ genome_size in gtdb_metadata)
+  - 126 species dropped: 45 host / 81 free with lifestyle label but zero TA hits (free-living MORE likely to have zero TA at 9.8% vs host 2.6% — itself evidence against H2). Verified in NB02 output: the 126 "zero-TA" species are the same set as the 126 "dropped for missing genome-size" species, since a species with no TA hits has no median_size_mb after the left-join.
 
 ## H1 — TA loci are predominantly accessory
 
@@ -134,6 +135,27 @@ The two large-effect polarities are **RelBE (host-enriched)** and **VapBC (free-
 | Phylum control H2 | 7/9 testable phyla preserve host-higher direction; Cyanobacteriota inverts (biologically real, per literature) |
 | Panel coverage | 15/17 names hit non-zero; HicA and HigA are absent from eggNOG names but their partner Pfams (HicB, HipA_C) capture the corresponding families |
 | Zero-TA species | 126 species with lifestyle label but zero TA hits: 81 free / 45 host. Free-living MORE likely to be TA-empty — itself evidence against H2 |
+| **RelE family attribution (NB04)** | See ## RelE Attribution below |
+| **Toxin+antitoxin paired-Pfam co-annotation (NB04)** | See ## RelE Attribution below |
+
+## RelE Attribution and Paired-Pfam Sensitivity (NB04)
+
+Because the Pfam name `RelE` is shared by the RelBE toxin (paired with `RelB`) and the YoeB toxin of the YoeB-YefM family (paired with `PhdYeFM_antitox`), the NB01 first-seen `setdefault` attributed all RelE hits to RelBE. NB04 re-audits this by looking at each gene cluster's full PFAMs string and asking which antitoxin partner is co-annotated on the same eggNOG record.
+
+**Finding**: All 8,431 RelE-carrying gene clusters are `RelE_solo` — none co-annotate `RelB` or `PhdYeFM_antitox` on the same PFAMs string. Redefining RelBE from `RelB`-indicator only, and YoeB-YefM from `PhdYeFM_antitox`-indicator only, gives:
+
+| Family | Attribution | median host/Mb | median free/Mb | rank-biserial r | p_raw |
+|---|---|---|---|---|---|
+| **RelBE_new** (RelB indicator only) | corrected | 0.445 | 0.000 | **−0.439 (LARGE)** | 5.8 × 10⁻⁷³ |
+| RelBE_old (NB01 setdefault) | as reported | 0.681 | 0.000 | −0.408 (LARGE) | 3.4 × 10⁻⁶⁰ |
+| YoeB-YefM_new (PhdYeFM_antitox only) | corrected = old | 0.831 | 0.648 | −0.096 | 1.6 × 10⁻⁴ |
+| RelE_solo (RelE without either antitoxin) | new bin | 0.000 | 0.000 | +0.006 (n.s.) | 0.79 |
+
+The corrected RelBE effect is **slightly LARGER** than the originally reported value (r = −0.439 vs −0.408), because the confused RelE-solo hits (which do not correlate with lifestyle) dilute the signal in the original attribution. The RelBE host-enrichment finding is robust under co-annotation-based re-attribution.
+
+**Paired-Pfam sensitivity (pre-registered check #4)**: Only 85 of 407,118 TA-Pfam-carrying gene clusters (0.02%) have BOTH a toxin-side AND antitoxin-side name on the same PFAMs string. This is because eggNOG annotates each gene individually — TA toxin and antitoxin sit on DIFFERENT adjacent genes, not the same protein, so the eggNOG record for a single gene rarely contains both halves. The paired-only cohort is therefore too small (85 gene clusters, n=0 median for both lifestyles) to give a meaningful H2 result. The intended pre-registration language ("co-localized T–AT pairs within 500 bp") would require chromosomal-neighborhood analysis using `bakta_annotations` + gene coordinates, which is deferred to future work. The 0.02% overlap in eggNOG records itself is a useful pitfall observation.
+
+**Panel-scope sensitivity (pre-registered check #5)**: The executed panel is already the strict TADB-supported subset. Expanding to the broader Type II family repertoire (BREX-associated, SocAB, PezT/PezA, etc.) is deferred pending a proper literature review of newly characterized TA families.
 
 ## Discussion
 
@@ -167,7 +189,11 @@ jupyter nbconvert --to notebook --execute --inplace notebooks/NB01_ta_pfam_extra
 jupyter nbconvert --to notebook --execute --inplace notebooks/NB02_lifestyle_partition.ipynb --ExecutePreprocessor.timeout=600
 # Step 3 (local):
 jupyter nbconvert --to notebook --execute --inplace notebooks/NB03_family_composition.ipynb --ExecutePreprocessor.timeout=600
+# Step 4 (local) — RelE reattribution + paired-Pfam sensitivity (post-review addendum):
+jupyter nbconvert --to notebook --execute --inplace notebooks/NB04_rele_reattribution.ipynb --ExecutePreprocessor.timeout=600
 ```
+
+The `src/build_nb01.py` .. `build_nb04.py` scripts are the diff-friendly authoring source for the notebook JSON — run them if you edit and want to regenerate `.ipynb` files cleanly.
 
 **Data**:
 - `data/ta_families_seed.tsv` — 12-family Type II TA Pfam-name panel
@@ -179,14 +205,16 @@ jupyter nbconvert --to notebook --execute --inplace notebooks/NB03_family_compos
 - `data/nb03_family_stats.tsv` — per-family per-Mb host vs free with BH-FDR
 - `data/nb03_phylum_stratified.tsv` — H1 + H2 per phylum
 - `data/nb03_summary.json` — H3 + phylum consistency headline stats
+- `data/nb04_rele_reattribution.tsv` — RelBE_new vs RelBE_old per-family results
+- `data/nb04_summary.json` — RelE + paired-Pfam sensitivity headline stats
 - (`data/ta_hits_by_gene_cluster.tsv` is gitignored — 46 MB long-form hit table, regenerable from NB01)
 
 **Figures**:
 - `figures/nb02_h1_h2_overview.png` — H1 scatter + H2 violin
 - `figures/nb03_family_and_phylum.png` — family per-Mb bars + phylum H2 forest plot
 
-## Author
+## Authors
 
-Justin Reese ([0000-0002-2170-2250](https://orcid.org/0000-0002-2170-2250)), LBNL.
+- Justin Reese ([0000-0002-2170-2250](https://orcid.org/0000-0002-2170-2250)), LBNL.
 
 Assisted by Claude Opus 4.7 (1M context).

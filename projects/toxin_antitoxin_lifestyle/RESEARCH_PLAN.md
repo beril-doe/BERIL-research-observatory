@@ -46,7 +46,7 @@ The `lifestyle_cog` project (Reese, 2026) found that COG-V (Defense) is one of t
 
 ## Cohort and Lifestyle Labels
 
-**Reuse `lifestyle_cog` cohort verbatim**: 2,529 species (1,705 host-associated, 824 free-living) across 10 phyla, ≥ 10 genomes per species. Species-level lifestyle labels come from `projects/lifestyle_cog/data/species_lifestyle.tsv` (already computed, committed, and reviewed).
+**Reuse `lifestyle_cog` cohort verbatim**: 2,529 species (1,705 host-associated, 824 free-living) across 10 phyla, ≥ 10 genomes per species. Species-level lifestyle labels come from `projects/lifestyle_cog/data/species_lifestyle_classification.csv` (already computed, committed, and reviewed).
 
 No new lifestyle classification work required. This is a strict extension.
 
@@ -97,7 +97,7 @@ Primary panel (Type II TA, Pfam accessions from TADB 3.0):
 
 **Runs locally from cached data.**
 
-- Join `data/ta_per_species.tsv` with `../lifestyle_cog/data/species_lifestyle.tsv`.
+- Join `data/ta_per_species.tsv` with `../lifestyle_cog/data/species_lifestyle_classification.csv`.
 - **H1**: For each gene cluster carrying a TA Pfam, tabulate core/accessory/singleton frequency and compare to the genome-wide baseline gene-cluster frequency. Report rank-biserial r and p (chi-square + BH-FDR).
 - **H2**: Per-species TA-loci-per-Mb by lifestyle. Mann-Whitney U; rank-biserial; BH-FDR at family panel level.
 - Save `figures/ta_core_accessory.png`, `figures/ta_per_mb_by_lifestyle.png`.
