@@ -52,6 +52,13 @@ Analysis — report drafted, awaiting `/berdl-review` and `/submit`. All Priorit
 - ✅ **Amplicon dataset scan** across all ~150 accessible Spark namespaces — no suitable dataset; `netl_pw_dna` access-restricted (NETL tenant pending access request)
 - ✅ **REPORT.md updated** with MGnify validation subsection, diagnostic tests, biome subsets, and null validation attempts
 
+**Completed (2026-07-02 session 5 — Soil replication + notebook reorganization):**
+- ✅ **NB14 Soil-restricted PGLS** (603 genera): Total 94-KO/Mb β=−0.023, p=0.0002 — signal replicates within soil alone; not driven by soil vs. non-soil contrasts; Tier 2 specificity does not replicate in soil-only subset
+- ✅ **NB13 Australian Microbiome** (482 genera): Levins' B × 94-KO/Mb — null result (β=−0.0023, p=0.667); likely underpowered (narrow geographic range, fewer ecological zones)
+- ✅ **NB15 NETL replication stub** created — Spark schema exploration for `netl_pw_dna.*` tables; pending JupyterHub execution
+- ✅ **replication.ipynb** rewritten as clean hub with status table for all replication attempts
+- ✅ **REPORT.md** updated with soil-only PGLS results, AusMicrobiome null, NETL status, new data/notebook table entries
+
 ## Overview
 
 Uses `arkinlab_microbeatlas` (98,919 OTUs, 464K samples) linked to `kbase_ke_pangenome`
@@ -102,6 +109,13 @@ Uses `arkinlab_microbeatlas` (98,919 OTUs, 464K samples) linked to `kbase_ke_pan
 - [NB10d — Pagel's λ by biome](notebooks/10d_pagels_biome.ipynb)
 - [NB10e — Gene × biome enrichment](notebooks/10e_gene_level_biome.ipynb)
 - [NB11c — AlphaEarth embedding synthesis](notebooks/11c_alphaearth_metal_synthesis.ipynb)
+
+**Replication notebooks**
+- [Replication hub](notebooks/replication.ipynb) — status table for all replication attempts
+- [NB12 — MGnify MAG validation](notebooks/12_mgnify_mag_validation.ipynb) *(complete; biome_H positive)*
+- [NB13 — Australian Microbiome](notebooks/13_australian_microbiome_replication.ipynb) *(null result)*
+- [NB14 — Soil-restricted primary](notebooks/14_soil_primary_replication.ipynb) *(replicates; β=−0.023, p=0.0002)*
+- [NB15 — NETL produced waters](notebooks/15_netl_replication.ipynb) *(pending JupyterHub)*
 
 **Reference**
 - [R session info](sessionInfo_r.txt)

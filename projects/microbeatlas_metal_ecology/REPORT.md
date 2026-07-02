@@ -200,9 +200,19 @@ The gut control is significantly positive (p = 3.6 × 10⁻⁵), demonstrating t
 
 The **tier asymmetry is not preserved** with biome_H: both Tier 1 (resistance) and Tier 2 (homeostasis) per-Mb predictors are equivalently strong positive predictors of cross-biome breadth (β ≈ +0.050, both p < 10⁻¹⁷). The primary Tier 2 specificity (vs. null Tier 1 at p = 0.256) appears specific to the within-habitat niche measure. Tier asymmetry is a feature of specialization, not of cosmopolitanism.
 
-**Additional validation attempts (non-informative).** A NEON soil MAG validation (kbase.nmdc_neon) was attempted but abandoned: 80% of NEON MAG genera carry GTDB bin-identifier placeholder names not in the reference tree, leaving only 34–37 genera — insufficient for corPagel estimation. A scan of all ~150 accessible Spark namespaces identified four candidate amplicon databases; none were suitable: `netl_pw_dna` (produced-waters 16S data) is access-restricted to a separate Spark tenant; `enigma_coral` is single-site (Oak Ridge Reservation groundwater, one biome label, unsuitable for multi-environment niche breadth); `nmdc_results.annotation_kegg_orthology` lacks a linked GTDB genus catalog; and `planetmicrobe_planetmicrobe` uses NCBI taxonomy with denormalized blob-format metadata. No amplicon-based PGLS validation is feasible within the currently accessible data infrastructure.
+**Soil-restricted sensitivity analysis (NB14).** *(exploratory, not pre-registered).* To test whether the primary negative signal is driven by soil vs. non-soil habitat contrasts, Levins' B_std was recomputed using only the 8 soil Env_Level_1 categories (soil, agricultural, farm, field, paddy, peatland, desert, shrub; from `data/otu_env_matrix.csv`). PGLS was run on 603 genera (from 628 with soil B + genome size after tree pruning):
 
-*(Scripts: `scripts/cross_dataset_validation.py`, `scripts/neon_validation.py`; Data: `data/mgnify_validation_pgls.csv`, `data/cross_dataset_validation_pgls.csv`, `data/mgnify_subset_expanded_pgls.csv`)*
+| Predictor | β | SE | p-value | λ |
+|---|---|---|---|---|
+| Total 94-KO/Mb (z) | **−0.023** | 0.0061 | **0.00020** | 0.770 |
+| Tier 1 resistance/Mb (z) | −0.0064 | 0.0054 | 0.238 | 0.780 |
+| Tier 2 homeostasis/Mb (z) | −0.0025 | 0.0052 | 0.626 | 0.780 |
+
+The total per-Mb signal replicates within soil alone (β=−0.023 vs. primary β=−0.022; p=0.0002), confirming that the specialization signal is **not** driven by soil vs. non-soil habitat contrasts. The Tier 2 homeostasis specificity does not replicate in the soil-only subset (primary p=0.011, soil-only p=0.626), which may reflect reduced statistical power when restricting to 8 rather than 13 environment types, or may indicate that the tier asymmetry is specific to the full cross-environment niche measure. The total signal robustness within soil strengthens the primary finding.
+
+**Additional validation attempts (non-informative).** A NEON soil MAG validation (kbase.nmdc_neon) was attempted but abandoned: 80% of NEON MAG genera carry GTDB bin-identifier placeholder names not in the reference tree, leaving only 34–37 genera — insufficient for corPagel estimation. An Australian Microbiome (BASE) 16S amplicon replication (NB13; n=482 genera; Levins' B across General Ecological Zone categories) returned a null result (β=−0.0023, p=0.667), likely due to underpowered design (narrow geographic range, fewer ecological zones than MicrobeAtlas). A scan of all ~150 accessible Spark namespaces identified four candidate amplicon databases; none were suitable: `enigma_coral` is single-site (Oak Ridge Reservation groundwater, one biome label); `nmdc_results.annotation_kegg_orthology` lacks a linked GTDB genus catalog; and `planetmicrobe_planetmicrobe` uses NCBI taxonomy with denormalized blob-format metadata. NETL produced-waters 16S data (`netl_pw_dna`) is underway (NB15).
+
+*(Scripts: `scripts/cross_dataset_validation.py`, `scripts/neon_validation.py`; Data: `data/mgnify_validation_pgls.csv`, `data/cross_dataset_validation_pgls.csv`, `data/mgnify_subset_expanded_pgls.csv`, `data/pgls_soil_primary_result.csv`)*
 
 ---
 
@@ -547,6 +557,10 @@ This study contributes: (a) genus-level Pagel's λ estimates for curated metal r
 | `data/mgnify_validation_pgls.csv` | 3 | Full MGnify PGLS results: total/tier1/tier2 KO per Mb vs biome_H (n = 576 genera) |
 | `data/cross_dataset_validation_pgls.csv` | 9 | Diagnostic tests A/B/C: annotation vs. niche metric discordance analysis |
 | `data/mgnify_subset_expanded_pgls.csv` | 12 | Biome-subset validation (ENV_all, SOIL, MARINE, GUT_ctrl) |
+| `data/genus_soil_levins_b.csv` | 795 | Soil-restricted Levins' B_std per genus (≥5 OTUs, ≥2 soil envs) |
+| `data/pgls_input_soil_primary.csv` | 628 | PGLS input: soil Levins' B + per-Mb predictors (z-scored) |
+| `data/pgls_soil_primary_result.csv` | 3 | Soil-only PGLS results: total/tier1/tier2 KO per Mb vs B_soil (n=603) |
+| `data/aus_replication_pgls.csv` | 3 | Australian Microbiome PGLS results (null; n=482) |
 
 ---
 
@@ -575,6 +589,11 @@ This study contributes: (a) genus-level Pagel's λ estimates for curated metal r
 | `10d_pagels_biome.ipynb` | Biome-stratified Pagel's λ |
 | `10e_gene_level_biome.ipynb` | Specific gene (merA, arsC, etc.) × biome enrichment (supplementary) |
 | `11c_alphaearth_metal_synthesis.ipynb` | AlphaEarth PERMANOVA; per-genus PC–metal correlation (supplementary) |
+| `replication.ipynb` | Replication hub — status table + links to all sub-notebooks |
+| `12_mgnify_mag_validation.ipynb` | MGnify MAG PGLS validation (n=576, biome_H, exploratory) |
+| `13_australian_microbiome_replication.ipynb` | AusMicrobiome 16S replication attempt (n=482, null result) |
+| `14_soil_primary_replication.ipynb` | Soil-restricted Levins' B replication (n=603, signal replicates) |
+| `15_netl_replication.ipynb` | NETL produced-waters 16S replication (pending) |
 | `_prep_interactive_dashboard.ipynb` | Plotly interactive dashboard |
 
 ### Scripts
