@@ -10,7 +10,47 @@ metabolic-specialist positive control.
 
 ## Status
 
-**Complete (core)** — see [Report](REPORT.md) for findings. NB01–NB06 executed; synthesis figures and REPORT.md generated. 2026-04-01: experimental validation framework added (candidate OTU list n=435, 8-OTU shortlist, ENIGMA field validation fully completed). 2026-06-30: chapters 07–11 appended to REPORT.md following project consolidation — COG-metal functional genomics (Ch.08), OTU-level GeoROC associations (Ch.09), global MAG biogeography (Ch.10a–c), biome-stratified Pagel's λ (Ch.10d), gene × biome enrichment (Ch.10e), and AlphaEarth embedding synthesis (Ch.11). NB08d (db-RDA) PENDING re-execution on Spark cluster after circular-predictor fix.
+Analysis — report drafted, awaiting `/berdl-review` and `/submit`. All Priority 0 items resolved (2026-07-02). **Central finding:** Metal homeostasis gene density (Tier 2 per Mb: β=−0.009, p=0.011) predicts ecological specialization; resistance gene density (Tier 1 per Mb: p=0.256) does not. Total 94-KO per Mb: β=−0.022, p=4×10⁻⁷ (n=997). Replicates within Gammaproteobacteria (p=0.0008), Bacilli (p=0.004), Alphaproteobacteria (p=0.016). OTU–GeoROC Tier 1 complete: 3,050 samples, 2,773 Bonferroni-significant OTU–metal pairs. Literature context updated with genome streamlining theory (Giovannoni 2014), Burkholderiales metal ecology (Li et al. 2025), and OTU-metal soil associations (Dai et al. 2023).
+
+**Completed (2026-07-01 sessions 1–3):**
+- ✅ NB01 re-run with 94-KO list (`mrg_ko_final.csv`); PGLS on n=1,000 genera
+- ✅ Robustness R1–R4 and sensitivity S1–S4 re-run with 94-KO data
+- ✅ S1 leave-one-metal-out: 11/12 metals positive (p<0.05); cadmium exception (p=0.316) — genomic island interpretation added
+- ✅ AMRFinderPlus discrepancy traced and resolved (see REPORT.md Finding 3)
+- ✅ TCDB cross-reference: 94-KO list covers ~52% of metal transporter TCDB families (12/23)
+- ✅ RB-TnSeq FitnessBrowser validation: 94-KO genes more depleted under metal stress (Keio p=0.013, Shewanella MR-1 p=0.031)
+- ✅ Annotation-quality discriminant controls: Pfam (p=0.906) → AMRFinderPlus (p=0.540) → InterPro (p=0.010) → 94-KO (p=0.013)
+- ✅ Tier-stratified PGLS (94-KO, n=1,000): Tier 1 resistance p=0.016; Tier 2 homeostasis p=0.050
+- ✅ **Metabolism discriminant PGLS (19-KO, Spark):** β=+0.0164 p=0.0012 on n=1,000 — signal not resistance-specific; 7,976 genera covered
+- ✅ **Genome-size controlled discriminant PGLS (2026-07-01):** Both signals attenuate on n=523 — stale p=3.5×10⁻⁴ entry corrected in REPORT.md
+- ✅ **Normalized PGLS — GTDB genome size (2026-07-01):** 997/1,000 genera covered via gtdb_metadata; per-Mb + per-1k-gene predictors negative (β=−0.022, p=4×10⁻⁷); finding reversed from raw; data: `data/pgls_results_normalized.csv`, `data/genus_genome_size_gtdb.csv`
+- ✅ Figure 5 (robustness panel) regenerated
+- ✅ GapMind carbon λ added to REPORT.md Finding 2
+- ✅ Metal × carbon interaction PGLS: null interaction (p=0.414); additive effects only
+- ✅ MCMCglmm Poisson model (nitt=50,000 complete): ESS=147.8, posterior mean=+0.039, pMCMC=0.013
+- ✅ **Tier asymmetry** (2026-07-02): Tier 2 homeostasis per Mb p=0.011 (negative); Tier 1 resistance per Mb p=0.256 (null)
+- ✅ **Taxonomic replication** (2026-07-02): per-Mb negative replicates within Gammaproteobacteria/Bacilli/Alphaproteobacteria; Burkholderiales strongest order (p=0.0002)
+- ✅ **Narrative reframe** (2026-07-02): REPORT Key Findings, Biological Interpretation, Novel Contribution updated to lead with homeostasis density finding
+- ✅ Antibiotic resistance λ negative control: λ=0.121 (n=799) vs. metal type diversity λ=0.943
+- ✅ Pagel's λ updated with 94-KO values: metal type diversity λ=0.943; clusters λ=0.497; core fraction λ=0.291
+- ✅ ENIGMA Track B read coverage: 32.2% mean (10/133 samples <10%)
+- ✅ Aquatic sub-type PGLS: marine fraction β=−0.068 (p=0.004)
+- ✅ Finding 3 title reframed: "metal-interacting gene diversity, not specific to resistance function"
+- ✅ 19-KO count corrected (was 18); K04569 CCS added to REPORT enzyme list
+- ✅ Post-hoc/exploratory labels audited throughout REPORT.md
+
+**Open before submission:**
+- ✅ OTU–GeoROC MNAR Tier 1 complete (2026-07-02): 3,050 samples, 2,000 OTUs, 2,773 Bonferroni-sig OTU–metal pairs (`data/otu_georoc_tier1_6metal.csv`); Tier 2–3 deferred to revision
+- NB08d (db-RDA) excluded — circular predictor bug requires Spark re-execution
+- Soil microcosm experimental design drafted (Future Direction 10 in REPORT.md)
+
+**Completed (2026-07-02 session 4 — MGnify MAG validation):**
+- ✅ **NB12 MGnify MAG PGLS** (576 genera, biome_H × 94-KO/Mb): β=+0.051, p=5.9×10⁻¹⁹ — sign opposite to primary; confirms positive cross-biome cosmopolitanism vs. negative within-habitat specialization
+- ✅ **Diagnostic tests A/B/C** — confirmed discordance driven by niche metric (Levins' B vs. biome_H), not annotation source; Test B null (Levins' B × MGnify KO = p=0.404)
+- ✅ **Expanded MGnify biome subsets**: ENV_all β=+0.077 p=1.3×10⁻¹³; MARINE β=+0.118 p=2.7×10⁻¹⁰; GUT_ctrl β=+0.049 p=3.6×10⁻⁵ (biome_H universally positive)
+- ✅ **NEON validation attempted** (kbase.nmdc_neon) — abandoned: 80% placeholder GTDB genus names, only 34–37 genera after tree pruning
+- ✅ **Amplicon dataset scan** across all ~150 accessible Spark namespaces — no suitable dataset; `netl_pw_dna` access-restricted (NETL tenant pending access request)
+- ✅ **REPORT.md updated** with MGnify validation subsection, diagnostic tests, biome subsets, and null validation attempts
 
 ## Overview
 
@@ -87,7 +127,7 @@ Run steps in this order:
 
 | Step | Where | Command / Action | Output |
 |---|---|---|---|
-| 1. Metal AMR extraction | JupyterHub | Open and run `notebooks/01_metal_amr_species.ipynb` | `data/species_metal_amr.csv`, `data/gtdb_genus_taxonomy.csv` |
+| 1. Metal AMR extraction | JupyterHub | Open and run `notebooks/01_metal_amr_species.ipynb` (uses `data/mrg_ko_final.csv` — 94-KO tiered list) | `data/species_metal_amr.csv`, `data/gtdb_genus_taxonomy.csv` |
 | 2. Niche breadth | JupyterHub | Open and run `notebooks/02_niche_breadth.ipynb` | `data/genus_niche_breadth.csv` |
 | 3. Taxonomy bridge | Local | `jupyter nbconvert --to notebook --execute notebooks/03_taxonomy_bridge.ipynb` | `data/species_traits_for_pgls.csv` |
 | 4. Pagel's λ | Local (R) | `Rscript scripts/h1_pagel_lambda_survivor.R` | `data/pagel_lambda_results.csv` |
