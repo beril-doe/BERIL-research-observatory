@@ -1,0 +1,21 @@
+{
+  "n_species_cohort": 2403,
+  "families_tested": [
+    "CcdAB",
+    "HicAB",
+    "HigBA",
+    "HipBA",
+    "MazEF",
+    "ParDE",
+    "RelBE",
+    "VapBC",
+    "YoeB-YefM",
+    "Zeta-Epsilon"
+  ],
+  "H3_family_entropy_host_median": 1.5519014979437444,
+  "H3_family_entropy_free_median": 1.5047882836811908,
+  "H3b_families_bh_significant": 10,
+  "H1_phylum_preserved_of_10": 10,
+  "H2_phylum_host_higher_of_testable": 7,
+  "H2_phylum_testable": 9
+}

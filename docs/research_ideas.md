@@ -88,7 +88,8 @@
 ---
 
 ### [toxin_antitoxin_lifestyle] Type II TA Systems Across Bacterial Lifestyles
-**Status**: IN_PROGRESS (started 2026-07-02)
+**Status**: COMPLETED (2026-07-02) — analysis stage; awaiting review/submit
+**Results**: 2,403-species cohort (reuses lifestyle_cog labels). **H1 STRONGLY SUPPORTED** (LARGE effect): TA loci are predominantly accessory (paired Wilcoxon p=2e-155, rank-biserial r=+0.625, 10/11 phyla preserve direction; pooled 37,062 accessory obs vs 22,058 expected). **H2 REJECTED with direction opposite**: host-associated species carry MORE TA per Mb (6.80 vs 5.21, MW U p=1.7e-7, r_rb=-0.133), consistent with lifestyle_cog COG-V accessory-enrichment — reductive-evolution intuition fails in the ≥10-genome facultative-host cohort. 7/9 testable phyla preserve host-higher direction; Cyanobacteriota is the sole large-effect inversion (biologically real per literature). **H3 SUPPORTED**: 10/10 families differ at BH-FDR<0.05 with two coherent large-effect polarities — **RelBE host-enriched (r=-0.41)** and **VapBC free-enriched (r=+0.32)**. HipBA also host-enriched (r=-0.14, medium), supporting persister-cell selection over phage-defense as the driver of host-TA density. The RelBE/VapBC split is invisible at coarse COG-V resolution. See `projects/toxin_antitoxin_lifestyle/`.
 **Priority**: HIGH
 **Effort**: Low-Medium (1-2 weeks)
 
