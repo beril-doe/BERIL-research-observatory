@@ -200,15 +200,23 @@ The gut control is significantly positive (p = 3.6 × 10⁻⁵), demonstrating t
 
 The **tier asymmetry is not preserved** with biome_H: both Tier 1 (resistance) and Tier 2 (homeostasis) per-Mb predictors are equivalently strong positive predictors of cross-biome breadth (β ≈ +0.050, both p < 10⁻¹⁷). The primary Tier 2 specificity (vs. null Tier 1 at p = 0.256) appears specific to the within-habitat niche measure. Tier asymmetry is a feature of specialization, not of cosmopolitanism.
 
-**Soil-restricted sensitivity analysis (NB14).** *(exploratory, not pre-registered).* To test whether the primary negative signal is driven by soil vs. non-soil habitat contrasts, Levins' B_std was recomputed using only the 8 soil Env_Level_1 categories (soil, agricultural, farm, field, paddy, peatland, desert, shrub; from `data/otu_env_matrix.csv`). PGLS was run on 603 genera (from 628 with soil B + genome size after tree pruning):
+**Soil-restricted sensitivity analysis with negative controls (NB14).** *(exploratory, not pre-registered).* To test whether the primary negative signal is driven by soil vs. non-soil habitat contrasts, Levins' B_std was recomputed using only the 8 soil Env_Level_1 categories (soil, agricultural, farm, field, paddy, peatland, desert, shrub; from `data/otu_env_matrix.csv`). PGLS was run on 603 genera (from 628 with soil B + genome size after tree pruning). Antibiotic resistance gene density (AMRFinderPlus ABR clusters / Mb; genera absent from ABR file filled with 0 as genuine non-hits) was included as a negative control:
+
+| Predictor | β | SE | p-value | λ | Interpretation |
+|---|---|---|---|---|---|
+| Total 94-KO/Mb (z) | **−0.023** | 0.0061 | **0.00020** | 0.770 | Replicates ✅ |
+| Tier 1 resistance/Mb (z) | −0.0064 | 0.0054 | 0.238 | 0.780 | Null (consistent with primary p=0.256) |
+| Tier 2 homeostasis/Mb (z) | −0.0025 | 0.0052 | 0.626 | 0.780 | Null — primary p=0.011 **does not** replicate |
+| ABR/Mb — negative control (z) | +0.0016 | 0.0044 | 0.710 | 0.780 | Null; sign reverses ✅ |
+
+Discriminant 19-KO sensing/cofactor genes per Mb were tested on the 601-genera subset with annotation coverage:
 
 | Predictor | β | SE | p-value | λ |
 |---|---|---|---|---|
-| Total 94-KO/Mb (z) | **−0.023** | 0.0061 | **0.00020** | 0.770 |
-| Tier 1 resistance/Mb (z) | −0.0064 | 0.0054 | 0.238 | 0.780 |
-| Tier 2 homeostasis/Mb (z) | −0.0025 | 0.0052 | 0.626 | 0.780 |
+| Total 94-KO/Mb (z) | −0.023 | 0.0061 | 0.00018 | 0.770 |
+| Discriminant/Mb (z) | **−0.020** | 0.0061 | **0.0011** | 0.784 |
 
-The total per-Mb signal replicates within soil alone (β=−0.023 vs. primary β=−0.022; p=0.0002), confirming that the specialization signal is **not** driven by soil vs. non-soil habitat contrasts. The Tier 2 homeostasis specificity does not replicate in the soil-only subset (primary p=0.011, soil-only p=0.626), which may reflect reduced statistical power when restricting to 8 rather than 13 environment types, or may indicate that the tier asymmetry is specific to the full cross-environment niche measure. The total signal robustness within soil strengthens the primary finding.
+Three findings emerge. First, the total per-Mb signal replicates within soil alone (β=−0.023 vs. primary β=−0.022; p=0.0002), confirming the specialization signal is not driven by soil vs. non-soil habitat contrasts. Second, the Tier 2 homeostasis specificity **does not replicate** in soil-only (primary p=0.011, soil-only p=0.626) — both tiers are null — suggesting the tier asymmetry may be specific to the full cross-environment niche measure or is underpowered at 8 environment dimensions. Third, the ABR negative control validates specificity: antibiotic resistance gene density per Mb is null (p=0.710) with a sign reversal (+0.002), confirming the metal gene signal is not a generic genome-streamlining artifact. The discriminant 19-KO signal (p=0.001) demonstrates that the within-soil specialization signal extends to metal-sensing and cofactor genes, not just resistance functions.
 
 **Additional validation attempts (non-informative).** A NEON soil MAG validation (kbase.nmdc_neon) was attempted but abandoned: 80% of NEON MAG genera carry GTDB bin-identifier placeholder names not in the reference tree, leaving only 34–37 genera — insufficient for corPagel estimation. An Australian Microbiome (BASE) 16S amplicon replication (NB13; n=482 genera; Levins' B across General Ecological Zone categories) returned a null result (β=−0.0023, p=0.667), likely due to underpowered design (narrow geographic range, fewer ecological zones than MicrobeAtlas). A scan of all ~150 accessible Spark namespaces identified four candidate amplicon databases; none were suitable: `enigma_coral` is single-site (Oak Ridge Reservation groundwater, one biome label); `nmdc_results.annotation_kegg_orthology` lacks a linked GTDB genus catalog; and `planetmicrobe_planetmicrobe` uses NCBI taxonomy with denormalized blob-format metadata. NETL produced-waters 16S data (`netl_pw_dna`) is underway (NB15).
 
@@ -559,7 +567,9 @@ This study contributes: (a) genus-level Pagel's λ estimates for curated metal r
 | `data/mgnify_subset_expanded_pgls.csv` | 12 | Biome-subset validation (ENV_all, SOIL, MARINE, GUT_ctrl) |
 | `data/genus_soil_levins_b.csv` | 795 | Soil-restricted Levins' B_std per genus (≥5 OTUs, ≥2 soil envs) |
 | `data/pgls_input_soil_primary.csv` | 628 | PGLS input: soil Levins' B + per-Mb predictors (z-scored) |
-| `data/pgls_soil_primary_result.csv` | 3 | Soil-only PGLS results: total/tier1/tier2 KO per Mb vs B_soil (n=603) |
+| `data/pgls_soil_primary_result.csv` | 4 | Soil-only PGLS: total/tier1/tier2 KO per Mb + ABR negative control vs B_soil (n=603) |
+| `data/pgls_input_soil_disc.csv` | 601 | PGLS input: soil Levins' B + total/disc per Mb (subset with discriminant annotation) |
+| `data/pgls_soil_disc_result.csv` | 2 | Discriminant 19-KO/Mb soil PGLS (n=601): total β=−0.023, disc β=−0.020 (p=0.001) |
 | `data/aus_replication_pgls.csv` | 3 | Australian Microbiome PGLS results (null; n=482) |
 
 ---

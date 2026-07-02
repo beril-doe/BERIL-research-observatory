@@ -1,16 +1,16 @@
 #!/usr/bin/env Rscript
-# pgls_mgnify_validation.R  —  PGLS validation on MGnify MAGs
+# pgls_mgnify_validation.R  —  PGLS validation runner
 #
 # Usage:
 #   Rscript scripts/pgls_mgnify_validation.R <input.csv> <tree> <output.csv>
 #
 # Input CSV columns required:
-#   genus_lower, biome_H_std, ko_per_mb_total_z, ko_per_mb_tier1_z, ko_per_mb_tier2_z
+#   genus_lower   — GTDB genus name (lowercase)
+#   biome_H_std   — response variable (niche breadth metric, any name works here)
+#   <any other columns>  — each treated as an independent PGLS predictor
 #
-# Runs three models:
-#   biome_H_std ~ ko_per_mb_total_z   (full 94-KO set)
-#   biome_H_std ~ ko_per_mb_tier1_z   (Tier 1 resistance only)
-#   biome_H_std ~ ko_per_mb_tier2_z   (Tier 2 homeostasis only)
+# One model is run per predictor column (all columns except genus_lower and biome_H_std).
+# Columns with zero variance are skipped.
 
 suppressPackageStartupMessages({ library(ape); library(nlme) })
 
@@ -122,14 +122,12 @@ run_pgls <- function(response_col, predictor_col, data, tree) {
     )
 }
 
-# ─── Run 3 models ──────────────────────────────────────────────────────────────
-models <- list(
-    list(resp = 'biome_H_std', pred = 'ko_per_mb_total_z'),
-    list(resp = 'biome_H_std', pred = 'ko_per_mb_tier1_z'),
-    list(resp = 'biome_H_std', pred = 'ko_per_mb_tier2_z')
-)
+# ─── Run one model per predictor column ────────────────────────────────────────
+predictor_cols <- setdiff(names(data), c('genus_lower', 'biome_H_std'))
+cat(sprintf('\nPredictors to test (%d): %s\n', length(predictor_cols),
+            paste(predictor_cols, collapse = ', ')))
 results_list <- Filter(Negate(is.null),
-    lapply(models, function(m) run_pgls(m$resp, m$pred, data, tree_sub))
+    lapply(predictor_cols, function(pred) run_pgls('biome_H_std', pred, data, tree_sub))
 )
 if (length(results_list) == 0) {
     cat('\nWARNING: No models converged. Try inspecting the tree branch length distribution.\n')
