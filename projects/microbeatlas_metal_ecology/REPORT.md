@@ -382,6 +382,20 @@ NGSA soil metal concentrations were joined to Australian Microbiome sample coord
 
 ---
 
+### Finding 5 — Community-level metal gene investment validated; Tier 1 and Tier 2 co-occur within MAGs (Experimental design implications)
+
+**Community-weighted metal gene investment (NB19, Block 1).** To confirm that the genus-level niche breadth signal translates to the community level, community-weighted mean (CWM) ko_per_mb was computed per AusMicrobiome sample as the relative-abundance-weighted mean across 441 genera common to both the 16S OTU table and the MGnify MAG KO density dataset (745 samples, NGSA ≤ 200 km). Spearman correlations between CWM and NGSA metal concentrations across 8 metals × 3 CWM types (total/tier1/tier2) yield 20/24 tests significant after BH-FDR correction (q < 0.05). The strongest associations are with Co, Ni, and Cu (ρ = 0.147–0.186, q < 10⁻⁴), with Pb negatively associated (ρ = −0.168 for Tier 2, q = 2.0 × 10⁻⁵). This confirms that the genus-level niche breadth finding operates at the community scale: soil communities in high-metal environments carry more metal-resistance KOs per Mb.
+
+**Dose-response meta-analysis (NB19, Block 2).** For 932 genera with presence data across NGSA quartiles of Cu, Cr, As, and Zn, Spearman ρ between detection frequency and quartile median concentration was computed (n = 4 points per genus × metal; minimum achievable p ≈ 0.083). No individual genus survives FDR correction. Meta-analysis of dose-response ρ against ko_per_mb identifies metal-specific functional signatures: genera enriched under **Cr** stress carry significantly more Tier 1 KOs (direct resistance; ρ = 0.112, p = 0.019, n = 432), while genera enriched under **Cu** stress carry more Tier 2 KOs (metabolic/homeostasis; ρ = 0.122, p = 0.011, n = 432). Zn shows a borderline Tier 2 signal (ρ = 0.097, p = 0.045).
+
+**Tier 1 vs Tier 2 within-MAG co-occurrence (NB19, Block 3).** Among 260,606 high-quality MGnify MAGs (genome length > 0.5 Mb), partial Spearman between Tier 1 and Tier 2 KO density — controlling for genome size — is ρ = 0.999 (p_perm = 0.001, n = 260,606). This holds for Bacteria (ρ = 0.999, n = 258,420) and is weaker but still strong for Archaea (ρ = 0.946, n = 2,186). Tier 1 and Tier 2 co-occur proportionally within individual MAGs: the tier split is analytically indistinguishable at the genome level. Total ko_per_mb is therefore the appropriate unified predictor for genome-level analyses. The metal-specific functional signatures in the dose-response (above) likely reflect population-level enrichment of genomes with subtly different tier compositions, not within-genome tier differentiation.
+
+**AlphaEarth hotspot tier split (NB19, Block 4).** Among 394 genera with both AlphaEarth hotspot_frac (fraction of genomes from geographic hotspot sites; min n = 10 MAGs per genus) and MGnify KO density, neither Mann-Whitney U (hotspot-enriched: hotspot_frac > 0.2, n = 71 vs background: hotspot_frac < 0.05, n = 231; all p > 0.3) nor continuous Spearman (ρ ≈ 0) shows any association with Tier 1 or Tier 2 ko_per_mb. Geographic hotspot occupancy as defined by AlphaEarth is not predicted by metal KO density at the genus level. This cross-dataset null (AlphaEarth GTDB accessions joined with MGnify genus means) does not contradict the NB18 within-dataset finding (β = −0.254, p = 4.9 × 10⁻⁴, AusMicrobiome MAGs only).
+
+*(Notebook: `19_signals_beyond_niche_breadth.ipynb`; Data: `data/cwm_ngsa_spearman.csv`, `data/genus_dose_response.csv`, `data/dose_response_pgls.csv`, `data/tier_cooccurrence.csv`, `data/hotspot_tier_split.csv`, `data/hotspot_tier_mwu.csv`, `data/figures/fig10_dose_response`, `data/figures/fig11_tier_cooccurrence`, `data/figures/fig12_hotspot_tier`)*
+
+---
+
 ## Results
 
 ### Pagel's λ — full estimates
@@ -736,6 +750,16 @@ This study contributes: (a) genus-level Pagel's λ estimates for curated metal r
 | `data/geo_niche_summary.csv` | — | Unified summary table: all niche breadth analyses across all three axes |
 | `data/figures/fig8_geo_niche_width_forest.png/pdf` | — | Forest plot: geochemical niche width PGLS per metal (AusMicrobiome) |
 | `data/figures/fig9_geo_niche_concordance.png/pdf` | — | Cross-dataset geochemical niche concordance scatter (insufficient overlap; n<10 per metal) |
+| `data/cwm_ngsa_spearman.csv` | 24 | CWM ko_per_mb (total/tier1/tier2) ~ NGSA metal Spearman; 20/24 significant (q < 0.05) (NB19) |
+| `data/genus_dose_response.csv` | 3,732 | Per-genus Spearman ρ between detection frequency and NGSA quartile median, 4 metals (NB19) |
+| `data/dose_response_pgls.csv` | 12 | Meta-analysis: dose-response ρ ~ ko_per_mb tier1/2 per metal (Cr Tier 1 p=0.019, Cu Tier 2 p=0.011) (NB19) |
+| `data/tier_cooccurrence.csv` | 3 | Tier 1 vs Tier 2 partial Spearman within MAGs: All/Bacteria/Archaea (ρ_partial=0.999, p_perm=0.001) (NB19) |
+| `data/hotspot_tier_split.csv` | 394 | Genus-level AlphaEarth hotspot_frac + MGnify KO density (cross-dataset genus join, n≥10 MAGs) (NB19) |
+| `data/hotspot_tier_mwu.csv` | 6 | Mann-Whitney U + continuous Spearman: hotspot_frac ~ tier ko/Mb (all null, p>0.3) (NB19) |
+| `data/experimental_design_signals.csv` | — | Synthesis table: all NB19 signals with effect sizes, p-values, and microcosm implications (NB19) |
+| `data/figures/fig10_dose_response.png/pdf` | — | Dose-response Spearman ρ vs ko_per_mb scatter (Cr, NB19) |
+| `data/figures/fig11_tier_cooccurrence.png/pdf` | — | 2D density hexbin: Tier 1 vs Tier 2 ko/Mb across 260,606 MAGs (NB19) |
+| `data/figures/fig12_hotspot_tier.png/pdf` | — | Boxplots: Tier 1/2 ko/Mb by AlphaEarth hotspot group (NB19) |
 | `data/ngsa_geochemistry.csv` | 1,315 | NGSA Australian soil ICP-MS metals (Cu/Zn/Pb/Ni/Co/As/Cr/Hg) |
 | `data/mining_operations.csv` | 8,507 | Global mining site locations and primary commodity |
 | `data/cmmi_ores.csv` | 29,087 | CMMI global ore deposit geochemistry |
@@ -779,6 +803,7 @@ This study contributes: (a) genus-level Pagel's λ estimates for curated metal r
 | `16_geographic_metal_annotation.ipynb` | Cross-dataset lat/lon annotation: Moran's I, mining proximity, NGSA soil metals, AusMicrobiome NGSA join |
 | `17_sensitivity_visualization.ipynb` | Sensitivity analysis (FDR, distance threshold, detection frequency) + 7 publication-quality figures (`data/figures/`) |
 | `18_geochemical_niche_breadth.ipynb` | Geochemical niche breadth: SD of NGSA metal concentration per genus; hotspot occupancy PGLS; cross-dataset concordance; forest plot (fig8) |
+| `19_signals_beyond_niche_breadth.ipynb` | Community-weighted metal gene investment (CWM) vs NGSA; dose-response curves; Tier 1 vs Tier 2 within-MAG co-occurrence; AlphaEarth hotspot tier split (fig10–fig12) |
 | `14_soil_primary_replication.ipynb` | Soil-restricted Levins' B replication (n=603, signal replicates) |
 | `15_netl_replication.ipynb` | NETL produced-waters 16S replication (uninformative — structural limits; n=258, β=+0.023, p=0.269, ABR negative control failure p=0.027) |
 | `_prep_interactive_dashboard.ipynb` | Plotly interactive dashboard |
