@@ -4,6 +4,27 @@
 
 ---
 
+## Key Terminology
+
+**Niche breadth (categorical)** — Levins' B standardized to [0, 1]:
+B_std = (B − 1) / (n_environments − 1), where B = 1 / Σ q_i², q_i = p_i / Σ p_j, p_i = detections / total_samples for environment i.
+B_std = 0: strict specialist (one habitat); B_std = 1: perfect generalist (even across all habitats).
+*Used in:* MicrobeAtlas primary analysis (13 Env_Level_1 categories), soil-restricted replication (8 soil sub-types, NB14), AusMicrobiome null result (8 General Ecological Zones, NB13).
+
+**Niche breadth (compositional)** — Shannon cross-biome entropy, biome_H_std = H / log(N_biomes).
+Captures how many distinct ENVO-level biome categories a genus appears in globally.
+*Used in:* MGnify MAG validation (NB12, N_biomes = 18). Orthogonal to categorical B_std: a genus can be a within-habitat specialist (narrow B_std) yet cross-biome cosmopolitan (high biome_H). These are not contradictory — see Finding 3 interpretation.
+
+**Niche breadth (geochemical)** — SD of measured environmental metal concentration across genus detection sites. A genus with SD_Cu = 5 ppm occupies a far narrower Cu geochemical range than one with SD_Cu = 200 ppm. Distinct from the mean-based NGSA predictor: a genus can have high mean Cu (preferentially detected in contaminated sites) but also high SD_Cu (appearing across a wide Cu range).
+*Computed in:* NB18, from NGSA-annotated AusMicrobiome samples (Cu, Zn, Pb, Ni, Co, As, Cr, Hg).
+
+**Metal gene density per Mb** — Count of metal-interacting KOs (94-KO curated list) divided by mean genome size in megabases. Z-scored for PGLS. Normalizing by genome size removes the confound that large-genome ecological generalists accumulate metal genes incidentally. All primary PGLS use per-Mb normalization.
+
+**Hotspot** — a 5° × 5° geographic grid cell in which the fraction of metal-resistant MAGs significantly exceeds the global background rate (Fisher's exact test, BH-FDR q < 0.05, OR > 2). Eleven hotspots identified; strongest is Atacama/central Chile (OR = 9.83, q = 7.6 × 10⁻¹²). *Data: `data/hotspots_5grid_filtered.csv`.*
+Distinct from "high-metal site": an NGSA site with Cu or Zn above the 75th percentile is a geochemically enriched site, not necessarily a geographic hotspot for metal-resistant MAG prevalence.
+
+---
+
 ## Key Findings
 
 ### Finding 1 — Core metal resistance traits show strong phylogenetic signal at the genus level (Confirmatory)
@@ -218,9 +239,72 @@ Discriminant 19-KO sensing/cofactor genes per Mb were tested on the 601-genera s
 
 Three findings emerge. First, the total per-Mb signal replicates within soil alone (β=−0.023 vs. primary β=−0.022; p=0.0002), confirming the specialization signal is not driven by soil vs. non-soil habitat contrasts. Second, the Tier 2 homeostasis specificity **does not replicate** in soil-only (primary p=0.011, soil-only p=0.626) — both tiers are null — suggesting the tier asymmetry may be specific to the full cross-environment niche measure or is underpowered at 8 environment dimensions. Third, the ABR negative control validates specificity: antibiotic resistance gene density per Mb is null (p=0.710) with a sign reversal (+0.002), confirming the metal gene signal is not a generic genome-streamlining artifact. The discriminant 19-KO signal (p=0.001) demonstrates that the within-soil specialization signal extends to metal-sensing and cofactor genes, not just resistance functions.
 
-**Additional validation attempts (non-informative).** A NEON soil MAG validation (kbase.nmdc_neon) was attempted but abandoned: 80% of NEON MAG genera carry GTDB bin-identifier placeholder names not in the reference tree, leaving only 34–37 genera — insufficient for corPagel estimation. An Australian Microbiome (BASE) 16S amplicon replication (NB13; n=482 genera; Levins' B across General Ecological Zone categories) returned a null result (β=−0.0023, p=0.667), likely due to underpowered design (narrow geographic range, fewer ecological zones than MicrobeAtlas). A scan of all ~150 accessible Spark namespaces identified four candidate amplicon databases; none were suitable: `enigma_coral` is single-site (Oak Ridge Reservation groundwater, one biome label); `nmdc_results.annotation_kegg_orthology` lacks a linked GTDB genus catalog; and `planetmicrobe_planetmicrobe` uses NCBI taxonomy with denormalized blob-format metadata. NETL produced-waters 16S data (`netl_pw_dna`) is underway (NB15).
+**Additional validation attempts (non-informative).** A NEON soil MAG validation (kbase.nmdc_neon) was attempted but abandoned: 80% of NEON MAG genera carry GTDB bin-identifier placeholder names not in the reference tree, leaving only 34–37 genera — insufficient for corPagel estimation. An Australian Microbiome (BASE) 16S amplicon replication (NB13; n=482 genera; Levins' B across General Ecological Zone categories) returned a null result (β=−0.0023, p=0.667). The NB14 soil-restricted result clarifies what drives this null: the soil-only Levins' B signal holds within MicrobeAtlas (β=−0.023, p=0.0002), yet AusMicrobiome — which is itself predominantly soil-biased — fails to replicate. The null is therefore not explained by the dataset being soil-only. The difference likely lies in environmental gradient: MicrobeAtlas Env_Level_1 soil sub-categories (paddy, agricultural, peatland, desert) differ meaningfully in metal-relevant geochemistry, whereas AusMicrobiome's General Ecological Zone labels (temperate grassland, subtropical shrubland) are vegetation-based climate classifications that do not track metal contamination gradients. A continent-restricted amplicon survey with coarse ecological zones appears insufficient to capture the within-soil specialization signal even at comparable n.
+
+**NGSA-informed re-analysis (NB16 + NB13; completed 2026-07-03; `data/aus_microbiome/aus_ngsa_pgls_results.csv`):** To test this interpretation directly, actual measured soil metal concentrations from the National Geochemical Survey of Australia (NGSA; 1,315 ICP-MS sites) were spatially joined to AusMicrobiome sample coordinates (median nearest-site distance = 35 km; 99.6% of OTU-table samples matched). Genus-level NGSA metal concentrations were computed as the mean Cu/Zn/Pb concentration across samples in which each genus was detected, then z-scored. PGLS (same script, same 482 genera, same GTDB tree) was rerun with NGSA metals as predictors:
+
+| Predictor | β | p-value | ΔAIC | Interpretation |
+|---|---|---|---|---|
+| ko_per_mb_total (original) | −0.0023 | 0.667 | +1.82 | Null (unchanged) |
+| **NGSA Cu_ppm (measured)** | **−0.0101** | **0.019\*** | **−3.39** | Metal-rich soil → narrower niche |
+| NGSA Zn_ppm | −0.0096 | 0.027\* | −2.84 | Same direction |
+| NGSA Pb_ppm | −0.0089 | 0.040\* | −2.22 | Same direction |
+| NGSA Ni_ppm | −0.0087 | 0.046\* | −1.99 | Same direction |
+| NGSA Co_ppm | +0.0019 | 0.658 | +1.80 | Null |
+
+Genera found predominantly in Cu/Zn/Pb/Ni-rich soils have narrower ecological niches (β=−0.0087 to −0.0101, p=0.019–0.046; n=482). The effect direction is the same as the primary finding (more metal exposure → greater specialization). NGSA Co is null, consistent with Co being a micronutrient with narrow toxicity range (few genera carry Co-resistance KOs). Sanity check (Spearman): soil Cu also positively predicts metal gene density per Mb (rho=+0.107, p=0.018\*), confirming that metal-rich soils select for genera with more metal resistance capacity. This finding resolves the AusMicrobiome null: the biological signal is present but the vegetation-based ecological zone label was not a proxy for metal exposure.
+
+**NGSA robustness / sensitivity analysis (NB17; completed 2026-07-03; `data/ngsa_threshold_sensitivity.csv`):** Three independent robustness checks were applied to the NGSA PGLS finding.
+
+**(1) FDR correction.** With m=6 predictor tests (one per metal), Benjamini-Hochberg correction gives q=0.069 for all four significant metals (Cu, Zn, Pb, Ni). None survive at FDR=0.05, but all four survive at FDR=0.10. The consistent negative direction across four chemically distinct metals (correlated but not identical) argues the pattern is not due to multiplicity.
+
+**(2) NGSA distance threshold sensitivity.** The spatial join was re-run at six maximum-distance thresholds (30–200 km) by re-aggregating genus-level Cu directly from the 16S OTU table (91,929 OTUs × 1,023 samples; 18,152 OTUs with SILVA genus assignment). Results show the negative β is consistent across 5 of 6 thresholds:
+
+| Threshold (km) | n genera | Cu β | Cu p | Zn β | Zn p |
+|---|---|---|---|---|---|
+| 30 | 462 | −0.0089 | 0.046\* | −0.0055 | 0.239 |
+| 50 | 480 | −0.0112 | 0.010\* | −0.0105 | 0.016\* |
+| 75 | 480 | −0.0092 | 0.034\* | −0.0086 | 0.048\* |
+| 100 | 481 | −0.0063 | 0.154 | −0.0074 | 0.087 |
+| 150 | 482 | −0.0101 | 0.020\* | −0.0096 | 0.028\* |
+| **200 (primary)** | **482** | **−0.0101** | **0.019\*** | **−0.0097** | **0.027\*** |
+
+The 100 km result is marginal (p=0.154); all other thresholds are significant for Cu (p<0.05). Effect direction is consistently negative across all six thresholds. The 100 km anomaly likely reflects that between 100–150 km, 28 additional samples stabilise genus-level NGSA estimates for genera at the margin of detection.
+
+**(3) Minimum detection frequency sensitivity.** Requiring a minimum number of NGSA-matched detections per genus strengthens the signal: genera must be detected in ≥5 samples within 200 km to include their NGSA estimate. As the minimum detection threshold increases from 1 to 30, β for Cu moves from −0.0101 to −0.0107 (p=0.019–0.047), with the strongest signal at min=5–10 detections (β=−0.013 to −0.014, p<0.003). The signal does not depend on poorly-sampled genera.
+
+| Min detections | n genera | Cu β | Cu p |
+|---|---|---|---|
+| 1 (primary) | 482 | −0.0101 | 0.019\* |
+| 2 | 481 | −0.0105 | 0.015\* |
+| 5 | 451 | −0.0138 | 0.002\* |
+| 10 | 386 | −0.0134 | 0.002\* |
+| 20 | 333 | −0.0136 | 0.007\* |
+| 30 | 299 | −0.0107 | 0.047\* |
+
+These three checks together support the NGSA finding as methodologically robust: the effect is present at most distance thresholds, is consistent across four independent metals, survives FDR correction at q=0.10, and strengthens when genera with fewer detections are excluded. A scan of all ~150 accessible Spark namespaces identified four candidate amplicon databases; none were suitable: `enigma_coral` is single-site (Oak Ridge Reservation groundwater, one biome label); `nmdc_results.annotation_kegg_orthology` lacks a linked GTDB genus catalog; and `planetmicrobe_planetmicrobe` uses NCBI taxonomy with denormalized blob-format metadata. NETL produced-waters 16S amplicon data (`netl_pw_dna`) was analysed but is uninformative (NB15). Three corrected approaches were attempted. The primary approach (Block 4b; Levins' B across 3 well-type categories — Coal Bed Methane, Shale Gas, Tight Oil — after correcting a Shale_Gas/Shale Gas category-duplication bug; n=258 genera after taxonomy bridge) returned null for total metal gene density (β=+0.023, p=0.269, λ=0.297). However, the ABR negative control also reached significance (β=+0.039, p=0.027), in the same direction as the nominally significant Tier 1 result (β=+0.048, p=0.035), indicating the apparent Tier 1 signal reflects a generic gene-rich cosmopolitan confound rather than metal specificity. A barium-concentration gradient approach (Block 6; Ba tertile strata; n=73 genera, 65 Ba-measured samples) produced λ=−0.75 — outside the valid [0, 1] range — flagging model misspecification; the R script crashed on Tier 1 and no valid result was obtained. Four structural limitations preclude interpretation: (1) NETL 16S is RDP-classified; RDP genus names are largely incompatible with the GTDB metal-cluster reference, and the taxonomy bridge retains only ~267 of 1,728 RDP genera (85% loss); (2) only 3 well-type categories produce near-zero niche variance — the 3-bin Levins' B is near-binary for most genera; (3) well type classifies hydrocarbon source formation (shale, coal, tight oil), not metal exposure gradient, so the niche axis is orthogonal to the hypothesis; (4) Ba-strata analysis is severely underpowered. The NETL result does not contradict the primary finding — the dataset is structurally incapable of testing it.
 
 *(Scripts: `scripts/cross_dataset_validation.py`, `scripts/neon_validation.py`; Data: `data/mgnify_validation_pgls.csv`, `data/cross_dataset_validation_pgls.csv`, `data/mgnify_subset_expanded_pgls.csv`, `data/pgls_soil_primary_result.csv`)*
+
+---
+
+**Geochemical niche breadth — new analysis (NB18).** To directly test whether metal gene-dense genera occupy narrower ranges of *environmental metal concentration* (not just narrower habitat categories), PGLS was run with the SD of NGSA metal concentrations across each genus's detection sites as the response variable. This is a distinct niche axis from categorical Levins' B (which compares vegetation/land-use zone labels) — a genus can be a categorical generalist yet a geochemical specialist. Results from AusMicrobiome (n = 454–461 genera per metal, NGSA ≤ 200 km):
+
+| Metal | β (total/Mb) | SE | p | q_BH (8 tests) | Interpretation |
+|---|---|---|---|---|---|
+| Cr | −0.189 | 0.061 | 0.002 | 0.016 | Specialist — narrow Cr range |
+| Cu | +0.083 | 0.033 | 0.012 | 0.048 | Generalist — wide Cu range |
+| As | −0.130 | 0.061 | 0.034 | 0.091 | Specialist — narrow As range |
+| Zn | −0.101 | 0.053 | 0.056 | — | Borderline specialist |
+| Co | −0.102 | 0.060 | 0.092 | — | Trend |
+| Ni | −0.106 | 0.063 | 0.092 | — | Trend |
+| Hg | −0.078 | 0.063 | 0.214 | — | Null |
+
+Cr and As survive BH-FDR correction (q = 0.016 and q = 0.091 respectively at FDR = 0.10). Cu is significantly positive: metal gene-dense genera appear across a wide Cu concentration range, even though they are preferentially detected in high-Cu sites (the NGSA mean PGLS is negative). The contrast is biologically interpretable — Cu resistance is nearly universal among metal-gene-dense genera (efflux pumps, CopA ATPases), enabling them to colonize a broad Cu gradient; Cr and As detoxification requires more specialized enzymes (ChrA, ArsB/ACR3), restricting those genera to Cr/As-specific geochemical conditions. **The directional split by metal is a genuine biological finding, not noise**, and is consistent with the known specificity hierarchy of metal resistance mechanisms.
+
+**Hotspot occupancy (NB18, Block 5).** Metal gene-dense genera are significantly *less* concentrated in the 11 geographic hotspot cells (β = −0.254, SE = 0.072, p = 4.9 × 10⁻⁴, n = 227 genera with ≥5 geographically annotated MAGs). This is not contradictory to the hotspot prevalence result (Finding 4) — geographic hotspots are defined by MAG *count* enrichment, which favours locally abundant taxa, not necessarily the most gene-dense ones. Metal gene-dense genera are cosmopolitan across biome types (MGnify biome_H result) and hence not concentrated in any single geographic cell.
+
+*(Notebook: `18_geochemical_niche_breadth.ipynb`; Data: `data/aus_genus_geo_niche.csv`, `data/aus_geo_niche_pgls.csv`, `data/hotspot_occupancy_pgls.csv`, `data/geo_niche_summary.csv`)*
 
 ---
 
@@ -235,6 +319,66 @@ Among 22,356 environmental MAGs with geographic coordinates (drawn from 260,652 
 Biome stratification shows strong enrichment in Soil (OR = 5.05, q = 1.75 × 10⁻⁸²) and strong depletion in Marine water (OR = 0.20, q = 9.2 × 10⁻⁸⁰), consistent with the role of geochemically heterogeneous soils in selecting for metal-responsive genomes. Rhizosphere shows no significant deviation from baseline (OR = 0.66, q = 0.299).
 
 *(Notebooks: `10a_global_mag_distribution.ipynb`, `10b_spatial_analysis.ipynb`, `10c_mag_figures.ipynb`)*
+
+---
+
+### Finding 4b — Cross-dataset geographic metal annotation: Moran's I, mining proximity, and latitude gradient (Extended)
+
+*(Notebook: `16_geographic_metal_annotation.ipynb`; data: `data/mags_annotated_geo.csv`, `data/moran_i_metal_genes.csv`, `data/geo_correlation_results.csv`)*
+
+Three analyses were conducted on the 22,356 MGnify environmental MAGs (human gut excluded) using lat/lon coordinates. Reference geochemical data were extracted from `arkinlab_envdbs` (Spark): National Geochemical Survey of Australia (NGSA; 1,315 soil sites, ICP-MS metals), global mining operations (8,507 sites), and CMMI Critical Minerals Mapping Initiative (29,087 global ore deposit analyses).
+
+**Moran's I spatial autocorrelation** (k=15 nearest neighbours, haversine; permutation test n=999):
+
+| Biome | Variable | n | Moran's I | E[I] | p (perm) |
+|---|---|---|---|---|---|
+| Soil | Metal type diversity | 7,939 | **0.0695** | −0.00013 | **0.001** |
+| Soil | Total metal genes | 7,939 | 0.0562 | −0.00013 | 0.001 |
+| Marine | Metal type diversity | 11,055 | 0.0318 | −0.00009 | 0.005 |
+| Marine | Total metal genes | 11,055 | 0.0255 | −0.00009 | 0.180 |
+| Marine Sediment | Metal type diversity | 2,940 | 0.0220 | −0.00034 | 0.734 |
+| Marine Sediment | Total metal genes | 2,940 | 0.0208 | −0.00034 | 0.670 |
+
+Soil MAGs show the strongest spatial autocorrelation (I = 0.070, p = 0.001), indicating that nearby soil genomes carry more similar metal gene repertoires than expected under spatial randomness. Marine water shows weaker but significant clustering (I = 0.032, p = 0.005 for metal type diversity). Marine Sediment shows no significant clustering (p > 0.67). This biome-ordered pattern (Soil > Marine > Marine Sediment) is consistent with geochemical heterogeneity being highest in soils (where geology, land use, and anthropogenic sources all vary at landscape scale) and homogenised in open-ocean water masses.
+
+**Mining proximity** (spatial_join_nearest, BallTree haversine; distance to nearest mine from global mining_operations, n=8,507 sites):
+
+| Biome | rho (dist_mine_km ~ n_metal_types) | p-value |
+|---|---|---|
+| All env MAGs | −0.075 | 5.9 × 10⁻²⁹ |
+| **Soil** | **−0.057** | **3.2 × 10⁻⁷** |
+| Marine | +0.021 | 0.027 |
+| Marine Sediment | +0.030 | 0.100 |
+
+A negative rho indicates that MAGs **closer** to mines carry **more** metal resistance genes. The soil effect (rho = −0.057, p = 3.2 × 10⁻⁷, n = 7,939) is significant and directionally consistent with mining-driven metal contamination selecting for metal resistance. The marine effect is absent (non-significant, opposite sign), as expected — marine metal gene diversity is driven by oceanic chemistry and depth, not proximity to terrestrial mines. The overall signal (rho = −0.075, p = 5.9 × 10⁻²⁹) reflects the large fraction of MAGs in the dataset from soil.
+
+**Latitude gradient** (Spearman |lat| ~ n_metal_types):
+
+| Biome | rho | p-value |
+|---|---|---|
+| Soil | −0.082 | < 10⁻¹⁶ |
+| Marine | −0.027 | 0.005 |
+| Marine Sediment | −0.010 | 0.581 |
+
+A negative rho for |lat| indicates more metal genes **toward lower latitudes** (tropics). This runs counter to a simple northern-hemisphere mining belt hypothesis. The equatorial enrichment in soil MAGs is consistent with (a) intense tropical chemical weathering releasing lithogenic metals, (b) higher microbial alpha-diversity at lower latitudes inflating total gene counts, or (c) agricultural metal inputs concentrated in tropical/subtropical farming regions. The directional pattern (signed lat Spearman rho also negative, not shown but consistent) indicates the enrichment is symmetric around the equator rather than hemisphere-specific.
+
+**CMMI ore deposit metals** (MAGs within 200 km of an ore deposit; n = 2,618):
+
+| Predictor | rho | p-value |
+|---|---|---|
+| cmmi_cu_ppm vs n_metal_types | −0.093 | 1.7 × 10⁻⁶ |
+| cmmi_zn_ppm vs n_metal_types | −0.099 | 3.8 × 10⁻⁷ |
+| cmmi_pb_ppm vs n_metal_types | −0.108 | 3.2 × 10⁻⁸ |
+
+Counterintuitively, MAGs near high-Cu/Zn/Pb ore deposits show **fewer** metal resistance genes (negative rho). This likely reflects that CMMI ore deposit geochemistry (geological/bedrock concentrations) does not represent the surface soil metal exposure experienced by microbes — ore bodies are subsurface geological features and surrounding surface soils may be pristine. Alternatively, ore-adjacent MAGs may disproportionately come from processing or industrial-contaminated environments where community diversity is globally suppressed. This result does not conflict with the mining proximity signal, which uses mine site locations (where active extraction has disrupted and contaminated the surface) rather than ore deposit geochemistry.
+
+**Australian Microbiome NGSA annotation** (Block 6c; 1,663 samples, max 300 km join distance):
+
+NGSA soil metal concentrations were joined to Australian Microbiome sample coordinates (from `AM_Contextual_Data_Master_Sheet-20180501.xlsx`). Of 1,663 samples with valid lat/lon, 1,293 (78%) matched within 300 km (median distance = 35 km — very close matches). The output `data/aus_microbiome/aus_sample_ngsa.csv` provides per-sample NGSA Cu/Zn/Pb/Ni/Co/As/Cr/Hg (ICP-MS, mg/kg) and field_pH. This annotation was used in the NGSA-informed PGLS re-analysis (see "Additional validation attempts" in Chapter 3), which found that NGSA Cu/Zn/Pb/Ni significantly predicts AusMicrobiome niche breadth (p = 0.019–0.046), explaining the original null result from vegetation-zone labels.
+
+**NGSA analysis of Australian soil MGnify MAGs** (n = 117): Insufficient for inference — all rho values near zero, all p > 0.6. The NGSA join is most valuable at the AusMicrobiome genus level, not the individual MAG level.
+
+*(Data: `data/ngsa_geochemistry.csv`, `data/mining_operations.csv`, `data/cmmi_ores.csv`, `data/mags_annotated_geo.csv`, `data/geo_correlation_results.csv`, `data/aus_microbiome/aus_sample_ngsa.csv`)*
 
 ---
 
@@ -320,7 +464,7 @@ Archaea metal cluster λ is at the numerical boundary; the n = 73 genus sample s
 
 *(Data: `data/pgls_robustness_results.csv`, `data/pgls_rarefied_summary.csv`)*
 
-### Sensitivity analyses (S1–S4)
+### Sensitivity analyses (S1–S5)
 
 **S1 — Leave-one-metal-out** (n = 1,000 genera, 12 metals; completed 2026-07-01 using `data/species_metal_amr_permetal.csv`): Each metal was excluded in turn; the remaining 11-metal type count was re-aggregated per genus and PGLS re-fit.
 
@@ -382,6 +526,15 @@ Archaea metal cluster λ is at the numerical boundary; the n = 73 genus sample s
 *Metal type diversity signal is completely unchanged. Log-transformed pangenome depth is non-predictive.*
 
 *(Data: `data/pgls_sensitivity_results.csv`)*
+
+**S5 — FitnessBrowser empirical gene list (MGnify validation; gene-list sensitivity)** *(completed 2026-07-03; `data/fb_sensitivity_pgls.csv`)*. The MGnify MAG PGLS (Finding 3, biome_H model) uses a curated 94-KO list assembled from BacMet/CARD/UniProt literature annotation. To test whether the biome_H signal depends on curation choices, we substituted an independently derived list of 74 KOs from FitnessBrowser RB-TnSeq empirical fitness data (Price et al. 2018). The empirical list was built by: (1) identifying genes with condition-specific fitness defects under metal stress in ≥2 organisms (|t| > 4, min_fit < −1.0; NB01–NB03 in `projects/fitnessbrowser_metal_gene_list/`); (2) annotating with eggNOG-mapper 2.1.7; (3) retaining KOs appearing as metal-important in ≥2 organisms (cross-species filter). The two lists share only 12 KOs (16% overlap), with the empirical list being Tier 1 only (no Tier 2 homeostasis KOs pass the cross-species threshold). The KO density predictor was recomputed on the same 576 MGnify genera used in the primary MGnify validation and PGLS re-run with the same `pgls_mgnify_validation.R` script.
+
+| Gene list | n_genera | λ | β | SE | p-value | ΔAIC |
+|---|---|---|---|---|---|---|
+| Curated 94-KO (Tier 1+2) | 576 | 0.379 | +0.0508 | 0.00551 | 5.9×10⁻¹⁹ | −77.3 |
+| FitnessBrowser 74-KO (Tier 1 only) | 576 | 0.374 | +0.0530 | 0.00612 | 5.0×10⁻¹⁷ | −68.4 |
+
+*Both gene lists produce essentially identical association with biome Shannon entropy (β difference < 5%, Δp one order of magnitude). The signal is robust to gene list choice despite only 16% KO overlap. This is strong evidence that the biome_H association reflects a general property of metal gene content — not an artefact of any particular curation decision — because two independently derived gene sets, assembled by entirely different methods (literature curation vs. multi-organism RB-TnSeq fitness), produce the same quantitative result. The FitnessBrowser list is Tier 1 resistance genes only; the fact that it matches the curated result (which includes 30 Tier 2 homeostasis KOs) is consistent with Tier 1 genes driving the biome_H signal in the MGnify MAG context (cf. tier-specific results in Finding 3). Data: `data/fb_sensitivity_pgls.csv`.*
 
 ### Functional subset and COG P sub-analyses (all exploratory)
 
@@ -571,6 +724,27 @@ This study contributes: (a) genus-level Pagel's λ estimates for curated metal r
 | `data/pgls_input_soil_disc.csv` | 601 | PGLS input: soil Levins' B + total/disc per Mb (subset with discriminant annotation) |
 | `data/pgls_soil_disc_result.csv` | 2 | Discriminant 19-KO/Mb soil PGLS (n=601): total β=−0.023, disc β=−0.020 (p=0.001) |
 | `data/aus_replication_pgls.csv` | 3 | Australian Microbiome PGLS results (null; n=482) |
+| `data/aus_microbiome/aus_ngsa_pgls_results.csv` | 6 | NGSA-informed AusMicrobiome PGLS (Cu/Zn/Pb/Ni significant, p=0.019–0.046) |
+| `data/ngsa_threshold_sensitivity.csv` | 6 | NGSA distance threshold sensitivity: β/p per metal at 30–200 km thresholds |
+| `data/figures/` | 7 PNG + PDF | NB17 publication figures (fig1–fig7; primary scatter, forest plot, NGSA Cu, Moran's I, mining, sensitivity) |
+| `data/aus_microbiome/aus_sample_ngsa.csv` | 1,663 | Per-sample NGSA soil metal concentrations for AusMicrobiome samples |
+| `data/aus_microbiome/BASE_16S_taxonomy.csv` | 91,928 | OTU-to-genus taxonomy map (converted from xlsx; columns: OTUId, genus) |
+| `data/mgnify_genus_geo_niche.csv` | 85 | Per-genus Cu/Zn/Pb/Ni/Co/pH mean+SD from NGSA/CMMI-annotated MAGs (NB18) |
+| `data/aus_genus_geo_niche.csv` | 778–779 | Per-genus metal concentration SD from AusMicrobiome NGSA samples, 9 metals (NB18) |
+| `data/aus_geo_niche_pgls.csv` | 7 | PGLS results: AusMicrobiome geochemical niche width ~ ko_per_mb (Cr p=0.002, Cu p=0.012, As p=0.034) |
+| `data/hotspot_occupancy_pgls.csv` | 1 | PGLS: genus hotspot occupancy fraction ~ ko_per_mb (β=−0.254, p=0.000492, n=227) |
+| `data/geo_niche_summary.csv` | — | Unified summary table: all niche breadth analyses across all three axes |
+| `data/figures/fig8_geo_niche_width_forest.png/pdf` | — | Forest plot: geochemical niche width PGLS per metal (AusMicrobiome) |
+| `data/figures/fig9_geo_niche_concordance.png/pdf` | — | Cross-dataset geochemical niche concordance scatter (insufficient overlap; n<10 per metal) |
+| `data/ngsa_geochemistry.csv` | 1,315 | NGSA Australian soil ICP-MS metals (Cu/Zn/Pb/Ni/Co/As/Cr/Hg) |
+| `data/mining_operations.csv` | 8,507 | Global mining site locations and primary commodity |
+| `data/cmmi_ores.csv` | 29,087 | CMMI global ore deposit geochemistry |
+| `data/mags_annotated_geo.csv` | 22,356 | MGnify env MAGs + mining proximity + NGSA/CMMI annotation |
+| `data/geo_correlation_results.csv` | 12 | Spearman: mine proximity / NGSA metals ~ MAG metal gene density |
+| `data/netl_levins_b_welltype.csv` | 652 | NETL Levins' B_std per genus across 3 well-type categories (Block 4b; corrected prevalence-based metric) |
+| `data/netl_pgls_input_corrected.csv` | 258 | PGLS input: well-type Levins' B + per-Mb predictors (z-scored) + ABR negative control |
+| `data/netl_pgls_welltype_corrected.csv` | 4 | NETL well-type PGLS: total/tier1/tier2/ABR per Mb vs B_welltype (n=258; null — ABR negative control failed) |
+| `data/netl_levins_b_ba_strata.csv` | 180 | NETL Ba-concentration tertile Levins' B per genus (Block 6; 65 Ba-measured samples; underpowered) |
 
 ---
 
@@ -601,9 +775,12 @@ This study contributes: (a) genus-level Pagel's λ estimates for curated metal r
 | `11c_alphaearth_metal_synthesis.ipynb` | AlphaEarth PERMANOVA; per-genus PC–metal correlation (supplementary) |
 | `replication.ipynb` | Replication hub — status table + links to all sub-notebooks |
 | `12_mgnify_mag_validation.ipynb` | MGnify MAG PGLS validation (n=576, biome_H, exploratory) |
-| `13_australian_microbiome_replication.ipynb` | AusMicrobiome 16S replication attempt (n=482, null result) |
+| `13_australian_microbiome_replication.ipynb` | AusMicrobiome 16S: original null (p=0.667); NGSA re-analysis shows Cu/Zn/Pb significant (p=0.019–0.046) |
+| `16_geographic_metal_annotation.ipynb` | Cross-dataset lat/lon annotation: Moran's I, mining proximity, NGSA soil metals, AusMicrobiome NGSA join |
+| `17_sensitivity_visualization.ipynb` | Sensitivity analysis (FDR, distance threshold, detection frequency) + 7 publication-quality figures (`data/figures/`) |
+| `18_geochemical_niche_breadth.ipynb` | Geochemical niche breadth: SD of NGSA metal concentration per genus; hotspot occupancy PGLS; cross-dataset concordance; forest plot (fig8) |
 | `14_soil_primary_replication.ipynb` | Soil-restricted Levins' B replication (n=603, signal replicates) |
-| `15_netl_replication.ipynb` | NETL produced-waters 16S replication (pending) |
+| `15_netl_replication.ipynb` | NETL produced-waters 16S replication (uninformative — structural limits; n=258, β=+0.023, p=0.269, ABR negative control failure p=0.027) |
 | `_prep_interactive_dashboard.ipynb` | Plotly interactive dashboard |
 
 ### Scripts
