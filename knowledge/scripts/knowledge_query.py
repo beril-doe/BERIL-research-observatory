@@ -17,7 +17,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from observatory_context import fallback
 from observatory_context.config import ContextConfig
-from observatory_context.openviking_client import create_client, server_reachable
+from observatory_context.openviking_client import (
+    create_client,
+    diagnose,
+    format_diagnosis,
+    server_reachable,
+)
 from observatory_context.query import (
     format_find_text,
     run_command,
@@ -92,6 +97,11 @@ def build_parser() -> argparse.ArgumentParser:
     read = commands.add_parser("read", help="Print a resource")
     read.add_argument("uri", help="Resource URI")
 
+    doctor = commands.add_parser(
+        "doctor", help="Check OpenViking reachability and auth (server vs. key)"
+    )
+    doctor.add_argument("--json", action="store_true", help="Print JSON")
+
     return parser
 
 
@@ -126,9 +136,33 @@ def _run_fallback(args, config: ContextConfig) -> None:
         print(fallback.DEGRADED_NOTICE.format(command=args.command), file=sys.stderr)
 
 
+def _run_doctor(args, config: ContextConfig) -> int:
+    diag = diagnose(config)
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "verdict": diag.verdict,
+                    "url": diag.url,
+                    "reachable": diag.reachable,
+                    "detail": diag.detail,
+                    "remedy": diag.remedy,
+                    "server": diag.server,
+                },
+                indent=2,
+                default=str,
+            )
+        )
+    else:
+        print(format_diagnosis(diag))
+    return 0 if diag.ok else 1
+
+
 def main() -> None:
     args = build_parser().parse_args()
     config = ContextConfig.from_env()
+    if args.command == "doctor":
+        sys.exit(_run_doctor(args, config))
     if not server_reachable(config):
         _run_fallback(args, config)
         return

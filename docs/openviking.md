@@ -26,12 +26,22 @@ isolated venv — no `uv sync` or `--group knowledge` activation needed.
 
 ### Remote OpenViking
 
-To query a remote server, point `OPENVIKING_URL` at it and set the API key the
-server expects:
+BERIL runs a shared remote OpenViking server (currently the dev host
+`https://beril-dev.kbase.us`). New users get an API key with a one-time setup —
+see **[remote-openviking-setup.md](remote-openviking-setup.md)** for the full
+walkthrough (log in, copy the `beril_session` cookie, run
+`setup_remote_ov.py`). In short:
+
+```bash
+uv run knowledge/scripts/setup_remote_ov.py --cookie '<beril_session>'
+# writes OPENVIKING_URL=https://beril-dev.kbase.us/ov + OPENVIKING_API_KEY to .env
+```
+
+To point anywhere manually, set both env vars:
 
 ```bash
 # .env
-OPENVIKING_URL=https://openviking.prod.example
+OPENVIKING_URL=https://beril-dev.kbase.us/ov
 OPENVIKING_API_KEY=<token>
 ```
 
@@ -42,6 +52,13 @@ the remote endpoint without code changes. Read-only queries (`find`,
 multiple clients can share a remote server safely. For ingestion, the manifest
 is per-machine; pick one host as the writer or accept that `--changed` may
 re-push files the server already has (idempotent, just wasted work).
+
+Check reachability and auth at any time — this separates "server down" from
+"bad key":
+
+```bash
+uv run --env-file .env knowledge/scripts/knowledge_query.py doctor
+```
 
 ## Local Server Setup
 

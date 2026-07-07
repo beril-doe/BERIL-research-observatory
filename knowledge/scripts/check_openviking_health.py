@@ -33,7 +33,11 @@ from rich.rule import Rule
 from rich.text import Text
 
 from observatory_context.config import ContextConfig
-from observatory_context.openviking_client import create_client
+from observatory_context.openviking_client import (
+    create_client,
+    diagnose,
+    format_diagnosis,
+)
 from observatory_context.progress import render_status
 
 
@@ -99,6 +103,30 @@ def main() -> int:
 
     config = _config_for(args)
     console = Console()
+
+    # Reachability + auth gate: fail with a clean diagnosis instead of a
+    # traceback when the server is down or the key is bad.
+    diag = diagnose(config)
+    if not diag.ok:
+        if args.as_json:
+            print(
+                json.dumps(
+                    {
+                        "verdict": diag.verdict,
+                        "url": diag.url,
+                        "reachable": diag.reachable,
+                        "detail": diag.detail,
+                        "remedy": diag.remedy,
+                        "server": diag.server,
+                    },
+                    indent=2,
+                    default=str,
+                )
+            )
+        else:
+            console.print(format_diagnosis(diag))
+        return 1
+
     client = create_client(config)
     try:
         if args.as_json:

@@ -98,6 +98,15 @@ tokens**, treat recall as **partial**, and still read the source. `relations`,
 `glob`, `ls`, `tree`, `stat` have no local equivalent and report unavailable —
 start the server for those.
 
+To tell **server-down apart from an auth problem**, run the diagnostic:
+
+```bash
+$QUERY doctor          # OK | UNREACHABLE | NO API KEY | AUTH FAILED (exit 0/1)
+```
+
+`UNREACHABLE` → server/URL/network; `NO API KEY` / `AUTH FAILED` → the client's
+`OPENVIKING_API_KEY` (see § Configuration → remote setup).
+
 ### `find` — semantic search
 
 ```bash
@@ -224,7 +233,19 @@ $INGEST --docs                     # central docs only
 - `OPENVIKING_URL` — defaults to `http://127.0.0.1:1933`
 - `OPENVIKING_API_KEY` — only when the server enforces auth (remote deployments)
 
-Local server: copy `knowledge/openviking/ov.conf.example` → `knowledge/openviking/ov.conf` and set the OpenRouter key in `embedding` and the CBORG key in `vlm`. The local `ov.conf` is gitignored.
+**Remote server (recommended for most users):** BERIL runs a shared OpenViking
+server (currently the dev host `https://beril-dev.kbase.us`). Get a one-time API
+key and write it into `.env` with the helper, then verify:
+
+```bash
+uv run knowledge/scripts/setup_remote_ov.py --cookie '<beril_session cookie>'
+$QUERY doctor
+```
+
+Full walkthrough (how to copy the cookie, rotation, troubleshooting):
+`docs/remote-openviking-setup.md`.
+
+**Local server:** copy `knowledge/openviking/ov.conf.example` → `knowledge/openviking/ov.conf` and set the OpenRouter key in `embedding` and the CBORG key in `vlm`. The local `ov.conf` is gitignored.
 
 ```bash
 uv run --group knowledge openviking-server doctor --config knowledge/openviking/ov.conf
