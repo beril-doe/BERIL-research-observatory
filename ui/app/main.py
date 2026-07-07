@@ -11,6 +11,7 @@ import app.context as ctx
 from app.context import generate_base_context, get_base_context, get_repo_data, initialize_data
 from app.db.session import init_db, close_db, check_db
 from app.notebook_processors import PlotlyPreprocessor
+from app.routes.openviking import ROUTER_OV
 import nbformat
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,8 +40,9 @@ from app.atlas_graph import (
     review_routes_for_page,
 )
 
+from .auth import _RedirectToLogin, redirect_to_login_handler
+from .auth_providers import get_kbase_token, load_providers
 from .routes.admin import ROUTER_ADMIN
-from .routes.auth import ROUTER_AUTH
 from .routes.chat import ROUTER_CHAT, ROUTER_CHAT_PAGES
 from .routes.data import ROUTER_USER_DATA
 from .routes.user import ROUTER_USER
@@ -104,6 +106,9 @@ def create_app() -> FastAPI:
 
     app.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key, session_cookie="beril_session")
 
+    # Anonymous visitors to page routes guarded by require_user_page get bounced to login.
+    app.add_exception_handler(_RedirectToLogin, redirect_to_login_handler)
+
     # Mount static files
     app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
 
@@ -114,8 +119,11 @@ def create_app() -> FastAPI:
         name="project-assets",
     )
 
+    auth_providers = load_providers(settings)
+    app.state.auth_providers = auth_providers
+    auth_providers.identity.install_routes(app)
+
     app.include_router(ROUTER_ADMIN)
-    app.include_router(ROUTER_AUTH)
     app.include_router(ROUTER_CHAT)
     app.include_router(ROUTER_CHAT_PAGES)
     app.include_router(ROUTER_COLLECTIONS)
@@ -129,6 +137,7 @@ def create_app() -> FastAPI:
     app.include_router(ROUTER_PROJECTS)
     app.include_router(ROUTER_SKILLS)
     app.include_router(ROUTER_ATLAS)
+    app.include_router(ROUTER_OV)
 
     # Configure templates
     global templates
@@ -155,7 +164,6 @@ ROUTER_KNOWLEDGE = APIRouter(tags=["Knowledge"])
 ROUTER_PROJECTS = APIRouter(tags=["Project"])
 ROUTER_SKILLS = APIRouter(tags=["Skills"])
 ROUTER_ATLAS = APIRouter(tags=["Atlas"])
-
 
 # Routes
 @ROUTER_GENERAL.get("/", response_class=HTMLResponse)
@@ -1133,6 +1141,7 @@ async def health(
     if db_status["status"] != "ok":
         status = "degraded"
     settings = get_settings()
+    kbase_token = await get_kbase_token(request)
     return {
         "status": status,
         "services": {
@@ -1141,5 +1150,6 @@ async def health(
         "session": context,
         "url_scheme": request.url.scheme,
         "git_commit": settings.git_commit,
-        "build_date": settings.build_date
+        "build_date": settings.build_date,
+        "kbase_status": kbase_token is not None
     }

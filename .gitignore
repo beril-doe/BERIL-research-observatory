@@ -108,3 +108,9 @@ htmlcov/
 *.uc
 
 graphify-out/
+
+# OpenViking
+knowledge/workspace
+knowledge/ov.conf
+knowledge/openviking/ov.conf
+knowledge/openviking/gcp-key.json

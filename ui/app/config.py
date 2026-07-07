@@ -40,6 +40,17 @@ class Settings(BaseSettings):
     orcid_redirect_path: str = "/auth/orcid/callback"  # expects to be prepended with slash
     orcid_base_url: str = "https://orcid.org"  # Use https://sandbox.orcid.org for development
 
+    # Auth token providers — comma-separated names of TokenProvider plugins to
+    # enable in addition to ORCiD identity. Currently only "kbase" is supported.
+    # Empty by default, so dev deployments get ORCiD-only behavior.
+    auth_token_providers: str = ""
+
+    # Name of the cookie KBase auth writes to the shared *.kbase.us domain.
+    # Read on every request by KBaseTokenProvider when the provider is enabled.
+    kbase_auth_cookie: str = "kbase_session_backup"
+    kbase_auth_url: str = "https://ci.kbase.us/services/auth"
+    kbase_auth_mfa: bool = True
+
     # Session configuration
     session_secret_key: str = "change-me-in-production"  # Signs session cookies
 
@@ -57,6 +68,15 @@ class Settings(BaseSettings):
     chat_config_path: Path = ui_dir / "config" / "chat_providers.yaml"
     chat_max_concurrent_turns_per_user: int = 3
 
+    # OpenViking configuration
+    ov_url: str = "http://localhost:1933"
+    ov_account_id: str = "beril"
+    ov_account_admin: str = "beril_admin"
+    ov_admin_key: str = "change-me-in-production"
+    # Fernet key for encrypting OpenViking user credentials at rest.
+    # urlsafe-base64-encoded 32-byte key; generate with Fernet.generate_key().
+    ov_credential_key: str | None = None
+
     # Derived paths
     @property
     def db_url(self) -> str:
@@ -67,6 +87,10 @@ class Settings(BaseSettings):
     @property
     def orcid_redirect_uri(self) -> str:
         return self.orcid_redirect_root + self.orcid_redirect_path
+
+    @property
+    def auth_token_providers_list(self) -> list[str]:
+        return [p.strip() for p in self.auth_token_providers.split(",") if p.strip()]
 
     @property
     def projects_dir(self) -> Path:
