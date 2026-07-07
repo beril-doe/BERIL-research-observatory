@@ -154,6 +154,24 @@ BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environ
 
 ---
 
+### Knowledge context (remote OpenViking)
+
+BERIL indexes project reports and central docs in a shared **OpenViking**
+knowledge server, searchable with `knowledge/scripts/knowledge_query.py`. To use
+the remote server you need a one-time API key. Get one with:
+
+```bash
+uv run knowledge/scripts/setup_remote_ov.py --cookie '<your beril_session cookie>'
+uv run --env-file .env knowledge/scripts/knowledge_query.py doctor   # verify
+```
+
+Full walkthrough (how to get the cookie, troubleshooting, rotation):
+**[docs/remote-openviking-setup.md](docs/remote-openviking-setup.md)**. The
+query toolkit itself is documented in the `knowledge-context` skill and
+[docs/openviking.md](docs/openviking.md).
+
+---
+
 ## Observatory UI
 A web application is available for browsing collections, projects, and the BERIL Atlas.
 
