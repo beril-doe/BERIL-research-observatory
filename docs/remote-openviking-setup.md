@@ -112,6 +112,8 @@ Run `knowledge_query.py doctor` first — its verdict tells you what's wrong:
 | `UNREACHABLE` | Server down or wrong URL | Check `OPENVIKING_URL` ends in `/ov`; confirm `$SERVER/ov/health` responds in a browser; check network/VPN |
 | `NO API KEY` | Reachable, but `OPENVIKING_API_KEY` unset | Run the setup helper (Step 3) |
 | `AUTH FAILED` | Reachable, but your key was rejected | Key expired/invalid → `setup_remote_ov.py --regenerate` |
+| `UNHEALTHY` | Reachable, but the server reports itself unhealthy | Server-side — flag a maintainer / check the OV deployment |
+| `ERROR` | Reachable, but an authenticated call failed unexpectedly | Retry; if it persists, check the OV server logs |
 
 Other cases:
 
