@@ -4,10 +4,10 @@
 Beyond presence/absence, do adaptive vs housekeeping genes show different paralog copy number patterns within bacterial pangenomes?
 
 ## Status
-Exploration — research plan not yet written.
+Proposed — research plan written, awaiting analysis.
 
 ## Overview
-*TBD — hypothesis and approach under development.*
+Existing pangenome studies characterize genes as core vs accessory (present/absent), but ignore **copy number within a genome** — how many paralogs of a gene cluster does each genome carry? This project tests whether housekeeping genes (translation, nucleotide metabolism) maintain fixed copy numbers while adaptive genes (mobile elements, defense) tolerate variation. Pilot data from *L. seeligeri* shows L-category (replication/repair) clusters have 3.2% multi-copy rate vs 0% for housekeeping categories J, F, H — consistent with dosage constraint on housekeeping genes.
 
 ## Quick Links
 - [Research Plan](RESEARCH_PLAN.md) — TBD
