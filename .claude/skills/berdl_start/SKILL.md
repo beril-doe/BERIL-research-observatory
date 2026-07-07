@@ -51,9 +51,17 @@ data/               # Shared data extracts reusable across projects
 
 ### Existing Projects
 
-Discover projects dynamically — run `ls projects/` to list them. Read the first line of each `projects/*/README.md` to get titles. Present the list to the user so they can see what's been done.
+**Look projects up through the knowledge layer, not by hand** — the availability check
+and commands are in **Phase 1.8**. When OpenViking is up, list and search projects with
+`knowledge_query.py ls viking://resources/projects/ --simple` and
+`knowledge_query.py find "<user's topic>"` (these fall back to local search over the
+same corpus when the server is down). Present what you find so the user sees what's
+been done.
 
-When the user describes a topic or goal, also consult the knowledge layer to surface what's already been done on it instead of reading every README — see `knowledge-context` for the query toolkit and retrieval loop. Seed: `uv run --env-file .env knowledge/scripts/knowledge_query.py find "<user's topic>"`. (Falls back to local search if OpenViking is down.)
+Use a bare `ls projects/` only as a quick directory sanity-check or when the knowledge
+layer is `UNREACHABLE` — not as the default way to survey prior work. Reading every
+`projects/*/README.md` by hand is slower and misses the cross-project connections the
+knowledge layer surfaces.
 
 ### How Projects Work
 
@@ -157,6 +165,41 @@ This is a non-blocking reminder. Move on to Phase 2 regardless.
 
 ---
 
+## Phase 1.8: Knowledge Layer Check (how to look up projects & prior work)
+
+**By default, look up projects and cross-project knowledge through OpenViking (the
+knowledge layer) — not by reading `projects/` directly.** Confirm it's available once:
+
+```bash
+uv run --env-file .env knowledge/scripts/knowledge_query.py doctor
+```
+
+- **OK** → the remote knowledge server is up. Use the `knowledge-context` skill for
+  **all** cross-project lookups — listing/finding projects, "what's known about X",
+  "has this been done", "related work":
+  - list projects: `knowledge_query.py ls viking://resources/projects/ --simple`
+  - by topic: `knowledge_query.py find "<topic>"`
+  - exact term / author / db: `knowledge_query.py grep "<term>" --uri viking://resources/`
+
+  **Do not enumerate `projects/` or read `projects/*/README.md` / REPORTs by hand for
+  context** — the server has them indexed and ranked, and hand-scanning misses the
+  cross-project connections it surfaces.
+- **NO API KEY / AUTH FAILED** → the remote layer needs a key. Tell the user:
+  `uv run knowledge/scripts/setup_remote_ov.py --cookie '<beril_session>'`
+  (walkthrough: `docs/remote-openviking-setup.md`). Until then keep using
+  `knowledge_query.py` — `find` / `grep` / `read` / `overview` fall back to local
+  search over the same corpus.
+- **UNREACHABLE** → no server; `find` / `grep` / `read` / `overview` still work via
+  local fallback, so keep using them instead of hand-scanning. Only
+  `relations` / `glob` / `ls` / `tree` / `stat` need the server — for those, a plain
+  `ls projects/` is the enumeration fallback.
+
+Non-blocking (like the session-naming reminder) — proceed to Phase 2 regardless.
+**Reserve hand-reading `projects/<id>/` files for the one project you're actively
+working in, never as the way to discover what exists or what's been done.**
+
+---
+
 ## Phase 2: Establish Project Context
 
 Every BERIL session works inside a project — including ad-hoc exploration. This gives every artifact (queries, user data, notes, figures) a home from minute one, makes work resumable across sessions, and avoids loose `exploratory/` clutter.
@@ -229,7 +272,7 @@ Status: `exploration`. Read context, explore data, accept user-supplied input, a
 - **If the user has input data** (gene lists, phenotype tables, FASTAs, SQLite, etc.): drop it in `projects/<id>/user_data/`. Never leave user-supplied data in `~/` or the repo root.
 - Run exploratory queries with `/berdl`. For any query worth keeping, save it as a numbered exploration notebook (`projects/<id>/notebooks/00_exploration.ipynb`, then `00b_*.ipynb` if you need more). Even rough exploration gets a home.
 - Search literature with `/literature-review` if relevant. References go to `projects/<id>/references.md`.
-- Check related existing projects in `projects/` — read their READMEs to understand prior work.
+- Check related prior work through the knowledge layer (`knowledge_query.py find "<topic>"` / `relations`), not by hand-scanning `projects/`. Read a specific project's files directly only once the knowledge layer points you to it.
 - Develop 2-3 testable hypotheses with H0/H1.
 
 When the user has a clear hypothesis and is ready to commit to a plan, transition to Phase B.
@@ -415,6 +458,7 @@ These are project-agnostic helpers — invoke them from inside any project at th
 8. **Drive the process forward between checkpoints** — checkpoints are explicit pause-points (Plan Review, Results Review). Outside of those, keep moving — don't stop after every individual step asking permission.
 9. **Document as you go** — pitfalls live-captured to `projects/<id>/memories/pitfalls.md` via `/pitfall-capture`; discoveries and performance notes drafted in REPORT.md `## Discoveries` / `## Performance Notes` sections (extracted by `/submit` to per-project memories at approval). The central `docs/{pitfalls,discoveries,performance}.md` files are frozen historical archives — don't write to them.
 10. **Use Spark patterns from PROJECT.md** — `get_spark_session()`, PySpark-first, `.toPandas()` only for final small results.
+11. **Look up projects and prior work through the knowledge layer, not `projects/`** — when the OV server is up (Phase 1.8), use `knowledge-context` (`knowledge_query.py ls/find/grep/relations`) for "what exists / what's known / related work". It falls back to local search when the server is down, so this is always safe. Hand-read `projects/<id>/` only for the project you're actively working in.
 
 ---
 
