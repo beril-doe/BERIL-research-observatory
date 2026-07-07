@@ -93,6 +93,11 @@ GROUP BY ann.COG_category
 
 ## Revision History
 - **v1** (2026-07-07): Initial plan based on pilot exploration of L. seeligeri (168 genomes). Pilot showed L (3.2% multi-copy) > housekeeping (0%) pattern.
+- **v2** (2026-07-07): NB01 pilot on 5 species found direction consistent 5/5 phyla but pooled ratio only 1.4× (below pre-registered 3× threshold). Binary "any multi-copy in ≥1 genome" is too coarse — a rare cluster with 1 multi-copy occurrence flips the binary. Revising to use continuous metrics: **cluster-carrier-weighted multi-copy rate** (SUM(multicopy_genomes) / SUM(carrier_genomes)) and **mean-copies-per-carrier**. Also revising pre-registered thresholds:
+  - Directional criterion: adaptive > housekeeping in ≥4/5 pilots (unchanged; already met at 5/5).
+  - Magnitude criterion: cluster-carrier-weighted ratio ≥2× (relaxed from 3× on the coarser binary).
+  - Spirochaetota (*Borreliella*) documented as a phylum outlier with multi-partite genome structure — retained but reported separately in NB03.
+  - Also revising COG classification: **C (energy) and J (translation) moved from housekeeping to "mixed"** — pilot showed both have known paralog cases (cytochrome paralogs, rRNA operons, ribosomal protein duplicates). Housekeeping now = {F, H} (nucleotide + coenzyme metabolism); adaptive still = {L, V, M, K}; C and J tracked separately.
 
 ## Authors
 - Justin Reese (LBL, ORCID: 0000-0002-2170-2250)
