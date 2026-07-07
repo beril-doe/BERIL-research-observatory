@@ -1,7 +1,7 @@
 project_id: gene_copy_number_variation
-status: active
+status: analysis
 created_at: "2026-07-07T19:58:28Z"
-last_session_at: "2026-07-07T20:20:00Z"
+last_session_at: "2026-07-07T23:20:00Z"
 branch: projects/gene_copy_number_variation
 engine:
   name: claude
@@ -12,5 +12,5 @@ authors:
 artifacts:
   readme: true
   research_plan: true
-  report: false
+  report: true
   review: false
