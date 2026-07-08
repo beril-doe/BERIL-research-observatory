@@ -219,7 +219,22 @@ print(f"Job ID: {job.id}")    # save this — needed to check status or retrieve
 | Skani GTDB | `cdm_skani_gtdb` | Yes (`/ref_data/release232/skani/database/`) | No — batch | Must pass `-d` path explicitly |
 | IQ-TREE 2 | `cdm_iqtree` | No | No — 1 per alignment | `--prefix /out/tree`; `--redo` recommended |
 
-**Full per-tool examples, resource guidance, and special notes are in `references/images.md`.** Claude should `Read` that file after identifying the user's tool.
+**Full per-tool examples, resource guidance, and special notes are in individual reference files under `references/`.** Each tool has its own file named after the image pattern without the `cdm_` prefix:
+
+| Tool | Reference file |
+|------|---------------|
+| CheckM2 | `references/checkm2.md` |
+| MMseqs2 | `references/mmseqs2.md` |
+| KofamScan | `references/kofamscan.md` |
+| PSORTb | `references/psortb.md` |
+| Bakta | `references/bakta.md` |
+| Bakta proteins | `references/bakta_proteins.md` |
+| GTDB-Tk | `references/gtdbtk.md` |
+| Skani | `references/skani.md` |
+| Skani GTDB | `references/skani_gtdb.md` |
+| IQ-TREE 2 | `references/iqtree.md` |
+
+Claude should `Read` only the specific tool's reference file after identifying the user's tool from `get_images()`.
 
 ---
 
@@ -746,7 +761,7 @@ Base URL: `https://berdl.kbase.us/apis/cts`
 2. **Determine the execution path** — if the user's tool is in the registry, use Path A (pre-built image). If not, use Path B (generic ubuntu script).
 3. **Always use digest-pinned image references** — from the `get_images()` response, use `name:tag@sha256:digest` format in every `submit_job` call (e.g. `ghcr.io/kbaseincubator/cdm_bakta:0.1.3@sha256:ab3d...`). Tell the user which tag and digest you are using. Never hardcode a digest from memory or this skill — always fetch it live.
 4. **Ensure input files are staged before submitting** — for both Path A and Path B, walk the user through uploading their input files to MinIO with `mc cp --checksum crc64nvme` (or the Python MinIO client on JupyterHub). Confirm files are staged before building the `submit_job` call. Build the `input_files` list from the staged MinIO paths.
-5. **For pre-built images** — `Read` `.claude/skills/remote-compute/references/images.md` to get the full submit_job example, resource guidance, and special notes for the specific tool. Use that as the starting template. Fill in the user's actual MinIO paths for `input_files` and `output_dir`. Help the user determine `num_containers` and resource parameters based on their input count and the per-tool guidance in that file.
+5. **For pre-built images** — `Read` the tool's reference file at `.claude/skills/remote-compute/references/<toolname>.md` (e.g. `references/gtdbtk.md`, `references/bakta.md`). The filename matches the image name pattern without the `cdm_` prefix — the lookup table is in the "Available pre-built images" section above. Use the reference file as the starting template. Fill in the user's actual MinIO paths for `input_files` and `output_dir`. Help the user determine `num_containers` and resource parameters based on their input count and the per-tool guidance in that file.
 6. **For the generic script path** — help the user write a self-contained bash script, upload it with checksums alongside their data, and submit. The script should install its dependencies at the top.
 7. **Before submitting — confirm with the user** — summarize the job: tool, image+digest, input file count, `num_containers`, memory, runtime, and output path. Ask the user to confirm before calling `submit_job`. This prevents wasted cluster time from wrong arguments.
 8. **After submission — display the job ID prominently and save it to a file** — print it clearly and write it to `projects/<id>/data/cts_job_id.txt` (or equivalent). The user needs it to check status or retrieve results, and may lose it if the notebook closes.
