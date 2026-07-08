@@ -4,7 +4,7 @@
 Beyond presence/absence, do adaptive vs housekeeping genes show different paralog copy number patterns within bacterial pangenomes?
 
 ## Status
-Reviewed — REVIEW_2.md drafted; awaiting /submit.
+Completed — adaptive gene clusters show 8.14× higher copy number variation than housekeeping clusters across 24 bacterial species / 5 phyla (paired Wilcoxon p = 5.96 × 10⁻⁸); effect concentrates in accessory clusters (adaptive-accessory 25× adaptive-core).
 
 ## Overview
 Existing pangenome studies characterize genes as core vs accessory (present/absent), but ignore **copy number within a genome** — how many paralogs of a gene cluster does each genome carry? This project tests whether housekeeping genes (F = nucleotide metabolism, H = coenzyme metabolism) maintain fixed copy numbers while adaptive genes (L, V, M, K — mobile elements, defense, cell wall, transcription) tolerate variation.
