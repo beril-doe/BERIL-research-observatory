@@ -4,7 +4,7 @@
 Beyond presence/absence, do adaptive vs housekeeping genes show different paralog copy number patterns within bacterial pangenomes?
 
 ## Status
-Reviewed — REVIEW_1.md drafted; awaiting /submit.
+Analysis — report drafted, awaiting `/berdl-review` and `/submit`.
 
 ## Overview
 Existing pangenome studies characterize genes as core vs accessory (present/absent), but ignore **copy number within a genome** — how many paralogs of a gene cluster does each genome carry? This project tests whether housekeeping genes (F = nucleotide metabolism, H = coenzyme metabolism) maintain fixed copy numbers while adaptive genes (L, V, M, K — mobile elements, defense, cell wall, transcription) tolerate variation.
@@ -34,7 +34,7 @@ Total wall-clock ~90 min (dominated by the multi-species extraction).
 
 1. **NB01 — Pilot exploration** (~10 min): `01_pilot_exploration.ipynb`. Extracts per-cluster per-genome copy counts for 5 pilot species. Writes `data/pilot_copy_numbers.csv` and `data/pilot_cog_stats.csv`.
 2. **NB01b — Pilot with refined metrics** (~30 s, pandas-only): `01b_pilot_refined_metrics.ipynb`. Re-analyzes NB01 output with cluster-carrier-weighted metrics; runs the pre-registered pass/fail gates that authorized the scale-up. Writes `data/pilot_refined_metrics.csv`.
-3. **NB02 — Manifest generation & concatenation** (~1 min for manifest + concat; extraction is externalized): `02_multi_species_scale.ipynb`. Cell 1 generates `data/species_manifest.csv` (52 candidates) and `data/species_manifest_25.csv` (24-species reduced manifest). Cell 2 verifies `data/per_species/*.csv` are present (assertion). Cell 3 concatenates into `data/multi_species_copy_stats.csv`.
+3. **NB02 — Manifest generation & concatenation** (~1 min for manifest + concat; the ~80-min extraction is externalized to `src/extract_multi_species.py`): `02_multi_species_scale.ipynb`. Cell 1 generates `data/species_manifest.csv` (52 candidates) and `data/species_manifest_25.csv` (24-species reduced manifest). **Between Cell 1 and Cell 2, run the extraction script** (Step 4). Cell 2 verifies `data/per_species/*.csv` are present (assertion). Cell 3 concatenates into `data/multi_species_copy_stats.csv`. The notebook is deliberately a thin manifest+concat wrapper: `jupyter nbconvert --execute` cannot reliably drive an ~80-min Spark loop (see `memories/pitfalls.md`), so the compute lives in a standalone resumable script and the notebook holds the audit trail.
 4. **Extraction script** (~80 min, run externally between NB02 cell 1 and cell 2):
    ```bash
    python projects/gene_copy_number_variation/src/extract_multi_species.py \

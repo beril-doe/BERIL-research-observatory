@@ -59,6 +59,17 @@ def main():
     spark = get_spark_session()
     print('Spark session ready', flush=True)
 
+    n = spark.sql("SHOW TABLES IN kbase_ke_pangenome").count()
+    if n == 0:
+        raise SystemExit(
+            "Namespace sanity check failed: kbase_ke_pangenome has no tables. "
+            "The collection may have migrated to the dotted Iceberg form "
+            "(kbase.ke_pangenome) — see docs/pitfalls.md 'Namespace Convention "
+            "Changed from Underscores to Dots'. Update the SQL to the dotted "
+            "form and re-run."
+        )
+    print(f'Namespace check OK: kbase_ke_pangenome has {n} tables', flush=True)
+
     t_start = time.time()
     for i, row in manifest.iterrows():
         out_path = output_dir / f'{row.species_prefix}.csv'
