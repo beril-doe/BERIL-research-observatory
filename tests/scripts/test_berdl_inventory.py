@@ -3,6 +3,20 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolate_default_cache(tmp_path_factory, monkeypatch):
+    """Point the default inventory cache at a temp file so main() never reads or
+    writes the repo's real data/berdl_inventory_cache.json during tests."""
+    import scripts.berdl_inventory as mod
+    monkeypatch.setattr(
+        mod,
+        "_DEFAULT_CACHE",
+        tmp_path_factory.mktemp("inv_cache") / "berdl_inventory_cache.json",
+    )
+
 
 def _tenant(name, prefix="", **kwargs):
     from scripts.berdl_inventory import TenantInfo
@@ -440,3 +454,306 @@ def test_main_default_output_path_resolves_under_repo_root():
     """Sanity check that the default output path lives at <repo>/data/berdl_inventory.md."""
     from scripts.berdl_inventory import _DEFAULT_OUTPUT, _REPO_ROOT
     assert _DEFAULT_OUTPUT == _REPO_ROOT / "data" / "berdl_inventory.md"
+
+
+# --- Inventory caching (Tasks 1-6) -----------------------------------------
+
+
+def test_token_fingerprint_hashes_env_token(monkeypatch):
+    from scripts.berdl_inventory import _token_fingerprint
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "secret-abc")
+    fp = _token_fingerprint()
+    assert fp.startswith("sha256:")
+    assert "secret-abc" not in fp
+    assert len(fp) == len("sha256:") + 12
+    assert _token_fingerprint() == fp
+
+
+def test_token_fingerprint_sentinel_when_unset(monkeypatch):
+    from scripts.berdl_inventory import _token_fingerprint
+    monkeypatch.delenv("KBASE_AUTH_TOKEN", raising=False)
+    assert _token_fingerprint() == "sha256:none"
+
+
+def test_now_is_timezone_aware():
+    from scripts.berdl_inventory import _now
+    assert _now().tzinfo is not None
+
+
+def test_cache_round_trip_preserves_structure_and_tenants(tmp_path):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import CacheEntry, write_cache, load_cache, TenantInfo
+    path = tmp_path / "cache.json"
+    entry = CacheEntry(
+        environment="off-cluster",
+        token_fp="sha256:abc123abc123",
+        fetched_at=datetime(2026, 7, 5, 14, 22, 7, tzinfo=timezone.utc),
+        structure={"kbase.genomes": ["t1", "t2"]},
+        tenants=[TenantInfo(name="kbase", display_name="KBase", stewards=["u1"])],
+    )
+    write_cache(path, entry)
+    loaded = load_cache(path)
+    assert loaded.environment == "off-cluster"
+    assert loaded.token_fp == "sha256:abc123abc123"
+    assert loaded.fetched_at == entry.fetched_at
+    assert loaded.structure == {"kbase.genomes": ["t1", "t2"]}
+    assert loaded.tenants[0].name == "kbase"
+    assert loaded.tenants[0].display_name == "KBase"
+    assert loaded.tenants[0].stewards == ["u1"]
+
+
+def test_cache_write_does_not_store_raw_token(tmp_path):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import CacheEntry, write_cache
+    path = tmp_path / "cache.json"
+    write_cache(path, CacheEntry("off-cluster", "sha256:deadbeefdead",
+                                 datetime(2026, 1, 1, tzinfo=timezone.utc), {}, []))
+    assert "deadbeef" in path.read_text()
+    assert "KBASE_AUTH_TOKEN" not in path.read_text()
+
+
+def test_load_cache_returns_none_on_missing_file(tmp_path):
+    from scripts.berdl_inventory import load_cache
+    assert load_cache(tmp_path / "nope.json") is None
+
+
+def test_load_cache_returns_none_on_corrupt_json(tmp_path):
+    from scripts.berdl_inventory import load_cache
+    path = tmp_path / "cache.json"
+    path.write_text("{ this is not json")
+    assert load_cache(path) is None
+
+
+def test_load_cache_returns_none_on_missing_keys(tmp_path):
+    from scripts.berdl_inventory import load_cache
+    path = tmp_path / "cache.json"
+    path.write_text('{"meta": {}, "structure": {}}')
+    assert load_cache(path) is None
+
+
+def _entry(environment="off-cluster", token_fp="sha256:aaa", fetched_at=None):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import CacheEntry
+    return CacheEntry(environment, token_fp,
+                      fetched_at or datetime(2026, 7, 1, tzinfo=timezone.utc), {}, [])
+
+
+def test_cache_fresh_when_recent_and_matching():
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import _cache_is_fresh
+    now = datetime(2026, 7, 5, tzinfo=timezone.utc)
+    assert _cache_is_fresh(_entry(), "off-cluster", "sha256:aaa", 7, now) is True
+
+
+def test_cache_stale_when_older_than_ttl():
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import _cache_is_fresh
+    now = datetime(2026, 7, 10, tzinfo=timezone.utc)
+    assert _cache_is_fresh(_entry(), "off-cluster", "sha256:aaa", 7, now) is False
+
+
+def test_cache_miss_on_environment_mismatch():
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import _cache_is_fresh
+    now = datetime(2026, 7, 2, tzinfo=timezone.utc)
+    assert _cache_is_fresh(_entry(environment="on-cluster"),
+                           "off-cluster", "sha256:aaa", 7, now) is False
+
+
+def test_cache_miss_on_token_mismatch():
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import _cache_is_fresh
+    now = datetime(2026, 7, 2, tzinfo=timezone.utc)
+    assert _cache_is_fresh(_entry(token_fp="sha256:bbb"),
+                           "off-cluster", "sha256:aaa", 7, now) is False
+
+
+def test_format_age_units():
+    from datetime import timedelta
+    from scripts.berdl_inventory import _format_age
+    assert _format_age(timedelta(minutes=5)) == "5 minutes ago"
+    assert _format_age(timedelta(minutes=1)) == "1 minute ago"
+    assert _format_age(timedelta(hours=3)) == "3 hours ago"
+    assert _format_age(timedelta(days=1)) == "1 day ago"
+    assert _format_age(timedelta(days=3, hours=4)) == "3 days ago"
+    assert _format_age(timedelta(seconds=10)) == "1 minute ago"
+
+
+def test_banner_cache_hit_mentions_age_env_and_refresh():
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import _banner
+    fetched = datetime(2026, 7, 2, 14, 22, tzinfo=timezone.utc)
+    now = datetime(2026, 7, 5, 14, 22, tzinfo=timezone.utc)
+    b = _banner("cache", "off-cluster", fetched, now, emoji=True)
+    assert "Cached 3 days ago" in b
+    assert "off-cluster" in b
+    assert "--refresh" in b
+    assert "2026-07-02 14:22 UTC" in b
+    assert b.startswith("_\U0001F4E6")
+
+
+def test_banner_expired_and_first_run():
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import _banner
+    now = datetime(2026, 7, 5, tzinfo=timezone.utc)
+    expired = _banner("expired", "on-cluster", None, now, emoji=True)
+    first = _banner("first", "on-cluster", None, now, emoji=True)
+    assert "cache expired" in expired and "on-cluster" in expired
+    assert "first run" in first and "on-cluster" in first
+
+
+def test_banner_no_emoji_drops_glyph():
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import _banner
+    fetched = datetime(2026, 7, 2, tzinfo=timezone.utc)
+    now = datetime(2026, 7, 3, tzinfo=timezone.utc)
+    b = _banner("cache", "off-cluster", fetched, now, emoji=False)
+    assert "\U0001F4E6" not in b
+    assert b.startswith("_Cached")
+
+
+def test_parse_args_cache_flag_defaults():
+    from scripts.berdl_inventory import parse_args, _DEFAULT_CACHE
+    ns = parse_args([])
+    assert ns.refresh is False
+    assert ns.no_cache is False
+    assert ns.ttl_days is None
+    assert ns.cache_path == _DEFAULT_CACHE
+
+
+def test_parse_args_cache_flags_set():
+    from pathlib import Path
+    from scripts.berdl_inventory import parse_args
+    ns = parse_args(["--refresh", "--no-cache", "--ttl-days", "3",
+                     "--cache-path", "/tmp/c.json"])
+    assert ns.refresh is True
+    assert ns.no_cache is True
+    assert ns.ttl_days == 3
+    assert ns.cache_path == Path("/tmp/c.json")
+
+
+def test_main_cache_hit_skips_fetch(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main, CacheEntry, write_cache, TenantInfo
+    import scripts.berdl_inventory as mod
+
+    cache = tmp_path / "cache.json"
+    out = tmp_path / "inv.md"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now",
+                        lambda: datetime(2026, 7, 3, tzinfo=timezone.utc))
+    write_cache(cache, CacheEntry(
+        environment="off-cluster", token_fp=mod._token_fingerprint(),
+        fetched_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        structure={"kbase.genomes": ["g1"]}, tenants=[TenantInfo(name="kbase")]))
+
+    def boom():
+        raise AssertionError("fetch should not be called on a cache hit")
+    monkeypatch.setattr(mod, "fetch_off_cluster", boom)
+
+    rc = main(["--off-cluster", "--no-emoji", "--cache-path", str(cache),
+               "--output", str(out)])
+    assert rc == 0
+    printed = capsys.readouterr().out
+    assert "Cached 2 days ago" in printed
+    assert "Cached 2 days ago" in out.read_text()
+
+
+def test_main_cache_miss_expired_refetches_and_rewrites(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main, CacheEntry, write_cache, load_cache
+    import scripts.berdl_inventory as mod
+
+    cache = tmp_path / "cache.json"
+    out = tmp_path / "inv.md"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now",
+                        lambda: datetime(2026, 7, 20, tzinfo=timezone.utc))
+    write_cache(cache, CacheEntry(
+        environment="off-cluster", token_fp=mod._token_fingerprint(),
+        fetched_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        structure={"old.db": ["x"]}, tenants=[]))
+
+    monkeypatch.setattr(mod, "fetch_off_cluster",
+                        lambda: {"kbase.new": ["fresh1"]})
+    rc = main(["--off-cluster", "--no-emoji", "--cache-path", str(cache),
+               "--output", str(out)])
+    assert rc == 0
+    assert "cache expired, refetched just now" in capsys.readouterr().out
+    reloaded = load_cache(cache)
+    assert reloaded.structure == {"kbase.new": ["fresh1"]}
+    assert reloaded.fetched_at == datetime(2026, 7, 20, tzinfo=timezone.utc)
+
+
+def test_main_first_run_writes_cache(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main, load_cache
+    import scripts.berdl_inventory as mod
+    cache = tmp_path / "cache.json"
+    out = tmp_path / "inv.md"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 5, tzinfo=timezone.utc))
+    monkeypatch.setattr(mod, "fetch_off_cluster", lambda: {"kbase.x": ["t1"]})
+    rc = main(["--off-cluster", "--no-emoji", "--cache-path", str(cache),
+               "--output", str(out)])
+    assert rc == 0
+    assert "first run" in capsys.readouterr().out
+    assert load_cache(cache).structure == {"kbase.x": ["t1"]}
+
+
+def test_main_refresh_forces_fetch_over_fresh_cache(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main, CacheEntry, write_cache, TenantInfo
+    import scripts.berdl_inventory as mod
+    cache = tmp_path / "cache.json"
+    out = tmp_path / "inv.md"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 2, tzinfo=timezone.utc))
+    write_cache(cache, CacheEntry(
+        environment="off-cluster", token_fp=mod._token_fingerprint(),
+        fetched_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        structure={"stale.db": ["x"]}, tenants=[TenantInfo(name="kbase")]))
+    called = {"n": 0}
+    def fetch():
+        called["n"] += 1
+        return {"kbase.fresh": ["y"]}
+    monkeypatch.setattr(mod, "fetch_off_cluster", fetch)
+    rc = main(["--off-cluster", "--no-emoji", "--refresh",
+               "--cache-path", str(cache), "--output", str(out)])
+    assert rc == 0
+    assert called["n"] == 1
+    assert "kbase.fresh" in out.read_text()
+
+
+def test_main_no_cache_neither_reads_nor_writes(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main
+    import scripts.berdl_inventory as mod
+    cache = tmp_path / "cache.json"
+    out = tmp_path / "inv.md"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 5, tzinfo=timezone.utc))
+    monkeypatch.setattr(mod, "fetch_off_cluster", lambda: {"kbase.x": ["t1"]})
+    rc = main(["--off-cluster", "--no-emoji", "--no-cache",
+               "--cache-path", str(cache), "--output", str(out)])
+    assert rc == 0
+    assert not cache.exists()
+
+
+def test_main_ttl_days_flag_controls_freshness(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main, CacheEntry, write_cache
+    import scripts.berdl_inventory as mod
+    cache = tmp_path / "cache.json"
+    out = tmp_path / "inv.md"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 6, tzinfo=timezone.utc))
+    write_cache(cache, CacheEntry(
+        environment="off-cluster", token_fp=mod._token_fingerprint(),
+        fetched_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        structure={"stale.db": ["x"]}, tenants=[]))
+    monkeypatch.setattr(mod, "fetch_off_cluster", lambda: {"kbase.fresh": ["y"]})
+    rc = main(["--off-cluster", "--no-emoji", "--ttl-days", "3",
+               "--cache-path", str(cache), "--output", str(out)])
+    assert rc == 0
+    assert "kbase.fresh" in out.read_text()

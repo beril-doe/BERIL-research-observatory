@@ -50,10 +50,14 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import os
 import socket
 import sys
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Default location for the full markdown report. Resolved against the repo root
@@ -61,6 +65,31 @@ from pathlib import Path
 # the user's CWD when invoking the script.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_OUTPUT = _REPO_ROOT / "data" / "berdl_inventory.md"
+
+_DEFAULT_CACHE = _REPO_ROOT / "data" / "berdl_inventory_cache.json"
+
+# Default cache lifetime (days). Overridable via --ttl-days or the
+# BERDL_INVENTORY_TTL_DAYS env var. The inventory (tenants, databases) changes
+# on the order of days, so a week means the stale path is hit almost never.
+_DEFAULT_TTL_DAYS = 7
+
+
+def _now() -> datetime:
+    """Current UTC time. Wrapped so tests can monkeypatch the clock."""
+    return datetime.now(timezone.utc)
+
+
+def _token_fingerprint() -> str:
+    """Stable, non-reversible fingerprint of KBASE_AUTH_TOKEN for the cache key.
+
+    The inventory is access-aware (token-scoped), so a cache built under one
+    token must not be served under another. We store only a short hash; the
+    token itself never touches the cache file. Returns a sentinel when unset.
+    """
+    token = os.environ.get("KBASE_AUTH_TOKEN") or ""
+    if not token:
+        return "sha256:none"
+    return "sha256:" + hashlib.sha256(token.encode()).hexdigest()[:12]
 
 
 # Tenants that exist but should never appear in the user-facing inventory —
@@ -85,6 +114,102 @@ class TenantInfo:
     members_ro: list[str] = field(default_factory=list)
     is_member: bool = False
     is_steward: bool = False
+
+
+@dataclass
+class CacheEntry:
+    """A cached inventory snapshot plus the provenance used to validate reuse."""
+
+    environment: str
+    token_fp: str
+    fetched_at: datetime
+    structure: dict[str, list[str]]
+    tenants: list[TenantInfo]
+
+
+def write_cache(path: Path, entry: CacheEntry) -> None:
+    """Serialize a CacheEntry to JSON.
+
+    Mirrors the timestamp.json idiom in scripts/build_data_cache.py: a small
+    meta block (provenance for validation) plus the payload.
+    """
+    payload = {
+        "meta": {
+            "environment": entry.environment,
+            "token_fp": entry.token_fp,
+            "fetched_at": entry.fetched_at.isoformat(),
+        },
+        "structure": entry.structure,
+        "tenants": [asdict(t) for t in entry.tenants],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def load_cache(path: Path) -> CacheEntry | None:
+    """Load a CacheEntry, or None if the file is missing, corrupt, or malformed.
+
+    Any failure is a cache miss, never a crash — the caller refetches.
+    """
+    try:
+        payload = json.loads(path.read_text())
+        meta = payload["meta"]
+        return CacheEntry(
+            environment=meta["environment"],
+            token_fp=meta["token_fp"],
+            fetched_at=datetime.fromisoformat(meta["fetched_at"]),
+            structure=payload["structure"],
+            tenants=[TenantInfo(**t) for t in payload["tenants"]],
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _cache_is_fresh(
+    entry: CacheEntry, environment: str, token_fp: str, ttl_days: int, now: datetime
+) -> bool:
+    """True only if the cache matches the current context and is within TTL."""
+    if entry.environment != environment or entry.token_fp != token_fp:
+        return False
+    return (now - entry.fetched_at) < timedelta(days=ttl_days)
+
+
+def _format_age(delta: timedelta) -> str:
+    """Human age in the largest natural unit; floors to at least 1 minute."""
+    secs = int(delta.total_seconds())
+    if secs < 3600:
+        n, unit = max(1, secs // 60), "minute"
+    elif secs < 86400:
+        n, unit = secs // 3600, "hour"
+    else:
+        n, unit = secs // 86400, "day"
+    return f"{n} {unit}{'s' if n != 1 else ''} ago"
+
+
+def _banner(
+    source: str,
+    environment: str,
+    fetched_at: datetime | None,
+    now: datetime,
+    emoji: bool,
+) -> str:
+    """One-line freshness banner prepended to both stdout and the .md report.
+
+    source: 'cache' (hit), 'expired' (stale refetch), or 'first' (no prior cache).
+    """
+    if source == "cache":
+        assert fetched_at is not None
+        icon = "📦 " if emoji else ""
+        age = _format_age(now - fetched_at)
+        stamp = fetched_at.strftime("%Y-%m-%d %H:%M UTC")
+        return (
+            f"_{icon}Cached {age} (fetched {stamp}, {environment}). "
+            "Run `python scripts/berdl_inventory.py --refresh` to update._"
+        )
+    icon = "🔄 " if emoji else ""
+    if source == "expired":
+        return f"_{icon}Live inventory — cache expired, refetched just now ({environment})._"
+    return f"_{icon}Live inventory — first run ({environment})._"
 
 
 def _split_tenant_prefix(database: str) -> str:
@@ -569,6 +694,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Print the full report to stdout instead of the compact summary.",
     )
+    p.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Force a live fetch and rewrite the cache, ignoring TTL and fingerprint.",
+    )
+    p.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Bypass the cache for read and write (one-shot live fetch).",
+    )
+    p.add_argument(
+        "--ttl-days",
+        type=int,
+        default=None,
+        help="Cache lifetime in days (default: 7, or $BERDL_INVENTORY_TTL_DAYS).",
+    )
+    p.add_argument(
+        "--cache-path",
+        type=Path,
+        default=_DEFAULT_CACHE,
+        help=f"Where the JSON inventory cache lives (default: {_DEFAULT_CACHE}).",
+    )
     return p.parse_args(argv)
 
 
@@ -578,7 +725,34 @@ def main(argv: list[str] | None = None) -> int:
     structure: dict[str, list[str]] | None = None
     tenants: list[TenantInfo] = []
 
-    if not args.off_cluster:
+    environment = (
+        "off-cluster"
+        if args.off_cluster
+        else ("on-cluster" if _is_on_cluster() else "off-cluster")
+    )
+    token_fp = _token_fingerprint()
+    ttl_days = (
+        args.ttl_days
+        if args.ttl_days is not None
+        else int(os.environ.get("BERDL_INVENTORY_TTL_DAYS", _DEFAULT_TTL_DAYS))
+    )
+    now = _now()
+
+    # Was there a prior cache file? Drives the 'expired' vs 'first' banner on a miss.
+    had_cache = args.cache_path.exists()
+    banner_source: str | None = None
+    banner_fetched_at: datetime | None = None
+
+    # Cache gate — runs before any fetch so a hit never imports/spawns Spark.
+    if not args.refresh and not args.no_cache:
+        entry = load_cache(args.cache_path)
+        if entry is not None and _cache_is_fresh(entry, environment, token_fp, ttl_days, now):
+            structure = entry.structure
+            tenants = entry.tenants
+            banner_source = "cache"
+            banner_fetched_at = entry.fetched_at
+
+    if structure is None and not args.off_cluster:
         try:
             structure = fetch_structure_on_cluster()
             tenants = fetch_tenants_on_cluster()
@@ -629,6 +803,25 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Failed to fetch inventory: {exc}", file=sys.stderr)
             return 1
 
+    # On a miss we fetched live — stamp provenance and (unless suppressed) cache it.
+    if banner_source is None:
+        banner_source = "expired" if had_cache else "first"
+        if not args.no_cache:
+            try:
+                write_cache(
+                    args.cache_path,
+                    CacheEntry(environment, token_fp, now, structure, tenants),
+                )
+            except OSError as exc:
+                print(
+                    f"# WARN: could not write cache to {args.cache_path}: {exc}",
+                    file=sys.stderr,
+                )
+
+    banner = _banner(
+        banner_source, environment, banner_fetched_at, now, emoji=not args.no_emoji
+    )
+
     full_report = format_inventory(
         structure,
         tenants=tenants,
@@ -636,6 +829,7 @@ def main(argv: list[str] | None = None) -> int:
         emoji=not args.no_emoji,
         with_members=args.with_members,
     )
+    full_report = f"{banner}\n\n{full_report}"
 
     written_path: Path | None = None
     if not args.no_file:
@@ -661,14 +855,13 @@ def main(argv: list[str] | None = None) -> int:
                 display_path = str(written_path.relative_to(_REPO_ROOT))
             except ValueError:
                 display_path = str(written_path)
-        print(
-            format_summary(
-                structure,
-                tenants=tenants,
-                full_report_path=display_path,
-                emoji=not args.no_emoji,
-            )
+        summary = format_summary(
+            structure,
+            tenants=tenants,
+            full_report_path=display_path,
+            emoji=not args.no_emoji,
         )
+        print(f"{banner}\n\n{summary}")
     return 0
 
 
