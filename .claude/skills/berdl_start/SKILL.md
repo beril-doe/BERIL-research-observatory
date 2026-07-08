@@ -121,6 +121,12 @@ After Phase 1.5 reports ready, print the live database inventory:
 python scripts/berdl_inventory.py
 ```
 
+**Cache-backed (fast on repeat runs).** The first run does a live fetch and caches the result to `data/berdl_inventory_cache.json` (keyed by environment + auth token). Subsequent runs within 7 days serve from that cache in a fraction of a second without touching Spark; past 7 days the script auto-refetches once. The stdout summary and `data/berdl_inventory.md` both carry a freshness banner — **paste that banner verbatim** so the user sees how old the data is (e.g. "Cached 3 days ago …"). To force a refresh at any time:
+
+```bash
+python scripts/berdl_inventory.py --refresh
+```
+
 This is plain `python` in **both** environments. It auto-detects on-cluster vs off-cluster and picks the right discovery path.
 
 - **On-cluster (JupyterHub):** the JH kernel already has every import. Just run the command above.
@@ -145,6 +151,9 @@ Useful flags:
 - `--with-members` — list each tenant's read-write and read-only members in the full report.
 - `--no-emoji` — plain-text output.
 - `--off-cluster` — force the off-cluster path.
+- `--refresh` — force a live fetch and rewrite the cache (ignores the 7-day TTL).
+- `--no-cache` — one-shot live fetch that neither reads nor writes the cache.
+- `--ttl-days N` — override the 7-day cache lifetime (also `BERDL_INVENTORY_TTL_DAYS`).
 
 For deeper inspection, suggest the user run:
 - `DESCRIBE DATABASE EXTENDED <db>` — database-level description / location / properties.
