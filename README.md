@@ -62,6 +62,13 @@ beril setup             # interactive onboarding — configures .env, checks pre
 
 On BERDL JupyterHub, `beril setup` auto-detects your `KBASE_AUTH_TOKEN` and MinIO credentials from the environment.
 
+> 🧭 **Set up OpenViking — the default knowledge layer (do this first).**
+> OpenViking indexes every project report and central doc so the agent can find prior
+> work, related research, and answer "has this been done?" — it's the default way BERIL
+> looks things up. One-time API-key setup, ~2 min:
+> **[docs/remote-openviking-setup.md](docs/remote-openviking-setup.md)**.
+> Skip it now and `/berdl_start` will surface the same steps when you launch the agent.
+
 Once set up, use `beril doctor` to check your environment and `beril start` to launch your coding agent.
 
 ### Manual Setup
@@ -151,24 +158,6 @@ BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environ
    ```bash
    KBASE_AUTH_TOKEN="your-token-here"
    ```
-
----
-
-### Knowledge context (remote OpenViking)
-
-BERIL indexes project reports and central docs in a shared **OpenViking**
-knowledge server, searchable with `knowledge/scripts/knowledge_query.py`. To use
-the remote server you need a one-time API key. Get one with:
-
-```bash
-uv run knowledge/scripts/setup_remote_ov.py --cookie '<your beril_session cookie>'
-uv run --env-file .env knowledge/scripts/knowledge_query.py doctor   # verify
-```
-
-Full walkthrough (how to get the cookie, troubleshooting, rotation):
-**[docs/remote-openviking-setup.md](docs/remote-openviking-setup.md)**. The
-query toolkit itself is documented in the `knowledge-context` skill and
-[docs/openviking.md](docs/openviking.md).
 
 ---
 

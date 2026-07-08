@@ -184,11 +184,21 @@ uv run --env-file .env knowledge/scripts/knowledge_query.py doctor
   **Do not enumerate `projects/` or read `projects/*/README.md` / REPORTs by hand for
   context** — the server has them indexed and ranked, and hand-scanning misses the
   cross-project connections it surfaces.
-- **NO API KEY / AUTH FAILED** → the remote layer needs a key. Tell the user:
-  `uv run knowledge/scripts/setup_remote_ov.py --cookie '<beril_session>'`
-  (walkthrough: `docs/remote-openviking-setup.md`). Until then keep using
-  `knowledge_query.py` — `find` / `grep` / `read` / `overview` fall back to local
-  search over the same corpus.
+- **NO API KEY / AUTH FAILED** → server is up but you have no valid key. OpenViking is
+  the default knowledge layer, so surface these steps to the user, then continue
+  (non-blocking — don't wait on them):
+
+  > **Set up OpenViking (~2 min, one-time):**
+  > 1. Open `https://beril-dev.kbase.us` and log in with your ORCiD.
+  > 2. Copy the `beril_session` cookie (DevTools → Application/Storage → Cookies).
+  > 3. In **your own terminal** (never paste the cookie into chat):
+  >    `uv run knowledge/scripts/setup_remote_ov.py --cookie '<paste beril_session value>'`
+  > 4. Verify: `uv run --env-file .env knowledge/scripts/knowledge_query.py doctor` → `OpenViking: OK`.
+  > Full walkthrough & troubleshooting: `docs/remote-openviking-setup.md`.
+
+  Until the key is set, knowledge-layer queries won't return results — the server is
+  reachable, so there's no local fallback (that only applies to `UNREACHABLE`). Setting
+  up the key is what unblocks `find` / `grep` / `read` / `overview`.
 - **UNREACHABLE** → no server; `find` / `grep` / `read` / `overview` still work via
   local fallback, so keep using them instead of hand-scanning. Only
   `relations` / `glob` / `ls` / `tree` / `stat` need the server — for those, a plain
