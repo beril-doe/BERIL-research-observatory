@@ -4,7 +4,7 @@
 Beyond presence/absence, do adaptive vs housekeeping genes show different paralog copy number patterns within bacterial pangenomes?
 
 ## Status
-Analysis — report drafted, awaiting `/berdl-review` and `/submit`.
+Reviewed — REVIEW_2.md drafted; awaiting /submit.
 
 ## Overview
 Existing pangenome studies characterize genes as core vs accessory (present/absent), but ignore **copy number within a genome** — how many paralogs of a gene cluster does each genome carry? This project tests whether housekeeping genes (F = nucleotide metabolism, H = coenzyme metabolism) maintain fixed copy numbers while adaptive genes (L, V, M, K — mobile elements, defense, cell wall, transcription) tolerate variation.
@@ -14,7 +14,8 @@ Existing pangenome studies characterize genes as core vs accessory (present/abse
 ## Quick Links
 - [Research Plan](RESEARCH_PLAN.md) — hypothesis, approach, query strategy
 - [Report](REPORT.md) — findings, interpretation, supporting evidence
-- [Review 1](REVIEW_1.md) — independent AI review (claude-sonnet-4-5)
+- [Review 1](REVIEW_1.md) — first independent AI review (claude-sonnet-4-5); critical issues addressed
+- [Review 2](REVIEW_2.md) — post-fix re-review (claude-sonnet-4-5); no critical/important issues remaining
 
 ## Data Sources
 
