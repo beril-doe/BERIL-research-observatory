@@ -45,13 +45,22 @@ Examples:
     python scripts/berdl_inventory.py --sample 5     # show up to 5 table names per database (in the full report)
     python scripts/berdl_inventory.py --with-members # include steward / RW / RO lists in the full report
     python scripts/berdl_inventory.py --no-emoji     # plain text
+    python scripts/berdl_inventory.py --refresh      # force a live refetch, rewrite the cache
+
+The result is cached to `data/berdl_inventory_cache.json` (keyed by environment
++ auth-token fingerprint, 7-day TTL) and served before any Spark import, so a
+hit costs milliseconds instead of minutes. A fetch in which any database failed
+to list is reported as partial and is never cached — a transient auth error must
+not pin a lossy inventory for the whole TTL.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
+import logging
 import os
 import socket
 import sys
@@ -59,6 +68,22 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+logger = logging.getLogger("berdl_inventory")
+
+# Warnings here mean *databases or tables went missing* from the snapshot, which
+# makes it unsafe to cache. berdl_notebook_utils.get_tables() swallows a
+# per-database listing failure and returns [] ("Empty list on lookup failure
+# (logged)"), so an auth blip on one namespace looks like an empty database
+# rather than an error; the WARNING it logs is the only signal.
+structure_logger = logging.getLogger("berdl_inventory.structure")
+
+# Deliberately excludes the parent "berdl_inventory" logger, which carries
+# tenant-metadata warnings (a failed get_tenant_detail costs a display name or a
+# steward list, not a database). Those must not block caching: a tenant that
+# consistently 403s for one user would otherwise disable their cache forever and
+# restore the multi-minute startup this cache exists to avoid.
+_WATCHED_LOGGERS = ("berdl_notebook_utils", "berdl_inventory.structure")
 
 # Default location for the full markdown report. Resolved against the repo root
 # (the parent of the scripts/ directory) so the path is stable regardless of
@@ -77,6 +102,71 @@ _DEFAULT_TTL_DAYS = 7
 def _now() -> datetime:
     """Current UTC time. Wrapped so tests can monkeypatch the clock."""
     return datetime.now(timezone.utc)
+
+
+class _FailureWatcher(logging.Handler):
+    """Counts warnings emitted during a fetch, and echoes them to stderr.
+
+    Doubles as the display handler: attaching any handler to the watched
+    loggers suppresses logging's lastResort stderr output, so this must print
+    what it captures or the warnings would vanish.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.messages: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        msg = record.getMessage()
+        self.messages.append(msg)
+        print(f"# WARN: {msg}", file=sys.stderr)
+
+    @property
+    def degraded(self) -> bool:
+        return bool(self.messages)
+
+
+@contextlib.contextmanager
+def _watch_fetch_failures():
+    """Watch the fetch for warnings that mean databases are missing.
+
+    Conservative within that scope: any warning on a watched logger marks the
+    fetch degraded, and a degraded snapshot is never cached. A false positive
+    costs one uncached run (loud, on stderr); a false negative would pin partial
+    data for the whole TTL.
+    """
+    watcher = _FailureWatcher()
+    watched = [logging.getLogger(name) for name in _WATCHED_LOGGERS]
+    for lg in watched:
+        lg.addHandler(watcher)
+    try:
+        yield watcher
+    finally:
+        for lg in watched:
+            lg.removeHandler(watcher)
+
+
+def _resolve_ttl_days(cli_value: int | None) -> int:
+    """CLI flag > $BERDL_INVENTORY_TTL_DAYS > default.
+
+    A malformed env var must not take down the inventory: berdl_start shells
+    out to this script on every startup, so an unparseable (or exported-but-
+    empty) value falls back to the default with a warning rather than raising.
+    """
+    if cli_value is not None:
+        return cli_value
+    raw = os.environ.get("BERDL_INVENTORY_TTL_DAYS")
+    if raw is None or not raw.strip():
+        return _DEFAULT_TTL_DAYS
+    try:
+        return int(raw)
+    except ValueError:
+        print(
+            f"# WARN: ignoring BERDL_INVENTORY_TTL_DAYS={raw!r} "
+            f"(not an integer); using {_DEFAULT_TTL_DAYS} days.",
+            file=sys.stderr,
+        )
+        return _DEFAULT_TTL_DAYS
 
 
 def _token_fingerprint() -> str:
@@ -154,10 +244,16 @@ def load_cache(path: Path) -> CacheEntry | None:
     try:
         payload = json.loads(path.read_text())
         meta = payload["meta"]
+        fetched_at = datetime.fromisoformat(meta["fetched_at"])
+        # A tz-naive timestamp parses cleanly but would raise TypeError when
+        # subtracted from the aware _now() in _cache_is_fresh. Treat it as
+        # malformed here so the "any failure is a miss" contract holds.
+        if fetched_at.tzinfo is None:
+            return None
         return CacheEntry(
             environment=meta["environment"],
             token_fp=meta["token_fp"],
-            fetched_at=datetime.fromisoformat(meta["fetched_at"]),
+            fetched_at=fetched_at,
             structure=payload["structure"],
             tenants=[TenantInfo(**t) for t in payload["tenants"]],
         )
@@ -195,7 +291,9 @@ def _banner(
 ) -> str:
     """One-line freshness banner prepended to both stdout and the .md report.
 
-    source: 'cache' (hit), 'expired' (stale refetch), or 'first' (no prior cache).
+    source: 'cache' (hit), 'expired' (stale refetch), 'first' (no prior cache),
+    'refresh' (--refresh), 'nocache' (--no-cache), or 'partial' (a live fetch
+    that logged failures, so nothing was cached).
     """
     if source == "cache":
         assert fetched_at is not None
@@ -206,9 +304,20 @@ def _banner(
             f"_{icon}Cached {age} (fetched {stamp}, {environment}). "
             "Run `python scripts/berdl_inventory.py --refresh` to update._"
         )
+    if source == "partial":
+        icon = "⚠️  " if emoji else ""
+        return (
+            f"_{icon}Live inventory — **partial**: some databases failed to list "
+            f"(see warnings above), so this run was **not cached** ({environment}). "
+            "Re-run to retry._"
+        )
     icon = "🔄 " if emoji else ""
     if source == "expired":
         return f"_{icon}Live inventory — cache expired, refetched just now ({environment})._"
+    if source == "refresh":
+        return f"_{icon}Live inventory — refreshed just now ({environment})._"
+    if source == "nocache":
+        return f"_{icon}Live inventory — cache bypassed via `--no-cache` ({environment})._"
     return f"_{icon}Live inventory — first run ({environment})._"
 
 
@@ -275,7 +384,7 @@ def fetch_tenants_on_cluster() -> list[TenantInfo]:
     try:
         tenants = list_tenants()
     except Exception as exc:  # noqa: BLE001 — surface but don't crash
-        print(f"# WARN: list_tenants() failed: {exc}", file=sys.stderr)
+        structure_logger.warning("list_tenants() failed: %s", exc)
         return []
     if tenants is None:
         return []
@@ -293,7 +402,7 @@ def fetch_tenants_on_cluster() -> list[TenantInfo]:
         try:
             detail = get_tenant_detail(info.name)
         except Exception as exc:  # noqa: BLE001
-            print(f"# WARN: get_tenant_detail({info.name}) failed: {exc}", file=sys.stderr)
+            logger.warning("get_tenant_detail(%s) failed: %s", info.name, exc)
             out.append(info)
             continue
 
@@ -353,7 +462,7 @@ def fetch_off_cluster() -> dict[str, list[str]]:
             ns_rows = spark.sql(f"SHOW NAMESPACES IN {catalog}").collect()
             namespaces = [row[0] for row in ns_rows]
         except Exception as exc:  # noqa: BLE001
-            print(f"# WARN: could not list namespaces in catalog {catalog}: {exc}", file=sys.stderr)
+            structure_logger.warning("could not list namespaces in catalog %s: %s", catalog, exc)
             continue
         for ns in namespaces:
             qualified = f"{catalog}.{ns}"
@@ -361,7 +470,7 @@ def fetch_off_cluster() -> dict[str, list[str]]:
                 tbl_rows = spark.sql(f"SHOW TABLES IN {qualified}").collect()
                 structure[qualified] = [row["tableName"] for row in tbl_rows]
             except Exception as exc:  # noqa: BLE001
-                print(f"# WARN: could not list tables for {qualified}: {exc}", file=sys.stderr)
+                structure_logger.warning("could not list tables for %s: %s", qualified, exc)
                 structure[qualified] = []
     return structure
 
@@ -731,11 +840,7 @@ def main(argv: list[str] | None = None) -> int:
         else ("on-cluster" if _is_on_cluster() else "off-cluster")
     )
     token_fp = _token_fingerprint()
-    ttl_days = (
-        args.ttl_days
-        if args.ttl_days is not None
-        else int(os.environ.get("BERDL_INVENTORY_TTL_DAYS", _DEFAULT_TTL_DAYS))
-    )
+    ttl_days = _resolve_ttl_days(args.ttl_days)
     now = _now()
 
     # Was there a prior cache file? Drives the 'expired' vs 'first' banner on a miss.
@@ -752,61 +857,85 @@ def main(argv: list[str] | None = None) -> int:
             banner_source = "cache"
             banner_fetched_at = entry.fetched_at
 
-    if structure is None and not args.off_cluster:
-        try:
-            structure = fetch_structure_on_cluster()
-            tenants = fetch_tenants_on_cluster()
-        except ImportError:
-            # If we're on-cluster but berdl_notebook_utils isn't importable,
-            # the user is running in an isolated environment that doesn't
-            # include the JupyterHub kernel's pre-installed packages
-            # (e.g. they invoked us under `uv run`, or activated a private
-            # venv). Falling through to the off-cluster path here would
-            # silently produce broken output — surface the real fix instead.
-            if _is_on_cluster():
-                print(
-                    "[berdl_inventory] On-cluster, but berdl_notebook_utils "
-                    "is not importable in this Python. The JupyterHub kernel "
-                    "has it pre-installed; an isolated venv (e.g. one started "
-                    "by `uv run` or a private virtualenv) does not.\n\n"
-                    "  → Re-run with the JH kernel's Python: "
-                    "python scripts/berdl_inventory.py",
-                    file=sys.stderr,
-                )
-                return 2
-            structure = None
+    # A live fetch is watched: a database whose listing fails is silently
+    # recorded as empty (upstream logs and returns []), and caching that would
+    # pin the loss for the whole TTL.
+    failures: list[str] = []
     if structure is None:
-        try:
-            structure = fetch_off_cluster()
-        except ImportError as exc:
-            # Off-cluster path needs pyspark + spark_connect_remote, both
-            # installed by scripts/bootstrap_client.sh into .venv-berdl. If
-            # the user is running plain system Python, those aren't available.
-            missing = str(exc).split("'")
-            mod = missing[1] if len(missing) > 1 else "a required module"
-            print(
-                f"[berdl_inventory] Off-cluster, but {mod} is not installed.\n\n"
-                "  → Activate the BERDL venv:\n"
-                "      source .venv-berdl/bin/activate\n"
-                "      python scripts/berdl_inventory.py\n\n"
-                "  → Or run ad-hoc with uv:\n"
-                "      uv run --with pyspark \\\n"
-                "        --with 'spark_connect_remote @ git+https://github.com/BERDataLakehouse/spark_connect_remote.git' \\\n"
-                "        --with 'berdl_remote @ git+https://github.com/BERDataLakehouse/berdl_remote.git' \\\n"
-                "        scripts/berdl_inventory.py\n\n"
-                "If you have not yet bootstrapped the venv, run "
-                "`bash scripts/bootstrap_client.sh` first.",
-                file=sys.stderr,
-            )
-            return 2
-        except Exception as exc:  # noqa: BLE001
-            print(f"Failed to fetch inventory: {exc}", file=sys.stderr)
-            return 1
+        with _watch_fetch_failures() as watcher:
+            if not args.off_cluster:
+                try:
+                    structure = fetch_structure_on_cluster()
+                    tenants = fetch_tenants_on_cluster()
+                except ImportError:
+                    # If we're on-cluster but berdl_notebook_utils isn't importable,
+                    # the user is running in an isolated environment that doesn't
+                    # include the JupyterHub kernel's pre-installed packages
+                    # (e.g. they invoked us under `uv run`, or activated a private
+                    # venv). Falling through to the off-cluster path here would
+                    # silently produce broken output — surface the real fix instead.
+                    if _is_on_cluster():
+                        print(
+                            "[berdl_inventory] On-cluster, but berdl_notebook_utils "
+                            "is not importable in this Python. The JupyterHub kernel "
+                            "has it pre-installed; an isolated venv (e.g. one started "
+                            "by `uv run` or a private virtualenv) does not.\n\n"
+                            "  → Re-run with the JH kernel's Python: "
+                            "python scripts/berdl_inventory.py",
+                            file=sys.stderr,
+                        )
+                        return 2
+                    structure = None
+            if structure is None:
+                try:
+                    structure = fetch_off_cluster()
+                except ImportError as exc:
+                    # Off-cluster path needs pyspark + spark_connect_remote, both
+                    # installed by scripts/bootstrap_client.sh into .venv-berdl. If
+                    # the user is running plain system Python, those aren't available.
+                    missing = str(exc).split("'")
+                    mod = missing[1] if len(missing) > 1 else "a required module"
+                    print(
+                        f"[berdl_inventory] Off-cluster, but {mod} is not installed.\n\n"
+                        "  → Activate the BERDL venv:\n"
+                        "      source .venv-berdl/bin/activate\n"
+                        "      python scripts/berdl_inventory.py\n\n"
+                        "  → Or run ad-hoc with uv:\n"
+                        "      uv run --with pyspark \\\n"
+                        "        --with 'spark_connect_remote @ git+https://github.com/BERDataLakehouse/spark_connect_remote.git' \\\n"
+                        "        --with 'berdl_remote @ git+https://github.com/BERDataLakehouse/berdl_remote.git' \\\n"
+                        "        scripts/berdl_inventory.py\n\n"
+                        "If you have not yet bootstrapped the venv, run "
+                        "`bash scripts/bootstrap_client.sh` first.",
+                        file=sys.stderr,
+                    )
+                    return 2
+                except Exception as exc:  # noqa: BLE001
+                    print(f"Failed to fetch inventory: {exc}", file=sys.stderr)
+                    return 1
+        failures = watcher.messages
 
     # On a miss we fetched live — stamp provenance and (unless suppressed) cache it.
     if banner_source is None:
-        banner_source = "expired" if had_cache else "first"
-        if not args.no_cache:
+        degraded = bool(failures)
+        if degraded:
+            banner_source = "partial"
+        elif args.refresh:
+            banner_source = "refresh"
+        elif args.no_cache:
+            banner_source = "nocache"
+        else:
+            banner_source = "expired" if had_cache else "first"
+
+        if degraded:
+            # Keep any existing cache: a good older snapshot beats a fresh
+            # lossy one, and the next run retries the fetch.
+            print(
+                f"# WARN: {len(failures)} database(s) failed to list; "
+                f"not caching this partial inventory.",
+                file=sys.stderr,
+            )
+        elif not args.no_cache:
             try:
                 write_cache(
                     args.cache_path,

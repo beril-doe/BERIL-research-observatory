@@ -121,7 +121,11 @@ After Phase 1.5 reports ready, print the live database inventory:
 python scripts/berdl_inventory.py
 ```
 
-**Cache-backed (fast on repeat runs).** The first run does a live fetch and caches the result to `data/berdl_inventory_cache.json` (keyed by environment + auth token). Subsequent runs within 7 days serve from that cache in a fraction of a second without touching Spark; past 7 days the script auto-refetches once. The stdout summary and `data/berdl_inventory.md` both carry a freshness banner — **paste that banner verbatim** so the user sees how old the data is (e.g. "Cached 3 days ago …"). To force a refresh at any time:
+**Cache-backed (fast on repeat runs).** The first run does a live fetch and caches the result to `data/berdl_inventory_cache.json` (keyed by environment + auth token). Subsequent runs within 7 days serve from that cache in a fraction of a second without touching Spark; past 7 days the script auto-refetches once. The stdout summary and `data/berdl_inventory.md` both carry a freshness banner — **paste that banner verbatim** so the user sees how old the data is (e.g. "Cached 3 days ago …").
+
+If any database fails to list (e.g. a transient auth error), the banner says **partial** and the run is **not cached**, so the next run retries rather than serving a lossy inventory for a week. Relay that banner too — the table counts are undercounted on such a run.
+
+To force a refresh at any time:
 
 ```bash
 python scripts/berdl_inventory.py --refresh

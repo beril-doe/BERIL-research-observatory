@@ -757,3 +757,265 @@ def test_main_ttl_days_flag_controls_freshness(tmp_path, capsys, monkeypatch):
                "--cache-path", str(cache), "--output", str(out)])
     assert rc == 0
     assert "kbase.fresh" in out.read_text()
+
+
+# --- degraded (partial) fetches must never be cached -------------------------
+
+
+def _write_fresh_cache(mod, cache, structure, when):
+    from scripts.berdl_inventory import CacheEntry, write_cache
+    write_cache(cache, CacheEntry(
+        environment="off-cluster", token_fp=mod._token_fingerprint(),
+        fetched_at=when, structure=structure, tenants=[]))
+
+
+def test_watch_fetch_failures_flags_upstream_listing_warning(capsys):
+    import logging
+    from scripts.berdl_inventory import _watch_fetch_failures
+
+    with _watch_fetch_failures() as watcher:
+        assert watcher.degraded is False
+        logging.getLogger("berdl_notebook_utils.spark.data_store").warning(
+            "Failed to list tables in 'planetmicrobe.x': UNAUTHENTICATED"
+        )
+    assert watcher.degraded is True
+    assert "UNAUTHENTICATED" in capsys.readouterr().err
+
+
+def test_watch_fetch_failures_detaches_handler_after_exit():
+    import logging
+    from scripts.berdl_inventory import _watch_fetch_failures
+    lg = logging.getLogger("berdl_notebook_utils")
+    before = list(lg.handlers)
+    with _watch_fetch_failures():
+        assert len(lg.handlers) == len(before) + 1
+    assert list(lg.handlers) == before
+
+
+def test_main_partial_fetch_is_not_cached(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main
+    import scripts.berdl_inventory as mod
+
+    cache = tmp_path / "cache.json"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 5, tzinfo=timezone.utc))
+
+    def lossy_fetch():
+        # Mirrors berdl_notebook_utils.get_tables(): log and return [].
+        mod.structure_logger.warning("could not list tables for kbase.lost: UNAUTHENTICATED")
+        return {"kbase.kept": ["t1"], "kbase.lost": []}
+
+    monkeypatch.setattr(mod, "fetch_off_cluster", lossy_fetch)
+    rc = main(["--off-cluster", "--no-emoji", "--no-file", "--cache-path", str(cache)])
+    assert rc == 0
+    assert not cache.exists(), "a partial inventory must never be cached"
+    captured = capsys.readouterr()
+    assert "not caching this partial inventory" in captured.err
+    assert "partial" in captured.out
+
+
+def test_main_partial_fetch_preserves_existing_good_cache(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main, load_cache
+    import scripts.berdl_inventory as mod
+
+    cache = tmp_path / "cache.json"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 20, tzinfo=timezone.utc))
+    # Expired, but complete.
+    _write_fresh_cache(mod, cache, {"kbase.good": ["a", "b"]},
+                       datetime(2026, 7, 1, tzinfo=timezone.utc))
+
+    def lossy_fetch():
+        mod.structure_logger.warning("could not list tables for kbase.good: UNAUTHENTICATED")
+        return {"kbase.good": []}
+
+    monkeypatch.setattr(mod, "fetch_off_cluster", lossy_fetch)
+    rc = main(["--off-cluster", "--no-emoji", "--no-file", "--cache-path", str(cache)])
+    assert rc == 0
+    # The good snapshot survives; the lossy one did not overwrite it.
+    assert load_cache(cache).structure == {"kbase.good": ["a", "b"]}
+
+
+def test_main_clean_fetch_still_caches(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main, load_cache
+    import scripts.berdl_inventory as mod
+    cache = tmp_path / "cache.json"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 5, tzinfo=timezone.utc))
+    monkeypatch.setattr(mod, "fetch_off_cluster", lambda: {"kbase.x": ["t1"]})
+    rc = main(["--off-cluster", "--no-emoji", "--no-file", "--cache-path", str(cache)])
+    assert rc == 0
+    assert load_cache(cache).structure == {"kbase.x": ["t1"]}
+
+
+def test_banner_partial_mentions_not_cached():
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import _banner
+    now = datetime(2026, 7, 5, tzinfo=timezone.utc)
+    b = _banner("partial", "on-cluster", None, now, emoji=False)
+    assert "partial" in b and "not cached" in b and "on-cluster" in b
+
+
+# --- banners no longer mislabel forced fetches as expiry ----------------------
+
+
+def test_banner_refresh_and_nocache_are_not_labelled_expired():
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import _banner
+    now = datetime(2026, 7, 5, tzinfo=timezone.utc)
+    refresh = _banner("refresh", "on-cluster", None, now, emoji=False)
+    nocache = _banner("nocache", "on-cluster", None, now, emoji=False)
+    assert "refreshed just now" in refresh and "expired" not in refresh
+    assert "--no-cache" in nocache and "expired" not in nocache
+
+
+def test_main_refresh_banner_says_refreshed_not_expired(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main
+    import scripts.berdl_inventory as mod
+    cache = tmp_path / "cache.json"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 2, tzinfo=timezone.utc))
+    _write_fresh_cache(mod, cache, {"stale.db": ["x"]},
+                       datetime(2026, 7, 1, tzinfo=timezone.utc))
+    monkeypatch.setattr(mod, "fetch_off_cluster", lambda: {"kbase.fresh": ["y"]})
+    rc = main(["--off-cluster", "--no-emoji", "--refresh", "--no-file",
+               "--cache-path", str(cache)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "refreshed just now" in out
+    assert "expired" not in out
+
+
+def test_main_no_cache_banner_says_bypassed(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main
+    import scripts.berdl_inventory as mod
+    cache = tmp_path / "cache.json"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 2, tzinfo=timezone.utc))
+    _write_fresh_cache(mod, cache, {"cached.db": ["x"]},
+                       datetime(2026, 7, 1, tzinfo=timezone.utc))
+    monkeypatch.setattr(mod, "fetch_off_cluster", lambda: {"kbase.fresh": ["y"]})
+    rc = main(["--off-cluster", "--no-emoji", "--no-cache", "--no-file",
+               "--cache-path", str(cache)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "cache bypassed" in out
+    assert "expired" not in out
+
+
+# --- malformed TTL env var must not crash the inventory -----------------------
+
+
+@pytest.mark.parametrize("raw", ["", "   ", "seven", "7d", "3.5"])
+def test_resolve_ttl_days_falls_back_on_malformed_env(raw, monkeypatch, capsys):
+    from scripts.berdl_inventory import _resolve_ttl_days, _DEFAULT_TTL_DAYS
+    monkeypatch.setenv("BERDL_INVENTORY_TTL_DAYS", raw)
+    assert _resolve_ttl_days(None) == _DEFAULT_TTL_DAYS
+
+
+def test_resolve_ttl_days_warns_only_on_unparseable(monkeypatch, capsys):
+    from scripts.berdl_inventory import _resolve_ttl_days
+    monkeypatch.setenv("BERDL_INVENTORY_TTL_DAYS", "seven")
+    _resolve_ttl_days(None)
+    assert "ignoring BERDL_INVENTORY_TTL_DAYS" in capsys.readouterr().err
+    monkeypatch.setenv("BERDL_INVENTORY_TTL_DAYS", "")
+    _resolve_ttl_days(None)
+    assert capsys.readouterr().err == ""
+
+
+def test_resolve_ttl_days_precedence(monkeypatch):
+    from scripts.berdl_inventory import _resolve_ttl_days, _DEFAULT_TTL_DAYS
+    monkeypatch.setenv("BERDL_INVENTORY_TTL_DAYS", "2")
+    assert _resolve_ttl_days(5) == 5      # CLI wins
+    assert _resolve_ttl_days(None) == 2   # env next
+    monkeypatch.delenv("BERDL_INVENTORY_TTL_DAYS")
+    assert _resolve_ttl_days(None) == _DEFAULT_TTL_DAYS
+
+
+def test_main_survives_malformed_ttl_env(tmp_path, capsys, monkeypatch):
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main
+    import scripts.berdl_inventory as mod
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setenv("BERDL_INVENTORY_TTL_DAYS", "")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 5, tzinfo=timezone.utc))
+    monkeypatch.setattr(mod, "fetch_off_cluster", lambda: {"kbase.x": ["t1"]})
+    rc = main(["--off-cluster", "--no-emoji", "--no-file",
+               "--cache-path", str(tmp_path / "c.json")])
+    assert rc == 0
+
+
+# --- a tz-naive cached timestamp is a miss, not a crash -----------------------
+
+
+def test_load_cache_returns_none_on_naive_timestamp(tmp_path):
+    import json
+    from scripts.berdl_inventory import load_cache
+    cache = tmp_path / "cache.json"
+    cache.write_text(json.dumps({
+        "meta": {"environment": "off-cluster", "token_fp": "sha256:abc",
+                 "fetched_at": "2026-07-01T00:00:00"},  # no tzinfo
+        "structure": {}, "tenants": [],
+    }))
+    assert load_cache(cache) is None
+
+
+def test_main_naive_cached_timestamp_refetches_instead_of_crashing(tmp_path, capsys, monkeypatch):
+    import json
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main
+    import scripts.berdl_inventory as mod
+    cache = tmp_path / "cache.json"
+    cache.write_text(json.dumps({
+        "meta": {"environment": "off-cluster", "token_fp": "sha256:abc",
+                 "fetched_at": "2026-07-01T00:00:00"},
+        "structure": {"old.db": ["x"]}, "tenants": [],
+    }))
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 2, tzinfo=timezone.utc))
+    monkeypatch.setattr(mod, "fetch_off_cluster", lambda: {"kbase.fresh": ["y"]})
+    rc = main(["--off-cluster", "--no-emoji", "--no-file", "--full",
+               "--cache-path", str(cache)])
+    assert rc == 0
+    assert "kbase.fresh" in capsys.readouterr().out
+
+
+def test_tenant_metadata_warning_does_not_block_caching(tmp_path, capsys, monkeypatch):
+    """A failed get_tenant_detail costs a display name, not a database.
+
+    Blocking the cache on it would let one permanently-403ing tenant disable
+    caching forever for that user — reinstating the slow startup this fixes.
+    """
+    from datetime import datetime, timezone
+    from scripts.berdl_inventory import main, load_cache
+    import scripts.berdl_inventory as mod
+
+    cache = tmp_path / "cache.json"
+    monkeypatch.setenv("KBASE_AUTH_TOKEN", "tok")
+    monkeypatch.setattr(mod, "_now", lambda: datetime(2026, 7, 5, tzinfo=timezone.utc))
+
+    def fetch_with_tenant_warning():
+        mod.logger.warning("get_tenant_detail(enigma) failed: 403 Forbidden")
+        return {"kbase.x": ["t1"]}
+
+    monkeypatch.setattr(mod, "fetch_off_cluster", fetch_with_tenant_warning)
+    rc = main(["--off-cluster", "--no-emoji", "--no-file", "--cache-path", str(cache)])
+    assert rc == 0
+    assert load_cache(cache) is not None, "tenant-metadata warnings must not block the cache"
+    assert "partial" not in capsys.readouterr().out
+
+
+def test_structure_logger_is_watched_but_parent_logger_is_not():
+    import logging
+    from scripts.berdl_inventory import _watch_fetch_failures
+
+    with _watch_fetch_failures() as watcher:
+        logging.getLogger("berdl_inventory").warning("tenant metadata hiccup")
+        assert watcher.degraded is False, "parent logger must not degrade the fetch"
+        logging.getLogger("berdl_inventory.structure").warning("could not list tables")
+        assert watcher.degraded is True
