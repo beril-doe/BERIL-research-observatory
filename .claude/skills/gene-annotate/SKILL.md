@@ -138,8 +138,9 @@ A TSV file with one row per input sequence containing:
 | `model` | LLM model used |
 | `annotation` | GeneRIF-style functional annotation |
 | `evidence` | Prose summary of evidence used |
+| `reasoning_trace` | Model-emitted chain-of-thought that produced the tier + annotation (part of the structured `GeneRIF` output). Always populated when a tier was assigned. |
 | `tier` | Confidence tier: **A** (strong, specific), **B** (family-level), **C** (fold-only) |
-| `reasoning` | Extended LLM reasoning trace |
+| `reasoning` | Raw API-side reasoning trace from thinking / reasoning tokens (Anthropic thinking blocks, or CBORG's Responses-API reasoning summary when tools are not bound). May be empty on some CBORG paths — use `reasoning_trace` for the always-populated version. |
 | `input_tokens` / `output_tokens` / `total_tokens` / `reasoning_tokens` | Token usage |
 
 ## Prerequisites
@@ -504,7 +505,7 @@ PATH=./bin:$PATH poetry run gene-annotate \
   <OPTIONAL_FLAGS>
 ```
 
-**API key**: No flag needed — the CLI auto-detects `CBORG_API_KEY` (CBORG gateway) or `ANTHROPIC_API_KEY` from the environment. Pass `--api-key KEY` only to override with an explicit value. Pass `--use-cborg` to explicitly force CBORG routing even when auto-detection would pick a different path.
+**API key**: No flag needed — the CLI auto-detects `CBORG_API_KEY` (CBORG gateway) or `ANTHROPIC_API_KEY` from the environment. Pass `--api-key KEY` only to override with an explicit value. CBORG routing is auto-enabled whenever `CBORG_API_KEY` is present.
 
 **`--description-is-organism`**: Include this flag when organism names were placed in the FASTA description lines during input preparation (Step 1). Omit when no organism information is available for any sequence.
 
@@ -516,15 +517,15 @@ PATH=./bin:$PATH poetry run gene-annotate \
 
 **Optional flags** (include only if needed):
 - `--description-is-organism` — include when FASTA descriptions contain organism names
-- `--use-cborg` — explicitly force CBORG gateway routing
-- `--summarizer-url <URL>` — override the summarization API endpoint (default: BERDL production)
-- `--evalue`, `--min-identity`, `--query-coverage`, `--subject-coverage` — DIAMOND thresholds
+- `--evalue`, `--min-identity`, `--max-identity`, `--query-coverage`, `--subject-coverage` — DIAMOND thresholds. `--max-identity` caps how close a homolog is allowed to be (default `1.0` = no cap); useful for ablation runs that force the LLM to reason from distant evidence.
+- `--fitness-threshold`, `--t-threshold` — Fitness Browser thresholds (default absolute fitness `0.4`, T-statistic `2.0`)
 - `--threads <N>` — override default 4
 - `--prompt-file <path>` — custom LLM prompt
-- `--berdl-source-config <output_dir>/berdl_sources.yaml` — include when Step 1.5 produced a YAML
+- `--source-config <output_dir>/berdl_sources.yaml` (alias: `--berdl-source-config`) — include when Step 1.5 produced a YAML
 - `--berdl-build-missing-dbs` — include when at least one source from Step 2.5 was approved for build
 - `--string-dir /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12` — adds STRING v12 network-association evidence (orthogroup identity + functional network partners). Recommended for any run where BERDL evidence may be sparse; independent of `--berdl-data-dir`.
 - `--tier <comma-list>` — include only when Step 2.6 produced a strict subset of `A,B,C` (e.g., `--tier A` or `--tier A,B`). Omit when all three tiers are selected (the CLI default is `A,B,C`).
+- `--cts-diamond` + `--cts-diamond-refdata-id <ID>` — offloads *all* built-in DIAMOND homology searches (PaperBLAST, Fitness Browser, Pangenome, STRING) to a single CTS job instead of running the local `diamond` binary. Uses one refdata bundle for every DB. Requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` in `.env` plus `--cts-username`. STRING side-table (SQLite) lookups still run locally.
 
 ### Step 4: Monitor Execution
 
@@ -595,7 +596,7 @@ For each row in the TSV, produce a block of this form:
 | `gene_neighborhoods` | `Gene neighborhoods (fitness browser)` | No — genomic context from conserved gene order in TnSeq organisms |
 | `pangenome_neighborhoods` | `Gene neighborhoods (pangenome)` | No — syntenic context across GTDB clade, bakta-annotated flanks |
 | `berdl_pangenome_evidence` | `Pangenome` | No — comparative/computational clustering |
-| `ipr_annotations` | `InterProScan` | No — computational domain/family prediction |
+| `ipr_annotations` | `InterProScan` | No — computational domain/family prediction. Each `IPRSCAN` line carries `qcov=X%` (fraction of query covered) and, for HMM-based methods (Pfam, Gene3D, SMART, NCBIFam, PIRSF, SFLD), additional `hmm=A-B/L, tcov=T%, evalue=E, score=S` fields for target coverage and match quality. Non-HMM methods (PANTHER, SUPERFAMILY, CDD, HAMAP, ProSite, PRINTS) show `qcov=` only. |
 | `string_evidence` | `STRING v12` | No — network guilt-by-association (orthogroup + high-confidence partners ≥700) |
 
 **Dynamic source columns.** When `--berdl-source-config` was used, the TSV contains additional `evidence_<source_name>` columns (one per active source). Discover them at read-time and look up each source's `description` and `evidence_type` from the YAML:
@@ -767,12 +768,13 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 | `--cts-cpus` | `8` | CPUs for the CTS InterProScan job. |
 | `--cts-memory` | `16GB` | Memory for the CTS InterProScan job. |
 | `--cts-runtime` | `PT2H` | Max runtime for the CTS InterProScan job (ISO 8601 duration). |
-| `--use-cborg` | `false` | Explicitly route both models through CBORG gateway. Auto-enabled when `CBORG_API_KEY` is set. |
-| `--summarizer-url` | BERDL production | Base URL for the external summarization API. |
+| `--cts-diamond` | `false` | Offload all built-in DIAMOND homology searches (PaperBLAST, Fitness, Pangenome, STRING) to a single CTS job. Requires `--cts-diamond-refdata-id`. |
+| `--cts-diamond-refdata-id` | `$CTS_DIAMOND_REFDATA_ID` | CTS refdata id for the DIAMOND database bundle. Required with `--cts-diamond`. |
 | `--threads` | `4` | CPU threads for DIAMOND and InterProScan |
 | `--output-dir` | `./output` | Where to write results |
 | `--evalue` | `1e-3` | E-value cutoff for DIAMOND hits |
 | `--min-identity` | `0.3` | Minimum sequence identity (0-1) |
+| `--max-identity` | `1.0` | Maximum sequence identity (0-1). Hits above are excluded — used to force reasoning from distant homologs (e.g., ablation runs). |
 | `--query-coverage` | `80.0` | Query coverage % for DIAMOND |
 | `--subject-coverage` | `80.0` | Subject coverage % for DIAMOND |
 | `--fitness-threshold` | `0.4` | Minimum absolute fitness score |
@@ -801,7 +803,9 @@ Tier definitions are authoritative in `/global_share/gene-annotation-predictor/g
 
 ## Caching
 
-DIAMOND results, InterProScan output, and batch evidence files are cached under `<output-dir>/.cache/`. Subsequent runs with the same `--output-dir` resume from where they left off. To force a fresh run, delete `<output-dir>/.cache/` or use a new `--output-dir`.
+DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`. Subsequent runs with the same `--output-dir` resume from where they left off. To force a fresh run, delete `<output-dir>/.cache/` or use a new `--output-dir`.
+
+**InterProScan cache**: results are written to `<output-dir>/<cache_id>_ipr.tsv` **and** `<output-dir>/<cache_id>_ipr.json`. The loader prefers the JSON when present (it carries HMM-model coordinates, e-values, and scores needed for the enriched evidence block); the TSV serves as a fallback for older caches that predate JSON output. Delete both files to force InterProScan to re-run. On the CTS path, the client downloads both formats and merges the per-batch JSONs by unioning their `results` arrays.
 
 ## Error Handling
 
