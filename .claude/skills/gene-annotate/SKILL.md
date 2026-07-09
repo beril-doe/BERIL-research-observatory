@@ -152,7 +152,25 @@ The tool is installed at:
 /global_share/gene-annotation-predictor/
 ```
 
-It uses a Poetry-managed virtual environment (`.venv/` in the package directory). No conda activation is needed — use `poetry run` from the package directory.
+It ships with two coexisting environments — use the **repo `.venv`** for the Python CLI and the **conda env** for shell binaries (`aws`, and for off-cluster mode `diamond`):
+
+- **`/global_share/gene-annotation-predictor/.venv/`** — Poetry-managed Python 3.13 virtual environment. Contains `gene-annotate`, `berdl_notebook_utils`, `pyspark[connect]`, and all Python dependencies. This is the authoritative Python runtime — invoke it directly by its full path:
+  ```
+  /global_share/gene-annotation-predictor/.venv/bin/gene-annotate --input …
+  ```
+- **conda env `gene-annotation-predictor`** — supplies system binaries: `aws` CLI (used by the CTS uploader for CRC64NVME S3 checksums), and `diamond ≥ 2.2.3` for the off-cluster local-mode fallback. Activate this env before invoking the CLI so those binaries are on PATH.
+
+Normal invocation on the lakehouse:
+
+```bash
+conda activate gene-annotation-predictor      # aws (+ diamond) on PATH
+cd /global_share/gene-annotation-predictor
+/global_share/gene-annotation-predictor/.venv/bin/gene-annotate --input …
+```
+
+InterProScan is a separate install (`./bin/my_interproscan/interproscan-5.76-107.0/`) and is passed via `--interproscan` for local off-cluster mode, or offloaded via `--cts-interproscan` on the lakehouse (the default — see Step 3).
+
+> **Lakehouse default:** on JupyterHub the CLI should always be launched with `--cts-interproscan --cts-diamond --cts-username "$USER"` so InterProScan and DIAMOND run on CTS-provisioned compute rather than on the shared notebook node. Local flags are only for off-cluster / laptop use.
 
 ### API Key (auto-detected)
 
@@ -391,8 +409,12 @@ The user's BERDL tenant may contain protein-bearing tables beyond the three buil
 Run these checks before building the command:
 
 ```bash
-# Check .venv exists in package directory
-[ -d /global_share/gene-annotation-predictor/.venv ] && echo "Poetry venv: OK"
+# Check conda env exists and activate it (DIAMOND lives in this env's PATH)
+conda env list | grep -q '^gene-annotation-predictor ' && echo "Conda env: OK"
+conda activate gene-annotation-predictor
+
+# Check DIAMOND is now on PATH from the conda env (>= 2.2.3)
+command -v diamond && diamond --version | head -1
 
 # Check API key availability (priority order)
 # Always source from the BERIL repo — NOT from the gene-annotation-predictor package dir
@@ -486,23 +508,34 @@ When to skip this prompt: if the user has already specified tiers in their reque
 
 ### Step 3: Build and Run the Command
 
-Construct the command from the package directory using `poetry run`:
+**Default dispatch when running from the lakehouse (JupyterHub): use CTS for both InterProScan and DIAMOND.** All lakehouse runs are executed on shared JupyterHub nodes whose local CPU / memory is limited; offloading InterProScan and DIAMOND to the CDM Task Service (CTS) keeps compute off the notebook node, avoids memory pressure, and uses the CTS-hosted refdata bundle so no local `.dmnd` files are consulted. This is the standard operating configuration — include `--cts-interproscan --cts-diamond --cts-username "$USER"` in every lakehouse run unless the user explicitly asks for a local invocation. Because CTS is the default, `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY` must be present in `$REPO/.env` (see Step 2). Use `--interproscan <path>` (no CTS flags) only on a laptop / off-cluster environment where the local InterProScan install is desired.
+
+**Invocation.** Activate the conda env so its `aws` CLI is on PATH (used by the CTS uploader), and call the repo `.venv`'s `gene-annotate` entrypoint. The `.venv` is the source of truth for Python dependencies (Python 3.13 with `berdl_notebook_utils`, `pyspark[connect]`, etc.); the conda env supplies the `aws` binary and — for the rare local-mode fallback — the `diamond` binary.
 
 ```bash
+conda activate gene-annotation-predictor
 cd /global_share/gene-annotation-predictor
 
 set -a && source $REPO/.env 2>/dev/null; set +a
 
-PATH=./bin:$PATH poetry run gene-annotate \
+/global_share/gene-annotation-predictor/.venv/bin/gene-annotate \
   --input <FASTA_FILE(S)> \
   --model gpt-5.4 \
   --berdl-data-dir /global_share/gene-annotation-predictor/data_sources/sequences/ \
   --summaries-parquet /global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet \
-  --interproscan ./bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh \
+  --cts-interproscan \
+  --cts-diamond \
+  --cts-username "$USER" \
   --output-dir <OUTPUT_DIR> \
   --threads 4 \
   --berdl-use-spark \
   <OPTIONAL_FLAGS>
+```
+
+Off-cluster / laptop use (no CTS available) — swap the three CTS flags for `--interproscan <local path>`:
+
+```bash
+  --interproscan ./bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh
 ```
 
 **API key**: No flag needed — the CLI auto-detects `CBORG_API_KEY` (CBORG gateway) or `ANTHROPIC_API_KEY` from the environment. Pass `--api-key KEY` only to override with an explicit value. CBORG routing is auto-enabled whenever `CBORG_API_KEY` is present.
@@ -512,8 +545,12 @@ PATH=./bin:$PATH poetry run gene-annotate \
 **`--model` is a required CLI flag** — always include it. Use `gpt-5.4` (matching prior pilots) unless the user requests a different model. The CLI has no compiled-in default and will exit with an error if omitted. Do not prefix with `openai/` — the CLI accepts the short form only (`gpt-5.4`, not `openai/gpt-5.4`); the CBORG gateway adds the provider prefix internally.
 
 **InterProScan mode — one of the following is required** (mutually exclusive):
-- `--interproscan <path>` — local InterProScan executable (default path: `./bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh`)
-- `--cts-interproscan` — submit InterProScan to the CDM Task Service (CTS) remotely; requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY` in `$REPO/.env`. Use this when running on a machine without a local InterProScan install, or when sequences should be processed on a dedicated compute node. Companion flags: `--cts-username <user>` (default: `$USERNAME`), `--cts-cpus <N>` (default: 8), `--cts-memory <MEM>` (default: 16GB), `--cts-runtime <ISO8601>` (default: PT2H).
+- `--cts-interproscan` — **preferred on the lakehouse.** Submits InterProScan to the CDM Task Service. Requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` in `$REPO/.env`. Companion flags: `--cts-username <user>` (default: `$USER`), `--cts-cpus <N>` (default: 8), `--cts-memory <MEM>` (default: 16GB), `--cts-runtime <ISO8601>` (default: PT2H). Pairs naturally with `--cts-diamond` so the notebook node stays idle.
+- `--interproscan <path>` — local fallback for off-cluster runs. Default path: `./bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh`.
+
+**DIAMOND mode**:
+- `--cts-diamond` — **preferred on the lakehouse.** Offloads *all* built-in DIAMOND homology searches (PaperBLAST, Fitness Browser, Pangenome, STRING) to a single CTS job. All target databases ship as one refdata bundle bound to the runner image — no explicit refdata-id needed. Requires the same auth as `--cts-interproscan` plus `--cts-username`. Reuses `--cts-cpus` / `--cts-memory` / `--cts-runtime` for resource sizing. STRING side-table (SQLite) lookups still run locally.
+- Local DIAMOND (implicit when `--cts-diamond` is not passed) — falls back to the `diamond` binary from the conda env's PATH. Used automatically for off-cluster runs.
 
 **Optional flags** (include only if needed):
 - `--description-is-organism` — include when FASTA descriptions contain organism names
@@ -525,7 +562,6 @@ PATH=./bin:$PATH poetry run gene-annotate \
 - `--berdl-build-missing-dbs` — include when at least one source from Step 2.5 was approved for build
 - `--string-dir /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12` — adds STRING v12 network-association evidence (orthogroup identity + functional network partners). Recommended for any run where BERDL evidence may be sparse; independent of `--berdl-data-dir`.
 - `--tier <comma-list>` — include only when Step 2.6 produced a strict subset of `A,B,C` (e.g., `--tier A` or `--tier A,B`). Omit when all three tiers are selected (the CLI default is `A,B,C`).
-- `--cts-diamond` + `--cts-diamond-refdata-id <ID>` — offloads *all* built-in DIAMOND homology searches (PaperBLAST, Fitness Browser, Pangenome, STRING) to a single CTS job instead of running the local `diamond` binary. Uses one refdata bundle for every DB. Requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` in `.env` plus `--cts-username`. STRING side-table (SQLite) lookups still run locally.
 
 ### Step 4: Monitor Execution
 
@@ -768,8 +804,7 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 | `--cts-cpus` | `8` | CPUs for the CTS InterProScan job. |
 | `--cts-memory` | `16GB` | Memory for the CTS InterProScan job. |
 | `--cts-runtime` | `PT2H` | Max runtime for the CTS InterProScan job (ISO 8601 duration). |
-| `--cts-diamond` | `false` | Offload all built-in DIAMOND homology searches (PaperBLAST, Fitness, Pangenome, STRING) to a single CTS job. Requires `--cts-diamond-refdata-id`. |
-| `--cts-diamond-refdata-id` | `$CTS_DIAMOND_REFDATA_ID` | CTS refdata id for the DIAMOND database bundle. Required with `--cts-diamond`. |
+| `--cts-diamond` | `false` | Offload all built-in DIAMOND homology searches (PaperBLAST, Fitness, Pangenome, STRING) to a single CTS job. The DIAMOND database bundle is bound to the runner image as CTS refdata — no explicit id needed. Reuses `--cts-cpus` / `--cts-memory` / `--cts-runtime`. |
 | `--threads` | `4` | CPU threads for DIAMOND and InterProScan |
 | `--output-dir` | `./output` | Where to write results |
 | `--evalue` | `1e-3` | E-value cutoff for DIAMOND hits |
@@ -811,8 +846,9 @@ DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `poetry: command not found` | Poetry not installed or not on PATH | Install Poetry or ensure it's on PATH |
-| `.venv` missing | Virtual environment not created | Run `poetry install` from `/global_share/gene-annotation-predictor` |
+| `conda: command not found` OR `EnvironmentNameNotFound: gene-annotation-predictor` | Conda env not created or shell not initialized | Run `conda init` (once), then `conda env create -f /global_share/gene-annotation-predictor/environment.yml` |
+| `diamond: command not found` | Conda env `gene-annotation-predictor` not active — DIAMOND ≥ 2.2.3 lives in that env's PATH | `conda activate gene-annotation-predictor` before invoking `gene-annotate` |
+| `gene-annotate: command not found` | Poetry install of the Python package hasn't run | `cd /global_share/gene-annotation-predictor && poetry install` from within the active conda env |
 | No API key found | Neither `CBORG_API_KEY` nor `ANTHROPIC_API_KEY` in environment | Set `CBORG_API_KEY` (preferred) or `ANTHROPIC_API_KEY` in `$REPO/.env` |
 | InterProScan not found | Binary missing or not executable | Verify `/global_share/gene-annotation-predictor/bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh` exists and is executable |
 | `--interproscan and --cts-interproscan are mutually exclusive` | Both flags passed at once | Remove one; use `--interproscan` for local, `--cts-interproscan` for CTS remote |
@@ -822,7 +858,7 @@ DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`
 | Summaries parquet not found | File missing from data_sources | Verify `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet` exists |
 | BERDL auth error | `KBASE_AUTH_TOKEN` missing or expired | Set or refresh `KBASE_AUTH_TOKEN` in `$REPO/.env` — **not** in the gene-annotation-predictor package directory |
 | DIAMOND not found | `./bin/` not on PATH | Ensure the `PATH=./bin:$PATH` prefix is included and command is run after `cd /global_share/gene-annotation-predictor` |
-| Spark session error | Spark not available in environment | Check that Spark dependencies are installed in the Poetry venv |
+| Spark session error | Spark not available in environment | Check that Spark dependencies are installed in the conda + Poetry environment |
 
 ## Integration with Other Skills
 
@@ -839,14 +875,15 @@ DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`
 1. **Accept any protein input format** — the user should not need to prepare FASTA themselves. Detect the input format, extract sequences + IDs + organism names, and write a well-formed FASTA file. Always include organism names in record descriptions when available.
 2. **Use `--description-is-organism`** only when organism information was available and included in the FASTA descriptions during input preparation. Do not include it when the FASTA headers contain only sequence IDs.
 3. **Do not pass any API key flag** — the CLI auto-detects `CBORG_API_KEY` then `ANTHROPIC_API_KEY` from the environment. Only use `--api-key` if the user provides a literal key to override. Do not ask the user unless no key is found in the environment.
-4. **Run from the package directory** (`cd /global_share/gene-annotation-predictor`) so that `./bin` relative paths and `poetry run` resolve correctly.
-5. **Always include `--summaries-parquet`** pointing to `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet`.
-6. **After completion**, always read and summarize the output TSV — don't just report success.
-7. **For large inputs** (>50 sequences), warn the user about runtime and consider suggesting background execution.
-8. **When the input is from `kbase_ke_pangenome` and the user named organisms by common name**, do GTDB clade resolution (Step 1's "When pulling from kbase_ke_pangenome by organism name" subsection) BEFORE pulling sequences. Surface any clade ambiguity via `AskUserQuestion`.
-9. **Always produce both `summary.txt` and `WRITEUP.md`** (Step 5 and Step 6). The writeup is required for any run with a discernible user goal — skip it only for ≤ 5-sequence ad-hoc queries.
-10. **Prompt for tier selection before launching** (Step 2.6) using `AskUserQuestion` with `multiSelect: true`. Default is all three tiers. Pass `--tier <list>` in Step 3 only when the user picks a strict subset of `A,B,C`. Skip the prompt only when the user has already specified tiers in their request.
-11. **Gate discovery-class framing on `/literature-review`** (Steps 5d and 6). Before writing or saying that any hit "extends biology beyond X," is "novel," "unexpected," or "discovery-class," prompt the user to run `/literature-review` on that hit first. The system-level claim is often already published; the pipeline's actual contribution is usually at the molecular-mechanism layer. Use the lit-review output to calibrate framing in the WRITEUP. Skip only when the user explicitly opts out, in which case default to tentative ("candidate for...", "consistent with family Y but substrate-specificity not established") rather than discovery framing.
+4. **Activate the conda env before running** (`conda activate gene-annotation-predictor`) so the `aws` CLI (used by the CTS uploader) and DIAMOND (off-cluster fallback) are on PATH. Then `cd /global_share/gene-annotation-predictor` and invoke the CLI via its `.venv` path: `/global_share/gene-annotation-predictor/.venv/bin/gene-annotate …`. The repo `.venv` is Python 3.13 and holds all Python deps (including `berdl_notebook_utils`); the conda env is Python 3.12 and holds shell binaries only. Do not rely on `gene-annotate` resolving via the conda env — the conda env's Poetry install has been observed to drift out of sync with the source tree.
+5. **On the lakehouse, dispatch InterProScan and DIAMOND to CTS by default** — include `--cts-interproscan --cts-diamond --cts-username "$USER"` in every lakehouse invocation unless the user explicitly asks for local mode. The JupyterHub node's CPU/memory is shared and limited; CTS offload is the standard operating configuration.
+6. **Always include `--summaries-parquet`** pointing to `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet`.
+7. **After completion**, always read and summarize the output TSV — don't just report success.
+8. **For large inputs** (>50 sequences), warn the user about runtime and consider suggesting background execution.
+9. **When the input is from `kbase_ke_pangenome` and the user named organisms by common name**, do GTDB clade resolution (Step 1's "When pulling from kbase_ke_pangenome by organism name" subsection) BEFORE pulling sequences. Surface any clade ambiguity via `AskUserQuestion`.
+10. **Always produce both `summary.txt` and `WRITEUP.md`** (Step 5 and Step 6). The writeup is required for any run with a discernible user goal — skip it only for ≤ 5-sequence ad-hoc queries.
+11. **Prompt for tier selection before launching** (Step 2.6) using `AskUserQuestion` with `multiSelect: true`. Default is all three tiers. Pass `--tier <list>` in Step 3 only when the user picks a strict subset of `A,B,C`. Skip the prompt only when the user has already specified tiers in their request.
+12. **Gate discovery-class framing on `/literature-review`** (Steps 5d and 6). Before writing or saying that any hit "extends biology beyond X," is "novel," "unexpected," or "discovery-class," prompt the user to run `/literature-review` on that hit first. The system-level claim is often already published; the pipeline's actual contribution is usually at the molecular-mechanism layer. Use the lit-review output to calibrate framing in the WRITEUP. Skip only when the user explicitly opts out, in which case default to tentative ("candidate for...", "consistent with family Y but substrate-specificity not established") rather than discovery framing.
 
 ## Pitfall Detection
 
