@@ -152,7 +152,21 @@ The tool is installed at:
 /global_share/gene-annotation-predictor/
 ```
 
-It uses a Poetry-managed virtual environment (`.venv/` in the package directory). No conda activation is needed — use `poetry run` from the package directory.
+It ships as a conda + Poetry hybrid: DIAMOND (bioconda) lives in the conda env `gene-annotation-predictor`; the Python package is layered on top by `poetry install`. Two ways to invoke the CLI:
+
+- **Preferred (matches the README):** activate the conda env, then call `gene-annotate` directly.
+  ```bash
+  conda activate gene-annotation-predictor
+  gene-annotate --input …
+  ```
+- **From the package directory using Poetry:** works because the Poetry venv resolves the entrypoint, but the conda env must still be active so DIAMOND is on PATH.
+  ```bash
+  conda activate gene-annotation-predictor
+  cd /global_share/gene-annotation-predictor
+  poetry run gene-annotate --input …
+  ```
+
+InterProScan is a separate install and is passed via `--interproscan` (or via `--cts-interproscan`); it is not sourced from the conda env.
 
 ### API Key (auto-detected)
 
@@ -391,8 +405,12 @@ The user's BERDL tenant may contain protein-bearing tables beyond the three buil
 Run these checks before building the command:
 
 ```bash
-# Check .venv exists in package directory
-[ -d /global_share/gene-annotation-predictor/.venv ] && echo "Poetry venv: OK"
+# Check conda env exists and activate it (DIAMOND lives in this env's PATH)
+conda env list | grep -q '^gene-annotation-predictor ' && echo "Conda env: OK"
+conda activate gene-annotation-predictor
+
+# Check DIAMOND is now on PATH from the conda env (>= 2.2.3)
+command -v diamond && diamond --version | head -1
 
 # Check API key availability (priority order)
 # Always source from the BERIL repo — NOT from the gene-annotation-predictor package dir
@@ -486,14 +504,15 @@ When to skip this prompt: if the user has already specified tiers in their reque
 
 ### Step 3: Build and Run the Command
 
-Construct the command from the package directory using `poetry run`:
+Activate the conda env (so DIAMOND is on PATH) and call `gene-annotate` directly. The conda env exposes the CLI entrypoint installed by Poetry:
 
 ```bash
+conda activate gene-annotation-predictor
 cd /global_share/gene-annotation-predictor
 
 set -a && source $REPO/.env 2>/dev/null; set +a
 
-PATH=./bin:$PATH poetry run gene-annotate \
+gene-annotate \
   --input <FASTA_FILE(S)> \
   --model gpt-5.4 \
   --berdl-data-dir /global_share/gene-annotation-predictor/data_sources/sequences/ \
@@ -504,6 +523,8 @@ PATH=./bin:$PATH poetry run gene-annotate \
   --berdl-use-spark \
   <OPTIONAL_FLAGS>
 ```
+
+If `gene-annotate` isn't resolvable inside the active env (older installs), the alternative is `poetry run gene-annotate …` from the package directory — but conda must still be active so DIAMOND is on PATH.
 
 **API key**: No flag needed — the CLI auto-detects `CBORG_API_KEY` (CBORG gateway) or `ANTHROPIC_API_KEY` from the environment. Pass `--api-key KEY` only to override with an explicit value. CBORG routing is auto-enabled whenever `CBORG_API_KEY` is present.
 
@@ -525,7 +546,7 @@ PATH=./bin:$PATH poetry run gene-annotate \
 - `--berdl-build-missing-dbs` — include when at least one source from Step 2.5 was approved for build
 - `--string-dir /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12` — adds STRING v12 network-association evidence (orthogroup identity + functional network partners). Recommended for any run where BERDL evidence may be sparse; independent of `--berdl-data-dir`.
 - `--tier <comma-list>` — include only when Step 2.6 produced a strict subset of `A,B,C` (e.g., `--tier A` or `--tier A,B`). Omit when all three tiers are selected (the CLI default is `A,B,C`).
-- `--cts-diamond` + `--cts-diamond-refdata-id <ID>` — offloads *all* built-in DIAMOND homology searches (PaperBLAST, Fitness Browser, Pangenome, STRING) to a single CTS job instead of running the local `diamond` binary. Uses one refdata bundle for every DB. Requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` in `.env` plus `--cts-username`. STRING side-table (SQLite) lookups still run locally.
+- `--cts-diamond` — offloads *all* built-in DIAMOND homology searches (PaperBLAST, Fitness Browser, Pangenome, STRING) to a single CTS job instead of running the local `diamond` binary. All target databases ship as one refdata bundle bound to the runner image — no explicit refdata-id needed. Requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` in `.env` plus `--cts-username`. Reuses `--cts-cpus` / `--cts-memory` / `--cts-runtime` for resource sizing. STRING side-table (SQLite) lookups still run locally.
 
 ### Step 4: Monitor Execution
 
@@ -768,8 +789,7 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 | `--cts-cpus` | `8` | CPUs for the CTS InterProScan job. |
 | `--cts-memory` | `16GB` | Memory for the CTS InterProScan job. |
 | `--cts-runtime` | `PT2H` | Max runtime for the CTS InterProScan job (ISO 8601 duration). |
-| `--cts-diamond` | `false` | Offload all built-in DIAMOND homology searches (PaperBLAST, Fitness, Pangenome, STRING) to a single CTS job. Requires `--cts-diamond-refdata-id`. |
-| `--cts-diamond-refdata-id` | `$CTS_DIAMOND_REFDATA_ID` | CTS refdata id for the DIAMOND database bundle. Required with `--cts-diamond`. |
+| `--cts-diamond` | `false` | Offload all built-in DIAMOND homology searches (PaperBLAST, Fitness, Pangenome, STRING) to a single CTS job. The DIAMOND database bundle is bound to the runner image as CTS refdata — no explicit id needed. Reuses `--cts-cpus` / `--cts-memory` / `--cts-runtime`. |
 | `--threads` | `4` | CPU threads for DIAMOND and InterProScan |
 | `--output-dir` | `./output` | Where to write results |
 | `--evalue` | `1e-3` | E-value cutoff for DIAMOND hits |
@@ -811,8 +831,9 @@ DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `poetry: command not found` | Poetry not installed or not on PATH | Install Poetry or ensure it's on PATH |
-| `.venv` missing | Virtual environment not created | Run `poetry install` from `/global_share/gene-annotation-predictor` |
+| `conda: command not found` OR `EnvironmentNameNotFound: gene-annotation-predictor` | Conda env not created or shell not initialized | Run `conda init` (once), then `conda env create -f /global_share/gene-annotation-predictor/environment.yml` |
+| `diamond: command not found` | Conda env `gene-annotation-predictor` not active — DIAMOND ≥ 2.2.3 lives in that env's PATH | `conda activate gene-annotation-predictor` before invoking `gene-annotate` |
+| `gene-annotate: command not found` | Poetry install of the Python package hasn't run | `cd /global_share/gene-annotation-predictor && poetry install` from within the active conda env |
 | No API key found | Neither `CBORG_API_KEY` nor `ANTHROPIC_API_KEY` in environment | Set `CBORG_API_KEY` (preferred) or `ANTHROPIC_API_KEY` in `$REPO/.env` |
 | InterProScan not found | Binary missing or not executable | Verify `/global_share/gene-annotation-predictor/bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh` exists and is executable |
 | `--interproscan and --cts-interproscan are mutually exclusive` | Both flags passed at once | Remove one; use `--interproscan` for local, `--cts-interproscan` for CTS remote |
@@ -822,7 +843,7 @@ DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`
 | Summaries parquet not found | File missing from data_sources | Verify `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet` exists |
 | BERDL auth error | `KBASE_AUTH_TOKEN` missing or expired | Set or refresh `KBASE_AUTH_TOKEN` in `$REPO/.env` — **not** in the gene-annotation-predictor package directory |
 | DIAMOND not found | `./bin/` not on PATH | Ensure the `PATH=./bin:$PATH` prefix is included and command is run after `cd /global_share/gene-annotation-predictor` |
-| Spark session error | Spark not available in environment | Check that Spark dependencies are installed in the Poetry venv |
+| Spark session error | Spark not available in environment | Check that Spark dependencies are installed in the conda + Poetry environment |
 
 ## Integration with Other Skills
 
@@ -839,7 +860,7 @@ DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`
 1. **Accept any protein input format** — the user should not need to prepare FASTA themselves. Detect the input format, extract sequences + IDs + organism names, and write a well-formed FASTA file. Always include organism names in record descriptions when available.
 2. **Use `--description-is-organism`** only when organism information was available and included in the FASTA descriptions during input preparation. Do not include it when the FASTA headers contain only sequence IDs.
 3. **Do not pass any API key flag** — the CLI auto-detects `CBORG_API_KEY` then `ANTHROPIC_API_KEY` from the environment. Only use `--api-key` if the user provides a literal key to override. Do not ask the user unless no key is found in the environment.
-4. **Run from the package directory** (`cd /global_share/gene-annotation-predictor`) so that `./bin` relative paths and `poetry run` resolve correctly.
+4. **Activate the conda env before running** (`conda activate gene-annotation-predictor`) so DIAMOND (≥ 2.2.3, bioconda) is on PATH. Then `cd /global_share/gene-annotation-predictor` so the relative `./bin/my_interproscan/…` path resolves for `--interproscan`.
 5. **Always include `--summaries-parquet`** pointing to `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet`.
 6. **After completion**, always read and summarize the output TSV — don't just report success.
 7. **For large inputs** (>50 sequences), warn the user about runtime and consider suggesting background execution.
