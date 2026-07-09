@@ -364,6 +364,44 @@ def fetch_structure_on_cluster() -> dict[str, list[str]]:
     return {db: list(tables) for db, tables in structure.items()}
 
 
+def _enrich_tenant(t: object, get_tenant_detail) -> TenantInfo:  # noqa: ANN001
+    """Build a TenantInfo from a list_tenants() entry, enriching via get_tenant_detail."""
+    info = TenantInfo(
+        name=getattr(t, "tenant_name", str(t)),
+        display_name=getattr(t, "display_name", "") or "",
+        description=getattr(t, "description", "") or "",
+        website=getattr(t, "website", "") or "",
+        organization=getattr(t, "organization", "") or "",
+        is_member=bool(getattr(t, "is_member", False)),
+        is_steward=bool(getattr(t, "is_steward", False)),
+    )
+    try:
+        detail = get_tenant_detail(info.name)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("get_tenant_detail(%s) failed: %s", info.name, exc)
+        return info
+
+    storage = getattr(detail, "storage_paths", None)
+    if storage is not None:
+        info.namespace_prefix = getattr(storage, "namespace_prefix", "") or ""
+
+    info.stewards = sorted(
+        getattr(s, "username", "") for s in getattr(detail, "stewards", []) or []
+    )
+    for m in getattr(detail, "members", []) or []:
+        level = getattr(getattr(m, "access_level", None), "value", "")
+        user = getattr(m, "username", "")
+        if not user:
+            continue
+        if level == "read_write":
+            info.members_rw.append(user)
+        elif level == "read_only":
+            info.members_ro.append(user)
+    info.members_rw.sort()
+    info.members_ro.sort()
+    return info
+
+
 def fetch_tenants_on_cluster() -> list[TenantInfo]:
     """Use berdl_notebook_utils.list_tenants + get_tenant_detail for tenant metadata.
 
@@ -380,7 +418,6 @@ def fetch_tenants_on_cluster() -> list[TenantInfo]:
     except ImportError:
         return []
 
-    out: list[TenantInfo] = []
     try:
         tenants = list_tenants()
     except Exception as exc:  # noqa: BLE001 — surface but don't crash
@@ -389,42 +426,18 @@ def fetch_tenants_on_cluster() -> list[TenantInfo]:
     if tenants is None:
         return []
 
-    for t in tenants:
-        info = TenantInfo(
-            name=getattr(t, "tenant_name", str(t)),
-            display_name=getattr(t, "display_name", "") or "",
-            description=getattr(t, "description", "") or "",
-            website=getattr(t, "website", "") or "",
-            organization=getattr(t, "organization", "") or "",
-            is_member=bool(getattr(t, "is_member", False)),
-            is_steward=bool(getattr(t, "is_steward", False)),
-        )
-        try:
-            detail = get_tenant_detail(info.name)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("get_tenant_detail(%s) failed: %s", info.name, exc)
-            out.append(info)
-            continue
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
-        storage = getattr(detail, "storage_paths", None)
-        if storage is not None:
-            info.namespace_prefix = getattr(storage, "namespace_prefix", "") or ""
-
-        info.stewards = sorted(
-            getattr(s, "username", "") for s in getattr(detail, "stewards", []) or []
-        )
-        for m in getattr(detail, "members", []) or []:
-            level = getattr(getattr(m, "access_level", None), "value", "")
-            user = getattr(m, "username", "")
-            if not user:
-                continue
-            if level == "read_write":
-                info.members_rw.append(user)
-            elif level == "read_only":
-                info.members_ro.append(user)
-        info.members_rw.sort()
-        info.members_ro.sort()
-        out.append(info)
+    with ThreadPoolExecutor(max_workers=min(8, len(tenants))) as pool:
+        futures = {
+            pool.submit(_enrich_tenant, t, get_tenant_detail): t
+            for t in tenants
+        }
+        out: list[TenantInfo] = [None] * len(tenants)  # type: ignore[list-item]
+        tenant_order = {id(t): i for i, t in enumerate(tenants)}
+        for future in as_completed(futures):
+            t = futures[future]
+            out[tenant_order[id(t)]] = future.result()
     return out
 
 
@@ -862,18 +875,17 @@ def main(argv: list[str] | None = None) -> int:
     # pin the loss for the whole TTL.
     failures: list[str] = []
     if structure is None:
+        print(
+            f"{'🔄  ' if not args.no_emoji else ''}"
+            f"Fetching live inventory ({environment})...",
+            flush=True,
+        )
         with _watch_fetch_failures() as watcher:
             if not args.off_cluster:
                 try:
                     structure = fetch_structure_on_cluster()
                     tenants = fetch_tenants_on_cluster()
                 except ImportError:
-                    # If we're on-cluster but berdl_notebook_utils isn't importable,
-                    # the user is running in an isolated environment that doesn't
-                    # include the JupyterHub kernel's pre-installed packages
-                    # (e.g. they invoked us under `uv run`, or activated a private
-                    # venv). Falling through to the off-cluster path here would
-                    # silently produce broken output — surface the real fix instead.
                     if _is_on_cluster():
                         print(
                             "[berdl_inventory] On-cluster, but berdl_notebook_utils "
@@ -890,9 +902,6 @@ def main(argv: list[str] | None = None) -> int:
                 try:
                     structure = fetch_off_cluster()
                 except ImportError as exc:
-                    # Off-cluster path needs pyspark + spark_connect_remote, both
-                    # installed by scripts/bootstrap_client.sh into .venv-berdl. If
-                    # the user is running plain system Python, those aren't available.
                     missing = str(exc).split("'")
                     mod = missing[1] if len(missing) > 1 else "a required module"
                     print(
