@@ -1,0 +1,10 @@
+# Analysis dependencies for euk_in_prok_correlates (Python 3.13, BERDL JupyterHub)
+# Spark access on-cluster is provided by berdl_notebook_utils (pre-installed in the JH kernel).
+pandas>=2.0
+numpy>=1.24
+scipy>=1.11
+scikit-learn>=1.3
+statsmodels>=0.14
+matplotlib>=3.7
+nbformat>=5.0
+pyarrow>=14.0

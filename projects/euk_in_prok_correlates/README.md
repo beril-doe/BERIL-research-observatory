@@ -5,7 +5,7 @@ What sample collection, processing, and sequencing factors correlate most strong
 eukaryotic contamination of samples collected for prokaryotic metagenome analysis?
 
 ## Status
-Reviewed — REVIEW_3.md drafted; awaiting `/submit`.
+Completed — eukaryotic contamination of NMDC prokaryote-targeted metagenomes is common (77% of runs) and photosynthetic-dominated; its association with environment is confounded with study/batch and only recoverable under batch control (within-study R²=+0.17). (Submission pending; see SUBMISSION_FAILED.md.)
 
 ## Overview
 Samples collected and sequenced for prokaryotic (bacterial/archaeal) metagenome analysis
