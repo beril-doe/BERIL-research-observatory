@@ -110,6 +110,22 @@ coverage), `samp_collec_device` (63%), sequencing `instrument model` (~17%, n≈
 - **v1** (2026-07-10): Initial plan. NMDC-only, matrix-focused scope (wet-lab factors framed as
   unmeasured residual). Response variable set to GOTTCHA relative eukaryotic abundance after
   discovering the NMDC Kraken DB is prokaryote-restricted.
+- **v2** (2026-07-10): After NB01–03 showed the association is confounded (environment ≈ study;
+  out-of-study GroupKFold R² = −0.21) and a data-landscape scan (`data/01_data_landscape.md`)
+  confirmed no on-system source gives per-sample euk read fraction across many studies, the scope
+  is refined (not abandoned):
+  1. **Switch response source to the native `nmdc.results`** tables
+     (`gottcha2/kraken2/centrifuge_classification_report`) — more recent and more euk-positive
+     (Eukaryota 807 + plastid 1,787 files). Measurement **unit = `workflow_run_id`** (one
+     ReadbasedAnalysis run; the three classifiers share it), bridged to biosample/study via
+     `nmdc.metadata.biosample_to_workflow_run`. Run-level avoids pooling pseudo-replication.
+  2. **Within-study contrast (the key addition):** analyse the one dominant soil study
+     `nmdc:sty-11-34xj1150` (~3,200 samples) on its own, where batch/protocol is largely constant.
+     Test whether euk fraction varies with *within-study* metadata that genuinely varies there
+     (`env_local_scale` 11 values, `ecosystem_subtype` 6, geography 47) — a batch-controlled test of
+     the environment effect. If it survives here, the biome signal is not purely batch.
+  3. Reframe the causal claim honestly: cross-study environment effects are reported as
+     *confounded/associational*; the within-study test is the closest thing to a controlled estimate.
 
 ## Authors
 Mark Andrew Miller (LBL), ORCID [0000-0001-9076-6066](https://orcid.org/0000-0001-9076-6066)
