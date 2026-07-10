@@ -117,8 +117,10 @@ gap analysis and prior-project usage skew, not from a directly observed wrong ch
 Limitations). A user who wants NMDC-curated microbiome metadata but
 pulls `nmdc.ncbi_biosamples` operates on the wrong data at 3,000× the scale; a user who
 searches only the `nmdc` tenant silently excludes the freshest MAG catalog; a user who cites
-`kbase.nmdc_neon` as NMDC mis-attributes an NSF program. Each mistake costs time and compute
-and weakens conclusions — exactly the failure the knowledge layer is designed to prevent.
+`kbase.nmdc_neon` as NMDC mis-attributes an NSF program. Each such mistake would plausibly
+cost time and compute and weaken conclusions — the failure mode the knowledge layer is
+designed to prevent — though, as noted in Limitations, this is inferred from the gap
+analysis and prior-project reuse skew, not from a directly observed wrong choice.
 
 The audit also clarifies that co-hosting is often *intentional and valuable*: the NCBI mirror
 exists because BERDL adds an attribute-harmonization layer that makes 51.7M raw NCBI samples

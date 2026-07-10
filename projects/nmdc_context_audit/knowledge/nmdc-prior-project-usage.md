@@ -18,6 +18,13 @@ examples (and inherited pitfalls) fast. Notably, **almost all prior work used
 `kbase.nmdc_arkin`**, not the genuine `nmdc` tenant — reinforcing that the Arkin derivative
 is the de-facto "NMDC" people reach for.
 
+**Read this as a default-choice skew, not a catalogue of documented errors.** 8 of the 10
+projects below reached for `kbase.nmdc_arkin`; this shows what users gravitate to and is a
+reasonable *proxy* for the label's confusability, but it is not proof that any of them chose
+a wrong table for their question. No prior project's notebooks record an explicit
+wrong-resource misstep — the evidence here is about defaults and discoverability, which is
+why the [[nmdc-label-is-overloaded]] causal claim is framed as inferred, not observed.
+
 | Project | Resource(s) used | Note |
 |---|---|---|
 | `nmdc_community_metabolic_ecology` | `kbase.nmdc_arkin` (`taxonomy_features`, `kraken_gold`, `centrifuge_gold`, `metabolomics_gold`, `abiotic_features`, `study_table`) × `kbase.ke_pangenome` | Authored most `nmdc_arkin` pitfalls/discoveries |
