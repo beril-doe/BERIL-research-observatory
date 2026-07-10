@@ -75,7 +75,7 @@ print('=> eukaryotic contamination in NMDC metagenomes is overwhelmingly photosy
 clean=at[keep].copy(); clean.to_csv(DATA/'analysis_clean.csv',index=False)
 print('wrote data/analysis_clean.csv', clean.shape)"""),
 ("md", """## NB01 takeaways
-- 2,760 ReadbasedAnalysis runs (9 studies) with a GOTTCHA euk fraction; response strongly zero-inflated but
+- 2,759 ReadbasedAnalysis runs (9 studies) with a GOTTCHA euk fraction; response strongly zero-inflated but
   richer than the earlier snapshot (median euk ~2.7%, 13% mean).
 - Eukaryotic signal is **overwhelmingly plastid** (photosynthetic: plant/algal chloroplast); protist/fungal is
   secondary; host/Metazoa (Kraken) is negligible in NMDC.

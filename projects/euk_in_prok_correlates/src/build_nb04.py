@@ -61,7 +61,7 @@ y=np.log((d['gott_euk_frac'].values+1e-4)/(1-d['gott_euk_frac'].values+1e-4))
 m=HistGradientBoostingRegressor(max_depth=4,learning_rate=.08,max_iter=300,random_state=0)
 r2=cross_val_score(m,X,y,cv=KFold(5,shuffle=True,random_state=0),scoring='r2')
 print(f'Within-study 5-fold R^2 (euk_logit ~ local env + geography): {r2.mean():.3f} ± {r2.std():.3f}')
-print('Contrast with cross-study out-of-study R^2 = -0.34 (NB03).')"""),
+print('Contrast with cross-study out-of-study R^2 = -0.30 (NB03).')"""),
 ("md", "## Figure 4 — Euk fraction by within-study environment"),
 ("code", """fig,ax=plt.subplots(figsize=(9,5))
 order=tab.sort_values('median').index.tolist()

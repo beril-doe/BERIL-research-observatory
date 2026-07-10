@@ -5,7 +5,7 @@ What sample collection, processing, and sequencing factors correlate most strong
 eukaryotic contamination of samples collected for prokaryotic metagenome analysis?
 
 ## Status
-Analysis — report drafted, awaiting `/berdl-review` and `/submit`.
+Reviewed — REVIEW_3.md drafted; awaiting `/submit`.
 
 ## Overview
 Samples collected and sequenced for prokaryotic (bacterial/archaeal) metagenome analysis
@@ -15,7 +15,7 @@ fraction of a prokaryote-targeted metagenome, using NMDC read-based taxonomy (co
 `nmdc_results`, `nmdc_metadata`, `kbase_nmdc_arkin`). Main result: eukaryotic contamination is
 common (77% of runs) and overwhelmingly photosynthetic (plant/algal plastid); it associates
 strongly with environment univariately, but that association is **confounded with study/batch**
-and does not generalize across studies (out-of-study R²=−0.34). Only under batch control (within
+and does not generalize across studies (out-of-study R²=−0.30). Only under batch control (within
 one NEON soil study) do local vegetation and geography genuinely predict eukaryotic content
 (within-study R²=+0.17; Arctic tundra ≫ temperate forest).
 
