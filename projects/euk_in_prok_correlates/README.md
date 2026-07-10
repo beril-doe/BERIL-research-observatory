@@ -5,7 +5,7 @@ What sample collection, processing, and sequencing factors correlate most strong
 eukaryotic contamination of samples collected for prokaryotic metagenome analysis?
 
 ## Status
-Analysis — report drafted, awaiting `/berdl-review` and `/submit`.
+Reviewed — REVIEW_1.md drafted; awaiting `/submit`.
 
 ## Overview
 Samples collected and sequenced for prokaryotic (bacterial/archaeal) metagenome analysis
