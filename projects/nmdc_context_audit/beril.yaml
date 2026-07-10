@@ -1,7 +1,7 @@
 project_id: nmdc_context_audit
-status: exploration       # exploration | proposed | active | analysis | reviewed | complete
+status: proposed          # exploration | proposed | active | analysis | reviewed | complete
 created_at: "2026-07-10T17:10:06Z"
-last_session_at: "2026-07-10T17:10:06Z"
+last_session_at: "2026-07-10T17:20:00Z"
 branch: projects/nmdc_context_audit
 engine:
   name: claude
@@ -11,6 +11,6 @@ authors:
     orcid: "0000-0001-9076-6066"
 artifacts:
   readme: true
-  research_plan: false
+  research_plan: true
   report: false
   review: false

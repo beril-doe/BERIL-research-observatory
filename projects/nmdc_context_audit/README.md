@@ -8,7 +8,7 @@ can a linked knowledge base clarify the context so users select the optimal NMDC
 earlier in their sessions (stronger conclusions, less time, less cost)?
 
 ## Status
-Exploration — research plan not yet written.
+Proposed — research plan written, awaiting analysis.
 
 ## Overview
 An audit of every "NMDC"-labeled resource in BERDL: which are genuinely National
