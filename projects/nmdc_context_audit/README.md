@@ -8,7 +8,7 @@ can a linked knowledge base clarify the context so users select the optimal NMDC
 earlier in their sessions (stronger conclusions, less time, less cost)?
 
 ## Status
-Analysis — report drafted, awaiting `/berdl-review` and `/submit`.
+Reviewed — REVIEW_1.md drafted; awaiting `/submit`.
 
 ## Data Collections
 Audited collections: `nmdc_metadata`, `nmdc_results`, `nmdc_ncbi_biosamples`,
@@ -24,12 +24,35 @@ files (`knowledge/`) — YAML front matter, descriptive filenames, and cross-lin
 recommendations to improve the static docs and dynamic discovery tooling.
 
 ## Quick Links
-- [Research Plan](RESEARCH_PLAN.md) — hypothesis, approach, audit strategy *(TBD)*
-- [Report](REPORT.md) — findings and recommendations *(TBD)*
-- [Knowledge base](knowledge/) — Open-Knowledge-Format context files *(deliverable, TBD)*
+- [Research Plan](RESEARCH_PLAN.md) — hypothesis, approach, audit strategy
+- [Report](REPORT.md) — findings, interpretation, and recommendations
+- [Knowledge base](knowledge/README.md) — 15-file Open-Knowledge-Format context directory (primary deliverable)
 
 ## Reproduction
-*TBD — add prerequisites and step-by-step instructions after the audit is complete.*
+
+Prerequisites: on-cluster BERDL JupyterHub (or off-cluster with `.venv-berdl` + proxy),
+read access to the `nmdc` and `kbase` tenants, `KBASE_AUTH_TOKEN` in `.env`.
+
+1. **Enumerate every NMDC-labeled database and its tables:**
+   ```bash
+   python projects/nmdc_context_audit/data/probe_identifiers.py
+   ```
+2. **Characterize provenance, scale, and currency** (row counts + Iceberg snapshot ages):
+   ```bash
+   python projects/nmdc_context_audit/data/probe_provenance.py 2>/dev/null
+   # writes data/provenance_probe.md
+   ```
+3. **Regenerate the landscape table and figures** from the notebook:
+   ```bash
+   cd projects/nmdc_context_audit/notebooks
+   jupyter nbconvert --to notebook --execute --inplace 00_nmdc_landscape.ipynb \
+     --ExecutePreprocessor.timeout=600
+   # writes ../data/nmdc_landscape.csv, ../data/nmdc_naming_cruft.csv,
+   #        ../figures/nmdc_currency.png, ../figures/nmdc_scale.png
+   ```
+4. **Read the findings** in [REPORT.md](REPORT.md) and the context knowledge base at
+   [knowledge/README.md](knowledge/README.md). Counts/dates are point-in-time (audited
+   2026-07-10); re-running refreshes them against the live catalog.
 
 ## Authors
 Mark Andrew Miller — LBL — ORCID [0000-0001-9076-6066](https://orcid.org/0000-0001-9076-6066)
