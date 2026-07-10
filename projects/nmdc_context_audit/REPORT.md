@@ -89,9 +89,11 @@ user choosing a resource:
 - `DESCRIBE DATABASE EXTENDED kbase.nmdc_*` raises `ForbiddenException` for a
   `kesciencero`/`microbialdiscoveryforge` principal even though `COUNT(*)` on the same
   tables succeeds — metadata introspection and data reads have different access surfaces.
-- The catalog exposes every tenant DB under two aliases (dotted Iceberg `nmdc.metadata` and
-  underscore Hive `nmdc_metadata`); `get_databases()` returns both, so de-dupe to the dotted
-  form before iterating to avoid double-counting.
+- `get_databases()` returns **both** the dotted Iceberg alias (`nmdc.metadata`) and the
+  underscore Hive alias (`nmdc_metadata`) for every tenant DB, so de-dupe to the dotted form
+  before iterating to avoid double-counting. (The broader dotted-vs-underscore namespace
+  migration is already documented repo-wide in `docs/pitfalls.md`; this note is only the
+  `get_databases()`-returns-both-forms delta.)
 
 ## Results
 
@@ -109,8 +111,10 @@ authority fields, one topic per file, fully cross-linked). Its entry points are
 
 ## Interpretation
 
-The overloaded label is not a cosmetic issue — it directly causes the sub-optimal-resource
-selection the project set out to test. A user who wants NMDC-curated microbiome metadata but
+The overloaded label is not a cosmetic issue — the evidence is consistent with it driving
+the sub-optimal-resource selection the project set out to test (this is inferred from the
+gap analysis and prior-project usage skew, not from a directly observed wrong choice; see
+Limitations). A user who wants NMDC-curated microbiome metadata but
 pulls `nmdc.ncbi_biosamples` operates on the wrong data at 3,000× the scale; a user who
 searches only the `nmdc` tenant silently excludes the freshest MAG catalog; a user who cites
 `kbase.nmdc_neon` as NMDC mis-attributes an NSF program. Each mistake costs time and compute
@@ -232,11 +236,7 @@ not yet apply — the following reviewable fixes to the static docs and dynamic 
    quantify completeness lag precisely.
 
 ## References
-- National Microbiome Data Collaborative. https://microbiomedata.org/ (DOE-BER).
-- Eloe-Fadrosh, E.A., et al. The National Microbiome Data Collaborative Data Portal.
-  *Nucleic Acids Research* (2022). (NMDC data model / portal.)
-- National Ecological Observatory Network (NEON). https://www.neonscience.org/ (NSF).
-- Barrett, T., et al. BioSample database at NCBI. *Nucleic Acids Research* (2012).
-- Mistry, J., et al. Pfam: The protein families database in 2021. *Nucleic Acids Research* (2021).
-- Arkin, A.P., et al. KBase: The United States Department of Energy Systems Biology
-  Knowledgebase. *Nature Biotechnology* (2018).
+See [`references.md`](references.md) for the full, canonical list of authoritative sources
+for the data providers and programs disambiguated in this audit — NMDC (microbiomedata.org),
+NEON (NSF), NCBI BioSample, Pfam/InterPro, and KBase — plus pointers to the relevant in-repo
+prior knowledge. Maintained in one place to avoid drift.
