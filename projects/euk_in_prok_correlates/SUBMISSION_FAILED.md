@@ -11,3 +11,12 @@ Status is `complete` (the approval is recorded in `beril.yaml`).
 This is an **authorization** block, not a data problem: `mamillerpa` is
 `read_only` on the `microbialdiscoveryforge` tenant. A steward (`psdehal`)
 must grant `read_write`, then re-run `/submit` to retry the upload only.
+
+## Staging copy (not the official submission)
+A full copy of this project was staged to a tenant the author has write access to, as a
+backup/preview while the official submission is blocked:
+- `s3a://cdm-lake/tenant-general-warehouse/nmdc/projects/euk_in_prok_correlates/` (68 files, 4.34 MiB, staged 2026-07-10)
+
+This is **not** registered as a BERIL submission — the observatory only recognizes archives under
+`microbialdiscoveryforge/projects/`. Re-run `/submit` once `read_write` on `microbialdiscoveryforge`
+is granted to produce the canonical submission.
