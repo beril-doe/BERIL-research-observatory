@@ -32,3 +32,7 @@ submissions:
     attempted_at: "2026-07-10T16:10:41Z"
     error: "MinIO upload failed: mc 'signature does not match' on all 55 files (stale berdl-minio alias credentials). Credential refresh via scripts/get_minio_creds.py (local, --bootstrap-remote) could not resolve fresh keys from KBASE_AUTH_TOKEN/berdl-remote. Fix: obtain valid MINIO_ACCESS_KEY/MINIO_SECRET_KEY, run bash scripts/configure_mc.sh, then re-run /submit (retries upload only)."
     approved_at: "2026-07-10T16:07:02Z"
+  - status: failed
+    attempted_at: "2026-07-10T16:23:52Z"
+    error: "Lakehouse upload blocked by authorization (not credentials): user mamillerpa has read_only access to the microbialdiscoveryforge MinIO tenant; writes denied ('Insufficient permissions'), reads succeed. A tenant steward (psdehal) must grant read_write on microbialdiscoveryforge, then re-run /submit to retry the upload."
+    approved_at: "2026-07-10T16:07:02Z"
