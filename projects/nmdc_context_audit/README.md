@@ -8,7 +8,11 @@ can a linked knowledge base clarify the context so users select the optimal NMDC
 earlier in their sessions (stronger conclusions, less time, less cost)?
 
 ## Status
-Proposed — research plan written, awaiting analysis.
+Analysis — report drafted, awaiting `/berdl-review` and `/submit`.
+
+## Data Collections
+Audited collections: `nmdc_metadata`, `nmdc_results`, `nmdc_ncbi_biosamples`,
+`nmdc_ref_data`, `kbase_nmdc_arkin`, `kbase_nmdc_mags`, `kbase_nmdc_neon`.
 
 ## Overview
 An audit of every "NMDC"-labeled resource in BERDL: which are genuinely National
