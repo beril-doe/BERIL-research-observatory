@@ -49,8 +49,6 @@ def r2_cv(cols, cv, grp=None):
     if grp is not None:
         return cross_val_score(m,X[cols],y,cv=cv,groups=grp,scoring='r2')
     return cross_val_score(m,X[cols],y,cv=cv,scoring='r2')
-res={}
-res['study_only_group']=r2_cv(None if False else ENV,gkf,groups)  # placeholder replaced below
 # study-only model: one-hot of study cannot be tested out-of-study (leakage), so report IN-sample only as batch ceiling
 studyX=pd.get_dummies(df['study_id'],prefix='study')
 m=HistGradientBoostingRegressor(max_depth=4,learning_rate=.08,max_iter=300,random_state=0)

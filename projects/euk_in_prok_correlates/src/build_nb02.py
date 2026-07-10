@@ -37,8 +37,8 @@ for a,b in itertools.combinations(groups,2):
     rows.append((a,b,pp))
 pw=pd.DataFrame(rows,columns=['a','b','p']); pw['p_fdr']=multipletests(pw['p'],method='fdr_bh')[1]
 pw['sig']=pw['p_fdr']<0.05; display(pw.round(4)); pw.to_csv(DATA/'h1a_pairwise_matrix.csv',index=False)"""),
-("md", "## H1a (finer) — by ecosystem_type"),
-("code", """top=df['ecosystem_type'].value_counts().head(8).index.tolist()
+("md", "## H1a (finer) — by ecosystem_type (excluding the `Unknown`/missing-metadata bucket)"),
+("code", """top=[t for t in df['ecosystem_type'].value_counts().index if t!='Unknown'][:8]  # exclude missing-metadata bucket
 et=df[df['ecosystem_type'].isin(top)]
 etsum=et.groupby('ecosystem_type')['gott_euk_frac'].agg(n='size',median='median',
       detect=lambda s:(s>0).mean(),gt20=lambda s:(s>0.2).mean()).round(4).sort_values('median',ascending=False)

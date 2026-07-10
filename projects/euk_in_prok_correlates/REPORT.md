@@ -28,9 +28,12 @@ The composition of the eukaryotic signal varies by sample matrix in a biological
 | Terrestrial (soil) | 55.7% | 0.43 | mixed plant plastid + soil fungi/protists |
 | Plants (roots) | 100% | **0.03** | root-associated **fungi/protists** (non-plastid) |
 
-Univariately, the eukaryotic fraction differs strongly across matrix (Kruskal–Wallis H=77.8, p=1.3×10⁻¹⁷) and
-across ecosystem_type (H=231.1, p=7.9×10⁻⁵⁰); all pairwise matrix contrasts are significant after BH-FDR
-(`data/h1a_pairwise_matrix.csv`).
+Univariately, the eukaryotic fraction differs strongly across matrix (Kruskal–Wallis H=77.8, p=1.3×10⁻¹⁷);
+all pairwise matrix contrasts are significant after BH-FDR (`data/h1a_pairwise_matrix.csv`). After excluding the
+`Unknown`/missing-metadata bucket, `ecosystem_type` reduces to the same three biomes (Soil / Freshwater / Roots)
+and the test is identical to the matrix test — it is not an independent confirmation. (An earlier version that
+retained the `Unknown` bucket — which has the highest median eukaryotic fraction — reported an inflated
+p≈10⁻⁵⁰; that was a missingness artifact and has been removed.)
 
 ![Eukaryotic fraction by environment](figures/fig02_euk_by_environment.png)
 
@@ -119,7 +122,6 @@ long upper tail (15% > 20%). Because of this and the batch structure, all infere
 | Test | Statistic | p | Interpretation |
 |---|---|---|---|
 | Euk ~ matrix (univariate) | H=77.8 | 1.3×10⁻¹⁷ | strong, but confounded (Finding 3) |
-| Euk ~ ecosystem_type | H=231.1 | 7.9×10⁻⁵⁰ | strong, but confounded |
 | Environment out-of-study R² | −0.34 | — | does **not** generalize across studies |
 | Within-study euk ~ vegetation | H=119.1 | 7.6×10⁻²¹ | real when batch fixed |
 | Within-study euk ~ geography | H=310.4 | 2.4×10⁻⁴⁶ | real when batch fixed |
@@ -184,6 +186,10 @@ within-study estimate showing aboveground vegetation and geography genuinely dri
   database-dependent and should be read as relative/ordinal, not calibrated absolute contamination.
 - **Confounding within study.** Even within one study, `env_local_scale` and geography may track sub-batches
   (sampling campaigns); the within-study effect is the best available control, not a randomized one.
+- **Pooled-run metadata.** 1,067 of 2,760 runs are pooled from multiple biosamples; each pooled run inherits
+  environment/collection metadata from a single representative biosample (`MIN(biosample_id)`). Where pooled
+  biosamples differ in local metadata, this injects label noise into the predictors — a conservative bias
+  (it can only weaken associations, not manufacture them).
 
 ## Data
 
