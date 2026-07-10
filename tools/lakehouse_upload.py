@@ -471,8 +471,29 @@ def main():
         default=".",
         help="Path to BERIL-research-observatory root (default: current dir)",
     )
+    parser.add_argument(
+        "--tenant-path",
+        default=os.environ.get("BERIL_UPLOAD_TENANT_PATH"),
+        help=(
+            "Override the destination tenant path under the bucket "
+            "(default: tenant-general-warehouse/microbialdiscoveryforge). Example: "
+            "'tenant-general-warehouse/nmdc' to archive into the nmdc tenant when the "
+            "caller lacks write access to the default tenant. May also be set via "
+            "BERIL_UPLOAD_TENANT_PATH."
+        ),
+    )
 
     args = parser.parse_args()
+
+    # Retarget the destination tenant if requested. All path-consuming functions
+    # read these module globals at call time, so reassigning them here before
+    # dispatch redirects the whole upload/list/validate flow.
+    if args.tenant_path:
+        global TENANT_PATH, LAKEHOUSE_BASE, S3A_BASE
+        TENANT_PATH = args.tenant_path.strip("/")
+        LAKEHOUSE_BASE = f"{MC_ALIAS}/{BUCKET}/{TENANT_PATH}/projects"
+        S3A_BASE = f"s3a://{BUCKET}/{TENANT_PATH}/projects"
+        print(f"[tenant override] archiving to {S3A_BASE}/", file=sys.stderr)
 
     if args.list:
         list_projects()

@@ -8,7 +8,7 @@ can a linked knowledge base clarify the context so users select the optimal NMDC
 earlier in their sessions (stronger conclusions, less time, less cost)?
 
 ## Status
-Reviewed — REVIEW_3.md drafted; awaiting `/submit`.
+Completed — one "NMDC" label spans three tenants and six provenance classes (genuine NMDC, re-hosted NCBI/Pfam, Arkin-lab derivation, NEON namesake), with scale 10¹–10⁹ rows and currency days–months, none of it surfaced at discovery; captured as a 15-file knowledge base plus docs/tooling recommendations.
 
 ## Data Collections
 Audited collections: `nmdc_metadata`, `nmdc_results`, `nmdc_ncbi_biosamples`,
