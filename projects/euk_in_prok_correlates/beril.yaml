@@ -1,7 +1,7 @@
 project_id: euk_in_prok_correlates
 status: analysis          # exploration | proposed | active | analysis | reviewed | complete
 created_at: "2026-07-10T14:03:19Z"
-last_session_at: "2026-07-10T15:48:00Z"
+last_session_at: "2026-07-10T15:55:00Z"
 branch: projects/euk_in_prok_correlates
 engine:
   name: claude

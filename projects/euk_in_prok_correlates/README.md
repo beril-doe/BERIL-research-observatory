@@ -29,6 +29,9 @@ one NEON soil study) do local vegetation and geography genuinely predict eukaryo
    `python projects/euk_in_prok_correlates/src/build_analysis_table.py` → writes `data/analysis_table.csv`.
 3. Execute the notebooks in order (they load the frozen CSVs and save figures):
    `jupyter nbconvert --to notebook --execute --inplace projects/euk_in_prok_correlates/notebooks/0{1,2,3,4}_*.ipynb`.
+   **Note:** on this JupyterHub, `--inplace` can silently drop saved outputs (see `docs/pitfalls.md`
+   "`jupyter nbconvert --inplace` Silently Drops Cell Outputs"). After executing, confirm each notebook has
+   non-empty code-cell outputs; if any are empty, re-run with `--output <name>_executed.ipynb`.
 4. Outputs: `figures/fig0{1..4}_*.png`, `data/*.csv`. See `data/00_feasibility_findings.md` and
    `data/01_data_landscape.md` for data-provenance and study-breadth context.
 

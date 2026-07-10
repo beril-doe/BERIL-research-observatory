@@ -22,17 +22,17 @@ SELECT workflow_run_id,
   SUM(CASE WHEN NAME LIKE 'Eukaryota%'       THEN REL_ABUNDANCE ELSE 0 END)/SUM(REL_ABUNDANCE) gott_euk_frac,
   SUM(CASE WHEN NAME = 'Eukaryota (plastid)' THEN REL_ABUNDANCE ELSE 0 END)/SUM(REL_ABUNDANCE) gott_plastid_frac,
   SUM(CASE WHEN NAME = 'Eukaryota'           THEN REL_ABUNDANCE ELSE 0 END)/SUM(REL_ABUNDANCE) gott_euk_nonplastid_frac
-FROM nmdc.results.gottcha2_classification_report WHERE LEVEL='superkingdom' GROUP BY workflow_run_id
+FROM nmdc.results.gottcha2_classification_report WHERE LEVEL='superkingdom' AND workflow_run_id IS NOT NULL GROUP BY workflow_run_id
 """)
 kraken = spark.sql("""
 SELECT workflow_run_id,
   SUM(CASE WHEN name='Eukaryota' THEN clade_reads ELSE 0 END)/SUM(clade_reads) krak_euk_frac
-FROM nmdc.results.kraken2_classification_report WHERE rank='D' GROUP BY workflow_run_id
+FROM nmdc.results.kraken2_classification_report WHERE rank='D' AND workflow_run_id IS NOT NULL GROUP BY workflow_run_id
 """)
 centrifuge = spark.sql("""
 SELECT workflow_run_id,
   SUM(CASE WHEN name='Eukaryota' THEN abundance ELSE 0 END)/NULLIF(SUM(abundance),0) cent_euk_frac
-FROM nmdc.results.centrifuge_output_report_file WHERE taxRank='superkingdom' GROUP BY workflow_run_id
+FROM nmdc.results.centrifuge_output_report_file WHERE taxRank='superkingdom' AND workflow_run_id IS NOT NULL GROUP BY workflow_run_id
 """)
 for df,nm in [(gottcha,'g'),(kraken,'k'),(centrifuge,'c')]:
     df.createOrReplaceTempView(nm)

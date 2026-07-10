@@ -4,9 +4,8 @@
 
 ### 1. Eukaryotic contamination is common and overwhelmingly photosynthetic
 
-Across **2,760 NMDC ReadbasedAnalysis runs** (native `nmdc.results` GOTTCHA2 classifications, 9 studies),
-**77% carry detectable eukaryotic reads** (median eukaryotic fraction 2.7%, mean 13.3%; **15% of runs exceed
-20% eukaryotic**). Among detectable runs, **plastid (plant/algal chloroplast) is a median 100% of the
+Across **2,759 NMDC ReadbasedAnalysis runs** (native `nmdc.results` GOTTCHA2 classifications, 9 studies),
+**77% carry detectable eukaryotic reads** (median eukaryotic fraction 2.7%, mean 13.3%; **20% of runs exceed 20% eukaryotic**). Among detectable runs, **plastid (plant/algal chloroplast) is a median 100% of the
 eukaryotic signal** — eukaryotic contamination in these prokaryote-targeted metagenomes is dominated by
 **photosynthetic** DNA, not animal-host DNA. The Kraken2 and Centrifuge domain-level Eukaryota signals are ≈0
 because their NMDC reference databases are prokaryote-restricted (see Discoveries), so GOTTCHA2 is the only
@@ -49,14 +48,20 @@ eukaryotic fraction shows:
 |---|---|
 | `study_id` only (random CV — batch ceiling) | 0.24 |
 | environment (random CV) | 0.35 |
-| **environment (GroupKFold, out-of-study)** | **−0.34** |
-| environment + sequencing (GroupKFold) | −0.46 |
+| **environment (GroupKFold, out-of-study)** | **−0.30** |
+| environment + sequencing (GroupKFold) | −0.39 |
 
 Environment explains **no more variance than `study_id` alone**, and when whole studies are held out the
 environment model performs **worse than predicting the mean** (out-of-study detection AUC = 0.56 ≈ chance).
 Adding sequencing metadata (platform, depth) does not help. **A naive cross-collection regression of eukaryotic
 fraction on environmental metadata would therefore report a strong, but largely spurious (batch-driven),
 association.**
+
+A whole-collection (cross-study) depth association is present — Spearman ρ = −0.29, p=5.2×10⁻⁷ (n=292 runs with
+measured depth): shallower samples carry more eukaryotic DNA, consistent with surface plant/algal input. This
+statistic is **not** batch-controlled (measured-depth runs come from a handful of non-soil studies; the dominant
+NEON soil study records no depth), so it is subject to the same study/batch confounding as the environment
+effect above and should be read as suggestive only.
 
 ![Variance partition and predictor importance](figures/fig03_variance_partition.png)
 
@@ -74,10 +79,10 @@ constant protocol/batch) — the eukaryotic fraction varies strongly with the me
 - **Geography** (47 sites): Kruskal H=310.4, **p=2.4×10⁻⁴⁶**. Highest at **Arctic tundra** sites
   (Utqiaġvik 30%, Caribou-Poker Creeks 22%, Toolik 17%) versus temperate forests (2–8%).
 - **Within-study predictability**: 5-fold R² = **+0.17 ± 0.06** (local environment + geography → euk fraction),
-  in direct contrast to the cross-study out-of-study R² = −0.34.
+  in direct contrast to the cross-study out-of-study R² = −0.30.
 
-A depth association also emerges (Spearman ρ = −0.29, p=5.2×10⁻⁷, n=292): shallower samples carry more
-eukaryotic DNA, consistent with surface plant/algal input.
+Note: sampling depth is **not** measured in this NEON soil study (zero non-null `depth` values), so the depth
+association reported below is a *cross-study* statistic and is not part of this batch-controlled result.
 
 ![Eukaryotic fraction by within-study environment](figures/fig04_within_study_env.png)
 
@@ -87,7 +92,7 @@ eukaryotic DNA, consistent with surface plant/algal input.
 
 - **Cross-collection contamination-QC correlates are a confounding trap.** In NMDC, sample matrix/biome is
   ~80–100% nested within study, so the eukaryotic fraction's strong association with environment (p≈10⁻¹⁷ to
-  10⁻⁵⁰) does not survive holding out whole studies (out-of-study R² = −0.34; = `study_id`-only R²). Any
+  10⁻⁵⁰) does not survive holding out whole studies (out-of-study R² = −0.30; = `study_id`-only R²). Any
   cross-collection "metadata correlate of contamination" analysis must control for study/batch (e.g., GroupKFold
   by study or within-study contrasts) or it will over-claim. This likely also qualifies biome-level correlates
   reported at scale elsewhere.
@@ -107,7 +112,7 @@ eukaryotic DNA, consistent with surface plant/algal input.
 - The read-based taxonomy tables are large (`kraken2_classification_report` ~29M rows). Aggregate each
   classifier to one row per `workflow_run_id` **before** joining to metadata; never scan them unfiltered.
 - Analyse at the **`workflow_run_id`** level, not biosample level: NMDC pools many biosamples into one
-  ReadbasedAnalysis run (1,067/2,760 runs are pooled), so biosample-level joins inflate n via pseudo-replication.
+  ReadbasedAnalysis run (1,067/2,759 runs are pooled), so biosample-level joins inflate n via pseudo-replication.
 - The native `nmdc.results` tables are keyed by `data_object_id` / `workflow_run_id`; bridge to biosample/study
   via `nmdc.metadata.biosample_to_workflow_run` (join on `workflow_run_id`), then
   `biosample_set_associated_studies` (child tables key on `parent_id`). This links 99%+ of classified runs.
@@ -116,17 +121,17 @@ eukaryotic DNA, consistent with surface plant/algal input.
 
 The response variable is the GOTTCHA2 relative eukaryotic abundance (Eukaryota + plastid) at superkingdom rank,
 per ReadbasedAnalysis run. It is strongly zero-inflated (23% of runs have no detectable eukaryotic reads) with a
-long upper tail (15% > 20%). Because of this and the batch structure, all inference is non-parametric
+long upper tail (one run in five exceeds 20% eukaryotic). Because of this and the batch structure, all inference is non-parametric
 (Kruskal–Wallis, Mann–Whitney with BH-FDR) or cross-validated (gradient boosting with GroupKFold by study).
 
 | Test | Statistic | p | Interpretation |
 |---|---|---|---|
 | Euk ~ matrix (univariate) | H=77.8 | 1.3×10⁻¹⁷ | strong, but confounded (Finding 3) |
-| Environment out-of-study R² | −0.34 | — | does **not** generalize across studies |
+| Environment out-of-study R² | −0.30 | — | does **not** generalize across studies |
 | Within-study euk ~ vegetation | H=119.1 | 7.6×10⁻²¹ | real when batch fixed |
 | Within-study euk ~ geography | H=310.4 | 2.4×10⁻⁴⁶ | real when batch fixed |
 | Within-study R² (env+geo) | +0.17 | — | genuine fine-scale environment effect |
-| Euk ~ depth (within-collection) | ρ=−0.29 | 5.2×10⁻⁷ | shallower → more euk |
+| Euk ~ depth (cross-study, NOT batch-controlled) | ρ=−0.29 | 5.2×10⁻⁷ | shallower → more euk; confounded, suggestive only |
 
 ## Interpretation
 
@@ -186,7 +191,7 @@ within-study estimate showing aboveground vegetation and geography genuinely dri
   database-dependent and should be read as relative/ordinal, not calibrated absolute contamination.
 - **Confounding within study.** Even within one study, `env_local_scale` and geography may track sub-batches
   (sampling campaigns); the within-study effect is the best available control, not a randomized one.
-- **Pooled-run metadata.** 1,067 of 2,760 runs are pooled from multiple biosamples; each pooled run inherits
+- **Pooled-run metadata.** 1,067 of 2,759 runs are pooled from multiple biosamples; each pooled run inherits
   environment/collection metadata from a single representative biosample (`MIN(biosample_id)`). Where pooled
   biosamples differ in local metadata, this injects label noise into the predictors — a conservative bias
   (it can only weaken associations, not manufacture them).
@@ -203,8 +208,8 @@ within-study estimate showing aboveground vegetation and geography genuinely dri
 ### Generated Data
 | File | Rows | Description |
 |------|------|-------------|
-| `data/analysis_table.csv` | 2,760 | per-run euk fractions + predictors (raw) |
-| `data/analysis_clean.csv` | 2,760 | cleaned modeling table |
+| `data/analysis_table.csv` | 2,759 | per-run euk fractions + predictors (raw) |
+| `data/analysis_clean.csv` | 2,759 | cleaned modeling table |
 | `data/h1a_pairwise_matrix.csv` | 3 | pairwise matrix contrasts (BH-FDR) |
 | `data/h1a_ecosystem_type.csv` | 4 | euk fraction by ecosystem_type |
 | `data/h1b_source_by_matrix.csv` | 3 | plastid vs protist/fungal by matrix |
