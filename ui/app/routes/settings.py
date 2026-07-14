@@ -64,7 +64,7 @@ async def settings_tokens_page(
 async def settings_tokens_create(
     request: Request,
     name: str = Form(...),
-    expires_in: str = Form("90"),
+    expires_in: str = Form("365"),
     user: BerilUser = Depends(require_user_page),
     db: AsyncSession = Depends(get_db),
 ):
