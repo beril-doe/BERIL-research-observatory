@@ -1,13 +1,13 @@
 """Unit tests for app.models."""
 
-from datetime import datetime, date
-
-import pytest
+from datetime import datetime
 
 from app.models import (
     Collection,
     CollectionCategory,
     CollectionTable,
+    AtlasReuseEdge,
+    AtlasReviewRoute,
     Column,
     Contributor,
     DataFile,
@@ -29,6 +29,8 @@ from app.models import (
     Skill,
     Table,
     Visualization,
+    AtlasIndex,
+    AtlasPage,
     _slugify_name,
 )
 
@@ -440,6 +442,73 @@ class TestDataclassDefaults:
         ra = ResearchArea(id="area-1", name="Genomics")
         assert ra.project_ids == []
         assert ra.top_terms == []
+
+    def test_atlas_reuse_edge_defaults(self):
+        edge = AtlasReuseEdge(
+            source_type="project",
+            source_id="a",
+            target_type="derived_product",
+            target_id="b",
+            relationship="produces",
+        )
+        assert edge.label == ""
+        assert edge.detail == ""
+
+    def test_atlas_review_route(self):
+        route = AtlasReviewRoute(
+            page_id="data.product",
+            page_title="Product",
+            reviewer_id="alice",
+            reviewer_name="Alice",
+            project_id="alpha_project",
+            basis="explicit project authorship",
+        )
+        assert route.project_id == "alpha_project"
+
+    def test_atlas_page_url(self):
+        page = AtlasPage(
+            id="topic.test",
+            title="Test",
+            type="topic",
+            status="draft",
+            summary="Summary",
+            path="topics/test",
+            body="Body",
+        )
+        assert page.url == "/atlas/topics/test"
+
+    def test_atlas_index_helpers(self):
+        page = AtlasPage(
+            id="topic.test",
+            title="Test",
+            type="topic",
+            status="draft",
+            summary="Summary",
+            path="topics/test",
+            body="Body",
+            section="topics",
+        )
+        index = AtlasIndex(pages=[page])
+        assert index.get_page_by_id("topic.test") is page
+        assert index.get_page_by_path("topics/test.md") is page
+        assert index.get_page_by_path("topics") is None
+        assert index.pages_by_type("topic") == [page]
+
+    def test_atlas_index_section_index_helper(self):
+        page = AtlasPage(
+            id="topics.index",
+            title="Topics",
+            type="meta",
+            status="draft",
+            summary="Summary",
+            path="topics/index",
+            body="Body",
+            section="topics",
+        )
+        index = AtlasIndex(pages=[page])
+        assert page.url == "/atlas/topics"
+        assert index.get_page_by_path("topics") is page
+        assert index.pages_by_section("topics") == [page]
 
     def test_derived_data_ref_defaults(self):
         ref = DerivedDataRef(source_project="essential_genome")
