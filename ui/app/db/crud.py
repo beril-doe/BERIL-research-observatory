@@ -280,7 +280,7 @@ TOKEN_PREFIX = "beril_"
     is transparent — legacy unprefixed tokens still hash correctly. The prefix
     exists purely for grep-ability in logs and secret scanners. """
 
-DEFAULT_TOKEN_EXPIRY_DAYS = 90
+DEFAULT_TOKEN_EXPIRY_DAYS = 365
 
 
 def _hash_token(raw_token: str) -> str:

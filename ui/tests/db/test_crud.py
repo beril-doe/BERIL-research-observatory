@@ -471,7 +471,7 @@ class TestCreateNamedApiToken:
         assert record.name == "laptop"
         assert record.token_hash == _hash_token(raw)
 
-    async def test_default_expiry_is_90_days(self, db_session, user):
+    async def test_default_expiry_is_365_days(self, db_session, user):
         import datetime as _dt
 
         before = _dt.datetime.now(_dt.timezone.utc)
@@ -481,8 +481,8 @@ class TestCreateNamedApiToken:
         assert record.expires_at is not None
         # SQLite drops tzinfo on read-back; coerce to UTC for the comparison.
         expires = record.expires_at.replace(tzinfo=_dt.timezone.utc) if record.expires_at.tzinfo is None else record.expires_at
-        expected_min = before + _dt.timedelta(days=90) - _dt.timedelta(seconds=5)
-        expected_max = after + _dt.timedelta(days=90) + _dt.timedelta(seconds=5)
+        expected_min = before + _dt.timedelta(days=365) - _dt.timedelta(seconds=5)
+        expected_max = after + _dt.timedelta(days=365) + _dt.timedelta(seconds=5)
         assert expected_min <= expires <= expected_max
 
     async def test_custom_expiry_days(self, db_session, user):
