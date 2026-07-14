@@ -51,7 +51,17 @@ data/               # Shared data extracts reusable across projects
 
 ### Existing Projects
 
-Discover projects dynamically — run `ls projects/` to list them. Read the first line of each `projects/*/README.md` to get titles. Present the list to the user so they can see what's been done.
+**Look projects up through the knowledge layer, not by hand** — the availability check
+and commands are in **Phase 1.8**. When OpenViking is up, list and search projects with
+`knowledge_query.py ls viking://resources/projects/ --simple` and
+`knowledge_query.py find "<user's topic>"` (these fall back to local search over the
+same corpus when the server is down). Present what you find so the user sees what's
+been done.
+
+Use a bare `ls projects/` only as a quick directory sanity-check or when the knowledge
+layer is `UNREACHABLE` — not as the default way to survey prior work. Reading every
+`projects/*/README.md` by hand is slower and misses the cross-project connections the
+knowledge layer surfaces.
 
 ### How Projects Work
 
@@ -111,6 +121,16 @@ After Phase 1.5 reports ready, print the live database inventory:
 python scripts/berdl_inventory.py
 ```
 
+**Cache-backed (fast on repeat runs).** The first run does a live fetch and caches the result to `data/berdl_inventory_cache.json` (keyed by environment + auth token). Subsequent runs within 7 days serve from that cache in a fraction of a second without touching Spark; past 7 days the script auto-refetches once. The stdout summary and `data/berdl_inventory.md` both carry a freshness banner — **paste that banner verbatim** so the user sees how old the data is (e.g. "Cached 3 days ago …").
+
+If any database fails to list (e.g. a transient auth error), the banner says **partial** and the run is **not cached**, so the next run retries rather than serving a lossy inventory for a week. Relay that banner too — the table counts are undercounted on such a run.
+
+To force a refresh at any time:
+
+```bash
+python scripts/berdl_inventory.py --refresh
+```
+
 This is plain `python` in **both** environments. It auto-detects on-cluster vs off-cluster and picks the right discovery path.
 
 - **On-cluster (JupyterHub):** the JH kernel already has every import. Just run the command above.
@@ -135,6 +155,9 @@ Useful flags:
 - `--with-members` — list each tenant's read-write and read-only members in the full report.
 - `--no-emoji` — plain-text output.
 - `--off-cluster` — force the off-cluster path.
+- `--refresh` — force a live fetch and rewrite the cache (ignores the 7-day TTL).
+- `--no-cache` — one-shot live fetch that neither reads nor writes the cache.
+- `--ttl-days N` — override the 7-day cache lifetime (also `BERDL_INVENTORY_TTL_DAYS`).
 
 For deeper inspection, suggest the user run:
 - `DESCRIBE DATABASE EXTENDED <db>` — database-level description / location / properties.
@@ -152,6 +175,51 @@ If the session does not already have a name, remind the user:
 > **Tip**: Name this session for easy identification — especially useful for long-running or remote sessions where the connection may drop. A good convention is to match the project name and git branch (e.g., `essential_metabolome`).
 
 This is a non-blocking reminder. Move on to Phase 2 regardless.
+
+---
+
+## Phase 1.8: Knowledge Layer Check (how to look up projects & prior work)
+
+**By default, look up projects and cross-project knowledge through OpenViking (the
+knowledge layer) — not by reading `projects/` directly.** Confirm it's available once:
+
+```bash
+uv run --env-file .env knowledge/scripts/knowledge_query.py doctor
+```
+
+- **OK** → the remote knowledge server is up. Use the `knowledge-context` skill for
+  **all** cross-project lookups — listing/finding projects, "what's known about X",
+  "has this been done", "related work":
+  - list projects: `knowledge_query.py ls viking://resources/projects/ --simple`
+  - by topic: `knowledge_query.py find "<topic>"`
+  - exact term / author / db: `knowledge_query.py grep "<term>" --uri viking://resources/`
+
+  **Do not enumerate `projects/` or read `projects/*/README.md` / REPORTs by hand for
+  context** — the server has them indexed and ranked, and hand-scanning misses the
+  cross-project connections it surfaces.
+- **NO API KEY / AUTH FAILED** → server is up but you have no valid key. OpenViking is
+  the default knowledge layer, so surface these steps to the user, then continue
+  (non-blocking — don't wait on them):
+
+  > **Set up OpenViking (~2 min, one-time):**
+  > 1. Open `https://beril-dev.kbase.us` and log in with your ORCiD.
+  > 2. Copy the `beril_session` cookie (DevTools → Application/Storage → Cookies).
+  > 3. In **your own terminal** (never paste the cookie into chat):
+  >    `uv run knowledge/scripts/setup_remote_ov.py --cookie '<paste beril_session value>'`
+  > 4. Verify: `uv run --env-file .env knowledge/scripts/knowledge_query.py doctor` → `OpenViking: OK`.
+  > Full walkthrough & troubleshooting: `docs/remote-openviking-setup.md`.
+
+  Until the key is set, knowledge-layer queries won't return results — the server is
+  reachable, so there's no local fallback (that only applies to `UNREACHABLE`). Setting
+  up the key is what unblocks `find` / `grep` / `read` / `overview`.
+- **UNREACHABLE** → no server; `find` / `grep` / `read` / `overview` still work via
+  local fallback, so keep using them instead of hand-scanning. Only
+  `relations` / `glob` / `ls` / `tree` / `stat` need the server — for those, a plain
+  `ls projects/` is the enumeration fallback.
+
+Non-blocking (like the session-naming reminder) — proceed to Phase 2 regardless.
+**Reserve hand-reading `projects/<id>/` files for the one project you're actively
+working in, never as the way to discover what exists or what's been done.**
 
 ---
 
@@ -217,6 +285,7 @@ Status: `exploration`. Read context, explore data, accept user-supplied input, a
 3. `docs/pitfalls.md` and `docs/performance.md` — **critical: read before any query design**. These are the frozen historical archives; per-project pitfalls hit by recent projects also live in `projects/*/memories/pitfalls.md` (worth a scan, especially for projects on the same database family).
 4. `docs/research_ideas.md` — check for related ideas; avoid duplicating work.
 5. Use `berdl_notebook_utils.get_databases(return_json=False)`, `get_tables(... return_json=False)`, and `get_table_schema(... detailed=True, return_json=False)` for live access-aware discovery. For database-specific gotchas, grep `docs/pitfalls.md` for the database name (e.g., `grep -A 20 "^## kbase\.ke_pangenome$" docs/pitfalls.md`); also check `projects/*/memories/pitfalls.md` for any project-tagged entries on the same database.
+6. For "what's already known" on the research topic across projects, query the knowledge layer rather than scanning REPORTs by hand — see `knowledge-context`. Seed: `knowledge_query.py find "<topic>"` for concepts, or `grep "<exact db/term>" --uri viking://resources/` for the database's documented gotchas; then `read` the strongest hits.
 
 **Setup check (Phase 1.5 already verified KBASE_AUTH_TOKEN and proxy):**
 6. `gh auth status` — needed for branches/PRs. Prompt `gh auth login` if missing.
@@ -226,7 +295,7 @@ Status: `exploration`. Read context, explore data, accept user-supplied input, a
 - **If the user has input data** (gene lists, phenotype tables, FASTAs, SQLite, etc.): drop it in `projects/<id>/user_data/`. Never leave user-supplied data in `~/` or the repo root.
 - Run exploratory queries with `/berdl`. For any query worth keeping, save it as a numbered exploration notebook (`projects/<id>/notebooks/00_exploration.ipynb`, then `00b_*.ipynb` if you need more). Even rough exploration gets a home.
 - Search literature with `/literature-review` if relevant. References go to `projects/<id>/references.md`.
-- Check related existing projects in `projects/` — read their READMEs to understand prior work.
+- Check related prior work through the knowledge layer (`knowledge_query.py find "<topic>"` / `relations`), not by hand-scanning `projects/`. Read a specific project's files directly only once the knowledge layer points you to it.
 - Develop 2-3 testable hypotheses with H0/H1.
 
 When the user has a clear hypothesis and is ready to commit to a plan, transition to Phase B.
@@ -412,6 +481,7 @@ These are project-agnostic helpers — invoke them from inside any project at th
 8. **Drive the process forward between checkpoints** — checkpoints are explicit pause-points (Plan Review, Results Review). Outside of those, keep moving — don't stop after every individual step asking permission.
 9. **Document as you go** — pitfalls live-captured to `projects/<id>/memories/pitfalls.md` via `/pitfall-capture`; discoveries and performance notes drafted in REPORT.md `## Discoveries` / `## Performance Notes` sections (extracted by `/submit` to per-project memories at approval). The central `docs/{pitfalls,discoveries,performance}.md` files are frozen historical archives — don't write to them.
 10. **Use Spark patterns from PROJECT.md** — `get_spark_session()`, PySpark-first, `.toPandas()` only for final small results.
+11. **Look up projects and prior work through the knowledge layer, not `projects/`** — when the OV server is up (Phase 1.8), use `knowledge-context` (`knowledge_query.py ls/find/grep/relations`) for "what exists / what's known / related work". It falls back to local search when the server is down, so this is always safe. Hand-read `projects/<id>/` only for the project you're actively working in.
 
 ---
 
