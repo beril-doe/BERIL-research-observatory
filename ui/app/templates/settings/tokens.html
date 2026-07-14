@@ -37,7 +37,7 @@
       <select id="token-expires" name="expires_in"
               style="width: 100%; padding: var(--space-2); background: rgba(0,0,0,0.25); border: 1px solid var(--color-border); border-radius: 4px; color: inherit;">
         {% for choice in expiry_choices %}
-          <option value="{{ choice }}" {% if choice == "90" %}selected{% endif %}>
+          <option value="{{ choice }}" {% if choice == "365" %}selected{% endif %}>
             {% if choice == "never" %}Never{% else %}{{ choice }} days{% endif %}
           </option>
         {% endfor %}
