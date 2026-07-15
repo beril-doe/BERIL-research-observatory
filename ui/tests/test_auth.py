@@ -409,7 +409,9 @@ class TestGetCurrentUserOrToken:
         assert result is not None
         assert result.id == user.id
 
-    async def test_session_takes_priority_over_bearer(self, db_session):
+    async def test_bearer_takes_priority_over_session(self, db_session):
+        """An explicit Bearer header wins over a lingering session cookie —
+        programmatic intent should not be silently shadowed."""
         from app.auth import get_current_user_session_or_token
         from app.db.crud import get_or_create_api_token
         from app.db.models import BerilUser
@@ -428,7 +430,24 @@ class TestGetCurrentUserOrToken:
         request.headers = {"Authorization": f"Bearer {raw_token}"}
         result = await get_current_user_session_or_token(request, db_session)
         assert result is not None
-        assert result.id == user_a.id
+        assert result.id == user_b.id
+
+    async def test_invalid_bearer_falls_through_to_session(self, db_session):
+        """A stale/bad Bearer must not lock out a valid browser session —
+        we fall through rather than failing hard on invalid Bearer."""
+        from app.auth import get_current_user_session_or_token
+        from app.db.models import BerilUser
+
+        user = BerilUser(orcid_id="0000-0001-2345-6789")
+        db_session.add(user)
+        await db_session.commit()
+
+        request = MagicMock()
+        request.session = {"orcid_id": "0000-0001-2345-6789"}
+        request.headers = {"Authorization": "Bearer beril_not_a_real_token"}
+        result = await get_current_user_session_or_token(request, db_session)
+        assert result is not None
+        assert result.orcid_id == "0000-0001-2345-6789"
 
     async def test_bad_bearer_token_returns_none(self, db_session):
         from app.auth import get_current_user_session_or_token
@@ -458,8 +477,9 @@ class TestGetCurrentUserOrToken:
         assert result is not None
         assert result.id == user.id
 
-    async def test_stale_session_falls_back_to_bearer(self, db_session):
-        """If the session orcid_id no longer resolves, bearer token is still honoured."""
+    async def test_bearer_wins_even_when_session_is_stale(self, db_session):
+        """Bearer succeeds regardless of session state — a stale session
+        cookie doesn't interfere with a valid Bearer token."""
         from app.auth import get_current_user_session_or_token
         from app.db.crud import get_or_create_api_token
         from app.db.models import BerilUser
