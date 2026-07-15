@@ -1,7 +1,7 @@
 project_id: phage_defense_arsenal
-status: active
+status: analysis
 created_at: "2026-07-15T20:27:21Z"
-last_session_at: "2026-07-15T20:40:00Z"
+last_session_at: "2026-07-15T21:58:00Z"
 branch: projects/phage_defense_arsenal
 engine:
   name: claude
@@ -12,5 +12,5 @@ authors:
 artifacts:
   readme: true
   research_plan: true
-  report: false
+  report: true
   review: false
