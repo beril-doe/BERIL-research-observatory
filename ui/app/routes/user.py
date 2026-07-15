@@ -1,15 +1,22 @@
-"""User profile routes."""
+"""User identity and profile routes.
+
+Browser routes (session auth):
+  GET  /user_profile      — logged-in user's profile page
+
+API routes (session or Bearer token):
+  GET  /api/user/whoami   — return the caller's ORCiD and display name
+"""
 
 import logging
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.context as ctx
 from app.context import get_base_context, get_repo_data
 from app.db.crud import get_projects_for_user, user_project_to_model
-from app.auth import require_user_page
+from app.auth import require_user_api, require_user_page
 from app.db.models import BerilUser
 from app.db.session import get_db
 from app.models import RepositoryData
@@ -89,3 +96,17 @@ async def user_profile(
         }
     )
     return ctx.templates.TemplateResponse(request, "profile.html", context)
+
+
+@ROUTER_USER.get("/api/user/whoami")
+async def api_whoami(
+    user: BerilUser = Depends(require_user_api),
+) -> JSONResponse:
+    """Return the caller's identity. Used by the beril CLI to validate a
+    freshly-pasted PAT and show the user "you are logged in as X"."""
+    return JSONResponse(
+        {
+            "orcid_id": user.orcid_id,
+            "display_name": user.display_name,
+        }
+    )
