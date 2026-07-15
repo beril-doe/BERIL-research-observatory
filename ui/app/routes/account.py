@@ -1,4 +1,4 @@
-"""User settings pages.
+"""User account pages.
 
 Currently only the personal API token management page lives here. The token
 page shows the caller's active tokens and lets them create or revoke tokens
@@ -29,7 +29,7 @@ from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 
-ROUTER_USER_SETTINGS = APIRouter(tags=["Settings"])
+ROUTER_USER_ACCOUNT = APIRouter(tags=["Account"])
 
 
 # Expiry options exposed in the create form. Kept small on purpose — power
@@ -43,8 +43,8 @@ EXPIRY_CHOICES: dict[str, int | None] = {
 }
 
 
-@ROUTER_USER_SETTINGS.get("/settings/tokens", response_class=HTMLResponse)
-async def settings_tokens_page(
+@ROUTER_USER_ACCOUNT.get("/account/tokens", response_class=HTMLResponse)
+async def account_tokens_page(
     request: Request,
     user: BerilUser = Depends(require_user_page),
     context: dict = Depends(get_base_context),
@@ -57,11 +57,11 @@ async def settings_tokens_page(
     context["tokens"] = tokens
     context["new_token"] = new_token
     context["expiry_choices"] = list(EXPIRY_CHOICES.keys())
-    return ctx.templates.TemplateResponse(request, "settings/tokens.html", context)
+    return ctx.templates.TemplateResponse(request, "account/tokens.html", context)
 
 
-@ROUTER_USER_SETTINGS.post("/settings/tokens")
-async def settings_tokens_create(
+@ROUTER_USER_ACCOUNT.post("/account/tokens")
+async def account_tokens_create(
     request: Request,
     name: str = Form(...),
     expires_in: str = Form("365"),
@@ -73,20 +73,20 @@ async def settings_tokens_create(
     if not name:
         # Invalid input — silently redirect back. A future iteration can add
         # inline validation messages via the same flash mechanism.
-        return RedirectResponse(url="/settings/tokens", status_code=302)
+        return RedirectResponse(url="/account/tokens", status_code=302)
 
     if expires_in not in EXPIRY_CHOICES:
-        return RedirectResponse(url="/settings/tokens", status_code=302)
+        return RedirectResponse(url="/account/tokens", status_code=302)
 
     raw_token, record = await create_named_api_token(
         db, user.id, name=name, expires_in_days=EXPIRY_CHOICES[expires_in]
     )
     request.session["_new_token"] = {"raw": raw_token, "name": record.name}
-    return RedirectResponse(url="/settings/tokens", status_code=302)
+    return RedirectResponse(url="/account/tokens", status_code=302)
 
 
-@ROUTER_USER_SETTINGS.post("/settings/tokens/{token_id}/revoke")
-async def settings_tokens_revoke(
+@ROUTER_USER_ACCOUNT.post("/account/tokens/{token_id}/revoke")
+async def account_tokens_revoke(
     request: Request,
     token_id: str,
     user: BerilUser = Depends(require_user_page),
@@ -95,4 +95,4 @@ async def settings_tokens_revoke(
     """Revoke one of the caller's tokens. Silently no-ops if not owned —
     we don't leak "this token exists but belongs to someone else"."""
     await revoke_api_token(db, token_id, user.id)
-    return RedirectResponse(url="/settings/tokens", status_code=302)
+    return RedirectResponse(url="/account/tokens", status_code=302)

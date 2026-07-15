@@ -1,4 +1,4 @@
-"""Tests for user settings routes (app.routes.settings) — token management."""
+"""Tests for user account routes (app.routes.account) — token management."""
 
 import os
 from collections.abc import AsyncGenerator
@@ -100,19 +100,19 @@ def _login(client):
 
 
 # ---------------------------------------------------------------------------
-# GET /settings/tokens
+# GET /account/tokens
 # ---------------------------------------------------------------------------
 
 
-class TestSettingsTokensPage:
+class TestAccountTokensPage:
     def test_redirects_when_not_logged_in(self, client):
-        resp = client.get("/settings/tokens", follow_redirects=False)
+        resp = client.get("/account/tokens", follow_redirects=False)
         assert resp.status_code == 302
         assert "/auth/login" in resp.headers["location"]
 
     def test_returns_200_when_logged_in(self, client, beril_user):
         _login(client)
-        resp = client.get("/settings/tokens")
+        resp = client.get("/account/tokens")
         assert resp.status_code == 200
         assert "API Tokens" in resp.text
 
@@ -121,7 +121,7 @@ class TestSettingsTokensPage:
         await create_named_api_token(db_session, beril_user.id, name="laptop")
         await create_named_api_token(db_session, beril_user.id, name="workstation")
 
-        resp = client.get("/settings/tokens")
+        resp = client.get("/account/tokens")
         assert resp.status_code == 200
         assert "laptop" in resp.text
         assert "workstation" in resp.text
@@ -132,7 +132,7 @@ class TestSettingsTokensPage:
         _login(client)
         await create_named_api_token(db_session, other_user.id, name="not-mine")
 
-        resp = client.get("/settings/tokens")
+        resp = client.get("/account/tokens")
         assert "not-mine" not in resp.text
 
     async def test_hides_revoked_tokens(self, client, beril_user, db_session):
@@ -144,19 +144,19 @@ class TestSettingsTokensPage:
         )
         await revoke_api_token(db_session, record.id, beril_user.id)
 
-        resp = client.get("/settings/tokens")
+        resp = client.get("/account/tokens")
         assert "dead" not in resp.text
 
 
 # ---------------------------------------------------------------------------
-# POST /settings/tokens (create)
+# POST /account/tokens (create)
 # ---------------------------------------------------------------------------
 
 
-class TestSettingsTokensCreate:
+class TestAccountTokensCreate:
     def test_rejects_unauthenticated(self, client):
         resp = client.post(
-            "/settings/tokens",
+            "/account/tokens",
             data={"name": "test", "expires_in": "90"},
             follow_redirects=False,
         )
@@ -166,12 +166,12 @@ class TestSettingsTokensCreate:
     async def test_creates_token_and_redirects(self, client, beril_user, db_session):
         _login(client)
         resp = client.post(
-            "/settings/tokens",
+            "/account/tokens",
             data={"name": "laptop", "expires_in": "90"},
             follow_redirects=False,
         )
         assert resp.status_code == 302
-        assert resp.headers["location"] == "/settings/tokens"
+        assert resp.headers["location"] == "/account/tokens"
 
         tokens = await list_api_tokens_for_user(db_session, beril_user.id)
         assert len(tokens) == 1
@@ -184,7 +184,7 @@ class TestSettingsTokensCreate:
         _login(client)
         # Create → follow redirect → raw token visible.
         resp = client.post(
-            "/settings/tokens",
+            "/account/tokens",
             data={"name": "laptop", "expires_in": "90"},
             follow_redirects=True,
         )
@@ -198,13 +198,13 @@ class TestSettingsTokensCreate:
         raw_token = match.group(0)
 
         # Refresh the page — raw token no longer shown.
-        resp2 = client.get("/settings/tokens")
+        resp2 = client.get("/account/tokens")
         assert raw_token not in resp2.text
 
     async def test_never_expires_option(self, client, beril_user, db_session):
         _login(client)
         client.post(
-            "/settings/tokens",
+            "/account/tokens",
             data={"name": "forever", "expires_in": "never"},
             follow_redirects=False,
         )
@@ -215,7 +215,7 @@ class TestSettingsTokensCreate:
     async def test_blank_name_is_rejected(self, client, beril_user, db_session):
         _login(client)
         resp = client.post(
-            "/settings/tokens",
+            "/account/tokens",
             data={"name": "   ", "expires_in": "90"},
             follow_redirects=False,
         )
@@ -226,7 +226,7 @@ class TestSettingsTokensCreate:
     async def test_invalid_expiry_is_rejected(self, client, beril_user, db_session):
         _login(client)
         resp = client.post(
-            "/settings/tokens",
+            "/account/tokens",
             data={"name": "sneaky", "expires_in": "9999"},
             follow_redirects=False,
         )
@@ -236,14 +236,14 @@ class TestSettingsTokensCreate:
 
 
 # ---------------------------------------------------------------------------
-# POST /settings/tokens/{id}/revoke
+# POST /account/tokens/{id}/revoke
 # ---------------------------------------------------------------------------
 
 
-class TestSettingsTokensRevoke:
+class TestAccountTokensRevoke:
     def test_rejects_unauthenticated(self, client):
         resp = client.post(
-            "/settings/tokens/no-such-id/revoke", follow_redirects=False
+            "/account/tokens/no-such-id/revoke", follow_redirects=False
         )
         assert resp.status_code == 302
         assert "/auth/login" in resp.headers["location"]
@@ -256,7 +256,7 @@ class TestSettingsTokensRevoke:
             db_session, beril_user.id, name="doomed"
         )
         resp = client.post(
-            f"/settings/tokens/{record.id}/revoke", follow_redirects=False
+            f"/account/tokens/{record.id}/revoke", follow_redirects=False
         )
         assert resp.status_code == 302
 
@@ -276,7 +276,7 @@ class TestSettingsTokensRevoke:
             db_session, other_user.id, name="not-mine"
         )
         resp = client.post(
-            f"/settings/tokens/{record.id}/revoke", follow_redirects=False
+            f"/account/tokens/{record.id}/revoke", follow_redirects=False
         )
         # Redirects either way — silently no-ops rather than leaking existence.
         assert resp.status_code == 302
@@ -290,6 +290,6 @@ class TestSettingsTokensRevoke:
     async def test_revoke_unknown_id_is_noop(self, client, beril_user):
         _login(client)
         resp = client.post(
-            "/settings/tokens/nonexistent-id/revoke", follow_redirects=False
+            "/account/tokens/nonexistent-id/revoke", follow_redirects=False
         )
         assert resp.status_code == 302

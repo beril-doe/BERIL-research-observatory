@@ -25,7 +25,7 @@
 
 <div class="card" style="margin-bottom: var(--space-6);">
   <h2 style="margin-top: 0;">Create a token</h2>
-  <form method="post" action="/settings/tokens" style="display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: flex-end;">
+  <form method="post" action="/account/tokens" style="display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: flex-end;">
     <div style="flex: 1; min-width: 200px;">
       <label for="token-name" style="display: block; margin-bottom: var(--space-1); font-size: 0.9rem;">Name</label>
       <input id="token-name" name="name" type="text" required maxlength="128"
@@ -72,7 +72,7 @@
         {% endif %}
       </p>
     </div>
-    <form method="post" action="/settings/tokens/{{ token.id }}/revoke" style="margin: 0;">
+    <form method="post" action="/account/tokens/{{ token.id }}/revoke" style="margin: 0;">
       <button type="submit" class="btn btn-outline btn-sm"
               onclick="return confirm('Revoke this token? Any client using it will stop working immediately.');">
         Revoke
