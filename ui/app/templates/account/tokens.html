@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}API Tokens — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">API Tokens</h1>
+  <p class="text-muted">
+    Personal access tokens let the <code>beril</code> CLI and other programmatic
+    clients authenticate as you. Tokens are shown to you exactly once at
+    creation time — copy the token immediately.
+  </p>
+</div>
+
+{% if new_token %}
+<div class="card" style="background: rgba(80, 220, 120, 0.08); border-color: rgba(80, 220, 120, 0.4); margin-bottom: var(--space-6);">
+  <h2 style="margin-top: 0;">Token created</h2>
+  <p>
+    Copy this token now — it will not be shown again.
+    {% if new_token.name %}<span class="text-muted">({{ new_token.name }})</span>{% endif %}
+  </p>
+  <pre style="background: rgba(0,0,0,0.35); padding: var(--space-3); border-radius: 4px; overflow-x: auto; user-select: all;"><code>{{ new_token.raw }}</code></pre>
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom: var(--space-6);">
+  <h2 style="margin-top: 0;">Create a token</h2>
+  <form method="post" action="/account/tokens" style="display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 1; min-width: 200px;">
+      <label for="token-name" style="display: block; margin-bottom: var(--space-1); font-size: 0.9rem;">Name</label>
+      <input id="token-name" name="name" type="text" required maxlength="128"
+             placeholder="e.g. laptop, jupyterhub"
+             style="width: 100%; padding: var(--space-2); background: rgba(0,0,0,0.25); border: 1px solid var(--color-border); border-radius: 4px; color: inherit;">
+    </div>
+    <div style="min-width: 160px;">
+      <label for="token-expires" style="display: block; margin-bottom: var(--space-1); font-size: 0.9rem;">Expires in</label>
+      <select id="token-expires" name="expires_in"
+              style="width: 100%; padding: var(--space-2); background: rgba(0,0,0,0.25); border: 1px solid var(--color-border); border-radius: 4px; color: inherit;">
+        {% for choice in expiry_choices %}
+          <option value="{{ choice }}" {% if choice == "365" %}selected{% endif %}>
+            {% if choice == "never" %}Never{% else %}{{ choice }} days{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Create token</button>
+  </form>
+</div>
+
+<h2>Active tokens</h2>
+{% if tokens %}
+<div style="display: flex; flex-direction: column; gap: var(--space-3);">
+  {% for token in tokens %}
+  <div class="card" style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 0;">
+      <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-1);">
+        <span style="font-weight: 600;">{{ token.name or "(unnamed)" }}</span>
+        {% if token.expires_at %}
+          <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--color-text-muted); font-size: 0.7rem;">
+            expires {{ token.expires_at.strftime("%Y-%m-%d") }}
+          </span>
+        {% else %}
+          <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--color-text-muted); font-size: 0.7rem;">no expiry</span>
+        {% endif %}
+      </div>
+      <p class="text-muted text-small" style="margin: 0;">
+        Created {{ token.created_at.strftime("%Y-%m-%d") }}
+        {% if token.last_used_at %}
+          · last used {{ token.last_used_at.strftime("%Y-%m-%d") }}
+        {% else %}
+          · never used
+        {% endif %}
+      </p>
+    </div>
+    <form method="post" action="/account/tokens/{{ token.id }}/revoke" style="margin: 0;">
+      <button type="submit" class="btn btn-outline btn-sm"
+              onclick="return confirm('Revoke this token? Any client using it will stop working immediately.');">
+        Revoke
+      </button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: var(--space-8) var(--space-6);">
+  <p class="text-muted" style="margin: 0;">You have no active tokens.</p>
+</div>
+{% endif %}
+{% endblock %}
