@@ -325,7 +325,7 @@ Then ask explicitly:
 
 > "Plan ready to start analysis?
 > (a) Approve and continue to Phase C (Analysis)
-> (b) Run an independent review first — `bash tools/review.sh {project_id} --type plan` writes `PLAN_REVIEW_<n>.md`. Use `--reviewer codex` for a second opinion.
+> (b) Run an independent review first — `bash tools/review.sh {project_id} --type plan` writes `PLAN_REVIEW_<n>.md` with the exact `RESEARCH_PLAN.md` hash. Use `--reviewer codex` for a second opinion.
 > (c) Iterate on the plan"
 
 **Do not proceed to Phase C until the user picks (a).**

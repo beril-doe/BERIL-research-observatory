@@ -82,6 +82,10 @@ Check against `PROJECT.md` standards:
 - If so, can it build on existing work (e.g., reuse data extracts, reference findings) rather than repeating it?
 - Note any existing projects that could serve as useful references or data sources
 
+### 7. Evaluation Integrity
+
+Most BERDL plans are descriptive SQL — check that the metric and any subsetting fit the question. **If the plan trains or tunes a model or threshold**, pre-empt leakage at design time per the checklist at **`.claude/reviewer/EVALUATION_INTEGRITY.md`** (a held-out set; no group leakage from related rows straddling the split; no look-ahead/temporal features; an appropriate metric and baseline). Flag these as **Critical** when a model/threshold is in scope — far cheaper to fix in the plan than after the analysis runs. Don't raise them for plain descriptive SQL with no model.
+
 ## Output Format
 
 Return a concise list of suggestions. Start with a one-sentence overall assessment, then organize by priority:
@@ -110,3 +114,4 @@ Omit any priority section that has no items. Keep each suggestion to 1-2 sentenc
 - If the plan looks solid, say so briefly — don't manufacture issues
 - Frame everything as suggestions, not requirements — the researcher may have context you don't
 - Keep the total review concise (aim for under 30 lines)
+- Do not add a hash footer yourself; `tools/review.sh` appends the one canonical `plan_hash` after its post-review TOCTOU check.

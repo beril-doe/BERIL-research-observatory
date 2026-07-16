@@ -6,7 +6,9 @@ allowed-tools: Bash, Read, Write
 
 # Project Review Skill
 
-Run an independent AI review of a BERDL analysis project or research plan. `/berdl-review` is the canonical review tool: each run produces a numbered `REVIEW_N.md` file with an embedded report-hash footer that lets `/submit` later confirm the review still covers the current `REPORT.md`. Use it to iterate on feedback during development before approving the project via `/submit`.
+Run an independent AI review of a BERDL analysis project or research plan. `/berdl-review` is the canonical review tool: every artifact identifies the exact subject reviewed. Project reviews preserve the report-hash footer contract that `/submit` consumes; plan reviews carry a plan hash. Use it to iterate on feedback during development before approving the project via `/submit`.
+
+The reviewer hunts **evaluation-integrity** failures (selection bias, metric misuse, and — when a model or threshold is fit — train/test leakage and baseline selection) and reads the **numeric cell outputs** (metrics, split sizes, class balances), not just the source. For an adversarial red-team that actively tries to *break* each Key Finding, run `/berdl-refute` after the review.
 
 ## Usage
 
@@ -46,7 +48,7 @@ For `--type plan` reviews this precondition does not apply (plans are reviewed i
 
 ### Step 3: Invoke Reviewer
 
-Run `tools/review.sh` — the script automatically numbers the output file (`REVIEW_1.md`, `REVIEW_2.md`, etc.) and, for project reviews, embeds a `<!-- report_hash: sha256:<hex> -->` footer recording the SHA-256 of `REPORT.md` at review time:
+Run `tools/review.sh` — the script automatically numbers the output file and appends exactly one canonical subject footer: `report_hash` for project reviews and `plan_hash` for plan reviews. It hashes before and after the reviewer and discards output if the subject changes:
 
 ```bash
 bash tools/review.sh {project_id} --type {type} --reviewer {reviewer} --model {model}
@@ -64,8 +66,8 @@ Run this command from the repository root directory.
 After the reviewer subprocess completes:
 
 1. Check that the output file was created **and is non-empty** (more than 0 bytes).
-2. For project reviews, confirm the file ends with the `<!-- report_hash: sha256:... -->` footer (the script writes this; if it's missing, something is wrong).
-3. If the script aborted because of a TOCTOU mismatch, surface that error to the user and explain that REPORT.md changed during review — they should let the report stabilize and re-run.
+2. Confirm the file ends with `<!-- report_hash: sha256:... -->` for a project review or `<!-- plan_hash: sha256:... -->` for a plan review.
+3. If the script aborted because of a TOCTOU mismatch, surface that error and explain which subject changed; let it stabilize and re-run.
 
 ### Step 5: Update beril.yaml status and README (project reviews only)
 
@@ -108,13 +110,13 @@ Based on the review outcome:
 ## Notes
 
 - Reviews are numbered sequentially: `REVIEW_1.md`, `REVIEW_2.md`, `REVIEW_3.md`, … and are **preserved** across `/submit` runs (they form the review history). The latest by numeric N is what `/submit` consults.
-- Plan reviews use `PLAN_REVIEW_N.md`; these are working documents for the development process and have no effect on the project lifecycle.
-- Each review carries reviewer/model info in its YAML frontmatter and a `<!-- report_hash: sha256:... -->` footer (project reviews only) that proves which `REPORT.md` it covered.
+- Plan reviews use `PLAN_REVIEW_N.md`; they end with `<!-- plan_hash: sha256:... -->` and have no effect on the project lifecycle.
+- Each project review ends with `<!-- report_hash: sha256:... -->`, proving which `REPORT.md` it covered.
 - The reviewer prompt is stored at `.claude/reviewer/SYSTEM_PROMPT.md` (project) or `.claude/reviewer/PLAN_REVIEW_PROMPT.md` (plan) and is not controlled by the author.
 
 ## Footer invariant
 
-Anything that produces or modifies a project `REVIEW_N.md` must preserve the report-hash footer as the final non-empty line, in the exact form `<!-- report_hash: sha256:[0-9a-f]{64} -->` (lowercase hex, sha256: prefix, exactly one occurrence in the file). If you edit a review file by hand for any reason, do not modify or duplicate the footer — `/submit` will reject the file otherwise.
+Anything that produces or modifies `REVIEW_N.md` must preserve exactly one final `<!-- report_hash: sha256:[0-9a-f]{64} -->`; `/submit` rejects any deviation. `PLAN_REVIEW_N.md` similarly preserves exactly one final `<!-- plan_hash: sha256:[0-9a-f]{64} -->`.
 
 ## Pitfall Detection
 

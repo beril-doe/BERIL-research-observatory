@@ -1,8 +1,10 @@
 # OpenViking Knowledge Context
 
 This branch uses OpenViking as the BERIL knowledge context layer. It ingests
-curated project reports and central docs, then exposes `find`, `overview`, and
-`read` queries for agents and humans.
+curated project reports, a human-readable claims/evidence projection, numbered
+refutations, and central docs, then exposes `find`, `overview`, and `read`
+queries for agents and humans. Original project files remain authoritative;
+results from the knowledge layer are pointers back to them.
 
 ## Client Configuration
 
@@ -116,6 +118,13 @@ after editing one project, and `--docs` after central docs edits. `--limit N`
 caps how many projects a single `--all`/`--changed` run ingests and writes a
 partial manifest so the rest stay pending — handy for smoke tests and for
 resuming after rate-limit backoffs.
+
+Per-project staging renders `claims.json` as `CLAIMS_CONTEXT.md`, with separate
+labels for author status/confidence, supporting evidence, contradicting
+evidence, resolution state, and computed artifact support. It also includes
+`REFUTATION_N.md` so verdicts are searchable. The manifest hashes the original
+`claims.json` and refutations, so `--changed` notices updates. `runtime.json` is
+excluded from semantic scientific recall; inspect it directly with `/runtime`.
 
 ### Batching, pacing, and resume safety
 
