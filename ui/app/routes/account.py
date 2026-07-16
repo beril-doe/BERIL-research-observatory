@@ -1,8 +1,10 @@
 """User account pages.
 
-Currently only the personal API token management page lives here. The token
-page shows the caller's active tokens and lets them create or revoke tokens
-for CLI / programmatic access.
+  * GET  /account            — account overview: identity, roles, integrations,
+                               token summary.
+  * GET  /account/tokens     — list active tokens + create form.
+  * POST /account/tokens     — create form target.
+  * POST /account/tokens/{id}/revoke — revoke form target.
 
 The newly-issued raw token is displayed exactly once via a one-shot session
 flash: the POST handler stores it under ``_new_token`` and the next GET
@@ -21,6 +23,7 @@ from app.auth import require_user_page
 from app.context import get_base_context
 from app.db.crud import (
     create_named_api_token,
+    get_ov_credential,
     list_api_tokens_for_user,
     revoke_api_token,
 )
@@ -41,6 +44,29 @@ EXPIRY_CHOICES: dict[str, int | None] = {
     "365": 365,
     "never": None,
 }
+
+@ROUTER_USER_ACCOUNT.get("/account", response_class=HTMLResponse)
+async def account_page(
+    request: Request,
+    user: BerilUser = Depends(require_user_page),
+    context: dict = Depends(get_base_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render the account overview: identity, roles, integrations, token summary."""
+    # roles is a lazy relationship on BerilUser; async loading needs an
+    # explicit refresh (see routes/admin.py::require_admin for the same
+    # pattern).
+    await db.refresh(user, ["roles"])
+    role_names = sorted({r.role for r in user.roles})
+
+    active_tokens = await list_api_tokens_for_user(db, user.id)
+    ov_credential = await get_ov_credential(db, user.id)
+
+    context["beril_user"] = user
+    context["role_names"] = role_names
+    context["active_token_count"] = len(active_tokens)
+    context["ov_linked"] = ov_credential is not None
+    return ctx.templates.TemplateResponse(request, "account/account.html", context)
 
 
 @ROUTER_USER_ACCOUNT.get("/account/tokens", response_class=HTMLResponse)
