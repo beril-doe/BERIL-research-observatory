@@ -162,6 +162,7 @@ from projects.prophage_ecology.src.prophage_utils import build_spark_where_claus
 ## Revision History
 
 - **v1** (2026-07-15): Initial plan. Phase A detectability check confirmed all 7 systems detectable via `interproscan_domains` (primary) + `eggnog_mapper_annotations` (secondary). Scope locked at 7 focused families; third-pillar emphasis on defense syndromes over environment.
+- **v2** (2026-07-16, post-hoc, no re-analysis): Deviation from the plan's Retron specificity rule recorded. The plan specified filtering RVT_1 hits by co-occurrence with retron-specific effector Pfams (Millman 2020, Cell 183:1551, Table S1). The implementation in NB02 instead defines `Retron_stringent` as RVT_1 present AND ≥1 other narrow defense system present in the species — a *defense-context* proxy rather than a *retron-specificity* filter. Because narrow defense systems are near-universal across species carrying RVT_1, this filter drops only 11 of 15,109 candidate species (Retron_candidate 15,109 vs Retron_stringent 15,098). Downstream results for Retron (arms-race, syndrome, accessory) should be interpreted as "reverse-transcriptase in defense-syndrome context," not "characterized retron systems." A subsequent refinement adopting the Millman-2020-effector Pfam set would sharpen specificity; the qualitative conclusions (arms race supported, syndromes supported) are not expected to change but effect sizes for Retron pairs may shift. Documented in `REPORT.md` §Limitations.
 
 ## Authors
 

@@ -201,5 +201,5 @@ sys_df.to_csv(os.path.join(DATA_DIR, "system_core_aux_summary.tsv"), sep="\t", i
 # system with elevated `pct_singleton` (relative to background ~15-25%) is a
 # candidate for high mobility.
 #
-# **Next**: `07_synthesis.ipynb` (or handoff to `/synthesize`) — compile
-# the three-hypothesis story into `REPORT.md`.
+# **Next**: hand off to `/synthesize` — compile the three-hypothesis story
+# into `REPORT.md`.

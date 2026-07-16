@@ -248,7 +248,7 @@ print(f"Wrote: {out}  ({len(obs_df_sorted)} pairs)")
 # %% [markdown]
 # ## Summary
 #
-# - 21 defense-system pairs tested against a phylum-stratified column-permutation null (N=1,000 permutations).
+# - 28 defense-system pairs tested against a phylum-stratified column-permutation null (N=1,000 permutations).
 # - Positive syndromes (co-occur beyond null, q<0.05) may reflect mobile-defense-island transfer.
 # - Negative pairs (co-occur less than null, q<0.05) may indicate functional redundancy or interference.
 #
