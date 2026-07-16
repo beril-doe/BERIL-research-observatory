@@ -12,8 +12,10 @@ from observatory_context.selection import (
     iter_project_dirs,
     project_target_uri,
     select_central_docs,
+    select_project_context_sources,
     select_project_files,
     select_project_memories,
+    select_project_refutations,
 )
 
 
@@ -27,6 +29,10 @@ def test_select_project_files_includes_curated_top_level_only(tmp_path: Path) ->
         "references.md",
         "beril.yaml",
         "README.review.md",
+        "REFUTATION_10.md",
+        "REFUTATION_2.md",
+        "runtime.json",
+        "claims.json",
     ):
         (project_dir / name).write_text(name)
 
@@ -40,7 +46,25 @@ def test_select_project_files_includes_curated_top_level_only(tmp_path: Path) ->
         project_dir / "REPORT.md",
         project_dir / "references.md",
         project_dir / "beril.yaml",
+        project_dir / "REFUTATION_2.md",
+        project_dir / "REFUTATION_10.md",
     ]
+    assert select_project_refutations(project_dir) == [
+        project_dir / "REFUTATION_2.md",
+        project_dir / "REFUTATION_10.md",
+    ]
+    assert select_project_context_sources(project_dir) == [
+        project_dir / "README.md",
+        project_dir / "REPORT.md",
+        project_dir / "references.md",
+        project_dir / "beril.yaml",
+        project_dir / "REFUTATION_2.md",
+        project_dir / "REFUTATION_10.md",
+        project_dir / "claims.json",
+    ]
+    assert project_dir / "runtime.json" not in select_project_context_sources(
+        project_dir
+    )
 
 
 def test_select_project_memories_returns_sorted_markdown_only(tmp_path: Path) -> None:
@@ -96,8 +120,12 @@ def test_central_docs_uris_config_defaults_and_project_dirs(
         docs_dir / "pitfalls.md",
         docs_dir / "research_ideas.md",
     ]
-    assert [path.relative_to(tmp_path).as_posix() for path in select_central_docs(tmp_path)] == [
-        rel for rel in DOC_SOURCE_PATHS if rel in {"docs/pitfalls.md", "docs/research_ideas.md"}
+    assert [
+        path.relative_to(tmp_path).as_posix() for path in select_central_docs(tmp_path)
+    ] == [
+        rel
+        for rel in DOC_SOURCE_PATHS
+        if rel in {"docs/pitfalls.md", "docs/research_ideas.md"}
     ]
     assert project_target_uri("alpha") == f"{PROJECTS_TARGET_URI}alpha/"
     assert docs_target_uri(Path("docs/pitfalls.md")) == f"{DOCS_TARGET_URI}pitfalls/"
@@ -106,5 +134,3 @@ def test_central_docs_uris_config_defaults_and_project_dirs(
     monkeypatch.setenv("OPENVIKING_API_KEY", "secret")
 
     assert ContextConfig.from_env(repo_root=tmp_path).openviking_api_key == "secret"
-
-

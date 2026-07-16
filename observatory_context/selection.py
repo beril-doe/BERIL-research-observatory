@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 from .config import DOCS_TARGET_URI, PROJECTS_TARGET_URI
 
@@ -33,15 +34,27 @@ DOC_SOURCE_PATHS = [f"docs/{name}" for name in CENTRAL_DOC_NAMES]
 # alongside the project's curated docs so OpenViking carries cross-project
 # semantic recall.
 MEMORY_DIR_NAME = "memories"
+_REFUTATION_NAME = re.compile(r"REFUTATION_([1-9][0-9]*)\.md$")
 
 
 def select_project_files(project_dir: Path) -> list[Path]:
     project_path = Path(project_dir)
-    return [
+    curated = [
         project_path / name
         for name in PROJECT_CURATED_NAMES
         if (project_path / name).is_file()
     ]
+    return curated + select_project_refutations(project_path)
+
+
+def select_project_refutations(project_dir: Path) -> list[Path]:
+    """Return numbered refutations in numeric order for semantic recall."""
+    numbered = []
+    for path in Path(project_dir).glob("REFUTATION_*.md"):
+        match = _REFUTATION_NAME.fullmatch(path.name)
+        if path.is_file() and match:
+            numbered.append((int(match.group(1)), path))
+    return [path for _, path in sorted(numbered)]
 
 
 def select_project_memories(project_dir: Path) -> list[Path]:
@@ -49,6 +62,21 @@ def select_project_memories(project_dir: Path) -> list[Path]:
     if not memories_dir.is_dir():
         return []
     return sorted(path for path in memories_dir.glob("*.md") if path.is_file())
+
+
+def select_project_context_sources(project_dir: Path) -> list[Path]:
+    """Files that determine staged semantic context and its manifest entry.
+
+    ``claims.json`` drives a Markdown projection. ``runtime.json`` is
+    intentionally absent: runtime metadata is available only by direct project
+    inspection, never scientific semantic recall.
+    """
+    project_path = Path(project_dir)
+    sources = select_project_files(project_path) + select_project_memories(project_path)
+    claims = project_path / "claims.json"
+    if claims.is_file():
+        sources.append(claims)
+    return sources
 
 
 def select_central_docs(repo_root: Path) -> list[Path]:
