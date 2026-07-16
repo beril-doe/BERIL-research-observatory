@@ -4,7 +4,7 @@
 Across the 293K-genome BERDL pangenome, how are seven of the major anti-phage defense system families (CRISPR-Cas, restriction-modification, CBASS, Gabija, Retron, BREX, DISARM) distributed; does species-level defense-system count scale with prophage burden (the coevolutionary arms-race prediction); and which system combinations co-occur beyond phylogenetic expectation, defining "defense syndromes" that may represent mobile defense islands?
 
 ## Status
-Reviewed — REVIEW_1.md drafted; awaiting /submit.
+Reviewed — REVIEW_2.md drafted; awaiting /submit.
 
 ## Overview
 Surveys seven of the major anti-phage defense system families (CRISPR-Cas, restriction-modification, CBASS, Gabija, Retron, BREX, DISARM) across the BERDL pangenome (293K genomes, 27,690 species). Tests three linked hypotheses: (1) species-level defense-system count scales with prophage burden after controlling for genome size and phylum (the coevolutionary arms race), (2) specific system combinations co-occur beyond phylogenetic expectation, defining "defense syndromes" consistent with mobile-defense-island transfer, and (3) defense systems are enriched in the accessory pangenome. Detection uses `kbase_ke_pangenome.interproscan_domains` (primary, Pfam accession-based) with `eggnog_mapper_annotations` for R-M and CRISPR description-based confirmation. Prophage burden is re-derived using the eggNOG-description classifier from `projects/prophage_ecology/src/prophage_utils.py`.
