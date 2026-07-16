@@ -122,17 +122,17 @@ from projects.prophage_ecology.src.prophage_utils import build_spark_where_claus
 - **Expected output**: Confirmation counts, summary table.
 
 ### Notebook 01: Defense-System Cluster Extraction (`01_extract_defense_clusters.ipynb`)
-- **Goal**: Run the two extraction queries above; cache to `data/defense_gene_clusters.parquet` (columns: `gene_cluster_id`, `system`, `subtype`, `marker_pfam`, `gtdb_species_clade_id`, `is_core`, `is_auxiliary`, `is_singleton`).
+- **Goal**: Run the two extraction queries above; cache to `data/defense_gene_clusters.tsv.gz` (columns: `gene_cluster_id`, `system`, `subtype`, `marker_pfam`, `gtdb_species_clade_id`, `is_core`, `is_auxiliary`, `is_singleton`).
 - **Broad-Pfam post-filter**: For Retron/DISARM/Gabija-UvrD, require anchor+partner co-occurrence at species level.
-- **Expected output**: `data/defense_gene_clusters.parquet` (~200K–500K clusters expected); per-system cluster counts table.
+- **Expected output**: `data/defense_gene_clusters.tsv.gz` (~200K–500K clusters expected); per-system cluster counts table.
 
 ### Notebook 02: Species × System Matrix (`02_species_system_matrix.ipynb`)
 - **Goal**: Aggregate cluster hits to per-species (long-form and wide matrix). Add phylum, genome_size (median across genomes), no_genomes, and total pangenome cluster count as covariates.
-- **Expected output**: `data/species_defense_matrix.parquet` (~27K species × 7 systems + subtypes + covariates); `figures/system_prevalence_by_phylum.png`.
+- **Expected output**: `data/species_defense_matrix.tsv.gz` (~27K species × 7 systems + subtypes + covariates); `figures/system_prevalence_by_phylum.png`.
 
 ### Notebook 03: Prophage Burden Reclassification (`03_prophage_burden.ipynb`)
-- **Goal**: Import `prophage_utils.build_spark_where_clause()` from `prophage_ecology`; classify prophage gene clusters into 7 modules; aggregate to per-species module-presence indicator (module count out of 7). Save as `data/species_prophage_burden.parquet`.
-- **Expected output**: `data/species_prophage_burden.parquet` (~27K species × prophage module indicators + total count).
+- **Goal**: Import `prophage_utils.build_spark_where_clause()` from `prophage_ecology`; classify prophage gene clusters into 7 modules; aggregate to per-species module-presence indicator (module count out of 7). Save as `data/species_prophage_burden.tsv.gz`.
+- **Expected output**: `data/species_prophage_burden.tsv.gz` (~27K species × prophage module indicators + total count).
 
 ### Notebook 04: Arms-Race Test (`04_arms_race.ipynb`)
 - **Goal**: Join species-level defense counts and prophage burden; test correlation of defense-system count vs prophage module count. Primary model: partial Spearman correlation controlling for `log10(genome_size)` and phylum. Secondary: negative-binomial regression `defense_count ~ prophage_count + log10(genome_size) + phylum`.
@@ -162,6 +162,7 @@ from projects.prophage_ecology.src.prophage_utils import build_spark_where_claus
 ## Revision History
 
 - **v1** (2026-07-15): Initial plan. Phase A detectability check confirmed all 7 systems detectable via `interproscan_domains` (primary) + `eggnog_mapper_annotations` (secondary). Scope locked at 7 focused families; third-pillar emphasis on defense syndromes over environment.
+- **v3** (2026-07-16, post-hoc, no re-analysis): Artifact-format switch from Parquet to gzip TSV. The plan specified caching intermediate outputs as Parquet, but Spark Connect writes go to cluster storage (S3), not the client-side notebook filesystem — a `df.write.parquet(local_path)` call produces only an empty `_SUCCESS` marker locally. Standard on-cluster pattern is `.toPandas()` then `pandas.to_csv(..., compression="gzip")`. All `.parquet` references in the Analysis Plan sections above have been updated to `.tsv.gz` to match the actual artifacts (`data/defense_gene_clusters.tsv.gz`, `data/species_defense_matrix.tsv.gz`, `data/species_prophage_burden.tsv.gz`). Captured as a performance-note pitfall in `REPORT.md`.
 - **v2** (2026-07-16, post-hoc, no re-analysis): Deviation from the plan's Retron specificity rule recorded. The plan specified filtering RVT_1 hits by co-occurrence with retron-specific effector Pfams (Millman 2020, Cell 183:1551, Table S1). The implementation in NB02 instead defines `Retron_stringent` as RVT_1 present AND ≥1 other narrow defense system present in the species — a *defense-context* proxy rather than a *retron-specificity* filter. Because narrow defense systems are near-universal across species carrying RVT_1, this filter drops only 11 of 15,109 candidate species (Retron_candidate 15,109 vs Retron_stringent 15,098). Downstream results for Retron (arms-race, syndrome, accessory) should be interpreted as "reverse-transcriptase in defense-syndrome context," not "characterized retron systems." A subsequent refinement adopting the Millman-2020-effector Pfam set would sharpen specificity; the qualitative conclusions (arms race supported, syndromes supported) are not expected to change but effect sizes for Retron pairs may shift. Documented in `REPORT.md` §Limitations.
 
 ## Authors

@@ -119,4 +119,4 @@ sample
 # - `eggnog_mapper_annotations` (93M rows) description-based classification is best for R-M and CRISPR confirmation.
 # - Species with `no_genomes >= 5` will be the analysis set for arms-race and syndromes tests.
 #
-# **Next**: `01_extract_defense_clusters.ipynb` runs the primary Pfam-based extraction and caches to `data/defense_gene_clusters.parquet`.
+# **Next**: `01_extract_defense_clusters.ipynb` runs the primary Pfam-based extraction and caches to `data/defense_gene_clusters.tsv.gz`.
