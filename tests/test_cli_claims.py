@@ -216,9 +216,9 @@ def test_build_state_v2_separates_assertions_from_computation(repo):
     assert state["report_hash"] == expected
 
 
-def test_v1_reviewer_notes_have_documented_migration_path(repo):
+def test_reviewer_notes_are_carried_forward_by_claim_id(repo):
     prior = {
-        "rows": [
+        "claims": [
             {
                 "claim_id": "lignin-degraders-are-enriched-in-soil-communities",
                 "reviewer_notes": "keep",
@@ -229,7 +229,7 @@ def test_v1_reviewer_notes_have_documented_migration_path(repo):
     assert state["claims"][0]["reviewer_notes"] == "keep"
 
 
-def test_summarize_reads_v2_and_legacy_rows():
+def test_summarize_tallies_author_status_and_mismatch():
     v2 = {
         "claims": [
             {
@@ -246,26 +246,6 @@ def test_summarize_reads_v2_and_legacy_rows():
     }
     assert summarize(v2)["author_status"]["supported"] == 1
     assert summarize(v2)["confidence_mismatch"] == 1
-    assert (
-        summarize({"rows": [{"status": "refuted", "tier_mismatch": False}]})[
-            "author_status"
-        ]["refuted"]
-        == 1
-    )
-    legacy = summarize(
-        {
-            "rows": [
-                {
-                    "status": "supported",
-                    "confidence": "high",
-                    "groundedness": "well-grounded",
-                    "tier_mismatch": False,
-                }
-            ]
-        }
-    )
-    assert legacy["resolved_artifact_support"]["none"] == 1
-    assert legacy["confidence_mismatch"] == 1
 
 
 def test_build_writes_versioned_claims_collection(repo, capsys):

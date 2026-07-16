@@ -69,12 +69,3 @@ streams.
 
 Planning-workflow should use `summary.total` and `summary.author_status` for an
 accurate tally, while labeling the statuses as author assertions.
-
-## Migration from schema `1`
-
-Schema `1` used `rows`, top-level `status`/`confidence`, `groundedness`, and
-`tier_mismatch`. Run `beril claims build <project>` to regenerate version `2.0`.
-The builder carries forward `reviewer_notes` by `claim_id`, and the summary reader
-accepts old `rows` during migration but treats legacy artifact support as `none`
-until locators are re-resolved. New consumers should write only version
-`2.0` and the `claims` collection key.

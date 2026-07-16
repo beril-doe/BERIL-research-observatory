@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import re
 
-#: Confidence tiers, strongest first.
-CONFIDENCE_TIERS = ("high", "medium", "low")
 #: Resolved artifact-support levels, strongest first.
 ARTIFACT_SUPPORT_LEVELS = ("multiple-streams", "single-stream", "none")
 #: Per-claim status enum (a separate axis from the project lifecycle states).

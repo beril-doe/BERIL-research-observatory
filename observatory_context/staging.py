@@ -40,10 +40,7 @@ def _claims_markdown(claims_path: Path, project_id: str) -> str | None:
         state = json.loads(claims_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    schema_version = state.get("schema_version") if isinstance(state, dict) else None
     claims = state.get("claims") if isinstance(state, dict) else None
-    if not isinstance(claims, list):
-        claims = state.get("rows") if isinstance(state, dict) else None
     if not isinstance(claims, list):
         return None
 
@@ -56,19 +53,11 @@ def _claims_markdown(claims_path: Path, project_id: str) -> str | None:
         if not isinstance(claim, dict):
             continue
         assertions = claim.get("author_assertions")
-        assertions = assertions if isinstance(assertions, dict) else claim
+        assertions = assertions if isinstance(assertions, dict) else {}
         computed = claim.get("computed")
         computed = computed if isinstance(computed, dict) else {}
-        support = (
-            computed.get("resolved_artifact_support", "unknown")
-            if schema_version == "2.0"
-            else "legacy-unverified; rebuild claims.json"
-        )
-        mismatch = (
-            computed.get("confidence_mismatch", False)
-            if schema_version == "2.0"
-            else "legacy-unverified"
-        )
+        support = computed.get("resolved_artifact_support", "unknown")
+        mismatch = computed.get("confidence_mismatch", False)
         lines.extend(
             [
                 "",
@@ -96,9 +85,7 @@ def _append_evidence(lines: list[str], heading: str, pointers) -> None:
             continue
         resolution = pointer.get("resolution")
         status = (
-            resolution.get("status")
-            if isinstance(resolution, dict)
-            else "legacy-unchecked"
+            resolution.get("status") if isinstance(resolution, dict) else "unknown"
         )
         stream = f"; stream={pointer['stream']}" if pointer.get("stream") else ""
         exact = f" — {pointer['exact']}" if pointer.get("exact") else ""

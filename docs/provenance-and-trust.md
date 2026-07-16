@@ -53,9 +53,8 @@ a heavyweight dependency.
   this is the narrower runtime/execution facet.
 - Each `sessions[]` entry is one atomic observation. A new session never inherits
   another session's model, effort, activity, actor, git state, or documented
-  datasets. Repeating the same effective session snapshot is a no-op. Existing
-  schema-1 single snapshots are preserved under `legacy_snapshot` because they
-  may already be composite and cannot be relabeled as atomic history.
+  datasets. Repeating the same effective session snapshot is a no-op. A corrupt
+  or non-schema-2 file is replaced by a fresh atomic history rather than merged.
 - Project resolution is conservative and reusable: explicit project/session
   binding, then a `projects/<id>` path in the hook payload, then cwd inside a
   project, then an exact unambiguous git-branch mapping. Unknown or ambiguous

@@ -1,23 +1,9 @@
 """Best-effort, per-session runtime provenance.
 
 A SessionStart hook resolves a project conservatively and records one atomic
-session in ``runtime.json`` schema 2. The writer always returns 0.
-
-The snapshot is shaped loosely to **W3C PROV** (https://www.w3.org/TR/prov-overview/):
-the project is the *entity*, the session is the *activity*, and beril + the model
-are the *agent*. It records (best-effort): beril version, model + effort, session
-id / source / mode, git sha, tenant, actor (user + ORCID from beril.yaml), and a
-hash-bound snapshot of datasets documented in REPORT.md — never a claim about
-queries that executed. Fields are omitted when absent, never fabricated. This is the passive
-execution-provenance pattern of Sumatra/noWorkflow — capture what produced the
-record without re-running it (no live per-tool trace).
-
-The file is named ``runtime.json`` (not ``provenance.json``) because on main
-"provenance" already means source/lineage (e.g. a project's ``data/PROVENANCE.md``
-and the Atlas's source frontmatter); this artifact is the narrower *runtime /
-execution* facet. It is **non-authoritative** and feeds no trust tier — an
-inspectable record of what SessionStart observed, alongside ``beril.yaml``
-(authoritative) and ``claims.json`` (the claims ledger).
+session in ``runtime.json`` (schema 2, non-authoritative). Fields are omitted
+when absent, never fabricated, and the writer always returns 0. See
+``docs/provenance-and-trust.md`` for the model, field list, and rationale.
 """
 
 from __future__ import annotations
@@ -340,10 +326,9 @@ def run_runtime_snapshot(args: argparse.Namespace) -> int:
             state = dict(existing)
             sessions = [item for item in existing["sessions"] if isinstance(item, dict)]
         else:
+            # A missing, corrupt, or non-schema-2 file starts a fresh v2 history.
             state = {}
             sessions = []
-            if existing:
-                state["legacy_snapshot"] = existing
 
         prior_index = next(
             (

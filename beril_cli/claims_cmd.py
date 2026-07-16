@@ -283,9 +283,6 @@ def _claims_from_state(state: dict | None) -> list[dict]:
     claims = state.get("claims")
     if isinstance(claims, list):
         return [claim for claim in claims if isinstance(claim, dict)]
-    rows = state.get("rows")
-    if isinstance(rows, list):
-        return [row for row in rows if isinstance(row, dict)]
     return []
 
 
@@ -299,7 +296,7 @@ def build_claim_state(
     prior: dict | None = None,
     project_dir: Path | None = None,
 ) -> dict:
-    """Build claims.json v2 from REPORT.md while preserving v1 reviewer notes."""
+    """Build claims.json v2 from REPORT.md while preserving prior reviewer notes."""
     prior_notes = {
         row.get("claim_id"): row.get("reviewer_notes")
         for row in _claims_from_state(prior)
@@ -361,26 +358,17 @@ def summarize(state: dict) -> dict:
     mismatches = 0
     for claim in claims:
         assertions = claim.get("author_assertions")
-        status = (
-            assertions.get("status")
-            if isinstance(assertions, dict)
-            else claim.get("status")
-        )
+        status = assertions.get("status") if isinstance(assertions, dict) else None
         if status in author_status:
             author_status[status] += 1
         computed = claim.get("computed")
         computed = computed if isinstance(computed, dict) else {}
         level = computed.get("resolved_artifact_support")
         if level not in artifact_support:
-            # Schema 1 never resolved pointers and inferred independence from
-            # filenames, so it cannot safely migrate a positive support level.
+            # Harden against a partial or malformed computed block.
             level = "none"
         artifact_support[level] += 1
-        legacy_confidence = claim.get("confidence")
-        mismatch = computed.get("confidence_mismatch")
-        if mismatch is None:
-            mismatch = legacy_confidence in ("high", "medium")
-        if mismatch:
+        if computed.get("confidence_mismatch"):
             mismatches += 1
         for pointer in [*claim.get("supports", []), *claim.get("refutes", [])]:
             resolution = (

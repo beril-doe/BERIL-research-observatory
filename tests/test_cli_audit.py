@@ -292,16 +292,12 @@ def test_git_state_and_actor_are_inside_session_record(repo, monkeypatch):
     }
 
 
-def test_legacy_single_snapshot_is_preserved_without_claiming_atomicity(
-    repo, monkeypatch
-):
+def test_non_v2_runtime_file_is_replaced_with_fresh_v2_state(repo, monkeypatch):
     path = repo / "projects" / "p1" / "runtime.json"
-    legacy = {
-        "project": "p1",
-        "agent": {"model_id": "old-model"},
-        "activity": {"session_id": "old-session"},
-    }
-    path.write_text(json.dumps(legacy) + "\n")
+    path.write_text(
+        json.dumps({"project": "p1", "agent": {"model_id": "old-model"}}) + "\n"
+    )
     data = _snap(repo, monkeypatch, session_id="new-session")
-    assert data["legacy_snapshot"] == legacy
-    assert data["sessions"][0]["session_id"] == "new-session"
+    assert data["schema_version"] == "2.0"
+    assert "legacy_snapshot" not in data
+    assert [s["session_id"] for s in data["sessions"]] == ["new-session"]
