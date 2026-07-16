@@ -1,0 +1,106 @@
+                 Generalized Linear Model Regression Results                  
+==============================================================================
+Dep. Variable:      n_defense_systems   No. Observations:                 7323
+Model:                            GLM   Df Residuals:                     7232
+Model Family:        NegativeBinomial   Df Model:                           90
+Link Function:                    Log   Scale:                          1.0000
+Method:                          IRLS   Log-Likelihood:                -19942.
+Date:                Wed, 15 Jul 2026   Deviance:                       710.25
+Time:                        21:53:44   Pearson chi2:                     583.
+No. Iterations:                     8   Pseudo R-squ. (CS):            0.03874
+Covariance Type:            nonrobust                                         
+=====================================================================================================
+                                        coef    std err          z      P>|z|      [0.025      0.975]
+-----------------------------------------------------------------------------------------------------
+Intercept                            -3.4100      0.486     -7.013      0.000      -4.363      -2.457
+C(phylum)[T.Actinomycetota]           0.0253      0.153      0.166      0.868      -0.275       0.325
+C(phylum)[T.Aenigmatarchaeota]        0.5324      1.106      0.481      0.630      -1.636       2.701
+C(phylum)[T.Altiarchaeota]            0.2841      0.796      0.357      0.721      -1.276       1.844
+C(phylum)[T.Aquificota]               0.3295      1.106      0.298      0.766      -1.838       2.497
+C(phylum)[T.Armatimonadota]           0.0933      0.359      0.260      0.795      -0.610       0.797
+C(phylum)[T.Asgardarchaeota]          0.1974      0.564      0.350      0.726      -0.908       1.302
+C(phylum)[T.Atribacterota]            0.3140      1.106      0.284      0.776      -1.853       2.481
+C(phylum)[T.Bacillota]                0.1828      0.154      1.183      0.237      -0.120       0.486
+C(phylum)[T.Bacillota_A]              0.1817      0.152      1.192      0.233      -0.117       0.480
+C(phylum)[T.Bacillota_B]              0.1871      0.337      0.555      0.579      -0.473       0.847
+C(phylum)[T.Bacillota_C]              0.3308      0.193      1.717      0.086      -0.047       0.709
+C(phylum)[T.Bacillota_D]              0.0415      0.523      0.079      0.937      -0.983       1.066
+C(phylum)[T.Bacillota_E]             -0.1785      0.804     -0.222      0.824      -1.754       1.397
+C(phylum)[T.Bacillota_F]              0.0967      0.654      0.148      0.882      -1.185       1.378
+C(phylum)[T.Bacillota_G]             -0.1823      0.487     -0.375      0.708      -1.136       0.771
+C(phylum)[T.Bacteroidota]             0.2236      0.152      1.467      0.142      -0.075       0.522
+C(phylum)[T.Bdellovibrionota]        -0.2239      0.484     -0.463      0.644      -1.172       0.725
+C(phylum)[T.Bipolaricaulota]          0.1984      0.796      0.249      0.803      -1.362       1.759
+C(phylum)[T.CAIJMQ01]                -0.1494      1.165     -0.128      0.898      -2.432       2.133
+C(phylum)[T.CG2-30-53-67]             0.3613      1.090      0.331      0.740      -1.776       2.498
+C(phylum)[T.CG2-30-70-394]           -0.0720      1.128     -0.064      0.949      -2.283       2.138
+C(phylum)[T.CSP1-3]                  -0.3336      1.164     -0.287      0.774      -2.615       1.948
+C(phylum)[T.Caldisericota]           -0.0205      0.669     -0.031      0.976      -1.332       1.291
+C(phylum)[T.Campylobacterota]         0.1802      0.185      0.972      0.331      -0.183       0.544
+C(phylum)[T.Chlamydiota]              0.2002      0.344      0.582      0.561      -0.475       0.875
+C(phylum)[T.Chloroflexota]           -0.0588      0.191     -0.307      0.759      -0.434       0.316
+C(phylum)[T.Cloacimonadota]           0.3336      0.439      0.760      0.447      -0.526       1.194
+C(phylum)[T.Coprothermobacterota]    -0.1469      1.165     -0.126      0.900      -2.429       2.136
+C(phylum)[T.Cyanobacteriota]          0.1290      0.178      0.726      0.468      -0.219       0.477
+C(phylum)[T.Deferribacterota]        -0.3011      1.164     -0.259      0.796      -2.583       1.981
+C(phylum)[T.Deinococcota]             0.1652      0.375      0.441      0.659      -0.570       0.900
+C(phylum)[T.Delongbacteria]           0.1103      1.105      0.100      0.920      -2.056       2.277
+C(phylum)[T.Dependentiae]            -1.8218      1.239     -1.470      0.142      -4.251       0.608
+C(phylum)[T.Desantisbacteria]         0.3476      1.090      0.319      0.750      -1.789       2.484
+C(phylum)[T.Desulfobacterota]         0.2135      0.200      1.067      0.286      -0.179       0.605
+C(phylum)[T.Desulfobacterota_B]      -0.0342      0.568     -0.060      0.952      -1.147       1.078
+C(phylum)[T.Desulfobacterota_D]      -0.1939      0.686     -0.283      0.777      -1.539       1.151
+C(phylum)[T.Desulfobacterota_E]       0.4024      1.090      0.369      0.712      -1.735       2.539
+C(phylum)[T.Desulfobacterota_F]       0.0921      0.362      0.255      0.799      -0.617       0.801
+C(phylum)[T.Desulfobacterota_G]       0.1549      0.789      0.196      0.844      -1.391       1.701
+C(phylum)[T.Dormibacterota]          -0.7330      0.432     -1.697      0.090      -1.580       0.114
+C(phylum)[T.Edwardsbacteria]          0.1377      1.105      0.125      0.901      -2.029       2.304
+C(phylum)[T.Elusimicrobiota]          0.1799      0.365      0.493      0.622      -0.535       0.894
+C(phylum)[T.Eremiobacterota]         -0.2313      0.485     -0.477      0.634      -1.182       0.720
+C(phylum)[T.Fermentibacterota]        0.4041      1.090      0.371      0.711      -1.733       2.541
+C(phylum)[T.Fibrobacterota]           0.3568      0.370      0.965      0.334      -0.368       1.081
+C(phylum)[T.Firestonebacteria]       -0.0950      0.586     -0.162      0.871      -1.244       1.054
+C(phylum)[T.Fusobacteriota]           0.2303      0.281      0.818      0.413      -0.321       0.782
+C(phylum)[T.Gemmatimonadota]         -0.3210      0.265     -1.212      0.225      -0.840       0.198
+C(phylum)[T.Halobacteriota]           0.1838      0.224      0.819      0.413      -0.256       0.624
+C(phylum)[T.Huberarchaeota]          -0.1760      1.235     -0.142      0.887      -2.597       2.245
+C(phylum)[T.Hydrogenedentota]         0.2628      1.090      0.241      0.809      -1.874       2.400
+C(phylum)[T.Iainarchaeota]            0.3178      1.129      0.282      0.778      -1.894       2.530
+C(phylum)[T.JAAXHH01]                 0.1246      0.783      0.159      0.874      -1.410       1.659
+C(phylum)[T.JdFR-76]                  0.1828      1.105      0.165      0.869      -1.984       2.349
+C(phylum)[T.KSB1]                     0.0623      0.562      0.111      0.912      -1.039       1.163
+C(phylum)[T.Krumholzibacteriota]      0.1454      1.090      0.133      0.894      -1.991       2.282
+C(phylum)[T.Latescibacterota]        -0.0586      0.510     -0.115      0.908      -1.058       0.941
+C(phylum)[T.Margulisbacteria]         0.4970      0.774      0.642      0.521      -1.019       2.013
+C(phylum)[T.Marinisomatota]          -0.3208      0.301     -1.064      0.287      -0.911       0.270
+C(phylum)[T.Methanobacteriota]        0.2365      0.265      0.891      0.373      -0.284       0.757
+C(phylum)[T.Methanobacteriota_B]      0.1608      0.657      0.245      0.807      -1.128       1.449
+C(phylum)[T.Methylomirabilota]       -0.1537      0.662     -0.232      0.816      -1.451       1.144
+C(phylum)[T.Micrarchaeota]           -0.1957      0.507     -0.386      0.699      -1.189       0.797
+C(phylum)[T.Myxococcota]             -0.0230      0.260     -0.088      0.930      -0.532       0.486
+C(phylum)[T.Nanoarchaeota]            0.1303      0.271      0.481      0.630      -0.400       0.661
+C(phylum)[T.Nitrospinota]            -0.1203      0.582     -0.207      0.836      -1.260       1.020
+C(phylum)[T.Nitrospirota]             0.2284      0.304      0.752      0.452      -0.367       0.824
+C(phylum)[T.Nitrospirota_A]           0.3128      0.783      0.399      0.690      -1.223       1.848
+C(phylum)[T.OLB16]                   -0.2301      1.128     -0.204      0.838      -2.440       1.980
+C(phylum)[T.Omnitrophota]             0.0816      0.383      0.213      0.832      -0.670       0.833
+C(phylum)[T.Patescibacteria]          0.0625      0.176      0.356      0.722      -0.282       0.407
+C(phylum)[T.Planctomycetota]          0.0218      0.210      0.104      0.917      -0.390       0.433
+C(phylum)[T.Poribacteria]            -0.2266      0.517     -0.438      0.661      -1.240       0.787
+C(phylum)[T.Pseudomonadota]           0.0835      0.150      0.557      0.578      -0.210       0.377
+C(phylum)[T.SAR324]                  -0.2248      0.386     -0.582      0.561      -0.982       0.533
+C(phylum)[T.SZUA-79]                  0.0732      0.805      0.091      0.928      -1.504       1.650
+C(phylum)[T.Spirochaetota]            0.2374      0.189      1.258      0.209      -0.133       0.607
+C(phylum)[T.Synergistota]             0.2452      0.287      0.856      0.392      -0.316       0.807
+C(phylum)[T.Thermoplasmatota]        -0.1138      0.205     -0.555      0.579      -0.516       0.288
+C(phylum)[T.Thermoproteota]          -0.1054      0.228     -0.462      0.644      -0.553       0.342
+C(phylum)[T.Thermotogota]             0.0988      0.332      0.298      0.766      -0.551       0.749
+C(phylum)[T.UBA10199]                -0.7019      1.234     -0.569      0.569      -3.120       1.716
+C(phylum)[T.UBA8248]                 -0.4646      1.164     -0.399      0.690      -2.746       1.817
+C(phylum)[T.UBA9089]                  0.3916      1.090      0.359      0.719      -1.745       2.529
+C(phylum)[T.Verrucomicrobiota]       -0.0201      0.177     -0.113      0.910      -0.367       0.327
+C(phylum)[T.WOR-3]                   -0.2983      1.164     -0.256      0.798      -2.580       1.984
+C(phylum)[T.Zixibacteria]             0.0410      1.105      0.037      0.970      -2.125       2.208
+n_prophage_clusters                   0.0002   4.25e-05      4.780      0.000       0.000       0.000
+log10_genome_size                     0.7552      0.070     10.715      0.000       0.617       0.893
+=====================================================================================================

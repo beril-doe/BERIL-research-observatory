@@ -1,0 +1,17 @@
+# Python dependencies for phage_defense_arsenal notebooks.
+#
+# All notebooks run on the BERDL JupyterHub with the standard on-cluster Python
+# 3.13 image. berdl_notebook_utils and pyspark are provided by the JH kernel
+# environment and are NOT pinned here (users off-cluster should follow
+# .claude/skills/berdl-query/references/off-cluster-mechanics.md instead).
+#
+# The packages below are direct imports in the analysis notebooks and can be
+# installed into any Python 3.10+ environment with pip.
+
+pandas>=2.0
+numpy>=1.24
+scipy>=1.10
+scikit-learn>=1.3
+statsmodels>=0.14
+matplotlib>=3.7
+jupytext>=1.19

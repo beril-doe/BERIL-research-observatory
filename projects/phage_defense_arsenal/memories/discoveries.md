@@ -1,0 +1,7 @@
+# Discoveries — phage_defense_arsenal
+
+<!-- [phage_defense_arsenal] 2026-07-16T10:32:22Z  approved-report extraction (REVIEW: REVIEW_3.md) -->
+
+- **R-M Type II × Gabija is the strongest pan-bacterial defense syndrome to date** — odds ratio ≈ 24 with z ≈ 46 under a phylum-preserving null; the two systems co-occur in 2,429 of 4,096 R-M Type II-carrying species (59 %) vs an expected 1,555 (38 %). To our knowledge this specific pairing has not been named in the defense-syndrome literature and merits mechanistic follow-up.
+- **The bacterial anti-phage arms race is a universal pattern across major phyla, not a lineage-restricted quirk** — all 9 major GTDB phyla show significant positive partial-ρ (0.18 Actinomycetota → 0.53 Campylobacterota) between defense-system count and prophage burden after controlling for log₁₀ genome size within each phylum. Effect strength itself varies phylogenetically (Actinomycetota effect ~3× weaker than Campylobacterota) — worth exploring what covariates predict effect-size heterogeneity.
+- **eggNOG description-based CRISPR detection dramatically over-counts** — 96 % species prevalence via eggNOG description matches vs ~55 % using the specific Cas1 Pfam (PF01867). Any downstream pangenome project comparing CRISPR prevalence numbers across studies must specify which detection method they used; the 40-percentage-point gap between these two approaches on the *same* pangenome is a real interpretation trap.
