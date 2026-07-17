@@ -74,6 +74,35 @@ def main(argv: list[str] | None = None) -> int:
         help="Emit machine-readable JSON (summary action)",
     )
 
+    # auth
+    auth_parser = sub.add_parser(
+        "auth",
+        help="Log in to a BERIL server with a personal access token",
+    )
+    auth_parser.add_argument(
+        "action",
+        choices=["login", "status", "logout"],
+        help="login pastes/validates a token; status shows the stored login; logout removes it",
+    )
+    auth_parser.add_argument(
+        "--token",
+        default=None,
+        metavar="TOKEN",
+        help="Provide the token directly instead of the interactive paste prompt (login only)",
+    )
+    auth_parser.add_argument(
+        "--base-url",
+        default=None,
+        metavar="URL",
+        help="Server base URL for login; persisted to ~/.config/beril/config.toml (login only)",
+    )
+    auth_parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Emit machine-readable JSON (status only; token is redacted)",
+    )
+
     # runtime-snapshot (settings.json SessionStart hook; reads the hook payload from stdin)
     sub.add_parser(
         "runtime-snapshot",
@@ -115,6 +144,11 @@ def main(argv: list[str] | None = None) -> int:
         from beril_cli.claims_cmd import run_claims
 
         return run_claims(args)
+
+    if args.command == "auth":
+        from beril_cli.auth_cmd import run_auth
+
+        return run_auth(args)
 
     if args.command == "runtime-snapshot":
         from beril_cli.audit_cmd import run_runtime_snapshot
