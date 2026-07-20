@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: tools/review.sh <project_id> [--type project|plan] [--reviewer claude|codex] [--model <model_id>] [--output <path>]
+# Usage: tools/review.sh <project_id> [--type project|plan|refute] [--reviewer claude|codex] [--model <model_id>] [--output <path>]
 #
 # Invoke a CLI reviewer agent to review a BERDL analysis project or research plan.
 # Supports Claude Code and Codex CLI as reviewer backends.
@@ -20,13 +20,13 @@ CODEX_DEFAULT_MODEL="gpt-5.4"
 usage() {
   local exit_code="${1:-0}"
   cat <<EOF
-Usage: tools/review.sh <project_id> [--type project|plan] [--reviewer claude|codex] [--model <model_id>] [--output <path>]
+Usage: tools/review.sh <project_id> [--type project|plan|refute] [--reviewer claude|codex] [--model <model_id>] [--output <path>]
 
 Arguments:
   project_id              Project directory name under projects/
 
 Options:
-  --type project|plan     Review type (default: project)
+  --type project|plan|refute Review type (default: project)
   --reviewer claude|codex Reviewer backend (default: claude)
   --model <model_id>      Model override (default: claude-sonnet-4-20250514 for claude, gpt-5.4 for codex)
   --output <path>         Output file path (default: auto-numbered REVIEW_N.md in project dir)
@@ -90,8 +90,8 @@ if [[ -z "$PROJECT_ID" ]]; then
   usage 1
 fi
 
-if [[ "$REVIEW_TYPE" != "project" && "$REVIEW_TYPE" != "plan" ]]; then
-  echo "Error: --type must be 'project' or 'plan', got '$REVIEW_TYPE'" >&2
+if [[ "$REVIEW_TYPE" != "project" && "$REVIEW_TYPE" != "plan" && "$REVIEW_TYPE" != "refute" ]]; then
+  echo "Error: --type must be 'project', 'plan', or 'refute', got '$REVIEW_TYPE'" >&2
   exit 1
 fi
 
@@ -100,8 +100,9 @@ if [[ "$REVIEWER" != "claude" && "$REVIEWER" != "codex" ]]; then
   exit 1
 fi
 
-# Navigate to repo root (parent of tools/)
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Navigate to repo root (parent of tools/). The override is used only by the
+# focused shell tests; normal callers use the script's repository.
+REPO_ROOT="${BERIL_REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$REPO_ROOT"
 
 PROJECT_DIR="projects/${PROJECT_ID}"
@@ -110,19 +111,23 @@ if [[ ! -d "$PROJECT_DIR" ]]; then
   exit 1
 fi
 
-# --- Pre-review REPORT.md hash (project reviews only) ---
-# Captured before invoking the reviewer so we can detect TOCTOU edits during
-# the run and embed the hash as a footer in the resulting REVIEW_N.md so
-# /submit can later verify the review covers the *current* report.
-REPORT_HASH_PRE=""
-REPORT_FILE="${PROJECT_DIR}/REPORT.md"
-if [[ "$REVIEW_TYPE" == "project" ]]; then
-  if [[ ! -f "$REPORT_FILE" ]]; then
-    echo "Error: REPORT.md not found at $REPORT_FILE — run /synthesize first" >&2
-    exit 1
-  fi
-  REPORT_HASH_PRE=$(sha256sum "$REPORT_FILE" | awk '{print $1}')
+# --- Cryptographic subject identity ---
+# Project reviews and refutations cover REPORT.md; plan reviews cover the exact
+# RESEARCH_PLAN.md. Every artifact gets one canonical footer after a TOCTOU check.
+if [[ "$REVIEW_TYPE" == "plan" ]]; then
+  SUBJECT_FILE="${PROJECT_DIR}/RESEARCH_PLAN.md"
+  SUBJECT_NAME="RESEARCH_PLAN.md"
+  SUBJECT_HASH_KEY="plan_hash"
+else
+  SUBJECT_FILE="${PROJECT_DIR}/REPORT.md"
+  SUBJECT_NAME="REPORT.md"
+  SUBJECT_HASH_KEY="report_hash"
 fi
+if [[ ! -f "$SUBJECT_FILE" ]]; then
+  echo "Error: ${SUBJECT_NAME} not found at ${SUBJECT_FILE}" >&2
+  exit 1
+fi
+SUBJECT_HASH_PRE=$(sha256sum "$SUBJECT_FILE" | awk '{print $1}')
 
 # --- Resolve model ---
 if [[ -z "$MODEL" ]]; then
@@ -138,6 +143,8 @@ fi
 if [[ -z "$OUTPUT_FILE" ]]; then
   if [[ "$REVIEW_TYPE" == "project" ]]; then
     PREFIX="REVIEW"
+  elif [[ "$REVIEW_TYPE" == "refute" ]]; then
+    PREFIX="REFUTATION"
   else
     PREFIX="PLAN_REVIEW"
   fi
@@ -163,6 +170,8 @@ fi
 # --- Select system prompt based on type ---
 if [[ "$REVIEW_TYPE" == "project" ]]; then
   SYSTEM_PROMPT_FILE=".claude/reviewer/SYSTEM_PROMPT.md"
+elif [[ "$REVIEW_TYPE" == "refute" ]]; then
+  SYSTEM_PROMPT_FILE=".claude/reviewer/REFUTATION_PROMPT.md"
 else
   SYSTEM_PROMPT_FILE=".claude/reviewer/PLAN_REVIEW_PROMPT.md"
 fi
@@ -184,6 +193,8 @@ fi
 # --- Build the review prompt based on type ---
 if [[ "$REVIEW_TYPE" == "project" ]]; then
   REVIEW_PROMPT="Review the project at ${PROJECT_DIR}/. Read all files in the project directory — especially README.md, RESEARCH_PLAN.md, and REPORT.md. Also read docs/pitfalls.md for known issues. Write your review to ${OUTPUT_FILE}. In the Review Metadata section, set the Reviewer line to: **Reviewer**: BERIL Automated Review (${REVIEWER_LABEL}, ${MODEL}). In the YAML frontmatter, set reviewer to: BERIL Automated Review (${REVIEWER_LABEL}, ${MODEL})."
+elif [[ "$REVIEW_TYPE" == "refute" ]]; then
+  REVIEW_PROMPT="Red-team the project at ${PROJECT_DIR}/. Read ${PROJECT_DIR}/REPORT.md and the notebooks in ${PROJECT_DIR}/notebooks/ — especially the numeric cell outputs (metrics, split sizes, class balances). For each Key Finding, actively try to BREAK it per your instructions, then write your refutation pass to ${OUTPUT_FILE}. In the YAML frontmatter, set reviewer to: BERIL Refutation Pass (${REVIEWER_LABEL}, ${MODEL}). Do not modify REPORT.md, the notebooks, or any other project file."
 else
   REVIEW_PROMPT="Review the research plan at ${PROJECT_DIR}/. Read ${PROJECT_DIR}/RESEARCH_PLAN.md and ${PROJECT_DIR}/README.md. Also read docs/pitfalls.md (per-database H2 sections cover non-derivable gotchas), docs/performance.md, and PROJECT.md. Use BERDL notebook helper discovery (get_databases/get_tables/get_table_schema) for live database/table access for any tables referenced in the plan. Read README.md files of related existing projects to check for overlap. Write your plan review to ${OUTPUT_FILE}. At the end, note: Plan reviewed by ${REVIEWER_LABEL} (${MODEL})."
 fi
@@ -198,7 +209,7 @@ if [[ "$REVIEWER" == "claude" ]]; then
   CLAUDECODE= claude -p \
     --model "$MODEL" \
     --system-prompt "$SYSTEM_PROMPT" \
-    --allowedTools "Read,Write" \
+    --allowedTools "Read,Write,Grep,Glob" \
     --dangerously-skip-permissions \
     "$REVIEW_PROMPT" || REVIEW_EXIT=$?
 else
@@ -249,25 +260,20 @@ if [[ ! -s "$OUTPUT_FILE" ]] || ! grep -q '^---' "$OUTPUT_FILE" 2>/dev/null; the
   exit 1
 fi
 
-# --- TOCTOU check + report_hash footer (project reviews only) ---
-# If REPORT.md changed while the reviewer was running, the review no longer
-# describes the current report. Abort rather than write a footer that lies.
-if [[ "$REVIEW_TYPE" == "project" ]]; then
-  REPORT_HASH_POST=$(sha256sum "$REPORT_FILE" | awk '{print $1}')
-  if [[ "$REPORT_HASH_PRE" != "$REPORT_HASH_POST" ]]; then
-    echo "Error: REPORT.md changed during review. Discarding the review to avoid recording a hash that doesn't reflect the report the reviewer actually saw. Re-run after the report stabilizes." >&2
-    rm -f "$OUTPUT_FILE"
-    exit 1
-  fi
-  # Defensive: strip any pre-existing report_hash footer-like lines from the
-  # reviewer's output so the file ends with exactly one footer (the one we
-  # write below). /submit's parser requires the canonical line to be the
-  # final non-empty line and exactly one occurrence in the file.
-  if grep -qE '^<!--[[:space:]]*report_hash:[[:space:]]*sha256:' "$OUTPUT_FILE"; then
-    grep -vE '^<!--[[:space:]]*report_hash:[[:space:]]*sha256:' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" \
-      && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
-  fi
-  printf '\n<!-- report_hash: sha256:%s -->\n' "$REPORT_HASH_PRE" >> "$OUTPUT_FILE"
+# --- TOCTOU check + one canonical subject-hash footer ---
+SUBJECT_HASH_POST=$(sha256sum "$SUBJECT_FILE" | awk '{print $1}')
+if [[ "$SUBJECT_HASH_PRE" != "$SUBJECT_HASH_POST" ]]; then
+  echo "Error: ${SUBJECT_NAME} changed during ${REVIEW_TYPE} review. Discarding the output; re-run after the subject stabilizes." >&2
+  rm -f "$OUTPUT_FILE"
+  exit 1
 fi
+
+# Strip any hash lines invented by the reviewer. /submit's existing project
+# review parser still receives its exact final report_hash footer contract.
+if grep -qE '^<!--[[:space:]]*(report_hash|plan_hash):[[:space:]]*sha256:' "$OUTPUT_FILE"; then
+  grep -vE '^<!--[[:space:]]*(report_hash|plan_hash):[[:space:]]*sha256:' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp"
+  mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+fi
+printf '\n<!-- %s: sha256:%s -->\n' "$SUBJECT_HASH_KEY" "$SUBJECT_HASH_PRE" >> "$OUTPUT_FILE"
 
 echo "Review written to: $OUTPUT_FILE"
