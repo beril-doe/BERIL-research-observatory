@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import argparse
-import io
 import json
-import os
 import stat
 import sys
-import urllib.error
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
+import httpx
 import pytest
 
 from beril_cli import auth_cmd, auth_store, config
@@ -52,13 +50,17 @@ def _ns(**kwargs) -> argparse.Namespace:
     return argparse.Namespace(**defaults)
 
 
-def _mock_whoami_response(body: dict, status: int = 200):
-    """Build a context-manager-shaped mock for urlopen returning the given body."""
-    mock_resp = MagicMock()
-    mock_resp.read.return_value = json.dumps(body).encode()
-    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    return mock_resp
+def _httpx_response(body: dict | str, status: int = 200) -> httpx.Response:
+    """Build a real httpx.Response so res.status_code / res.json() behave normally.
+
+    ``body`` as dict -> JSON-serialized; as str -> raw text (used to test
+    the invalid-JSON path).
+    """
+    if isinstance(body, dict):
+        content = json.dumps(body).encode()
+    else:
+        content = body.encode()
+    return httpx.Response(status_code=status, content=content)
 
 
 # ---------------------------------------------------------------------------
@@ -185,12 +187,10 @@ class TestAuthLogin:
     def test_login_with_token_flag_saves_record(
         self, tmp_auth, tmp_config, capsys
     ):
-        response = _mock_whoami_response(
+        response = _httpx_response(
             {"orcid_id": "0000-0001-2345-6789", "display_name": "Alice"}
         )
-        with patch(
-            "beril_cli.auth_cmd.urllib.request.urlopen", return_value=response
-        ):
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
             rc = run_auth(
                 _ns(
                     action="login",
@@ -210,12 +210,10 @@ class TestAuthLogin:
         assert record["orcid_id"] == "0000-0001-2345-6789"
 
     def test_login_persists_base_url_flag(self, tmp_auth, tmp_config):
-        response = _mock_whoami_response(
+        response = _httpx_response(
             {"orcid_id": "0000-0001-2345-6789", "display_name": None}
         )
-        with patch(
-            "beril_cli.auth_cmd.urllib.request.urlopen", return_value=response
-        ):
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
             run_auth(
                 _ns(
                     action="login",
@@ -229,12 +227,12 @@ class TestAuthLogin:
     def test_login_hits_correct_whoami_url_with_bearer_header(
         self, tmp_auth, tmp_config
     ):
-        response = _mock_whoami_response(
+        response = _httpx_response(
             {"orcid_id": "0000-0001-2345-6789", "display_name": None}
         )
         with patch(
-            "beril_cli.auth_cmd.urllib.request.urlopen", return_value=response
-        ) as mock_urlopen:
+            "beril_cli.auth_cmd.httpx.get", return_value=response
+        ) as mock_get:
             run_auth(
                 _ns(
                     action="login",
@@ -242,19 +240,16 @@ class TestAuthLogin:
                     base_url="https://srv.example.test",
                 )
             )
-        req = mock_urlopen.call_args.args[0]
-        assert req.full_url == "https://srv.example.test/api/user/whoami"
-        assert req.headers["Authorization"] == "Bearer beril_abc"
+        # httpx.get(url, headers=..., timeout=...) — url is positional.
+        call = mock_get.call_args
+        assert call.args[0] == "https://srv.example.test/api/user/whoami"
+        assert call.kwargs["headers"]["Authorization"] == "Bearer beril_abc"
 
     def test_login_401_prints_error_and_does_not_save(
         self, tmp_auth, tmp_config, capsys
     ):
-        err = urllib.error.HTTPError(
-            "url", 401, "Unauthorized", hdrs=None, fp=io.BytesIO(b"")
-        )
-        with patch(
-            "beril_cli.auth_cmd.urllib.request.urlopen", side_effect=err
-        ):
+        response = _httpx_response({"detail": "Unauthorized"}, status=401)
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
             rc = run_auth(
                 _ns(
                     action="login",
@@ -267,13 +262,44 @@ class TestAuthLogin:
         assert "401" in captured.err or "rejected" in captured.err
         assert auth_store.load() is None
 
+    def test_login_403_prints_specific_error(
+        self, tmp_auth, tmp_config, capsys
+    ):
+        response = _httpx_response("blocked by upstream", status=403)
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
+            rc = run_auth(
+                _ns(
+                    action="login",
+                    token="beril_abc",
+                    base_url="https://srv.example.test",
+                )
+            )
+        captured = capsys.readouterr()
+        assert rc == 1
+        assert "403" in captured.err
+        assert auth_store.load() is None
+
+    def test_login_other_4xx_5xx_status_fails(
+        self, tmp_auth, tmp_config, capsys
+    ):
+        response = _httpx_response("upstream broken", status=502)
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
+            rc = run_auth(
+                _ns(
+                    action="login",
+                    token="beril_abc",
+                    base_url="https://srv.example.test",
+                )
+            )
+        assert rc == 1
+        assert "502" in capsys.readouterr().err
+        assert auth_store.load() is None
+
     def test_login_connection_error_reports_reason(
         self, tmp_auth, tmp_config, capsys
     ):
-        err = urllib.error.URLError("connection refused")
-        with patch(
-            "beril_cli.auth_cmd.urllib.request.urlopen", side_effect=err
-        ):
+        err = httpx.ConnectError("connection refused")
+        with patch("beril_cli.auth_cmd.httpx.get", side_effect=err):
             rc = run_auth(
                 _ns(
                     action="login",
@@ -286,14 +312,26 @@ class TestAuthLogin:
         assert "connection refused" in captured.err
         assert auth_store.load() is None
 
+    def test_login_timeout_reports_specific_message(
+        self, tmp_auth, tmp_config, capsys
+    ):
+        err = httpx.ConnectTimeout("connect timeout")
+        with patch("beril_cli.auth_cmd.httpx.get", side_effect=err):
+            rc = run_auth(
+                _ns(
+                    action="login",
+                    token="beril_abc",
+                    base_url="https://srv.example.test",
+                )
+            )
+        captured = capsys.readouterr()
+        assert rc == 1
+        assert "timed out" in captured.err
+        assert auth_store.load() is None
+
     def test_login_bad_json_response_fails(self, tmp_auth, tmp_config, capsys):
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = b"not json"
-        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        with patch(
-            "beril_cli.auth_cmd.urllib.request.urlopen", return_value=mock_resp
-        ):
+        response = _httpx_response("not json", status=200)
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
             rc = run_auth(
                 _ns(
                     action="login",
@@ -309,10 +347,8 @@ class TestAuthLogin:
     def test_login_missing_orcid_in_response_fails(
         self, tmp_auth, tmp_config, capsys
     ):
-        response = _mock_whoami_response({"display_name": "Alice"})
-        with patch(
-            "beril_cli.auth_cmd.urllib.request.urlopen", return_value=response
-        ):
+        response = _httpx_response({"display_name": "Alice"})
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
             rc = run_auth(
                 _ns(
                     action="login",
@@ -326,13 +362,11 @@ class TestAuthLogin:
     def test_login_prompts_for_token_when_not_given(
         self, tmp_auth, tmp_config, monkeypatch
     ):
-        response = _mock_whoami_response(
+        response = _httpx_response(
             {"orcid_id": "0000-0001-2345-6789", "display_name": "Alice"}
         )
         monkeypatch.setattr(auth_cmd.getpass, "getpass", lambda _prompt: "beril_pasted")
-        with patch(
-            "beril_cli.auth_cmd.urllib.request.urlopen", return_value=response
-        ):
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
             rc = run_auth(
                 _ns(
                     action="login",
@@ -432,12 +466,10 @@ class TestCliDispatch:
     def test_beril_auth_login_dispatches(self, tmp_auth, tmp_config):
         from beril_cli.cli import main
 
-        response = _mock_whoami_response(
+        response = _httpx_response(
             {"orcid_id": "0000-0001-2345-6789", "display_name": "Alice"}
         )
-        with patch(
-            "beril_cli.auth_cmd.urllib.request.urlopen", return_value=response
-        ):
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
             rc = main(
                 [
                     "auth",

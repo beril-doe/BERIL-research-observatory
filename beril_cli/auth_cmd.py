@@ -17,8 +17,10 @@ logged in.
 
 logout: remove ~/.beril/auth.json. Idempotent.
 
-stdlib only (urllib.request for HTTP) — the CLI package has no runtime
-dependencies and this module should not add one.
+Uses httpx for HTTP. urllib was tried first (to keep beril-cli
+dep-free) but Cloudflare in front of the prod server rejects the
+default ``Python-urllib/*`` User-Agent with a 403 while letting
+``httpx``'s default UA through.
 """
 
 from __future__ import annotations
@@ -27,8 +29,8 @@ import argparse
 import getpass
 import json
 import sys
-import urllib.error
-import urllib.request
+
+import httpx
 
 from beril_cli import auth_store, config
 
@@ -149,7 +151,7 @@ def _run_logout(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# whoami HTTP call (stdlib only)
+# whoami HTTP call
 # ---------------------------------------------------------------------------
 
 
@@ -165,26 +167,34 @@ def _whoami(base_url: str, token: str) -> dict:
     message suitable for printing to the user.
     """
     url = base_url.rstrip("/") + _WHOAMI_PATH
-    req = urllib.request.Request(
-        url,
-        method="GET",
-        headers={"Authorization": f"Bearer {token}"},
-    )
     try:
-        with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SECONDS) as resp:
-            body = resp.read()
-    except urllib.error.HTTPError as e:
-        if e.code == 401:
-            raise _WhoamiError("token was rejected by the server (401).") from e
-        raise _WhoamiError(f"server returned HTTP {e.code}.") from e
-    except urllib.error.URLError as e:
-        raise _WhoamiError(f"could not reach {base_url}: {e.reason}") from e
-    except TimeoutError as e:
+        res = httpx.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=_HTTP_TIMEOUT_SECONDS,
+        )
+    except httpx.TimeoutException as e:
+        # TimeoutException is a subclass of TransportError; catch it first
+        # so timeouts get their specific message.
         raise _WhoamiError(f"timed out talking to {base_url}.") from e
+    except httpx.TransportError as e:
+        # Covers ConnectError, ReadError, WriteError, ProtocolError, etc.
+        raise _WhoamiError(f"could not reach {base_url}: {e}") from e
+
+    if res.status_code == 401:
+        raise _WhoamiError("token was rejected by the server (401).")
+    if res.status_code == 403:
+        raise _WhoamiError("unable to retrieve information with this token (403).")
+    if res.status_code >= 400:
+        raise _WhoamiError(
+            f"an error occurred while validating token at {base_url} ({res.status_code})"
+        )
 
     try:
-        data = json.loads(body)
-    except json.JSONDecodeError as e:
+        data = res.json()
+    except (json.JSONDecodeError, ValueError) as e:
+        # res.json() raises ValueError on garbage bodies; JSONDecodeError
+        # is a ValueError subclass but we spell both for clarity.
         raise _WhoamiError("server returned invalid JSON.") from e
 
     if not isinstance(data, dict) or "orcid_id" not in data:
