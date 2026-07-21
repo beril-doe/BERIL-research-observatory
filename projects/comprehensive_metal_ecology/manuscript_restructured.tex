@@ -1201,7 +1201,7 @@ To test whether individual metal KOs show phylogenetic signal at different evolu
 Genus-level Pagel's $\lambda$ was estimated from genus presence fractions on the GTDB genus-level phylogeny ($n = 1{,}351$--$1{,}574$ genera per KO); genome-level Fritz~\&~Purvis D was estimated from binary presence/absence across 18{,}961 GTDB genome tips using an unweighted ancestral-state-change statistic with Brownian motion and random permutation reference distributions ($n = 1{,}000$ simulations each).
 The two metrics are statistically orthogonal (Spearman $\rho = -0.041$, $p = 0.49$; Figure~\ref{fig:5}), confirming that between-genus signal in continuous presence fractions and within+between-genus signal in binary presence data capture distinct evolutionary processes.
 
-Thirteen KOs show joint evidence for phylogenetically dispersed distribution: $D > 0.2$ (less clustered than Brownian motion at the genome scale) and $\lambda < 0.3$ (low genus-level signal). These double-signal KOs are dominated by mercury resistance (\textit{merD}, \textit{merE}), nickel resistance (\textit{nrsD}), gold/tellurite resistance (\textit{gesA}, \textit{gesB}), arsenite oxidase (\textit{aoxB}), and iron scavenging (\textit{iucD}; Supplementary Table~S3). The co-occurrence of elevated D and low $\lambda$ at both evolutionary scales is consistent with repeated horizontal acquisition within and across genera, though direct molecular evidence (plasmid localisation, tree incongruence) was not assessed in this study.
+Thirteen KOs show joint evidence for phylogenetically dispersed distribution: $D > 0.2$ (less clustered than Brownian motion at the genome scale) and $\lambda < 0.3$ (low genus-level signal). These double-signal KOs are dominated by mercury resistance (\textit{merD}, \textit{merE}), nickel resistance (\textit{nrsD}), gold/tellurite resistance (\textit{gesA}, \textit{gesB}), arsenite oxidase (\textit{aoxB}), and iron scavenging (\textit{iucD}; Supplementary Table~S3). The co-occurrence of elevated D and low $\lambda$ at both evolutionary scales is consistent with repeated horizontal acquisition within and across genera, though direct molecular evidence (plasmid localisation, tree incongruence) was not assessed; systematic plasmid-fraction enrichment tests in NCBI Entrez and BV-BRC provide marginal indirect support (double-signal vs background resistance KOs: Mann-Whitney $p = 0.045$ and $p = 0.044$, respectively; see Limitations).
 
 \begin{figure}[htbp]
 \centering
@@ -1538,19 +1538,25 @@ about the mechanisms of resistance gene decoupling and cofactor gene coupling to
 niche breadth. However, several critical predictions remain experimentally untested:
 
 \begin{enumerate}
-\item \textbf{Horizontal gene transfer mechanism is inferred, not directly measured.}
+\item \textbf{Horizontal gene transfer mechanism has indirect database support but awaits direct experimental validation.}
 The hypothesis that resistance gene density decouples from niche breadth due to
-HGT-mediated plasmid mobility is inferred from phylogenetic patterns and the known
+HGT-mediated plasmid mobility draws on phylogenetic patterns, the known
 mobility of \textit{mer}, \textit{ars}, \textit{czc}, and \textit{cop} systems
-\cite{silver1998,coombs2004,pal2015}. No plasmid localisation assay,
-transconjugant detection, or direct transfer-rate measurement was performed.
-The HGT interpretation for resistance modules is based on phylogenetic signal
-(two-scale phylo-D framework), gene-tree discordance (Fritz \& Purvis D), and
-literature support for plasmid association, rather than direct genomic context
-analysis (e.g., plasmid localisation, transposase proximity, or gene-tree/
-species-tree reconciliation). Direct validation using long-read assemblies or
-plasmid prediction from genome sequences would strengthen the mechanistic claim
-and is a priority for future work. \textit{(no direct test performed)}
+\cite{silver1998,coombs2004,pal2015}, and systematic plasmid-fraction enrichment
+tests in two independent sequence databases (see item~4 below for full details).
+Double-signal resistance KOs show higher plasmid fractions than background resistance KOs
+in both NCBI Entrez (Mann-Whitney $p = 0.045$) and BV-BRC ($p = 0.044$); a
+cross-category gradient is significant in NCBI Entrez (resistance $>$ all non-resistance,
+$p = 0.020$) but not replicated in BV-BRC ($p = 0.118$; likely due to transport-category
+inflation). No plasmid localisation assay, transconjugant detection, or direct
+transfer-rate measurement was performed. The HGT interpretation therefore rests on
+indirect evidence---phylogenetic signal, gene-tree discordance (Fritz \& Purvis D),
+database-level plasmid association, and published literature---rather than direct
+genomic context analysis (plasmid localisation, transposase proximity, gene-tree/
+species-tree reconciliation). Direct confirmation using long-read assemblies or
+plasmid prediction (e.g., PlasClass, geNomad) would strengthen the mechanistic claim
+and is a priority for future work.
+\textit{(indirect database enrichment tests performed; see item~4 and \S\ref{sec:limitations})}
 
 \item \textbf{Cofactor signal is partially confounded by translation density.}
 Controlling jointly for genome size and ribosomal protein density attenuates the
@@ -1818,13 +1824,14 @@ prediction: within genera that have recently acquired resistance KOs by HGT
 (detectable by island-associated gene context, phylogenetic discordance, or
 elevated nucleotide composition bias), the association between resistance density
 and niche breadth should be weaker than in genera where resistance genes are
-vertically inherited. This is testable with existing genomic databases and would
-confirm or refute the mechanistic interpretation of the resistance null.
-Reconciliation-based gene-tree/species-tree analyses, plasmid localisation from
-assembled genome contexts (via PLSDB or PlasClass), and synteny analyses of
-resistance gene neighbourhood in high-quality assemblies are higher-resolution
-approaches that would provide direct molecular evidence for the HGT decoupling
-mechanism and are explicit priorities for future work. Direct experimental support
+vertically inherited. Database-level plasmid enrichment tests already provide
+indirect support: double-signal resistance KOs show elevated plasmid fractions in
+both NCBI Entrez ($p = 0.045$) and BV-BRC ($p = 0.044$), and a cross-category
+gradient is significant in NCBI Entrez ($p = 0.020$). However, reconciliation-based
+gene-tree/species-tree analyses, plasmid localisation from assembled genome contexts
+(via PlasClass or geNomad), and synteny analyses of resistance gene neighbourhood
+in high-quality assemblies would provide direct molecular evidence for the decoupling
+mechanism and remain explicit priorities for future work. Direct experimental support
 for this mechanism already exists at the gene level: the \textit{nre} operon is
 necessary and sufficient for Ni adaptation in serpentine rhizobia and shows a
 discordant evolutionary history from the core genome, establishing HGT-mediated
