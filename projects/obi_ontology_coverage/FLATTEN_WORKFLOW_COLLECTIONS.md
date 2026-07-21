@@ -7,7 +7,7 @@ three additional NMDC MongoDB collections: `data_generation_set`, `workflow_exec
 and `data_object_set`. These contain the provenance chain that shows *how* NMDC data was
 produced — exactly where OBI terms should be used but currently aren't.
 
-This is for the OBI meeting on Monday 2026-04-07. The flattened tables will be ingested into
+This is for the OBI meeting on Tuesday 2026-04-07. The flattened tables will be ingested into
 the BERDL lakehouse to demonstrate the gap between NMDC's internal type system and OBI.
 
 ## Why These Collections

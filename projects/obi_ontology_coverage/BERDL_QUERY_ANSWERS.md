@@ -15,7 +15,7 @@ Figure: `figures/ontology_adoption_comparison.png`
 
 ## Q2: OBI terms for computational workflows?
 
-**OBI covers wet-lab well but has zero computational bioinformatics terms.**
+**OBI covers wet-lab well; its computational-process coverage is generic (parent-level) rather than workflow-specific.**
 
 ### What OBI HAS (loaded in BERDL):
 - `OBI:0002623` — whole metagenome sequencing assay
@@ -32,9 +32,9 @@ Figure: `figures/ontology_adoption_comparison.png`
 - Oxford Nanopore MinION/GridION/PromethION
 - PacBio RS II, Sequel, Sequel II
 
-### What OBI LACKS:
-- Metagenome assembly
-- Genome annotation / gene finding
+### What OBI LACKS (workflow-specific subtypes; generic parents exist):
+- Metagenome assembly — only the generic `OBI:0001872` sequence assembly process
+- Genome annotation / gene finding — only the generic `OBI:0001944` sequence annotation
 - MAG binning (MetaBAT2, CheckM)
 - Read QC / quality filtering
 - Taxonomic classification (Kraken2, Centrifuge, GOTTCHA)

@@ -134,13 +134,13 @@ Queried `kbase_ontology_source.statements` for OBI terms matching NMDC workflow 
 | Specimen collection | specimen collection process | OBI:0000659 | Direct match |
 | Mass spectrometry | mass spectrometry assay + subtypes | OBI:0000470 etc. | Good (metabolomics/proteomics) |
 | Data transformation | data transformation + 22 subtypes | OBI:0200000 | Generic parent class |
-| **Metagenome assembly** | **NONE** | — | **Gap — no OBI term** |
-| **Genome annotation** | **NONE** | — | **Gap — no OBI term** |
+| **Metagenome assembly** | sequence assembly process (generic) | OBI:0001872 | Partial — broader OBI term, not metagenome-specific |
+| **Genome annotation** | sequence annotation (generic) | OBI:0001944 | Partial — broader OBI term, not genome-specific |
 | **MAG binning** | **NONE** | — | **Gap — no OBI term** |
 | **Read QC** | **NONE** | — | **Gap — no OBI term** |
 | **Taxonomic classification** | **NONE** | — | **Gap — no OBI term** |
 
-**Key finding**: OBI covers wet-lab workflows well (sequencing, extraction, instruments) but has **no terms for computational bioinformatics workflows** (assembly, binning, annotation, QC). This is the core gap. EDAM or SWO may fill it.
+**Key finding**: OBI covers wet-lab workflows well (sequencing, extraction, instruments). For computational steps it provides generic, parent-level terms (`OBI:0200000` data transformation, `OBI:0001872` sequence assembly process, `OBI:0001944` sequence annotation) but lacks workflow-specific subtypes for MAG binning, read QC, and taxonomic classification. EDAM or SWO may fill those specific gaps. (OBI CURIEs verified against OLS4, 2026-07-21.)
 
 ## Suggested Next Steps
 

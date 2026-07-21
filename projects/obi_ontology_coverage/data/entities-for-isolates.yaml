@@ -32,6 +32,24 @@ prefixes:
   BFO: http://purl.obolibrary.org/obo/BFO_
   SNOMED: http://snomed.info/id/
   nmdc: https://w3id.org/nmdc/
+  # Additional prefixes referenced in mappings below (URIs from bioregistry.io).
+  APO: http://purl.obolibrary.org/obo/APO_
+  ARO: http://purl.obolibrary.org/obo/ARO_
+  BCIO: https://w3id.org/BCI-ontology#
+  CAO: http://champ-project.org/images/ontology/cao.owl#CAO_
+  CARO: http://purl.obolibrary.org/obo/CARO_
+  CHEBI: http://purl.obolibrary.org/obo/CHEBI_
+  ECO: http://purl.obolibrary.org/obo/ECO_
+  ERO: http://purl.obolibrary.org/obo/ERO_
+  EDAM: http://edamontology.org/
+  GENEPIO: http://purl.obolibrary.org/obo/GENEPIO_
+  GO: http://purl.obolibrary.org/obo/GO_
+  IDO: http://purl.obolibrary.org/obo/IDO_
+  OHMI: http://purl.obolibrary.org/obo/OHMI_
+  OPMI: http://purl.obolibrary.org/obo/OPMI_
+  STATO: http://purl.obolibrary.org/obo/STATO_
+  TAXRANK: http://purl.obolibrary.org/obo/TAXRANK_
+  UPHENO: http://purl.obolibrary.org/obo/UPHENO_
 
 imports:
   - linkml:types

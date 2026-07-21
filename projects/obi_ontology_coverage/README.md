@@ -17,7 +17,7 @@ This is an exploratory, cross-cutting investigation. The same question is being 
 ## Quick Links
 
 - [Research Plan](RESEARCH_PLAN.md) — hypothesis, approach, query strategy
-- [Report](REPORT.md) — findings, interpretation, supporting evidence
+- Report — TBD; findings, interpretation, and supporting evidence will be added here (no `REPORT.md` yet).
 - [GitHub Issue](https://github.com/kbaseincubator/BERIL-research-observatory/issues/186)
 
 ## Reproduction
