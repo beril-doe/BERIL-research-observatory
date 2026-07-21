@@ -22,9 +22,8 @@
 \begin{document}
 
 \noindent%
-\title{Genome streamlining is pervasive across prokaryotic functional categories,
-but a distinctive cofactor-versus-resistance split links metal-gene investment
-to ecological specialisation}
+\title{A cofactor-versus-resistance split in metal-gene density predicts
+bacterial ecological breadth within a pervasive genome-streamlining landscape}
 \shorttitle{Metal-gene density and ecological specialisation}
 
 \author[1,2,\Letter]{Heather R. MacGregor}
@@ -57,9 +56,11 @@ standardised Levins' niche breadth derived from 462,716 global 16S amplicon
 samples (MicrobeAtlas~\cite{rodrigues2026}). The central finding is an internal
 functional split that holds across four independent niche axes and is confirmed
 by permutation testing (split magnitude $\Delta\beta = 0.035$, $p < 0.001$):
-cofactor biosynthesis KOs (Fe--S cluster assembly, molybdopterin, and cobalamin
-pathways) show negative niche-breadth scaling equal to the housekeeping baseline
-($\beta = -0.033$, $p = 5.2 \times 10^{-9}$), while resistance and detoxification KOs (106 KOs)
+cofactor biosynthesis KOs (7 pre-curated genes spanning Fe--S cluster assembly,
+molybdopterin, and cobalamin pathways) show negative niche-breadth scaling equal to the
+housekeeping baseline ($\beta = -0.033$, $p = 5.2 \times 10^{-9}$); expanded pathway-level
+PGLS identifies cobalamin biosynthesis (18 KOs) as the sole pathway with an independent
+cross-biome niche constraint. Resistance and detoxification KOs (106 KOs)
 show no cross-biome association ($\beta \approx 0$, $p = 0.66$) despite
 positive geochemical and co-occurrence centrality signals. To identify the
 driving pathway, we applied PGLS separately to 47 KOs spanning all five
@@ -69,7 +70,7 @@ constraint; heme, molybdopterin, siroheme, and Fe--S cluster assembly were
 individually null. A leave-one-KO-out jackknife across the curated 7-KO
 pre-specified set confirms the split signal is distributed and not attributable
 to any single gene. Across 140 primary metal KOs, per-Mb density declines with
-niche breadth ($\beta = -0.021$, SE $= 0.0037$, $p = 2.1 \times 10^{-8}$,
+niche breadth ($\beta = -0.021$, 95\% CI $[-0.029, -0.013]$, $p = 2.1 \times 10^{-8}$,
 Pagel's $\lambda = 0.757$, $\Delta$AIC $= -29.4$), a signal embedded within a
 KEGG-wide streamlining landscape; this aggregate association does not survive
 coreness-matched permutation, placing the relevant empirical contrast at the
@@ -275,10 +276,10 @@ filled points BH-FDR $q < 0.05$. Dashed lines indicate the housekeeping
 streamlining baseline ($\beta \approx -0.030$ to $-0.035$) and the primary
 metal-gene estimate ($\beta = -0.021$).
 (B) Metal-specific PGLS: per-metal $\beta$ for nine metals with $\geq 34$ primary
-KOs (Tl, Fe, Ni, Zn, Al, Co, S, Cu, Mn), sorted by $\beta$. BH-FDR $q < 0.05$
-indicated by filled points. Effect sizes are uniform across chemically diverse
-metals, indicating a general metal-ecology association rather than a single-metal
-artefact.}
+KOs (Tl, Fe, Ni, Zn, Al, Co, S, Cu, Mn), sorted by $\beta$. Filled points indicate
+BH-FDR $q < 0.05$; open points are non-significant after FDR correction. Effect sizes
+are uniform across chemically diverse metals, indicating a general metal-ecology
+association rather than a single-metal artefact.}
 \label{fig:2}
 \end{figure*}
 
@@ -319,11 +320,15 @@ geochemical breadth ($\beta = +0.073$, $p = 0.013$) and co-occurrence network
 degree ($\beta = +4.1$, $p < 10^{-6}$): resistance-rich genera occupy a wide
 geochemical niche and are ecological hubs, without being generalists at the
 biome scale. Cofactor biosynthesis genes (7 KOs encoding Fe--S cluster
-assembly, molybdopterin synthesis, and cobalamin pathway genes) show the
-opposite profile: a cross-biome niche-breadth association equal in magnitude
+assembly, molybdopterin synthesis, and cobalamin pathway genes) show a
+contrasting profile: a cross-biome niche-breadth association equal in magnitude
 to the housekeeping streamlining baseline ($\beta = -0.033$, SE $= 0.005$,
 95\% CI $[-0.043, -0.023]$, $p = 5.2 \times 10^{-9}$) and uniquely
-negative soil niche breadth. The split magnitude ($\Delta\beta = 0.035$) is
+negative soil niche breadth. (Note: expanded pathway-level PGLS in
+\S\ref{ss:cobalamin} shows that cobalamin biosynthesis is the sole independently
+significant pathway among these three; Fe--S cluster assembly and molybdopterin
+are individually null on cross-biome breadth.)
+The split magnitude ($\Delta\beta = 0.035$) is
 validated by a permutation test ($p < 0.001$) and is larger than the
 equivalent split in three comparison gene families (ABC transporters, AMR,
 two-component systems). Detailed statistics are in \S\ref{ss:split}.
@@ -474,8 +479,8 @@ $\beta = -0.027$ (Tl). Uniformity across chemically diverse metals argues
 against any single element driving the signal. Thallium (Tl), aluminium (Al),
 and sulfur (S; a non-metal included because of its role in Fe--S cluster and siroheme biosynthesis) are included with $\geq 34$ primary KOs each; a full
 list of KOs, gene names, evidence tiers, evidence sources, and biochemical
-rationale for each is provided in Supplementary Table~S4
-(\texttt{supplementary\_tl\_al\_s\_kos.csv}).
+rationale for each is provided in Supplementary Table~S4; machine-readable
+data are available in the project repository (see Data and Code Availability).
 
 Excluding Al, Tl, and S---elements with fewer dedicated resistance systems and
 less complete functional annotation in the current gene list---does not change
@@ -690,21 +695,22 @@ An independent geochemical replication tested whether soil metal
 concentrations---rather than genomic KO density---predict niche breadth in the
 same 482 genera, using NGSA ICP-MS measurements spatially joined within 200~km
 (Table~\ref{tab:6}). Cu and Zn were significant after BH-FDR correction
-($q = 0.041$ each). Pb and Ni were directionally consistent but did not survive
-FDR ($q = 0.057$, 0.061). Co was near-zero and in the opposite direction.
+(both raw $p = 0.016$; $q = 0.041$ each). Pb and Ni were directionally consistent
+but did not survive FDR (raw $p = 0.034$ and $0.049$; $q = 0.057$ and $0.061$). Co was near-zero and in the opposite direction.
 Pagel's $\lambda$ was substantially lower (0.32--0.35) than in the global
 primary analysis, likely reflecting the different predictor type (environmental
 concentration vs genomic density) and the reduced phylogenetic diversity of the
 continental panel.
 
 \begin{table*}[htbp]
-\caption{Replication and robustness analyses.}
+\caption{Replication and robustness analyses. In the $p$ column, values in parentheses
+are BH-FDR $q$-values where applicable (format: raw $p$ ($q_{\mathrm{BH}}$)).}
 \label{tab:6}
 \centering
 \small
 \begin{tabular}{lcccc p{4cm}}
 \toprule
-Analysis & $n$ & $\beta$ (or $\rho$) & $p$ & $\lambda$ & Outcome \\
+Analysis & $n$ & $\beta$ (or $\rho$) & $p$ ($q_{\mathrm{BH}}$) & $\lambda$ & Outcome \\
 \midrule
 AMI genomic density & 482 & $\mathbf{-0.052}$ & $2.2 \times 10^{-15}$
   & 0.734 & CONSISTENT (within-dataset subset; not independent) \\
@@ -1179,15 +1185,20 @@ A 1,000-permutation split-magnitude test confirmed that the observed difference
 between arms ($|\Delta\beta| = 0.003$) is unremarkable: 879 of 1,000 random
 re-partitions of the combined 354-KO pool (into groups of 331 and 23) produced
 a larger $|\Delta\beta|$ (empirical $p = 0.879$).
-These results show that the inheritance architecture of a gene set---essential
-vertical versus horizontally mobile---does not, by itself, generate a differential
-PGLS signal resembling the cofactor/resistance split.
-The magnitude and significance of the actual cofactor/resistance differential
-($|\Delta\beta| = 0.035$, $p_\mathrm{perm} < 0.001$) therefore cannot be attributed to the
-mere fact that cofactor genes are vertically inherited while resistance genes
-are more horizontally acquired; rather, it reflects an ecologically meaningful
-separation grounded in the constitutive versus facultative coupling of these
-functional categories to bacterial niche breadth.
+These results show that inheritance architecture alone---without metal-gene
+specificity---is insufficient to generate a differential PGLS signal resembling
+the cofactor/resistance split.
+The synthetic comparator uses genes with no metal specificity (ribosomal proteins,
+transposases), so a null result in this non-metal system does not directly rule
+out inheritance mode as a contributing factor within the metal-gene set itself;
+within metal genes, inheritance mode may act in concert with metal-specific
+biochemistry to generate the observed split. A direct test would require
+partitioning the 140-KO primary set by independently estimated inheritance mode
+while holding functional category constant---a priority for future work.
+What the comparator does establish is that vertical vs.\ mobile inheritance
+labelling, applied to a gene set of similar size and coreness distribution,
+does not mechanically produce a differential signal, making a pure statistical
+artefact of the split less plausible.
 
 % ─────────────────────────────────────────────────────────────────────────────
 
@@ -2002,8 +2013,9 @@ biosynthesis, metal-dependent metabolism) for nine metals: Fe, Zn, Cu, Mn, Ni,
 Co, Mo, Tl, and Al. KO-to-metal assignments and subcategory labels are
 documented in the Supplementary Methods. A full list of KOs with gene names,
 evidence tiers, evidence sources, and biochemical rationale for the three
-metal-specific subsets (Tl, Al, S) is provided in Supplementary Table~S4
-(\texttt{supplementary\_tl\_al\_s\_kos.csv}).
+metal-specific subsets (Tl, Al, S) is provided in Supplementary Table~S4;
+corresponding machine-readable data are available in the project repository
+(see Data and Code Availability).
 
 The seven cofactor biosynthesis KOs in the primary 140-KO set were selected
 a priori from KEGG modules for Fe--S cluster assembly (M00175, M00176),
@@ -2467,7 +2479,17 @@ in Supplementary Table~S1.
 
 \section*{Acknowledgements}
 
-We thank ... for ... % TODO: fill in acknowledgements
+We thank the MicrobeAtlas consortium for maintaining the global amplicon abundance
+database used for niche breadth calculations; the GTDB consortium (Parks et al.)
+for the curated prokaryotic phylogeny; and the development teams at MGnify
+(EMBL-EBI Metagenomics), KBase, BacMet, and FitnessBrowser for open data access.
+We acknowledge computational resources and support provided by the BERIL Data
+Laboratory (BERDL) at Lawrence Berkeley National Laboratory. We thank two
+anonymous reviewers for constructive criticism that substantially improved the
+manuscript. H.R.M. is supported by a University of California Berkeley fellowship.
+This work was supported by the U.S. Department of Energy, Office of Science,
+Office of Biological and Environmental Research, under contract
+DE-AC02-05CH11231 to Lawrence Berkeley National Laboratory.
 
 % ─────────────────────────────────────────────────────────────────────────────
 

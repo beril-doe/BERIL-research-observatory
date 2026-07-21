@@ -19,11 +19,19 @@
 \contentsline {subsection}{\numberline {5.1}Implementation}{7}{subsection.5.1}%
 \contentsline {subsection}{\numberline {5.2}Primary result}{8}{subsection.5.2}%
 \contentsline {section}{\numberline {6}Multiple testing correction}{8}{section.6}%
-\contentsline {section}{\numberline {7}Confounder analyses}{8}{section.7}%
+\contentsline {section}{\numberline {7}Confounder analyses}{9}{section.7}%
 \contentsline {section}{\numberline {8}Sensitivity analyses}{9}{section.8}%
 \contentsline {section}{\numberline {9}Pre-registration and analysis governance}{10}{section.9}%
 \contentsline {subsection}{\numberline {9.1}Pre-registration}{10}{subsection.9.1}%
 \contentsline {subsection}{\numberline {9.2}Analysis governance}{10}{subsection.9.2}%
 \contentsline {section}{\numberline {10}Latitude mechanism tests}{10}{section.10}%
-\contentsline {section}{Supplementary Tables}{11}{section.10}%
-\contentsline {section}{Supplementary Figures}{22}{table.4}%
+\contentsline {section}{\numberline {11}Exploratory CatBoost LOPO analysis}{12}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Design and software}{12}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}Feature construction}{12}{subsection.11.2}%
+\contentsline {subsection}{\numberline {11.3}Environmental responses}{12}{subsection.11.3}%
+\contentsline {subsection}{\numberline {11.4}Model configurations}{12}{subsection.11.4}%
+\contentsline {subsection}{\numberline {11.5}KO prioritisation composite score}{13}{subsection.11.5}%
+\contentsline {subsection}{\numberline {11.6}Output files}{13}{subsection.11.6}%
+\contentsline {section}{\numberline {12}Social niche breadth benchmarking}{13}{section.12}%
+\contentsline {section}{Supplementary Tables}{15}{table.caption.6}%
+\contentsline {section}{Supplementary Figures}{26}{table.caption.8}%
