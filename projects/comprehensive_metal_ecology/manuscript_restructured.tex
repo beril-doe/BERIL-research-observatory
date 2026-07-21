@@ -52,7 +52,7 @@ streamlining predicts retention because non-substitutable cofactors cannot be
 acquired by cross-feeding, while BQH predicts erosion wherever costly products
 such as cobalamin are released and shared among neighbours. We tested these
 predictions across 1,574 bacterial genera using phylogenetic generalised least
-squares (PGLS), combining per-megabase KO density from KBase pangenomes with
+squares (PGLS), combining per-megabase KEGG Orthology (KO) density from KBase pangenomes with
 standardised Levins' niche breadth derived from 462,716 global 16S amplicon
 samples (MicrobeAtlas~\cite{rodrigues2026}). The central finding is an internal
 functional split that holds across four independent niche axes and is confirmed
@@ -109,7 +109,10 @@ genes---encoding Fe--S cluster assembly, molybdopterin cofactor synthesis, and
 cobalamin (B$_{12}$) biosynthesis---produce prosthetic groups required for
 core metabolic enzymes and cannot be acquired by passive cross-feeding at the
 scale of individual cells; these are the class for which streamlining predicts
-strong retention in ecological specialists. Metal resistance and detoxification
+strong retention in ecological specialists. All three pathways are included in our
+primary gene set, and we test each pathway independently at expanded resolution in
+Results: Part~II---where cobalamin biosynthesis emerges as the sole pathway with
+a significant independent cross-biome niche constraint. Metal resistance and detoxification
 genes---encoding membrane efflux systems, enzymatic reductases, and
 metal-binding proteins---are conditionally adaptive, are disproportionately
 carried on conjugative plasmids and mobile genetic elements, and represent
@@ -153,9 +156,10 @@ internal architecture across five metal-gene functional subcategories, and
 validate the key internal contrast with permutation testing and
 leave-one-out jackknife analysis. Our results reveal that the metal-gene/
 niche-breadth association is part of a pervasive genome-streamlining
-landscape---but that within it, metal-cofactor dependence, not
-stress-response capacity, is the mechanistic driver most consistent with the
-observed pattern.
+landscape---but that within it, cobalamin biosynthesis (not Fe--S cluster
+assembly or molybdopterin) is the specific pathway driving the cofactor
+constraint, and constitutive metabolic coupling rather than stress-response
+capacity is the mechanistic driver most consistent with the observed pattern.
 
 % ─────────────────────────────────────────────────────────────────────────────
 
@@ -264,15 +268,17 @@ genome compaction.
 \caption{\textbf{Functional landscape and metal specificity of genomic
 streamlining.}
 (A) KEGG functional landscape: lollipop plot of PGLS $\beta$ (per-Mb KO density
-vs.\ niche breadth) for 19 KEGG functional categories (grey) and the primary
+vs.\ Levins' $B_\mathrm{std}$; Pagel's $\lambda$ estimated by ML; GTDB r214;
+$n = 1{,}574$ genera) for 19 KEGG functional categories (grey) and the primary
 metal-gene result (red). Categories sorted by $\beta$; error bars $\pm 1.96$~SE;
 filled points BH-FDR $q < 0.05$. Dashed lines indicate the housekeeping
 streamlining baseline ($\beta \approx -0.030$ to $-0.035$) and the primary
 metal-gene estimate ($\beta = -0.021$).
 (B) Metal-specific PGLS: per-metal $\beta$ for nine metals with $\geq 34$ primary
-KOs (Tl, Fe, Ni, Zn, Al, Co, S, Cu, Mn), sorted by $\beta$. Effect sizes are
-uniform across chemically diverse metals, indicating a general metal-ecology
-association rather than a single-metal artefact.}
+KOs (Tl, Fe, Ni, Zn, Al, Co, S, Cu, Mn), sorted by $\beta$. BH-FDR $q < 0.05$
+indicated by filled points. Effect sizes are uniform across chemically diverse
+metals, indicating a general metal-ecology association rather than a single-metal
+artefact.}
 \label{fig:2}
 \end{figure*}
 
@@ -326,7 +332,11 @@ mechanistically interpretable internal split (Table~\ref{tab:4}). Resistance
 and detoxification genes (106 KOs---direct efflux, reductases, sequestration)
 show no association with niche breadth ($\beta = +0.003$, SE $= 0.006$,
 $p = 0.656$), consistent with HGT-mediated decoupling of resistance gene
-content from ecological specialisation \cite{pal2015,gios2025}. All four
+content from ecological specialisation~\cite{pal2015,gios2025}---a mechanism
+inferred here from genome-level phylogenetic randomness (Fritz \& Purvis D;
+Supplementary Table~S3), genus-level Pagel's $\lambda$ near zero, and
+database-level plasmid enrichment tests, rather than direct genomic measurement
+(see Limitations and Future Directions). All four
 metabolically constitutive categories are significant. Cofactor biosynthesis
 shows the largest effect ($\beta = -0.033$, SE $= 0.005$, $p = 5.2 \times
 10^{-9}$), equal to the housekeeping streamlining baseline, anchored by 7 KOs
@@ -778,7 +788,12 @@ $|\beta|$ at 80\% power is 0.025; the observed $|\beta| = 0.014$ falls below
 this threshold, yielding actual power of only ${\approx}34\%$. The archaeal
 analysis is therefore not a negative replication---it is uninformative about
 whether the association exists in archaea. The Australia-only NGSA replication ($n = 482$)
-was near-zero ($\beta = -0.002$, $p = 0.755$).
+was near-zero ($\beta = -0.002$, $p = 0.755$). Note that this analysis tests a
+distinct hypothesis---whether contemporary soil metal concentrations predict
+per-genus niche breadth---rather than replicating the primary KO-density model;
+the null result limits claims about which geochemical environments drive metal-gene
+accumulation, but does not contradict the primary genomic association (see
+Limitations).
 
 Across eight pre-specified sensitivity analyses, six of seven are directionally
 consistent with the pre-registered prediction (all $\beta < 0$), and five are individually significant at
@@ -795,7 +810,11 @@ detection thresholds.
 
 \begin{table*}[htbp]
 \caption{Sensitivity analyses. $p$-values are raw (one test per check; no
-within-family multiplicity correction).}
+within-family multiplicity correction). Sensitivity and confounder analyses are
+pre-registered as robustness checks of a single primary result, not as
+independent hypotheses, and are therefore not subject to FDR correction by
+the pre-registered analysis plan. See Supplementary Methods SM5 for the
+full multiplicity-correction rationale.}
 \label{tab:2}
 \centering
 \small
@@ -1782,6 +1801,8 @@ within-category and cross-category comparisons.
 % ─────────────────────────────────────────────────────────────────────────────
 
 
+\subsection*{Future experimental and analytical priorities}
+
 The internal split between resistance-null and cofactor-significant gene
 subcategories is the most tractable target for follow-up investigation. The most
 informative next step is to extend the analysis to the full 730-KO five-tier
@@ -2367,10 +2388,18 @@ is linked from \texttt{RESEARCH\_PLAN.md} (DOI to be assigned upon acceptance).
 Raw MAG sequence data and pangenome tables derive from the MGnify database
 (\url{https://www.ebi.ac.uk/metagenomics}) and the KBase pangenome
 (\url{https://kbase.us}); access is free. MicrobeAtlas OTU abundance data
-are available at \url{https://microbeatlas.org}. NGSA geochemical data
-are available from Geoscience Australia. Files exceeding GitHub size limits
-(tree files $> 50$~MB, intermediate pangenome parquets) will be deposited on
-Zenodo (DOI to be assigned upon acceptance). Accession lists for the
+are available at \url{https://microbeatlas.org} (free, no login required). NGSA
+geochemical data are available from the Geoscience Australia NGSA portal
+(\url{https://www.ga.gov.au/scientific-topics/minerals/mineral-exploration/geochemistry/national-geochemical-survey-of-australia}).
+Earth Microbiome Project 16S data are available at \url{https://earthmicrobiome.org}.
+Analyses were executed within the BERIL Data Laboratory (BERDL) Spark environment
+using internal Hive table references (\texttt{kbase.ke\_pangenome.bakta\_annotations},
+\texttt{arkinlab\_microbeatlas.otuabundances}). Equivalent data for independent
+replication are accessible via the public interfaces above; the pre-processed
+per-genus density matrices provided in the GitHub repository eliminate the need
+for direct Spark access for reproducing main analyses. Files exceeding GitHub size
+limits (tree files $> 50$~MB, intermediate pangenome parquets) will be deposited
+on Zenodo (DOI to be assigned upon acceptance). Accession lists for the
 MGnify MAG catalogue, MicrobeAtlas 16S data, and KBase pangenome are provided
 in Supplementary Table~S1.
 

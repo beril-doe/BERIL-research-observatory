@@ -467,7 +467,15 @@ All corrections use the Benjamini--Hochberg (BH) procedure.
 No multiple testing correction was applied to pre-specified confounder checks
 (§5.2 of the main text) or to the eight sensitivity analyses (§5.3), as these
 are robustness tests of a single primary result rather than independent
-hypotheses.
+hypotheses. This design choice is pre-registered: confounder checks each ask
+``does the primary result survive after accounting for variable $X$?''---they
+test whether $\beta_\text{primary}$ is robust, not whether each confounder is
+independently associated with niche breadth. Applying BH-FDR across confounder
+checks would be statistically incorrect because the checks share the same null
+hypothesis ($H_0$: primary $\beta = 0$) and the confounder itself is not the
+quantity of interest. The split-magnitude permutation test (Section~7 of the
+main text) is treated as an independent hypothesis test and is therefore the
+sole focus of the confirmatory analysis family.
 
 % ============================================================================
 \section{Confounder analyses}
@@ -1005,6 +1013,18 @@ K15585 & \textit{nikB} & Transport/Homeostasis & T3 & 0.202 & 0.000 & Ni transpo
 \bottomrule
 \end{tabular}
 \end{table}
+
+\noindent\textbf{Category distribution of double-signal HGT candidates.}
+Among the 13 KOs meeting the double-signal criterion (D $> 0.2$ and $\lambda <
+0.3$): 6 are Resistance/Detoxification (\textit{nrsD}, \textit{merD},
+\textit{gesA}, \textit{gesB}, \textit{aoxB}, \textit{norB}); 4 are
+Transport/Homeostasis (\textit{merE}, \textit{shp}, \textit{nicC},
+\textit{nikB}); 1 is Sensing/Regulation (\textit{golS}); 1 is
+Metal-dependent Metabolism (\textit{doxDA}); 1 is Unknown (\textit{iucD}).
+\textbf{Zero} Cofactor Biosynthesis KOs meet the double-signal criterion,
+consistent with cofactor biosynthesis genes being vertically inherited and
+constitutively coupled to genome size rather than acquired by horizontal gene
+transfer.
 
 % -- Table S4: Tl/Al/S metal KO curation rationale ----------------------------
 
