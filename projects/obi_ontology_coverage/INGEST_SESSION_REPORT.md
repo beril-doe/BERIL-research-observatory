@@ -60,6 +60,7 @@ through the pproxy. On-cluster, we constructed the `minio.Minio` client directly
 from environment variables:
 
 ```python
+import os
 from minio import Minio
 client = Minio(
     endpoint=os.environ["MINIO_ENDPOINT_URL"].replace("https://", ""),

@@ -461,12 +461,17 @@ Spark interprets 16-byte fixed binary as a UUID logical type and rejects it.
 **Solution**: Pre-screen with PyArrow and convert to strings before uploading to bronze:
 
 ```python
+import pandas as pd
 import pyarrow.parquet as pq
+
+df = pd.read_parquet("file.parquet")
 schema = pq.read_schema("file.parquet")
 for field in schema:
     if "fixed_size_binary" in str(field.type):
-        # Re-export with pandas, casting bytes to hex strings
+        col = field.name
+        # cast raw bytes to hex strings so Spark won't read them as UUIDs
         df[col] = df[col].apply(lambda x: x.hex() if isinstance(x, bytes) else x)
+df.to_parquet("file.fixed.parquet")
 ```
 
 **Root cause**: DuckDB Parquet export stores hash columns as `fixed_size_binary` rather than `VARCHAR`. Fix upstream or handle during ingest schema detection.

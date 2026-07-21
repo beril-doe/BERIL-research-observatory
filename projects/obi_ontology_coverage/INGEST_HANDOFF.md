@@ -50,7 +50,10 @@ data_generation (sequencing)
 
 ## Ingest instructions
 
-Use `/berdl-ingest` skill. Point it at this directory:
+Use the `/berdl-ingest` skill **off-cluster**. It assumes SSH tunnels on ports
+1337/1338 and fails on the JupyterHub notebook server itself (see
+`docs/pitfalls.md` and `INGEST_SESSION_REPORT.md` for the on-cluster bypass).
+Point it at this directory:
 
 ```
 /home/mamillerpa/BERIL-research-observatory/data/nmdc_flattened_biosamples/

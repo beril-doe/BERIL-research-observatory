@@ -41,9 +41,9 @@ where OBI terms could add cross-project interoperability.
   "insdc_bioproject_identifiers": ["bioproject:PRJNA375667"],
   "ncbi_project_name": "...",
   "principal_investigator": {
-    "email": "pelletierda@ornl.gov",
-    "has_raw_value": "Dale Pelletier",
-    "name": "Dale Pelletier",
+    "email": "<redacted>",
+    "has_raw_value": "<PI name>",
+    "name": "<PI name>",
     "type": "nmdc:PersonValue"
   },
   "provenance_metadata": {
@@ -214,7 +214,7 @@ query like:
 
 ```sql
 SELECT nmdc_type, COUNT(*) as cnt
-FROM nmdc_flattened_workflow_executions.flattened_workflow_execution
+FROM nmdc_flattened_biosamples.flattened_workflow_execution
 GROUP BY nmdc_type
 ORDER BY cnt DESC
 ```
