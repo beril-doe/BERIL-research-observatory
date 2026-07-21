@@ -1,0 +1,17 @@
+{
+  "contingency": [
+    [
+      6,
+      0
+    ],
+    [
+      1,
+      52
+    ]
+  ],
+  "OR": null,
+  "p": 1.5535713342474545e-07,
+  "n_double": 6,
+  "n_background": 53,
+  "n_total_plasmids": null
+}
