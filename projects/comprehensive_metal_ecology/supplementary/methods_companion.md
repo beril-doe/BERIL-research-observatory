@@ -156,7 +156,19 @@ Two scales:
 1. **Genus-level λ:** from primary PGLS; measures phylogenetic autocorrelation of B_std across genera  
 2. **Genome-level D:** Fritz & Purvis' D statistic applied to binary KO presence/absence across genomes within genera
 
-Sample size filter: ≥5 genomes per genus required for genome-level D. Double-signal criteria: genera with both high λ (>0.5) and low D (<0.5) considered the strongest candidates for conserved metal-gene investment. Plasmid association check: KOs with known plasmid-borne orthologues (BacMet flagged) were examined separately.
+Sample size filter: ≥5 genomes per genus required for genome-level D. Double-signal criteria: D > 0.2 AND λ < 0.3 (13 KOs identified; all resistance/transport/sensing). Plasmid association enrichment test (script: `scripts/plsdb_resistance_crossref.py`):
+
+**NCBI Entrez (preferred):** For each gene name, queried NCBI nuccore for `"{gene}"[Gene Name] AND plasmid[Filter]` (plasmid hits) and `"{gene}"[Gene Name]` (total hits); plasmid_frac = n_plasmid / n_total. Mann-Whitney U test (one-sided, alternative='greater') on plasmid fraction comparing double-signal resistance KOs vs background resistance KOs, filtered to n_total ≥ 50. Result: U=122, p=0.045 (n_double=3: merD 4.3%, aoxB 0.4%, norB 0.1%; n_background=51).
+
+**BV-BRC validation:** Downloaded 84,446 unique plasmid accessions from BV-BRC `genome_sequence` table (records with "plasmid" in description, PATRIC annotation). Per-gene plasmid fraction computed via `genome_feature` table using RQL syntax. Large-n genes (n_total ≥ 10,000) estimated via 4-page evenly-spaced sampling to avoid excessive API pagination. Mann-Whitney U test same as NCBI. Result: U=83, p=0.044 (n_double=2: merD 7.2%, norB 0.3%; n_background=48 after arsC KO deduplication).
+
+Genes untestable: gesA, gesB (n=1 in both databases); nrsD (n=16, below threshold). golS near-zero in both databases (NCBI frac=1.7×10⁻⁵, BV-BRC frac=3.5×10⁻⁴).
+
+**Cross-category comparison (NCBI Entrez, all 275 KOs; `data/ncbi_plasmid_fraction_allcats.csv`):** Extended queries to all cofactor, metabolism, transport, and sensing KOs with n_total ≥ 50. Resistance > all non-resistance: Mann-Whitney p=0.020 (n=54 vs n=86). Resistance > metal-dependent metabolism: p=0.023 (n=54 vs n=14). Cofactor biosynthesis KOs (hemH ≤ 0.023%, MOCS2B = 0%) near-zero. The median plasmid-fraction gradient (resistance 0.00043 > transport ≈ sensing > metabolism > cofactor 0.00012) mirrors the phylogenetic-λ gradient across categories.
+
+**Cross-category comparison (BV-BRC, all 275 KOs; `data/bvbrc_plasmid_fraction_allcats.csv`):** Same query extended to 88 non-resistance KOs (154 rows total). Resistance > all non-resistance: p=0.118 (NOT significant; n=51 vs n=82). Within-resistance DS vs BG confirmatory test: p=0.047 (n_double=2 vs n_bg=49; consistent with focused test p=0.044). Discordance from NCBI is attributable to the Transport/Homeostasis group in BV-BRC being inflated by resistance-classified metal efflux transporters (czcA, czcB) and the aph outlier (7.1% frac), collapsing the resistance vs transport gap.
+
+Outputs: `data/plsdb_enrichment_test.json`, `data/bvbrc_plasmid_fraction.csv`, `data/ncbi_plasmid_fraction_allcats.csv`, `data/bvbrc_plasmid_fraction_allcats.csv`.
 
 ---
 

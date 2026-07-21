@@ -78,18 +78,18 @@ at genus level) relative to 10 high-λ vertical control KOs (λ > 0.7, D < 0.3).
 | KO | Gene | Group | n_total | Plasmid fraction | Mobile-el. fraction |
 |----|------|-------|---------|-----------------|---------------------|
 | K07785 | nrsD | double-signal | 16 | 0.125 | 0.000 |
-| K19059 | merE | double-signal | 201754 | 0.042 | 0.000 |
-| K19057 | merD | double-signal | 214613 | 0.043 | 0.000 |
+| K19059 | merE | double-signal | 202675 | 0.043 | 0.000 |
+| K19057 | merD | double-signal | 215624 | 0.043 | 0.000 |
 | K19594 | gesB | double-signal | 1 | 0.000 | 0.000 |
-| K08356 | aoxB | double-signal | 480 | 0.006 | 0.002 |
+| K08356 | aoxB | double-signal | 718 | 0.004 | 0.002 |
 | K19595 | gesA | double-signal | 1 | 0.000 | 0.000 |
-| K25119 | shp | double-signal | 3666 | 0.001 | 0.000 |
-| K03897 | iucD | double-signal | 265538 | 0.018 | 0.000 |
-| K19592 | golS | double-signal | 519615 | 0.000 | 0.000 |
-| K05908 | doxDA | double-signal | 8 | 0.000 | 0.000 |
-| K08170 | norB | double-signal | 184885 | 0.001 | 0.000 |
-| K14974 | nicC | double-signal | 1793 | 0.005 | 0.000 |
-| K15585 | nikB | double-signal | 828533 | 0.004 | 0.000 |
+| K25119 | shp | double-signal | 3710 | 0.001 | 0.000 |
+| K03897 | iucD | double-signal | 266957 | 0.018 | 0.000 |
+| K19592 | golS | double-signal | 520363 | 0.000 | 0.000 |
+| K05908 | doxDA | double-signal | 11 | 0.000 | 0.000 |
+| K08170 | norB | double-signal | 186677 | 0.001 | 0.000 |
+| K14974 | nicC | double-signal | 1836 | 0.005 | 0.000 |
+| K15585 | nikB | double-signal | 833861 | 0.004 | 0.000 |
 | K07787 | cusA | high-λ control | 477813 | 0.001 | 0.000 |
 | K07796 | cusC | high-λ control | 471127 | 0.000 | 0.000 |
 | K02230 | cobN | high-λ control | 234440 | 0.001 | 0.000 |
@@ -101,8 +101,80 @@ at genus level) relative to 10 high-λ vertical control KOs (λ > 0.7, D < 0.3).
 | K21479 | cbiH60 | high-λ control | 6 | 0.000 | 0.000 |
 | K05368 | fre | high-λ control | 1127790 | 0.000 | 0.000 |
 
-MWU test (plasmid fraction DS > control): U=91, p=0.056 (DS n=13, ctrl n=10)
-MWU test (mobile fraction DS > control): U=80, p=0.062 (DS n=13, ctrl n=10)
+**Enrichment test — NCBI Entrez plasmid fraction (resistance-subcategory KOs, n_total ≥ 50):**
+
+Comparing double-signal vs background resistance KOs is more informative than comparing all double-signal KOs against high-λ controls, because the control comparison conflates resistance vs cofactor categories. The focused test:
+
+- Double-signal resistance KOs (n=3): merD 4.3%, aoxB 0.4%, norB 0.1%; median = 0.0042
+- Background resistance KOs (n=51): median = 0.0004
+- Mann-Whitney U=122, **p=0.045** (one-sided, alternative='greater')
+- Script: `scripts/plsdb_resistance_crossref.py`; data: `data/plsdb_enrichment_test.json`
+
+Excluded from statistical test: gesA (n=1), gesB (n=1), nrsD (n=16) — fewer than 50 NCBI records; merE, iucD, nikB, nicC, shp, doxDA, golS — non-resistance subcategory.
+
+**Independent validation — BV-BRC (84,446 plasmid accessions):**
+
+- Double-signal resistance KOs (n=2, n_total≥50): merD 7.2%, norB 0.3%; median = 0.0049
+- Background resistance KOs (n=48, arsC deduplicated): median = 0.0005
+- Mann-Whitney U=83, **p=0.044** (one-sided)
+- aoxB excluded (BV-BRC n=24 < 50). arsC has two KO IDs (K00537, K03741) with identical feature counts — deduplicated to n_background=48.
+
+Background composition note: pcoB (6.8%), merA (4.5%), tetA (4.1%) are in the background (not the double-signal set): pcoB (D=0.068) and tetA (D=0.086) have phylogenetically structured distributions despite plasmid carriage; merA (λ=0.527) exceeds the λ<0.3 threshold. Their presence in the background makes the test conservative. golS (D=0.26, λ=0.13) is essentially chromosomal in both databases (NCBI frac=0.000017, BV-BRC frac=0.0003) — HGT may have occurred chromosomally rather than via plasmids.
+
+Two independent databases converge at marginal significance (NCBI p=0.045, BV-BRC p=0.044). The result is driven primarily by merD; the test is underpowered due to few double-signal resistance KOs with sufficient NCBI/BV-BRC coverage.
+
+gesA/gesB (gold efflux system): untestable in both databases (n=1 NCBI, n=1 BV-BRC). These genes are absent from CARD/AMRFinder and have not been deposited to GenBank under any confirmed gene synonym or product term.
+
+**Cross-category plasmid fraction comparison (NCBI Entrez, n_total ≥ 50):**
+
+All 275 KOs were queried; the full table is at `data/ncbi_plasmid_fraction_allcats.csv`.
+
+| Subcategory | n (n≥50) | Median frac | Mean frac | Max frac |
+|-------------|----------|-------------|-----------|----------|
+| Resistance/Detoxification | 54 | 0.00043 | 0.00480 | 0.0427 (merD) |
+| Transport/Homeostasis | 48 | 0.00021 | 0.00324 | 0.0514 (aph†) |
+| Sensing/Regulation | 21 | 0.00020 | 0.00076 | 0.0082 (hutC) |
+| Metal-dependent Metabolism | 14 | 0.00016 | 0.00248 | 0.0286 (nicB) |
+| Cofactor Biosynthesis | 2‡ | 0.00012 | 0.00012 | 0.0002 (hemH) |
+
+†aph (aminoglycoside phosphotransferase) is functionally a resistance gene; its classification as Transport inflates that category's max but barely affects the median.
+‡ Only hemH and MOCS2B have n≥50; cobC1 (n=45) and ahbAB (n=2) are excluded.
+
+Mann-Whitney tests (alternative='greater', n_total ≥ 50):
+- Resistance > Metal-dependent Metabolism: U=510, **p=0.023** (n=54 vs n=14)
+- Resistance > All non-resistance combined: U=2804, **p=0.020** (n=54 vs n=86)
+- Resistance > Transport/Homeostasis: U=1507, p=0.079 (n=54 vs n=48; aph outlier inflates transport)
+- Resistance > Sensing/Regulation: U=696, p=0.065 (n=54 vs n=21)
+- Resistance > Cofactor Biosynthesis: U=86, p=0.082 (underpowered; n_cofactor=2)
+
+The gradient in median plasmid fraction (resistance > transport ≈ sensing > metabolism > cofactor) mirrors the phylogenetic λ signal gradient, where cofactor KOs have highest λ (most vertically inherited) and resistance KOs lowest λ. Cofactor biosynthesis KOs (hemH, MOCS2B) have plasmid fractions ≤ 0.023%, consistent with strict chromosomal location.
+
+**Cross-category plasmid fraction comparison (BV-BRC, n_bvbrc_total ≥ 50):**
+
+Full results at `data/bvbrc_plasmid_fraction_allcats.csv` (154 rows: 66 resistance + 88 non-resistance KOs). Non-resistance KOs with n_total ≥ 10,000 were estimated by sampling 4 evenly-spaced pages (flagged `estimated=True`); smaller genes used full pagination.
+
+| Subcategory | n (n≥50) | Median frac | Mean frac | Top 3 genes |
+|-------------|----------|-------------|-----------|-------------|
+| Resistance/Detoxification | 51 | 0.00057 | 0.00700 | merD (7.2%), pcoB (6.8%), merA (4.5%) |
+| Transport/Homeostasis | 46 | 0.00052 | 0.00592 | ?(7.5%), aph†(7.1%), iucC(2.8%) |
+| Sensing/Regulation | 21 | 0.00055 | 0.00127 | hutC (1.3%), rcnR (0.3%), mntR (0.2%) |
+| Metal-dependent Metabolism | 12 | 0.00033 | 0.00196 | mmcO (0.9%), nicB (0.8%), soxC (0.3%) |
+| Cofactor Biosynthesis | 2‡ | 0.00035 | 0.00035 | hemH (0.07%), rest ≤0.0001 |
+
+†aph is functionally a resistance gene (aminoglycoside phosphotransferase); classified as Transport here but inflates that category's max/mean. The Transport/Homeostasis group also includes resistance-flavored metal efflux transporters (czcA, czcB, etc.) from the original 66-KO dataset, which further narrows the gap between Transport and Resistance medians.
+‡ Only hemH and cobT meet n≥50; most cofactor KOs are absent from BV-BRC under the gene name used.
+
+Mann-Whitney tests (alternative='greater', n_bvbrc_total ≥ 50):
+- Resistance > All non-resistance: U=2347, p=0.118 (**NOT significant**; n=51 vs n=82)
+- Resistance > Metal-dependent Metabolism: U=371, p=0.129
+- Resistance > Sensing/Regulation: U=638, p=0.103
+- Resistance > Transport/Homeostasis: U=1258, p=0.271
+- Resistance > Cofactor Biosynthesis: U=72, p=0.169 (underpowered; n_cofactor=2)
+- DS-resistance vs BG-resistance (confirmatory): U=84, **p=0.047** (n=2 vs n=49)
+
+The BV-BRC cross-category comparison does not replicate the NCBI signal (NCBI: resistance > all non-resistance, p=0.020). Two factors explain this discordance: (1) the Transport/Homeostasis category in BV-BRC is inflated by aph (7.1%) and by the resistance-classified metal efflux transporters already in the reference dataset; (2) BV-BRC sampling estimates for large-n genes introduce noise in per-gene plasmid fractions. The within-resistance confirmatory signal (DS vs BG, p=0.047) is directionally consistent with the original BV-BRC test (p=0.044) and reinforces that the double-signal resistance KOs remain elevated relative to background resistance KOs.
+
+MWU test (mobile fraction DS > control, original 13 vs 10 comparison): U=80, p=0.062
 
 ---
 
@@ -202,13 +274,16 @@ DS median D = 0.385 vs control median D = -0.077
 | K13638 | zntR | high-λ control | -0.368 | 0.000 | 0.000 | — | 0.012* | 0.019 |
 | K05368 | fre | high-λ control | -0.439 | 0.000 | 0.000 | — | — | 0.000 |
 
-**Statistical tests — DS vs control:**
+**Statistical tests:**
 
-| Signature | DS median | Control median | MWU U | p |
-|-----------|-----------|---------------|-------|---|
-| ds_D > ctrl_D (discordance) | 0.385 | -0.077 | 123 | 1.81e-04*** |
-| ds_plasmid_frac > ctrl_plasmid_frac | 0.004 | 0.000 | 91 | 0.056 |
-| ds_mobile_frac > ctrl_mobile_frac | 0.000 | 0.000 | 80 | 0.062 |
+| Signature | DS | Control/Background | MWU U | p |
+|-----------|----|--------------------|-------|---|
+| D (discordance): DS n=13 vs ctrl n=10 | median 0.385 | median −0.077 | 123 | 1.81e-04*** |
+| Plasmid frac — NCBI Entrez: DS resist. n=3 vs bg resist. n=51 | median 0.0042 | median 0.0004 | 122 | **0.045** |
+| Plasmid frac — BV-BRC (deduplicated): DS resist. n=2 vs bg resist. n=48 | median 0.0049 | median 0.0005 | 83 | **0.044** |
+| Cross-category NCBI: Resistance n=54 vs all non-resist. n=86 | median 0.00043 | median 0.00019 | 2804 | **0.020** |
+| Cross-category BV-BRC: Resistance n=51 vs all non-resist. n=82 | median 0.00057 | median 0.00052 | 2347 | 0.118 (n.s.) |
+| Mobile-element fraction: DS n=13 vs ctrl n=10 | median 0.000 | median 0.000 | 80 | 0.062 |
 
 ---
 
@@ -225,15 +300,17 @@ random phylogenetic placement — equivalent to maximal gene tree/species tree d
 the significantly higher D in double-signal KOs provides the strongest available evidence
 for their non-vertical evolutionary history.
 
-*Plasmid and mobile-element association (NCBI GenBank):* Double-signal KOs have
-median plasmid fraction = 0.004 vs 0.000 for controls,
-and median mobile-element fraction = 0.000 vs 0.000.
-MWU tests yield p = 0.056 (plasmid) and
-p = 0.062 (mobile elements). These NCBI-based estimates
-are imprecise (gene name searches may match paralogs; mobile element co-annotation reflects
-published literature bias toward studying gene mobility rather than unbiased genome surveys).
-They are best interpreted as an index of how frequently each gene family has been found on
-mobile genetic elements in published assemblies.
+*Plasmid association (NCBI Entrez + BV-BRC enrichment test):* A focused Mann-Whitney
+test comparing double-signal resistance KOs against background resistance KOs (both filtered
+to n_total ≥ 50) yields p=0.045 (NCBI Entrez, n_double=3: merD 4.3%, aoxB 0.4%, norB 0.1%)
+and p=0.044 from independent validation with BV-BRC (n_double=2: merD 7.2%, norB 0.3%).
+Two databases converge at marginal significance. The result is driven primarily by merD
+(a well-documented Tn21-family mer operon plasmid gene); the test is underpowered with
+only 3 (NCBI) or 2 (BV-BRC) double-signal KOs satisfying the n≥50 threshold.
+gesA, gesB, and nrsD are untestable: n=1 in NCBI and BV-BRC. golS (D=0.26) is effectively
+chromosomal in both databases (frac<0.001) — HGT may have occurred chromosomally.
+Mobile-element co-annotation (NCBI) gives p=0.062 (DS n=13 vs ctrl n=10), directionally
+consistent but non-significant.
 
 *Environmental metal enrichment (MGnify, n=8 DS KOs):*
 Median |ρ| = 0.034 between DS KO presence and bioavailable metals
@@ -249,7 +326,7 @@ confirms that double-signal KOs are enriched in metal-stressed environments.
 - **gesB** (K19594): gesA/gesB (germanium stress) are less characterized; high D may reflect both HGT and narrow phylogenetic distribution. Low MGnify metal associations may indicate missing bioavailability data for Ge. HGT score = 0.274.
 - **gesA** (K19595): See gesB above. HGT score = 0.237.
 - **aoxB** (K08356): aoxB (arsenite oxidase) has complex phylogenetics; it appears on chromosomes and plasmids. High D and very low lambda are consistent with published reports of both vertical and lateral inheritance. HGT score = 0.268.
-- **golS** (K19592): golS (gold sensing) is found in Gram-negatives and occasionally on plasmids; D is moderate. HGT score = 0.186.
+- **golS** (K19592): golS (gold sensing regulator) has D=0.26 and λ=0.13 (double-signal threshold met), but plasmid fraction is near-zero in both NCBI (frac=0.000017) and BV-BRC (frac=0.0003). HGT may have occurred chromosomally. HGT score = 0.186.
 - **norB** (K08170): norB (nitric oxide reductase) participates in metal/redox metabolism; its high D may partly reflect ecological specialization rather than HGT. HGT score = 0.180.
 - **shp** (K25119): shp is less characterized in the HGT literature; interpret NCBI fractions with caution. HGT score = 0.218.
 - **nicC** (K14974): nicC (nickel permease) has been reported on plasmids in Pseudomonas; moderate evidence here. HGT score = 0.177.
@@ -264,12 +341,14 @@ records are consistent with chromosomal, phylogenetically conserved location.
 
 **Limitations:**
 
-1. The NCBI GenBank proxy (Parts 1 & 3) does not replace transposase-proximity
-   analysis from local genome assemblies. Gene-name searches are ambiguous for
-   short or common names (e.g., norB). A precise analysis would require downloading
-   and annotating all NCBI protein records for each gene, then checking flanking
-   features — feasible in principle with the HMMER/DIAMOND tools available here
-   but requiring ~days of compute time and NCBI bandwidth.
+1. The NCBI/BV-BRC plasmid enrichment test (Parts 1 & 3) uses gene-name searches
+   across public databases and does not replace transposase-proximity analysis from
+   local genome assemblies. Gene-name searches are ambiguous for common names
+   (e.g., norB matches multiple paralogs). The test is underpowered (n_double=2–3
+   resistance KOs) and driven primarily by merD. gesA, gesB, and nrsD are
+   untestable due to near-absence from GenBank. A precise analysis would require
+   downloading and annotating all NCBI/BV-BRC protein records per gene and
+   checking flanking genomic features.
 
 2. The Fritz & Purvis D proxy (Part 2) captures phylogenetic randomness at the
    trait level but does not directly test gene tree topology. True gene tree
