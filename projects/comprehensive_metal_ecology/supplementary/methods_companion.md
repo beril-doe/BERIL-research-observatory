@@ -156,7 +156,13 @@ Two scales:
 1. **Genus-level λ:** from primary PGLS; measures phylogenetic autocorrelation of B_std across genera  
 2. **Genome-level D:** Fritz & Purvis' D statistic applied to binary KO presence/absence across genomes within genera
 
-Sample size filter: ≥5 genomes per genus required for genome-level D. Double-signal criteria: genera with both high λ (>0.5) and low D (<0.5) considered the strongest candidates for conserved metal-gene investment. Plasmid association check: KOs with known plasmid-borne orthologues (BacMet flagged) were examined separately.
+Sample size filter: ≥5 genomes per genus required for genome-level D. Double-signal criteria: D > 0.2 AND λ < 0.3 (13 KOs identified; all resistance/transport/sensing). Plasmid association enrichment test (script: `scripts/plsdb_resistance_crossref.py`):
+
+**NCBI Entrez (preferred):** For each gene name, queried NCBI nuccore for `"{gene}"[Gene Name] AND plasmid[Filter]` (plasmid hits) and `"{gene}"[Gene Name]` (total hits); plasmid_frac = n_plasmid / n_total. Mann-Whitney U test (one-sided, alternative='greater') on plasmid fraction comparing double-signal resistance KOs vs background resistance KOs, filtered to n_total ≥ 50. Result: U=122, p=0.045 (n_double=3: merD 4.3%, aoxB 0.4%, norB 0.1%; n_background=51).
+
+**BV-BRC validation:** Downloaded 84,446 unique plasmid accessions from BV-BRC `genome_sequence` table (records with "plasmid" in description, PATRIC annotation). Per-gene plasmid fraction computed via `genome_feature` table. Mann-Whitney U test same as above. Result: U=83, p=0.044 (n_double=2: merD 7.2%, norB 0.3%; n_background=48 after arsC KO deduplication).
+
+Genes untestable: gesA, gesB (n=1 in both databases); nrsD (n=16, below threshold). golS near-zero in both databases (NCBI frac=1.7×10⁻⁵). Output: `data/plsdb_enrichment_test.json`, `data/bvbrc_plasmid_fraction.csv`.
 
 ---
 
