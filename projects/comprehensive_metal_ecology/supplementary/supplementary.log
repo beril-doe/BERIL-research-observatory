@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.11.10)  21 JUL 2026 21:13
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.11.10)  21 JUL 2026 21:55
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -903,36 +903,25 @@ Package pdftex.def Info: ../figures/png/figS16_ngsa_map.png  used on input line
  1617.
 (pdftex.def)             Requested size: 446.26582pt x 222.78319pt.
  [45 <../figures/png/figS16_ngsa_map.png>]
+<../figures/png/figS17_kegg_pathway_overlay.png, id=553, 869.649pt x 1433.355pt
+>
+File: ../figures/png/figS17_kegg_pathway_overlay.png Graphic file (type png)
+<use ../figures/png/figS17_kegg_pathway_overlay.png>
+Package pdftex.def Info: ../figures/png/figS17_kegg_pathway_overlay.png  used o
+n input line 1636.
+(pdftex.def)             Requested size: 446.26582pt x 735.5506pt.
 
-! LaTeX Error: File `../figures/png/figS17_kegg_pathway_overlay' not found.
 
-See the LaTeX manual or LaTeX Companion for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.1636 ...figures/png/figS17_kegg_pathway_overlay}
-                                                  
-I could not locate the file with any of these extensions:
-.pdf,.png,.jpg,.mps,.jpeg,.jbig2,.jb2,.PDF,.PNG,.JPG,.JPEG,.JBIG2,.JB2,.eps
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
+LaTeX Warning: Float too large for page by 227.12059pt on input line 1658.
 
-[46]
-
-! LaTeX Error: File `../figures/png/figS1_sample_overview' not found.
-
-See the LaTeX manual or LaTeX Companion for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.1664 ...h]{../figures/png/figS1_sample_overview}
-                                                  
-I could not locate the file with any of these extensions:
-.pdf,.png,.jpg,.mps,.jpeg,.jbig2,.jb2,.PDF,.PNG,.JPG,.JPEG,.JBIG2,.JB2,.eps
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-[47
+[46 <../figures/png/figS17_kegg_pathway_overlay.png>]
+<../figures/png/figS1_sample_overview.pdf, id=561, 1253.59283pt x 976.67258pt>
+File: ../figures/png/figS1_sample_overview.pdf Graphic file (type pdf)
+<use ../figures/png/figS1_sample_overview.pdf>
+Package pdftex.def Info: ../figures/png/figS1_sample_overview.pdf  used on inpu
+t line 1664.
+(pdftex.def)             Requested size: 469.75502pt x 365.98306pt.
+ [47
 
 
 
@@ -950,19 +939,23 @@ If that doesn't work, type  X <return>  to quit.
 
 
 
-] [48] [49] (./supplementary.aux)
+] [48 <../figures/png/figS1_sample_overview.pdf>] [49] (./supplementary.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
  ***********
+
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
 Package rerunfilecheck Info: File `supplementary.out' has not changed.
 (rerunfilecheck)             Checksum: 82B2FFE400E76786423A91FD5467605B;8727.
  ) 
 Here is how much of TeX's memory you used:
- 15625 strings out of 476182
- 250669 string characters out of 5795594
+ 15585 strings out of 476182
+ 248727 string characters out of 5795594
  2030975 words of memory out of 5000000
- 36869 multiletter control sequences out of 15000+600000
+ 36829 multiletter control sequences out of 15000+600000
  595402 words of font info for 292 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  75i,14n,79p,2094b,578s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -990,10 +983,10 @@ per/sfrm1095.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1200.pfb></u
 sr/share/texmf/fonts/type1/public/cm-super/sfti1000.pfb></usr/share/texmf/fonts
 /type1/public/cm-super/sfti1095.pfb></usr/share/texmf/fonts/type1/public/cm-sup
 er/sftt1000.pfb></usr/share/texmf/fonts/type1/public/cm-super/sftt1095.pfb>
-Output written on supplementary.pdf (49 pages, 2001258 bytes).
+Output written on supplementary.pdf (49 pages, 2818013 bytes).
 PDF statistics:
- 739 PDF objects out of 1000 (max. 8388607)
- 591 compressed objects within 6 object streams
+ 835 PDF objects out of 1000 (max. 8388607)
+ 610 compressed objects within 7 object streams
  164 named destinations out of 1000 (max. 500000)
- 63401 words of extra memory for PDF output out of 74296 (max. 10000000)
+ 63411 words of extra memory for PDF output out of 74296 (max. 10000000)
 
