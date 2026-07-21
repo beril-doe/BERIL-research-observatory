@@ -35,5 +35,28 @@
     "NCBI test underpowered: only 3 double-signal resistance KOs have n_total >= 50 (merD, norB, aoxB). gesA/gesB absent from NCBI. Result driven by merD.",
     "golS (K19592) has high D=0.26 and low lambda=0.13 but plasmid_frac=1.7e-5 \u2014 a gold-sensing regulator, not a resistance effector; HGT may have occurred chromosomally rather than via plasmids.",
     "Fisher threshold test (threshold=median background): [[3,0],[25,26]], OR=inf, p=0.132 \u2014 not significant."
-  ]
+  ],
+  "bvbrc_validation": {
+    "description": "Independent validation using BV-BRC (PATRIC) reference genomes. For each gene, genome_feature accessions are matched against genome_sequences with \"plasmid\" in the NCBI description (84,446 plasmid sequences). PATRIC annotations only (not RefSeq). Filtered to genes with >= 50 BV-BRC features.",
+    "n_double_signal_included": 2,
+    "n_background_included": 49,
+    "double_signal_kos_included": [
+      "norB",
+      "merD"
+    ],
+    "median_frac_double_signal": 0.03729679713297405,
+    "median_frac_background": 0.0005060786952371,
+    "min_bvbrc_n_threshold": 50,
+    "U_statistic": 84.0,
+    "p_value": 0.04701310744961968,
+    "key_results": {
+      "merD_bvbrc_frac": 0.0718554849776205,
+      "merD_ncbi_frac": 0.0427,
+      "norB_bvbrc_frac": 0.0027381092883276,
+      "norB_ncbi_frac": 0.0007,
+      "golS_bvbrc_frac": 0.000347995545657,
+      "golS_ncbi_frac": 1.73e-05
+    },
+    "convergence_note": "NCBI Entrez (p=0.045, n_double=3) and BV-BRC (p=0.047, n_double=2) give consistent marginal significance from independent databases. Result is driven primarily by merD; golS plasmid fraction is near-zero in both."
+  }
 }
