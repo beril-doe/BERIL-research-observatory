@@ -37,35 +37,35 @@ from beril_cli import auth_store, config
 _WHOAMI_PATH = "/api/user/whoami"
 _HTTP_TIMEOUT_SECONDS = 15.0
 
-
-def run_auth(args: argparse.Namespace) -> int:
-    """Dispatch on args.action (login/status/logout)."""
-    action = getattr(args, "action", None)
-    if action == "login":
-        return _run_login(args)
-    if action == "status":
-        return _run_status(args)
-    if action == "logout":
-        return _run_logout(args)
-    # argparse's `choices=` already rejects anything else, but be defensive.
-    print(f"Unknown auth action: {action}", file=sys.stderr)
-    return 2
-
-
 # ---------------------------------------------------------------------------
 # login
 # ---------------------------------------------------------------------------
 
 
-def _run_login(args: argparse.Namespace) -> int:
-    # Resolve and (if given) persist the base URL BEFORE reading the token
-    # so a --base-url override affects the whoami request in this same
-    # invocation.
-    if getattr(args, "base_url", None):
-        config.set_base_url(args.base_url)
+def run_login(token: str|None = None, base_url: str|None = None, status:bool=False) -> int:
+    """
+    Performs the action that lets a user log in to the BERIL webapp
+    locally.
+
+    arg options:
+    base_url: if not None, set the base url for the BERIL server (i.e. https://beril.kbase.us)
+      this happens BEFORE any other action takes place, including login and status checking
+    token: if not None, this skips the token prompt and uses the given token
+    status: if True, this does no login change (i.e. setting the token) and returns
+      the current token status. If a token is not currently set, it prints an error
+      and returns 1.
+    """
+
+    if base_url is not None:
+        config.set_base_url(base_url)
     base_url = config.get_base_url()
 
-    token = (getattr(args, "token", None) or "").strip()
+    if status:
+        return check_status()
+
+    if token is None:
+        token = ""
+    token = token.strip()
     if not token:
         token = _prompt_for_token(base_url)
     if not token:
@@ -107,28 +107,14 @@ def _prompt_for_token(base_url: str) -> str:
 # status
 # ---------------------------------------------------------------------------
 
-
-def _run_status(args: argparse.Namespace) -> int:
+def check_status() -> int:
     record = auth_store.load()
     if record is None:
-        print("Not logged in. Run `beril auth login` to authenticate.")
+        print("Not logged in. Run `beril login` to authenticate.")
         return 1
 
-    if getattr(args, "json", False):
-        # Redact the token from status output — CLI status is a human
-        # convenience, not a token exporter.
-        payload = {
-            "base_url": record["base_url"],
-            "orcid_id": record["orcid_id"],
-            "display_name": record.get("display_name"),
-            "path": str(auth_store.AUTH_PATH),
-        }
-        json.dump(payload, sys.stdout)
-        sys.stdout.write("\n")
-        return 0
-
-    name = record.get("display_name") or record["orcid_id"]
-    print(f"Logged in as {name} ({record['orcid_id']}) on {record['base_url']}.")
+    name = record.display_name or record.orcid_id
+    print(f"Logged in as {name} ({record.orcid_id}) on {record.base_url}.")
     print(f"Token file: {auth_store.AUTH_PATH}")
     return 0
 
@@ -138,7 +124,7 @@ def _run_status(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _run_logout(args: argparse.Namespace) -> int:
+def run_logout() -> int:
     had_record = auth_store.load() is not None
     auth_store.clear()
     if had_record:

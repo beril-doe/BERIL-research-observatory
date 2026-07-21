@@ -12,18 +12,18 @@ dependencies and we should not add one just to hold a JSON blob.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, asdict
 import json
 import os
 from pathlib import Path
-from typing import TypedDict
 
 AUTH_DIR = Path.home() / ".beril"
 AUTH_PATH = AUTH_DIR / "auth.json"
 
 
-class AuthRecord(TypedDict):
+@dataclass
+class AuthRecord:
     """Shape of the persisted auth blob."""
-
     token: str
     base_url: str
     orcid_id: str
@@ -44,18 +44,18 @@ def save(
     a 0644 file to any process racing us.
     """
     AUTH_DIR.mkdir(parents=True, exist_ok=True)
-    payload: AuthRecord = {
-        "token": token,
-        "base_url": base_url,
-        "orcid_id": orcid_id,
-        "display_name": display_name,
-    }
+    payload: AuthRecord = AuthRecord(
+        token=token,
+        base_url=base_url,
+        orcid_id = orcid_id,
+        display_name=display_name
+    )
     # 0o600 on POSIX; ignored (no-op) on Windows. This intentionally
     # replaces any existing file.
     fd = os.open(AUTH_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
         with os.fdopen(fd, "w") as f:
-            json.dump(payload, f, indent=2)
+            json.dump(asdict(payload), f, indent=2)
             f.write("\n")
     except BaseException:
         # If write fails partway, remove the possibly-partial file rather
@@ -78,14 +78,13 @@ def load() -> AuthRecord | None:
         return None
     try:
         with AUTH_PATH.open("r") as f:
-            data = json.load(f)
+            data = AuthRecord(**json.load(f))
     except (OSError, json.JSONDecodeError):
         return None
     # Minimal shape check — enough to keep type-narrowed downstream code honest.
     for key in ("token", "base_url", "orcid_id"):
-        if key not in data:
+        if not getattr(data, key):
             return None
-    data.setdefault("display_name", None)
     return data
 
 

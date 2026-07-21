@@ -75,32 +75,32 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # auth
-    auth_parser = sub.add_parser(
-        "auth",
-        help="Log in to a BERIL server with a personal access token",
+    login_parser = sub.add_parser(
+        "login",
+        help = "Log in to the BERIL server with a personal access token",
     )
-    auth_parser.add_argument(
-        "action",
-        choices=["login", "status", "logout"],
-        help="login pastes/validates a token; status shows the stored login; logout removes it",
-    )
-    auth_parser.add_argument(
+    login_parser.add_argument(
         "--token",
         default=None,
         metavar="TOKEN",
-        help="Provide the token directly instead of the interactive paste prompt (login only)",
+        help="Provide the token directly instead of the interactive prompt"
     )
-    auth_parser.add_argument(
+    login_parser.add_argument(
+        "--status",
+        action="store_true",
+        default=False,
+        help="Show the current login status, including the current user"
+    )
+    login_parser.add_argument(
         "--base-url",
         default=None,
         metavar="URL",
         help="Server base URL for login; persisted to ~/.config/beril/config.toml (login only)",
     )
-    auth_parser.add_argument(
-        "--json",
-        action="store_true",
-        default=False,
-        help="Emit machine-readable JSON (status only; token is redacted)",
+
+    sub.add_parser(
+        "logout",
+        help = "Log out of BERIL server, deletes local BERIL auth credentials"
     )
 
     # runtime-snapshot (settings.json SessionStart hook; reads the hook payload from stdin)
@@ -145,10 +145,13 @@ def main(argv: list[str] | None = None) -> int:
 
         return run_claims(args)
 
-    if args.command == "auth":
-        from beril_cli.auth_cmd import run_auth
+    if args.command == "login":
+        from beril_cli.auth_cmd import run_login
+        return run_login(token=args.token, base_url=args.base_url, status=args.status)
 
-        return run_auth(args)
+    if args.command == "logout":
+        from beril_cli.auth_cmd import run_logout
+        return run_logout()
 
     if args.command == "runtime-snapshot":
         from beril_cli.audit_cmd import run_runtime_snapshot
