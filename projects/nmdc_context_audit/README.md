@@ -40,7 +40,8 @@ read access to the `nmdc` and `kbase` tenants, `KBASE_AUTH_TOKEN` in `.env`.
 2. **Characterize provenance, scale, and currency** (row counts + Iceberg snapshot ages):
    ```bash
    python projects/nmdc_context_audit/data/probe_provenance.py 2>/dev/null
-   # writes data/provenance_probe.md
+   # writes projects/nmdc_context_audit/data/provenance_probe.md (next to the script,
+   # regardless of the directory you run it from)
    ```
 3. **Regenerate the landscape table and figures** from the notebook:
    ```bash

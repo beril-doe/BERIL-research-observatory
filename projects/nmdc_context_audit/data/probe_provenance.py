@@ -1,9 +1,9 @@
 """Characterize each real NMDC-labeled database: description, scale, currency.
 
-Writes markdown to data/provenance_probe.md. JVM stderr is noisy; run with 2>/dev/null.
+Writes provenance_probe.md next to this script, regardless of the caller's
+working directory. JVM stderr is noisy; run with 2>/dev/null.
 """
-import json
-import sys
+from pathlib import Path
 from berdl_notebook_utils.setup_spark_session import get_spark_session
 
 spark = get_spark_session()
@@ -57,6 +57,7 @@ for db, tables in TARGETS.items():
         out.append(f"| {t} | {n} | {s} |")
 
 text = "\n".join(out)
-with open("projects/nmdc_context_audit/data/provenance_probe.md", "w") as f:
+out_path = Path(__file__).resolve().parent / "provenance_probe.md"
+with open(out_path, "w") as f:
     f.write(text)
 print(text)
