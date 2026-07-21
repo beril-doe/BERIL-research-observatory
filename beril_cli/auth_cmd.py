@@ -7,7 +7,7 @@ login flow:
      Otherwise print the "open <url>/account/tokens in a browser and
      paste the token" prompt and read via getpass so the token does not
      echo on the terminal.
-  3. POST /api/user/whoami with Authorization: Bearer <token>. If 2xx,
+  3. GET /api/user/whoami with Authorization: Bearer <token>. If 2xx,
      parse ORCiD + display name and save to ~/.beril/auth.json (mode
      0600). If not, print the server error and exit non-zero without
      writing anything.
@@ -25,7 +25,6 @@ default ``Python-urllib/*`` User-Agent with a 403 while letting
 
 from __future__ import annotations
 
-import argparse
 import getpass
 import json
 import sys
@@ -113,6 +112,32 @@ def check_status() -> int:
         print("Not logged in. Run `beril login` to authenticate.")
         return 1
 
+    # validate token
+    try:
+        _whoami(record.base_url, record.token)
+    except _WhoamiError as e:
+        if e.rejected:
+            print(
+                f"Stored credentials are no longer valid: {e}\n"
+                "Run `beril login` to re-authenticate, or "
+                "`beril logout` to remove them.",
+                file=sys.stderr
+            )
+            return 1
+        elif e.unreachable:
+            print(
+                f"Could not verify credentials: {e}\n"
+                "Your stored login may still be valid, the server was unreachable",
+                file=sys.stderr
+            )
+            return 2
+        else:
+            print(
+                f"An error occurred while checking your stored login credentials: {e}",
+                file=sys.stderr,
+            )
+            return 2
+
     name = record.display_name or record.orcid_id
     print(f"Logged in as {name} ({record.orcid_id}) on {record.base_url}.")
     print(f"Token file: {auth_store.AUTH_PATH}")
@@ -143,6 +168,10 @@ def run_logout() -> int:
 
 class _WhoamiError(Exception):
     """Any failure of the whoami validation call. Message is user-facing."""
+    def __init__(self, msg: str, rejected:bool=False, unreachable: bool=False):
+        super().__init__(msg)
+        self.rejected = rejected
+        self.unreachable = unreachable
 
 
 def _whoami(base_url: str, token: str) -> dict:
@@ -162,15 +191,15 @@ def _whoami(base_url: str, token: str) -> dict:
     except httpx.TimeoutException as e:
         # TimeoutException is a subclass of TransportError; catch it first
         # so timeouts get their specific message.
-        raise _WhoamiError(f"timed out talking to {base_url}.") from e
+        raise _WhoamiError(f"timed out talking to {base_url}.", unreachable=True) from e
     except httpx.TransportError as e:
         # Covers ConnectError, ReadError, WriteError, ProtocolError, etc.
-        raise _WhoamiError(f"could not reach {base_url}: {e}") from e
+        raise _WhoamiError(f"could not reach {base_url}: {e}", unreachable=True) from e
 
     if res.status_code == 401:
-        raise _WhoamiError("token was rejected by the server (401).")
+        raise _WhoamiError("token was rejected by the server (401).", rejected=True)
     if res.status_code == 403:
-        raise _WhoamiError("unable to retrieve information with this token (403).")
+        raise _WhoamiError("unable to retrieve information with this token (403).", rejected=True)
     if res.status_code >= 400:
         raise _WhoamiError(
             f"an error occurred while validating token at {base_url} ({res.status_code})"

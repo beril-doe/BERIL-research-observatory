@@ -78,8 +78,23 @@ def load() -> AuthRecord | None:
         return None
     try:
         with AUTH_PATH.open("r") as f:
-            data = AuthRecord(**json.load(f))
+            raw = json.load(f)
     except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    # display_name is optional; everything else is required. Pulling the
+    # fields explicitly (rather than AuthRecord(**raw)) means an old or
+    # hand-edited file with extra/missing keys reads as "corrupt -> None"
+    # or backfills display_name, instead of raising TypeError.
+    try:
+        data = AuthRecord(
+            token=raw["token"],
+            base_url=raw["base_url"],
+            orcid_id=raw["orcid_id"],
+            display_name=raw.get("display_name"),
+        )
+    except KeyError:
         return None
     # Minimal shape check — enough to keep type-narrowed downstream code honest.
     for key in ("token", "base_url", "orcid_id"):

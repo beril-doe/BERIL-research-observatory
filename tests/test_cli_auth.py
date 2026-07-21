@@ -1,8 +1,7 @@
-"""Tests for `beril auth` subcommand and its supporting modules."""
+"""Tests for `beril login` / `beril logout` and their supporting modules."""
 
 from __future__ import annotations
 
-import argparse
 import json
 import stat
 import sys
@@ -12,7 +11,7 @@ import httpx
 import pytest
 
 from beril_cli import auth_cmd, auth_store, config
-from beril_cli.auth_cmd import run_auth
+from beril_cli.auth_cmd import run_login, run_logout
 
 
 # ---------------------------------------------------------------------------
@@ -41,13 +40,6 @@ def tmp_config(tmp_path, monkeypatch):
     # Also clear any base-url env var so tests start from a known baseline.
     monkeypatch.delenv("BERIL_BASE_URL", raising=False)
     return cfg_path
-
-
-def _ns(**kwargs) -> argparse.Namespace:
-    """Build a Namespace with the flags run_auth expects."""
-    defaults = {"action": None, "token": None, "base_url": None, "json": False}
-    defaults.update(kwargs)
-    return argparse.Namespace(**defaults)
 
 
 def _httpx_response(body: dict | str, status: int = 200) -> httpx.Response:
@@ -81,10 +73,10 @@ class TestAuthStore:
         )
         record = auth_store.load()
         assert record is not None
-        assert record["token"] == "beril_abc"
-        assert record["base_url"] == "https://example.test"
-        assert record["orcid_id"] == "0000-0001-2345-6789"
-        assert record["display_name"] == "Alice"
+        assert record.token == "beril_abc"
+        assert record.base_url == "https://example.test"
+        assert record.orcid_id == "0000-0001-2345-6789"
+        assert record.display_name == "Alice"
 
     def test_save_creates_parent_dir(self, tmp_auth):
         assert not tmp_auth.parent.exists()
@@ -104,7 +96,7 @@ class TestAuthStore:
     def test_save_overwrites_existing(self, tmp_auth):
         auth_store.save(token="t1", base_url="u", orcid_id="0", display_name=None)
         auth_store.save(token="t2", base_url="u", orcid_id="0", display_name=None)
-        assert auth_store.load()["token"] == "t2"
+        assert auth_store.load().token == "t2"
 
     def test_load_returns_none_for_corrupt_json(self, tmp_auth):
         tmp_auth.parent.mkdir(parents=True)
@@ -123,7 +115,7 @@ class TestAuthStore:
         )
         record = auth_store.load()
         assert record is not None
-        assert record["display_name"] is None
+        assert record.display_name is None
 
     def test_clear_is_idempotent_when_missing(self, tmp_auth):
         # Should not raise
@@ -179,7 +171,7 @@ class TestBaseUrlResolution:
 
 
 # ---------------------------------------------------------------------------
-# run_auth login
+# run_login
 # ---------------------------------------------------------------------------
 
 
@@ -191,12 +183,9 @@ class TestAuthLogin:
             {"orcid_id": "0000-0001-2345-6789", "display_name": "Alice"}
         )
         with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
-            rc = run_auth(
-                _ns(
-                    action="login",
-                    token="beril_abc",
-                    base_url="https://srv.example.test",
-                )
+            rc = run_login(
+                token="beril_abc",
+                base_url="https://srv.example.test",
             )
         out = capsys.readouterr().out
         assert rc == 0
@@ -205,21 +194,18 @@ class TestAuthLogin:
 
         record = auth_store.load()
         assert record is not None
-        assert record["token"] == "beril_abc"
-        assert record["base_url"] == "https://srv.example.test"
-        assert record["orcid_id"] == "0000-0001-2345-6789"
+        assert record.token == "beril_abc"
+        assert record.base_url == "https://srv.example.test"
+        assert record.orcid_id == "0000-0001-2345-6789"
 
     def test_login_persists_base_url_flag(self, tmp_auth, tmp_config):
         response = _httpx_response(
             {"orcid_id": "0000-0001-2345-6789", "display_name": None}
         )
         with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
-            run_auth(
-                _ns(
-                    action="login",
-                    token="beril_abc",
-                    base_url="https://srv.example.test/",
-                )
+            run_login(
+                token="beril_abc",
+                base_url="https://srv.example.test/",
             )
         # The base URL should now be persisted (trailing slash stripped).
         assert config.get_base_url() == "https://srv.example.test"
@@ -233,12 +219,9 @@ class TestAuthLogin:
         with patch(
             "beril_cli.auth_cmd.httpx.get", return_value=response
         ) as mock_get:
-            run_auth(
-                _ns(
-                    action="login",
-                    token="beril_abc",
-                    base_url="https://srv.example.test",
-                )
+            run_login(
+                token="beril_abc",
+                base_url="https://srv.example.test",
             )
         # httpx.get(url, headers=..., timeout=...) — url is positional.
         call = mock_get.call_args
@@ -250,12 +233,9 @@ class TestAuthLogin:
     ):
         response = _httpx_response({"detail": "Unauthorized"}, status=401)
         with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
-            rc = run_auth(
-                _ns(
-                    action="login",
-                    token="bad",
-                    base_url="https://srv.example.test",
-                )
+            rc = run_login(
+                token="bad",
+                base_url="https://srv.example.test",
             )
         captured = capsys.readouterr()
         assert rc == 1
@@ -267,12 +247,9 @@ class TestAuthLogin:
     ):
         response = _httpx_response("blocked by upstream", status=403)
         with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
-            rc = run_auth(
-                _ns(
-                    action="login",
-                    token="beril_abc",
-                    base_url="https://srv.example.test",
-                )
+            rc = run_login(
+                token="beril_abc",
+                base_url="https://srv.example.test",
             )
         captured = capsys.readouterr()
         assert rc == 1
@@ -284,12 +261,9 @@ class TestAuthLogin:
     ):
         response = _httpx_response("upstream broken", status=502)
         with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
-            rc = run_auth(
-                _ns(
-                    action="login",
-                    token="beril_abc",
-                    base_url="https://srv.example.test",
-                )
+            rc = run_login(
+                token="beril_abc",
+                base_url="https://srv.example.test",
             )
         assert rc == 1
         assert "502" in capsys.readouterr().err
@@ -300,12 +274,9 @@ class TestAuthLogin:
     ):
         err = httpx.ConnectError("connection refused")
         with patch("beril_cli.auth_cmd.httpx.get", side_effect=err):
-            rc = run_auth(
-                _ns(
-                    action="login",
-                    token="beril_abc",
-                    base_url="https://srv.example.test",
-                )
+            rc = run_login(
+                token="beril_abc",
+                base_url="https://srv.example.test",
             )
         captured = capsys.readouterr()
         assert rc == 1
@@ -317,12 +288,9 @@ class TestAuthLogin:
     ):
         err = httpx.ConnectTimeout("connect timeout")
         with patch("beril_cli.auth_cmd.httpx.get", side_effect=err):
-            rc = run_auth(
-                _ns(
-                    action="login",
-                    token="beril_abc",
-                    base_url="https://srv.example.test",
-                )
+            rc = run_login(
+                token="beril_abc",
+                base_url="https://srv.example.test",
             )
         captured = capsys.readouterr()
         assert rc == 1
@@ -332,12 +300,9 @@ class TestAuthLogin:
     def test_login_bad_json_response_fails(self, tmp_auth, tmp_config, capsys):
         response = _httpx_response("not json", status=200)
         with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
-            rc = run_auth(
-                _ns(
-                    action="login",
-                    token="beril_abc",
-                    base_url="https://srv.example.test",
-                )
+            rc = run_login(
+                token="beril_abc",
+                base_url="https://srv.example.test",
             )
         captured = capsys.readouterr()
         assert rc == 1
@@ -349,12 +314,9 @@ class TestAuthLogin:
     ):
         response = _httpx_response({"display_name": "Alice"})
         with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
-            rc = run_auth(
-                _ns(
-                    action="login",
-                    token="beril_abc",
-                    base_url="https://srv.example.test",
-                )
+            rc = run_login(
+                token="beril_abc",
+                base_url="https://srv.example.test",
             )
         assert rc == 1
         assert auth_store.load() is None
@@ -367,24 +329,18 @@ class TestAuthLogin:
         )
         monkeypatch.setattr(auth_cmd.getpass, "getpass", lambda _prompt: "beril_pasted")
         with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
-            rc = run_auth(
-                _ns(
-                    action="login",
-                    token=None,
-                    base_url="https://srv.example.test",
-                )
-            )
-        assert rc == 0
-        assert auth_store.load()["token"] == "beril_pasted"
-
-    def test_login_empty_paste_exits_1(self, tmp_auth, tmp_config, monkeypatch, capsys):
-        monkeypatch.setattr(auth_cmd.getpass, "getpass", lambda _prompt: "")
-        rc = run_auth(
-            _ns(
-                action="login",
+            rc = run_login(
                 token=None,
                 base_url="https://srv.example.test",
             )
+        assert rc == 0
+        assert auth_store.load().token == "beril_pasted"
+
+    def test_login_empty_paste_exits_1(self, tmp_auth, tmp_config, monkeypatch, capsys):
+        monkeypatch.setattr(auth_cmd.getpass, "getpass", lambda _prompt: "")
+        rc = run_login(
+            token=None,
+            base_url="https://srv.example.test",
         )
         assert rc == 1
         assert "No token provided" in capsys.readouterr().err
@@ -392,24 +348,28 @@ class TestAuthLogin:
 
 
 # ---------------------------------------------------------------------------
-# run_auth status
+# run_login(status=True) — validates the stored token against whoami
 # ---------------------------------------------------------------------------
 
 
 class TestAuthStatus:
     def test_not_logged_in_returns_1(self, tmp_auth, capsys):
-        rc = run_auth(_ns(action="status"))
+        rc = run_login(status=True)
         assert rc == 1
         assert "Not logged in" in capsys.readouterr().out
 
-    def test_logged_in_prints_identity(self, tmp_auth, capsys):
+    def test_valid_token_prints_identity(self, tmp_auth, tmp_config, capsys):
         auth_store.save(
             token="beril_abc",
             base_url="https://srv.example.test",
             orcid_id="0000-0001-2345-6789",
             display_name="Alice",
         )
-        rc = run_auth(_ns(action="status"))
+        response = _httpx_response(
+            {"orcid_id": "0000-0001-2345-6789", "display_name": "Alice"}
+        )
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
+            rc = run_login(status=True)
         out = capsys.readouterr().out
         assert rc == 0
         assert "Alice" in out
@@ -418,26 +378,59 @@ class TestAuthStatus:
         # Never print the raw token in human-facing status.
         assert "beril_abc" not in out
 
-    def test_status_json_omits_token(self, tmp_auth, capsys):
+    def test_rejected_token_returns_1_and_keeps_file(
+        self, tmp_auth, tmp_config, capsys
+    ):
         auth_store.save(
             token="beril_abc",
             base_url="https://srv.example.test",
             orcid_id="0000-0001-2345-6789",
             display_name="Alice",
         )
-        rc = run_auth(_ns(action="status", json=True))
-        out = capsys.readouterr().out
-        assert rc == 0
-        payload = json.loads(out)
-        assert "token" not in payload
-        assert payload["orcid_id"] == "0000-0001-2345-6789"
-        assert payload["display_name"] == "Alice"
-        assert payload["base_url"] == "https://srv.example.test"
-        assert payload["path"].endswith("auth.json")
+        response = _httpx_response({"detail": "Unauthorized"}, status=401)
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
+            rc = run_login(status=True)
+        captured = capsys.readouterr()
+        assert rc == 1
+        assert "no longer valid" in captured.err
+        # status inspects, it does not mutate — the credentials stay on disk.
+        assert auth_store.load() is not None
+
+    def test_unreachable_server_returns_2_and_keeps_file(
+        self, tmp_auth, tmp_config, capsys
+    ):
+        auth_store.save(
+            token="beril_abc",
+            base_url="https://srv.example.test",
+            orcid_id="0000-0001-2345-6789",
+            display_name="Alice",
+        )
+        err = httpx.ConnectError("connection refused")
+        with patch("beril_cli.auth_cmd.httpx.get", side_effect=err):
+            rc = run_login(status=True)
+        captured = capsys.readouterr()
+        assert rc == 2
+        assert "unreachable" in captured.err
+        assert auth_store.load() is not None
+
+    def test_unexpected_server_error_returns_2_and_keeps_file(
+        self, tmp_auth, tmp_config, capsys
+    ):
+        auth_store.save(
+            token="beril_abc",
+            base_url="https://srv.example.test",
+            orcid_id="0000-0001-2345-6789",
+            display_name="Alice",
+        )
+        response = _httpx_response("upstream broken", status=502)
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
+            rc = run_login(status=True)
+        assert rc == 2
+        assert auth_store.load() is not None
 
 
 # ---------------------------------------------------------------------------
-# run_auth logout
+# run_logout
 # ---------------------------------------------------------------------------
 
 
@@ -446,13 +439,13 @@ class TestAuthLogout:
         auth_store.save(
             token="t", base_url="u", orcid_id="0", display_name=None
         )
-        rc = run_auth(_ns(action="logout"))
+        rc = run_logout()
         assert rc == 0
         assert "Logged out" in capsys.readouterr().out
         assert auth_store.load() is None
 
     def test_logout_when_not_logged_in_is_noop(self, tmp_auth, capsys):
-        rc = run_auth(_ns(action="logout"))
+        rc = run_logout()
         assert rc == 0
         assert "nothing to do" in capsys.readouterr().out
 
@@ -463,7 +456,7 @@ class TestAuthLogout:
 
 
 class TestCliDispatch:
-    def test_beril_auth_login_dispatches(self, tmp_auth, tmp_config):
+    def test_beril_login_dispatches(self, tmp_auth, tmp_config):
         from beril_cli.cli import main
 
         response = _httpx_response(
@@ -472,7 +465,6 @@ class TestCliDispatch:
         with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
             rc = main(
                 [
-                    "auth",
                     "login",
                     "--token",
                     "beril_abc",
@@ -481,17 +473,17 @@ class TestCliDispatch:
                 ]
             )
         assert rc == 0
-        assert auth_store.load()["token"] == "beril_abc"
+        assert auth_store.load().token == "beril_abc"
 
-    def test_beril_auth_status_dispatches(self, tmp_auth, capsys):
+    def test_beril_login_status_dispatches(self, tmp_auth, capsys):
         from beril_cli.cli import main
 
-        rc = main(["auth", "status"])
+        rc = main(["login", "--status"])
         assert rc == 1
         assert "Not logged in" in capsys.readouterr().out
 
-    def test_beril_auth_logout_dispatches(self, tmp_auth):
+    def test_beril_logout_dispatches(self, tmp_auth):
         from beril_cli.cli import main
 
-        rc = main(["auth", "logout"])
+        rc = main(["logout"])
         assert rc == 0
