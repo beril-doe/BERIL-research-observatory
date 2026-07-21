@@ -1384,7 +1384,12 @@ significance (Mann-Whitney p=0.045 and p=0.044, respectively) for the double-sig
 resistance KOs with sufficient database coverage; however, alternative explanations---including
 differential selection pressure, annotation biases, and conditional expression---cannot be
 ruled out, and the test is underpowered (n\textsubscript{double}=2--3 resistance KOs meet the
-n≥50 threshold). In
+$n{\geq}50$ threshold). A broader cross-category comparison of all 275 metal KOs confirms a plasmid-fraction
+gradient in NCBI Entrez (resistance $>$ all non-resistance, Mann-Whitney p=0.020; resistance $>$
+metal-dependent metabolism p=0.023; cofactor biosynthesis KOs near-zero frac), mirroring the
+phylogenetic-$\lambda$ gradient across categories; the same gradient does not reach significance
+in BV-BRC (p=0.118), likely because resistance-classified metal efflux transporters
+inflate the Transport/Homeostasis comparison group. In
 ultra-small Patescibacteria genomes---the extreme end of the specialist
 spectrum---metal-associated ABC cation transporters are among the most
 preferentially acquired gene families despite small overall genome size
@@ -1573,12 +1578,24 @@ underpowered (result driven primarily by \textit{merD}) and several double-signa
 remain untestable: \textit{gesA} and \textit{gesB} are absent from both databases ($n=1$);
 \textit{nrsD} has only 16 NCBI records. \textit{golS} ($D=0.265$) has near-zero plasmid
 fraction in both databases (NCBI frac $= 1.7\times 10^{-5}$, BV-BRC frac $= 3.5\times 10^{-4}$),
-suggesting chromosomal HGT for this gold-sensing regulator. Published surveys confirm that
-the majority of double-signal genes---mercury resistance (\textit{merD}, \textit{merE}),
-arsenite oxidase (\textit{aoxB}), and related resistance determinants---are predominantly
-found on plasmids, transposons, and integrative/conjugative elements
+suggesting chromosomal HGT for this gold-sensing regulator.
+A cross-category comparison extended these queries to all 275 metal KOs
+(\texttt{data/ncbi\_plasmid\_fraction\_allcats.csv}, \texttt{data/bvbrc\_plasmid\_fraction\_allcats.csv}).
+In NCBI Entrez, resistance KOs show significantly higher plasmid fractions than
+metal-dependent metabolism KOs (Mann-Whitney $p=0.023$) and all non-resistance KOs
+combined ($p=0.020$; $n_\text{resist}=54$, $n_\text{non-resist}=86$); cofactor
+biosynthesis KOs show near-zero fractions (hemH $= 0.023\%$). In BV-BRC, the
+cross-category gradient does not reach significance ($p=0.118$), likely because
+resistance-classified metal efflux transporters (czcA, czcB) inflate the
+Transport/Homeostasis comparison group; the within-resistance double-signal vs
+background test in BV-BRC ($p=0.047$) is directionally consistent with the focused
+test ($p=0.044$). Published surveys confirm that the majority of double-signal genes---mercury
+resistance (\textit{merD}, \textit{merE}), arsenite oxidase (\textit{aoxB}), and
+related resistance determinants---are predominantly found on plasmids, transposons,
+and integrative/conjugative elements
 \cite{silver1998,liebert1999,coombs2004,goff2024,silver2005}.
 \textit{(Source: \texttt{data/plsdb\_enrichment\_test.json}, \texttt{data/bvbrc\_plasmid\_fraction.csv},
+\texttt{data/ncbi\_plasmid\_fraction\_allcats.csv}, \texttt{data/bvbrc\_plasmid\_fraction\_allcats.csv},
 \texttt{scripts/plsdb\_resistance\_crossref.py}; see \S\ref{sec:limitations})}
 
 \item \textbf{The double-signal framework describes evolutionary mode, not contemporary selection.}
