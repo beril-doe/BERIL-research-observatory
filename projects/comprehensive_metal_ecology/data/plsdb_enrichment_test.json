@@ -1,17 +1,39 @@
 {
-  "contingency": [
-    [
-      6,
-      0
-    ],
-    [
-      1,
-      52
-    ]
+  "method": "ncbi_plasmid_fraction",
+  "description": "Mann-Whitney U test comparing NCBI plasmid fraction (n_plasmid/n_total) between double-signal and background resistance KOs. Filtered to genes with >= 50 total NCBI nuccore hits. Genes absent from NCBI (gesA n=1, gesB n=1, nrsD n=16) are excluded. plasmid[Filter] search in nuccore is sequence-based, not AMR-database-based.",
+  "n_double_signal_included": 3,
+  "n_background_included": 51,
+  "double_signal_kos_included": [
+    "norB",
+    "aoxB",
+    "merD"
   ],
-  "OR": null,
-  "p": 1.5535713342474545e-07,
-  "n_double": 6,
-  "n_background": 53,
-  "n_total_plasmids": null
+  "median_frac_double_signal": 0.0041782729805013,
+  "median_frac_background": 0.0003860029395608,
+  "min_ncbi_n_threshold": 50,
+  "U_statistic": 122.0,
+  "p_value": 0.044623019771494174,
+  "plsdb_api_counts": {
+    "nrsD": 0,
+    "merD": 692,
+    "merE": 1630,
+    "iucD": 790,
+    "nicC": 0,
+    "nikB": 0,
+    "aoxB": 0,
+    "norB": 2,
+    "shp": 0,
+    "golS": 2,
+    "doxDA": 0,
+    "gesB": 0,
+    "gesA": 0
+  },
+  "plsdb_api_note": "PLSDB filter_nuccore uses CARD/AMRFinder annotations. gesA/gesB/nrsD/aoxB return 0 due to AMR database gaps, not true chromosomal location.",
+  "caveats": [
+    "PLSDB AMR filter confounded: CARD/AMRFinder does not cover gesA, gesB, nrsD, aoxB \u2014 zeros reflect database gaps, not true plasmid absence.",
+    "MGnify/geNomad plasmid set (1,053 contigs) is environmentally biased: mercury/gold/arsenite resistance plasmids are predominantly clinical/industrial.",
+    "NCBI test underpowered: only 3 double-signal resistance KOs have n_total >= 50 (merD, norB, aoxB). gesA/gesB absent from NCBI. Result driven by merD.",
+    "golS (K19592) has high D=0.26 and low lambda=0.13 but plasmid_frac=1.7e-5 \u2014 a gold-sensing regulator, not a resistance effector; HGT may have occurred chromosomally rather than via plasmids.",
+    "Fisher threshold test (threshold=median background): [[3,0],[25,26]], OR=inf, p=0.132 \u2014 not significant."
+  ]
 }
