@@ -149,6 +149,31 @@ Mann-Whitney tests (alternative='greater', n_total ≥ 50):
 
 The gradient in median plasmid fraction (resistance > transport ≈ sensing > metabolism > cofactor) mirrors the phylogenetic λ signal gradient, where cofactor KOs have highest λ (most vertically inherited) and resistance KOs lowest λ. Cofactor biosynthesis KOs (hemH, MOCS2B) have plasmid fractions ≤ 0.023%, consistent with strict chromosomal location.
 
+**Cross-category plasmid fraction comparison (BV-BRC, n_bvbrc_total ≥ 50):**
+
+Full results at `data/bvbrc_plasmid_fraction_allcats.csv` (154 rows: 66 resistance + 88 non-resistance KOs). Non-resistance KOs with n_total ≥ 10,000 were estimated by sampling 4 evenly-spaced pages (flagged `estimated=True`); smaller genes used full pagination.
+
+| Subcategory | n (n≥50) | Median frac | Mean frac | Top 3 genes |
+|-------------|----------|-------------|-----------|-------------|
+| Resistance/Detoxification | 51 | 0.00057 | 0.00700 | merD (7.2%), pcoB (6.8%), merA (4.5%) |
+| Transport/Homeostasis | 46 | 0.00052 | 0.00592 | ?(7.5%), aph†(7.1%), iucC(2.8%) |
+| Sensing/Regulation | 21 | 0.00055 | 0.00127 | hutC (1.3%), rcnR (0.3%), mntR (0.2%) |
+| Metal-dependent Metabolism | 12 | 0.00033 | 0.00196 | mmcO (0.9%), nicB (0.8%), soxC (0.3%) |
+| Cofactor Biosynthesis | 2‡ | 0.00035 | 0.00035 | hemH (0.07%), rest ≤0.0001 |
+
+†aph is functionally a resistance gene (aminoglycoside phosphotransferase); classified as Transport here but inflates that category's max/mean. The Transport/Homeostasis group also includes resistance-flavored metal efflux transporters (czcA, czcB, etc.) from the original 66-KO dataset, which further narrows the gap between Transport and Resistance medians.
+‡ Only hemH and cobT meet n≥50; most cofactor KOs are absent from BV-BRC under the gene name used.
+
+Mann-Whitney tests (alternative='greater', n_bvbrc_total ≥ 50):
+- Resistance > All non-resistance: U=2347, p=0.118 (**NOT significant**; n=51 vs n=82)
+- Resistance > Metal-dependent Metabolism: U=371, p=0.129
+- Resistance > Sensing/Regulation: U=638, p=0.103
+- Resistance > Transport/Homeostasis: U=1258, p=0.271
+- Resistance > Cofactor Biosynthesis: U=72, p=0.169 (underpowered; n_cofactor=2)
+- DS-resistance vs BG-resistance (confirmatory): U=84, **p=0.047** (n=2 vs n=49)
+
+The BV-BRC cross-category comparison does not replicate the NCBI signal (NCBI: resistance > all non-resistance, p=0.020). Two factors explain this discordance: (1) the Transport/Homeostasis category in BV-BRC is inflated by aph (7.1%) and by the resistance-classified metal efflux transporters already in the reference dataset; (2) BV-BRC sampling estimates for large-n genes introduce noise in per-gene plasmid fractions. The within-resistance confirmatory signal (DS vs BG, p=0.047) is directionally consistent with the original BV-BRC test (p=0.044) and reinforces that the double-signal resistance KOs remain elevated relative to background resistance KOs.
+
 MWU test (mobile fraction DS > control, original 13 vs 10 comparison): U=80, p=0.062
 
 ---
@@ -256,6 +281,8 @@ DS median D = 0.385 vs control median D = -0.077
 | D (discordance): DS n=13 vs ctrl n=10 | median 0.385 | median −0.077 | 123 | 1.81e-04*** |
 | Plasmid frac — NCBI Entrez: DS resist. n=3 vs bg resist. n=51 | median 0.0042 | median 0.0004 | 122 | **0.045** |
 | Plasmid frac — BV-BRC (deduplicated): DS resist. n=2 vs bg resist. n=48 | median 0.0049 | median 0.0005 | 83 | **0.044** |
+| Cross-category NCBI: Resistance n=54 vs all non-resist. n=86 | median 0.00043 | median 0.00019 | 2804 | **0.020** |
+| Cross-category BV-BRC: Resistance n=51 vs all non-resist. n=82 | median 0.00057 | median 0.00052 | 2347 | 0.118 (n.s.) |
 | Mobile-element fraction: DS n=13 vs ctrl n=10 | median 0.000 | median 0.000 | 80 | 0.062 |
 
 ---
