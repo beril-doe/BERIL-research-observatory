@@ -32,6 +32,7 @@ import sys
 import httpx
 
 from beril_cli import auth_store, config
+from beril_cli.ov_client import OvLinkError, fetch_ov_credential
 
 _WHOAMI_PATH = "/api/user/whoami"
 _HTTP_TIMEOUT_SECONDS = 15.0
@@ -77,14 +78,39 @@ def run_login(token: str|None = None, base_url: str|None = None, status:bool=Fal
         print(f"Login failed: {e}", file=sys.stderr)
         return 1
 
+    # Link OpenViking in the same step. This is best-effort: a valid BERIL
+    # login must still succeed (and be saved) even if OpenViking is
+    # unreachable or the 409 "key exists but BERIL holds none" case fires —
+    # the user can repair it later with `beril ov setup [--regenerate]`.
+    ov_url: str | None = None
+    ov_user_key: str | None = None
+    ov_warning: str | None = None
+    try:
+        ov_url, ov_user_key = fetch_ov_credential(base_url, token)
+    except OvLinkError as e:
+        if e.needs_regenerate:
+            ov_warning = (
+                f"OpenViking not linked: {e} "
+                "Run `beril ov setup --regenerate` to mint a fresh key."
+            )
+        else:
+            ov_warning = (
+                f"OpenViking not linked: {e} "
+                "Run `beril ov setup` to link it later."
+            )
+
     auth_store.save(
         token=token,
         base_url=base_url,
         orcid_id=identity["orcid_id"],
         display_name=identity.get("display_name"),
+        ov_url=ov_url,
+        ov_user_key=ov_user_key,
     )
     name = identity.get("display_name") or identity["orcid_id"]
     print(f"Logged in to {base_url} as {name} ({identity['orcid_id']}).")
+    if not ov_user_key:
+        print(ov_warning, file=sys.stderr)
     return 0
 
 
