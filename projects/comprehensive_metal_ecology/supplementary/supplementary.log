@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.11.10)  21 JUL 2026 19:06
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.11.10)  21 JUL 2026 21:00
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -666,70 +666,30 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 
 [15
 
-] [16] [17
+] [16] [17] [18
 
-] [18] [19]
-Underfull \hbox (badness 10000) in paragraph at lines 1086--1087
+] [19] [20]
+Underfull \hbox (badness 10000) in paragraph at lines 1119--1120
 []|\T1/cmr/m/n/10 (+20) Hg trans-port (mer
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 1087--1088
+Underfull \hbox (badness 10000) in paragraph at lines 1120--1121
 []|\T1/cmr/m/n/10 (+20) Hg re-sis-tance (mer
  []
 
-[20]
-Underfull \hbox (badness 1072) in paragraph at lines 1174--1175
+[21]
+Underfull \hbox (badness 1072) in paragraph at lines 1207--1208
 []|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
  []
 
 
-Underfull \hbox (badness 1072) in paragraph at lines 1180--1181
+Underfull \hbox (badness 1072) in paragraph at lines 1213--1214
 []|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
  []
 
 
-Underfull \hbox (badness 1072) in paragraph at lines 1181--1182
-[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
- []
-
-
-Underfull \hbox (badness 1072) in paragraph at lines 1190--1191
-[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
- []
-
-
-Underfull \hbox (badness 1072) in paragraph at lines 1191--1192
-[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
- []
-
-
-Underfull \hbox (badness 1072) in paragraph at lines 1192--1193
-[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
- []
-
-
-Underfull \hbox (badness 1072) in paragraph at lines 1193--1194
-[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
- []
-
-
-Underfull \hbox (badness 1072) in paragraph at lines 1194--1195
-[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
- []
-
-
-Underfull \hbox (badness 1072) in paragraph at lines 1195--1196
-[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
- []
-
-
-Underfull \hbox (badness 1072) in paragraph at lines 1196--1197
-[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
- []
-
-
-Underfull \hbox (badness 1072) in paragraph at lines 1198--1199
+Underfull \hbox (badness 1072) in paragraph at lines 1214--1215
 []|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
  []
 
@@ -739,170 +699,210 @@ Underfull \hbox (badness 1072) in paragraph at lines 1223--1224
  []
 
 
-Underfull \hbox (badness 1072) in paragraph at lines 1233--1234
+Underfull \hbox (badness 1072) in paragraph at lines 1224--1225
 []|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
  []
 
 
-Underfull \hbox (badness 1072) in paragraph at lines 1234--1235
+Underfull \hbox (badness 1072) in paragraph at lines 1225--1226
 []|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
  []
 
 
-Underfull \hbox (badness 1072) in paragraph at lines 1238--1239
+Underfull \hbox (badness 1072) in paragraph at lines 1226--1227
 []|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
  []
 
 
-Underfull \hbox (badness 1072) in paragraph at lines 1241--1242
+Underfull \hbox (badness 1072) in paragraph at lines 1227--1228
 []|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
  []
 
 
-Underfull \hbox (badness 1072) in paragraph at lines 1242--1243
+Underfull \hbox (badness 1072) in paragraph at lines 1228--1229
 []|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
  []
 
 
-Underfull \hbox (badness 1072) in paragraph at lines 1243--1244
+Underfull \hbox (badness 1072) in paragraph at lines 1229--1230
 []|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 1247--1248
+Underfull \hbox (badness 1072) in paragraph at lines 1231--1232
+[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
+ []
+
+
+Underfull \hbox (badness 1072) in paragraph at lines 1256--1257
+[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
+ []
+
+
+Underfull \hbox (badness 1072) in paragraph at lines 1266--1267
+[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
+ []
+
+
+Underfull \hbox (badness 1072) in paragraph at lines 1267--1268
+[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
+ []
+
+
+Underfull \hbox (badness 1072) in paragraph at lines 1271--1272
+[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
+ []
+
+
+Underfull \hbox (badness 1072) in paragraph at lines 1274--1275
+[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
+ []
+
+
+Underfull \hbox (badness 1072) in paragraph at lines 1275--1276
+[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
+ []
+
+
+Underfull \hbox (badness 1072) in paragraph at lines 1276--1277
+[]|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 1280--1281
 []|\T1/cmr/m/n/10.95 (+20) Resistance/detoxification;
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 1247--1248
+Underfull \hbox (badness 10000) in paragraph at lines 1280--1281
 \T1/cmr/m/n/10.95 (+20) fit-ness de-fect un-der
  []
 
 
-Underfull \hbox (badness 1072) in paragraph at lines 1250--1251
+Underfull \hbox (badness 1072) in paragraph at lines 1283--1284
 []|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
  []
 
 
-Underfull \hbox (badness 1072) in paragraph at lines 1251--1252
+Underfull \hbox (badness 1072) in paragraph at lines 1284--1285
 []|\T1/cmr/m/n/10.95 (+20) Metal-dependent metabolic
  []
 
-[21] [22] [23] [24] [25] [26] [27]
-<../figures/png/figS01_phylogenetic_tree.png, id=428, 663.4386pt x 622.0038pt>
+[22] [23] [24] [25] [26] [27] [28]
+<../figures/png/figS01_phylogenetic_tree.png, id=433, 663.4386pt x 622.0038pt>
 File: ../figures/png/figS01_phylogenetic_tree.png Graphic file (type png)
 <use ../figures/png/figS01_phylogenetic_tree.png>
 Package pdftex.def Info: ../figures/png/figS01_phylogenetic_tree.png  used on i
-nput line 1332.
+nput line 1365.
 (pdftex.def)             Requested size: 446.26582pt x 418.4108pt.
- [28] [29 <../figures/png/figS01_phylogenetic_tree.png>]
-<../figures/png/figS02_genome_size.png, id=440, 1726.45pt x 437.635pt>
+ [29] [30 <../figures/png/figS01_phylogenetic_tree.png>]
+<../figures/png/figS02_genome_size.png, id=445, 1726.45pt x 437.635pt>
 File: ../figures/png/figS02_genome_size.png Graphic file (type png)
 <use ../figures/png/figS02_genome_size.png>
 Package pdftex.def Info: ../figures/png/figS02_genome_size.png  used on input l
-ine 1347.
+ine 1380.
 (pdftex.def)             Requested size: 446.26582pt x 113.1213pt.
- [30 <../figures/png/figS02_genome_size.png>]
-<../figures/png/figS03_sensitivity.png, id=447, 1244.65pt x 738.76pt>
+ [31 <../figures/png/figS02_genome_size.png>]
+<../figures/png/figS03_sensitivity.png, id=453, 1244.65pt x 738.76pt>
 File: ../figures/png/figS03_sensitivity.png Graphic file (type png)
 <use ../figures/png/figS03_sensitivity.png>
 Package pdftex.def Info: ../figures/png/figS03_sensitivity.png  used on input l
-ine 1363.
+ine 1396.
 (pdftex.def)             Requested size: 446.26582pt x 264.88249pt.
- [31 <../figures/png/figS03_sensitivity.png>]
-<../figures/png/figS04_negative_controls.png, id=455, 1124.2pt x 513.92pt>
+ [32 <../figures/png/figS03_sensitivity.png>]
+<../figures/png/figS04_negative_controls.png, id=460, 1124.2pt x 513.92pt>
 File: ../figures/png/figS04_negative_controls.png Graphic file (type png)
 <use ../figures/png/figS04_negative_controls.png>
 Package pdftex.def Info: ../figures/png/figS04_negative_controls.png  used on i
-nput line 1380.
+nput line 1413.
 (pdftex.def)             Requested size: 446.26582pt x 204.00383pt.
- [32 <../figures/png/figS04_negative_controls.png>]
-<../figures/png/figS05_permutation.png, id=462, 1084.05pt x 602.25pt>
+ [33 <../figures/png/figS04_negative_controls.png>]
+<../figures/png/figS05_permutation.png, id=467, 1084.05pt x 602.25pt>
 File: ../figures/png/figS05_permutation.png Graphic file (type png)
 <use ../figures/png/figS05_permutation.png>
 Package pdftex.def Info: ../figures/png/figS05_permutation.png  used on input l
-ine 1395.
+ine 1428.
 (pdftex.def)             Requested size: 446.26582pt x 247.92575pt.
 
-[33 <../figures/png/figS05_permutation.png>]
-<../figures/png/figS06_subcategory.png, id=469, 1846.9pt x 538.01pt>
+[34 <../figures/png/figS05_permutation.png>]
+<../figures/png/figS06_subcategory.png, id=474, 1846.9pt x 538.01pt>
 File: ../figures/png/figS06_subcategory.png Graphic file (type png)
 <use ../figures/png/figS06_subcategory.png>
 Package pdftex.def Info: ../figures/png/figS06_subcategory.png  used on input l
-ine 1411.
+ine 1444.
 (pdftex.def)             Requested size: 446.26582pt x 129.99522pt.
- [34 <../figures/png/figS06_subcategory.png>]
-<../figures/png/figS07_cwm_biome.png, id=476, 1043.9pt x 867.24pt>
+ [35 <../figures/png/figS06_subcategory.png>]
+<../figures/png/figS07_cwm_biome.png, id=481, 1043.9pt x 867.24pt>
 File: ../figures/png/figS07_cwm_biome.png Graphic file (type png)
 <use ../figures/png/figS07_cwm_biome.png>
 Package pdftex.def Info: ../figures/png/figS07_cwm_biome.png  used on input lin
-e 1431.
+e 1464.
 (pdftex.def)             Requested size: 446.26582pt x 370.74896pt.
- [35 <../figures/png/figS07_cwm_biome.png>]
-<../figures/png/figS08_ko_cooccurrence.png, id=483, 572.8602pt x 487.0998pt>
+ [36 <../figures/png/figS07_cwm_biome.png>]
+<../figures/png/figS08_ko_cooccurrence.png, id=488, 572.8602pt x 487.0998pt>
 File: ../figures/png/figS08_ko_cooccurrence.png Graphic file (type png)
 <use ../figures/png/figS08_ko_cooccurrence.png>
 Package pdftex.def Info: ../figures/png/figS08_ko_cooccurrence.png  used on inp
-ut line 1446.
+ut line 1479.
 (pdftex.def)             Requested size: 446.26582pt x 379.46063pt.
- [36 <../figures/png/figS08_ko_cooccurrence.png>]
-<../figures/png/figS09_clade_stratified.png, id=490, 1043.9pt x 546.04pt>
+ [37 <../figures/png/figS08_ko_cooccurrence.png>]
+<../figures/png/figS09_clade_stratified.png, id=496, 1043.9pt x 546.04pt>
 File: ../figures/png/figS09_clade_stratified.png Graphic file (type png)
 <use ../figures/png/figS09_clade_stratified.png>
 Package pdftex.def Info: ../figures/png/figS09_clade_stratified.png  used on in
-put line 1463.
+put line 1496.
 (pdftex.def)             Requested size: 446.26582pt x 233.43452pt.
- [37 <../figures/png/figS09_clade_stratified.png>]
-<../figures/png/figS10_heterogeneity.png, id=498, 963.6pt x 762.85pt>
+ [38 <../figures/png/figS09_clade_stratified.png>]
+<../figures/png/figS10_heterogeneity.png, id=503, 963.6pt x 762.85pt>
 File: ../figures/png/figS10_heterogeneity.png Graphic file (type png)
 <use ../figures/png/figS10_heterogeneity.png>
 Package pdftex.def Info: ../figures/png/figS10_heterogeneity.png  used on input
- line 1481.
+ line 1514.
 (pdftex.def)             Requested size: 399.29463pt x 316.09961pt.
 
-[38 <../figures/png/figS10_heterogeneity.png>]
-<../figures/png/figS11_mag_quality.png, id=505, 1525.7pt x 1200.485pt>
+[39 <../figures/png/figS10_heterogeneity.png>]
+<../figures/png/figS11_mag_quality.png, id=510, 1525.7pt x 1200.485pt>
 File: ../figures/png/figS11_mag_quality.png Graphic file (type png)
 <use ../figures/png/figS11_mag_quality.png>
 Package pdftex.def Info: ../figures/png/figS11_mag_quality.png  used on input l
-ine 1496.
+ine 1529.
 (pdftex.def)             Requested size: 446.26582pt x 351.13588pt.
- [39 <../figures/png/figS11_mag_quality.png>]
-<../figures/png/figS12_niche_validation.png, id=512, 1485.55pt x 477.785pt>
+ [40 <../figures/png/figS11_mag_quality.png>]
+<../figures/png/figS12_niche_validation.png, id=517, 1485.55pt x 477.785pt>
 File: ../figures/png/figS12_niche_validation.png Graphic file (type png)
 <use ../figures/png/figS12_niche_validation.png>
 Package pdftex.def Info: ../figures/png/figS12_niche_validation.png  used on in
-put line 1513.
+put line 1546.
 (pdftex.def)             Requested size: 446.26582pt x 143.52615pt.
- [40 <../figures/png/figS12_niche_validation.png>]
-<../figures/png/figS13_emp_pgls.png, id=519, 1084.05pt x 333.245pt>
+ [41 <../figures/png/figS12_niche_validation.png>]
+<../figures/png/figS13_emp_pgls.png, id=524, 1084.05pt x 333.245pt>
 File: ../figures/png/figS13_emp_pgls.png Graphic file (type png)
 <use ../figures/png/figS13_emp_pgls.png>
 Package pdftex.def Info: ../figures/png/figS13_emp_pgls.png  used on input line
- 1532.
+ 1565.
 (pdftex.def)             Requested size: 399.29463pt x 122.74446pt.
- [41 <../figures/png/figS13_emp_pgls.png>]
-<../figures/png/figS14_pfam_qc.png, id=526, 1003.75pt x 437.635pt>
+ [42 <../figures/png/figS13_emp_pgls.png>]
+<../figures/png/figS14_pfam_qc.png, id=531, 1003.75pt x 437.635pt>
 File: ../figures/png/figS14_pfam_qc.png Graphic file (type png)
 <use ../figures/png/figS14_pfam_qc.png>
 Package pdftex.def Info: ../figures/png/figS14_pfam_qc.png  used on input line 
-1549.
+1582.
 (pdftex.def)             Requested size: 446.26582pt x 194.57668pt.
- [42 <../figures/png/figS14_pfam_qc.png>]
-<../figures/png/figS15_ausmicrobiome.png, id=533, 1003.75pt x 333.245pt>
+ [43 <../figures/png/figS14_pfam_qc.png>]
+<../figures/png/figS15_ausmicrobiome.png, id=539, 1003.75pt x 333.245pt>
 File: ../figures/png/figS15_ausmicrobiome.png Graphic file (type png)
 <use ../figures/png/figS15_ausmicrobiome.png>
 Package pdftex.def Info: ../figures/png/figS15_ausmicrobiome.png  used on input
- line 1566.
+ line 1599.
 (pdftex.def)             Requested size: 446.26582pt x 148.16388pt.
- [43 <../figures/png/figS15_ausmicrobiome.png>]
-<../figures/png/figS16_ngsa_map.png, id=541, 609.9588pt x 304.4976pt>
+ [44 <../figures/png/figS15_ausmicrobiome.png>]
+<../figures/png/figS16_ngsa_map.png, id=546, 609.9588pt x 304.4976pt>
 File: ../figures/png/figS16_ngsa_map.png Graphic file (type png)
 <use ../figures/png/figS16_ngsa_map.png>
 Package pdftex.def Info: ../figures/png/figS16_ngsa_map.png  used on input line
- 1584.
+ 1617.
 (pdftex.def)             Requested size: 446.26582pt x 222.78319pt.
- [44 <../figures/png/figS16_ngsa_map.png>]
+ [45 <../figures/png/figS16_ngsa_map.png>]
 
 ! LaTeX Error: File `../figures/png/figS17_kegg_pathway_overlay' not found.
 
@@ -910,14 +910,14 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.1603 ...figures/png/figS17_kegg_pathway_overlay}
+l.1636 ...figures/png/figS17_kegg_pathway_overlay}
                                                   
 I could not locate the file with any of these extensions:
 .pdf,.png,.jpg,.mps,.jpeg,.jbig2,.jb2,.PDF,.PNG,.JPG,.JPEG,.JBIG2,.JB2,.eps
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-[45]
+[46]
 
 ! LaTeX Error: File `../figures/png/figS1_sample_overview' not found.
 
@@ -925,14 +925,14 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.1631 ...h]{../figures/png/figS1_sample_overview}
+l.1664 ...h]{../figures/png/figS1_sample_overview}
                                                   
 I could not locate the file with any of these extensions:
 .pdf,.png,.jpg,.mps,.jpeg,.jbig2,.jb2,.PDF,.PNG,.JPG,.JPEG,.JBIG2,.JB2,.eps
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-[46
+[47
 
 
 
@@ -950,7 +950,7 @@ If that doesn't work, type  X <return>  to quit.
 
 
 
-] [47] [48] (./supplementary.aux)
+] [48] [49] (./supplementary.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
@@ -959,11 +959,11 @@ Package rerunfilecheck Info: File `supplementary.out' has not changed.
 (rerunfilecheck)             Checksum: 82B2FFE400E76786423A91FD5467605B;8727.
  ) 
 Here is how much of TeX's memory you used:
- 15612 strings out of 476182
- 250530 string characters out of 5795594
+ 15625 strings out of 476182
+ 250669 string characters out of 5795594
  2030975 words of memory out of 5000000
- 36866 multiletter control sequences out of 15000+600000
- 594882 words of font info for 287 fonts, out of 8000000 for 9000
+ 36869 multiletter control sequences out of 15000+600000
+ 595402 words of font info for 292 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  75i,14n,79p,2094b,578s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></us
@@ -983,17 +983,17 @@ nts/type1/public/cm-super/sfbx1095.pfb></usr/share/texmf/fonts/type1/public/cm-
 super/sfbx1200.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfbx1728.pfb><
 /usr/share/texmf/fonts/type1/public/cm-super/sfcc1000.pfb></usr/share/texmf/fon
 ts/type1/public/cm-super/sfcc1095.pfb></usr/share/texmf/fonts/type1/public/cm-s
-uper/sfrm0700.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm0800.pfb></
-usr/share/texmf/fonts/type1/public/cm-super/sfrm1000.pfb></usr/share/texmf/font
-s/type1/public/cm-super/sfrm1095.pfb></usr/share/texmf/fonts/type1/public/cm-su
-per/sfrm1200.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfti1000.pfb></u
-sr/share/texmf/fonts/type1/public/cm-super/sfti1095.pfb></usr/share/texmf/fonts
-/type1/public/cm-super/sftt1000.pfb></usr/share/texmf/fonts/type1/public/cm-sup
-er/sftt1095.pfb>
-Output written on supplementary.pdf (48 pages, 1980389 bytes).
+uper/sfit1095.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm0700.pfb></
+usr/share/texmf/fonts/type1/public/cm-super/sfrm0800.pfb></usr/share/texmf/font
+s/type1/public/cm-super/sfrm1000.pfb></usr/share/texmf/fonts/type1/public/cm-su
+per/sfrm1095.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1200.pfb></u
+sr/share/texmf/fonts/type1/public/cm-super/sfti1000.pfb></usr/share/texmf/fonts
+/type1/public/cm-super/sfti1095.pfb></usr/share/texmf/fonts/type1/public/cm-sup
+er/sftt1000.pfb></usr/share/texmf/fonts/type1/public/cm-super/sftt1095.pfb>
+Output written on supplementary.pdf (49 pages, 2001258 bytes).
 PDF statistics:
- 729 PDF objects out of 1000 (max. 8388607)
- 584 compressed objects within 6 object streams
- 163 named destinations out of 1000 (max. 500000)
- 62889 words of extra memory for PDF output out of 74296 (max. 10000000)
+ 739 PDF objects out of 1000 (max. 8388607)
+ 591 compressed objects within 6 object streams
+ 164 named destinations out of 1000 (max. 500000)
+ 63401 words of extra memory for PDF output out of 74296 (max. 10000000)
 

@@ -38,6 +38,6 @@
 \contentsline {subsection}{\numberline {13.2}D computation: single pooled genome tree}{15}{subsection.13.2}%
 \contentsline {subsection}{\numberline {13.3}Validity concern 1: Pagel's $\lambda $ on bounded presence-fraction data}{15}{subsection.13.3}%
 \contentsline {subsection}{\numberline {13.4}Validity concern 2: sparse-genus noise and the orthogonality result}{16}{subsection.13.4}%
-\contentsline {subsection}{\numberline {13.5}Comparison with Panstripe}{16}{subsection.13.5}%
-\contentsline {section}{Supplementary Tables}{17}{subsection.13.5}%
-\contentsline {section}{Supplementary Figures}{28}{table.caption.8}%
+\contentsline {subsection}{\numberline {13.5}Comparison with Panstripe}{17}{subsection.13.5}%
+\contentsline {section}{Supplementary Tables}{18}{subsection.13.5}%
+\contentsline {section}{Supplementary Figures}{29}{table.caption.8}%

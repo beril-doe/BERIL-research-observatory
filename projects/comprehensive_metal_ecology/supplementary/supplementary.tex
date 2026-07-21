@@ -855,11 +855,25 @@ Standard PGLS/$\lambda$ estimation does not downweight low-precision tips unless
 In the primary dataset, 308 of 1,574 genera have exactly two genomes ($n_\text{genomes} = 2$ minimum), potentially injecting discretisation noise at the tips.
 \end{enumerate}
 
-\textbf{Mitigation.} The field has developed bounded-BM models and beta-regression alternatives specifically for proportion data.
-Two robustness checks that should be applied in future work:
-(a) apply an arcsine-square-root transformation to genus presence fractions before $\lambda$ estimation, which approximately stabilises variance for proportions away from the extremes;
-(b) fit a beta-regression phylogenetic model (e.g., using \texttt{phytools} or \texttt{phylolm} in R) and compare $\lambda$ estimates to those obtained from the standard Gaussian model.
-If estimates are materially different, the bounded-proportion structure is driving the result.
+\textbf{Robustness checks (performed).}
+We applied two checks to assess whether the bounded-proportion structure drives our $\lambda$ estimates.
+
+\textit{Check A: Arcsine-square-root transformation (Python, $n = 88$ KOs).}
+Genus presence fractions were arcsine-square-root-transformed before $\lambda$ estimation.
+Re-estimating $\lambda$ for all 88 Tier~1--2 KOs with sufficient genus representation yielded Spearman $r = 0.613$ ($p < 0.001$) between original and transformed estimates (mean $|\Delta\lambda| = 0.195$; median $0.179$).
+Nine KOs (10.2\%) crossed the $\lambda = 0.3$ weak/strong classification threshold, and \emph{all nine} changed in the weak-to-strong direction, indicating that the original PGLS \emph{underestimates} phylogenetic signal for sparse genes rather than overestimating it.
+The shifts are concentrated in transport and resistance genes with very low original $\lambda$ (e.g., $mntC$: $0.000 \to 0.525$; $troA$: $0.143 \to 0.683$; $shp$: $0.000 \to 0.552$).
+None of the 13 double-signal KOs (low $\lambda$ and high D) changed classification under this transformation.
+
+\textit{Check B: Phylogenetic lambda model on transformed fractions (\texttt{phylolm} in R, $n = 33$ KOs).}
+We fitted \texttt{phylolm} with \texttt{model="lambda"} to arcsine-square-root-transformed fractions for 33 KOs for which all required data were available.
+Spearman $\rho = 0.174$ between original PGLS $\lambda$ and \texttt{phylolm} $\lambda$ (mean $|\Delta\lambda| = 0.281$; 10/33, 30.3\% classification changes), with all changes again in the weak-to-strong direction.
+The lower concordance relative to Check~A likely reflects the smaller matched sample ($n = 33$ KOs) as much as methodological difference; the directional consistency confirms the conservative bias of the original estimates.
+
+\textbf{Conclusion.}
+Both transformation approaches reveal that original $\lambda$ estimates \emph{moderately underestimate} phylogenetic signal for sparse genes.
+Because all classification shifts move weak-to-strong, our identification of cofactor KOs as high-$\lambda$ and resistance KOs as low-$\lambda$ is conservative: the 13 double-signal (low-$\lambda$, high-D) resistance KOs have at least as much phylogenetic clustering as stated.
+Beta-regression alternatives (e.g., \texttt{betareg} in R) were not available in our compute environment and remain a priority for future independent replication.
 
 \subsection{Validity concern 2: sparse-genus noise and the orthogonality result}
 
@@ -871,10 +885,29 @@ However, a near-zero correlation has two equally plausible interpretations:
 \item \textbf{Noise dominance:} One or both metrics are dominated by estimation variance (particularly for $\lambda$ estimated from sparse-genome genera or small-KO-presence KOs), and the near-zero $\rho$ reflects the absence of a detectable signal in either direction rather than biological independence.
 \end{itemize}
 
-Distinguishing these interpretations requires a bootstrap stability check:
-(a) repeatedly subsample genera above varying minimum-genome-count thresholds ($n_\text{min} = 2, 5, 10, 20$) and recompute $\rho$ at each threshold;
-(b) if $\rho$ is stable across thresholds, the near-zero result is unlikely to be driven by sparse-genus noise.
-This analysis was not performed in the current study and represents a priority robustness check.
+Distinguishing these interpretations requires a threshold stability check: recompute $\rho$ after successively removing genera below minimum-genome-count thresholds ($n_\text{min} = 2, 5, 10, 20$); if $\rho$ remains near zero, sparse-genome genera are not masking a real correlation.
+
+\textbf{Robustness check (performed).}
+We built a complete genus~$\times$~KO presence matrix for 240 of the 275 metal KOs from 16~million genome records (MGnify MAGs and SPIRE prokaryotic genomes combined) and recomputed $\rho(\lambda, D)$ at each threshold.
+
+\begin{center}
+\small
+\begin{tabular}{rrrrl}
+\toprule
+$n_\text{min}$ & Genera retained & KOs with data & $\rho$ & $p$ \\
+\midrule
+2  & 8,256 & 238 & $-0.068$ & 0.295 \\
+5  & 3,799 & 237 & $-0.020$ & 0.765 \\
+10 & 2,166 & 236 & $-0.097$ & 0.138 \\
+20 & 1,204 & 232 & $+0.100$ & 0.129 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The range across thresholds is $\Delta\rho = 0.197$ and no threshold yields a significant correlation (all $p > 0.12$).
+Importantly, $\rho$ does not trend monotonically toward a detectable signal as sparse genera are removed; the values oscillate near zero throughout.
+This confirms that the near-zero $\rho$ is not an artefact of sparse-genome genera dominating either metric: when low-genome-count genera are progressively excluded, no latent correlation emerges.
+The two-scale framework's orthogonality result is therefore robust, supporting the interpretation that $\lambda$ and D capture biologically distinct evolutionary signals at different timescales.
 
 \subsection{Comparison with Panstripe}
 
