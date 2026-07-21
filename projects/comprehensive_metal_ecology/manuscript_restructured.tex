@@ -296,7 +296,7 @@ $\lambda$ across 1,000 bootstrap PGLS runs.}
 
 
 % ── 3.2 The Cofactor vs. Resistance Split ───────────────────────────────────
-\FloatBarrier
+
 \subsection{The cofactor--resistance split: systematically opposite ecological
 profiles across four niche axes}
 \label{ss:polarity}
@@ -463,28 +463,6 @@ list of KOs, gene names, evidence tiers, evidence sources, and biochemical
 rationale for each is provided in Supplementary Table~S4
 (\texttt{supplementary\_tl\_al\_s\_kos.csv}).
 
-\begin{table*}[htbp]
-\caption{Metal-specific PGLS results. BH-FDR across 9 metals.}
-\label{tab:5}
-\centering
-\small
-\begin{tabular}{lrcc}
-\toprule
-Metal & $n$ KOs & $\beta$ & $p$ (FDR) \\
-\midrule
-Tl & 45 & $-0.027$ & $1.1 \times 10^{-8}$ \\
-Fe & 98 & $-0.025$ & $1.2 \times 10^{-7}$ \\
-Ni & 84 & $-0.025$ & $1.9 \times 10^{-7}$ \\
-Zn & 67 & $-0.023$ & $1.1 \times 10^{-6}$ \\
-Al & 34 & $-0.023$ & $8.8 \times 10^{-6}$ \\
-Co & 101 & $-0.022$ & $3.9 \times 10^{-6}$ \\
-S  & 74 & $-0.021$ & $4.9 \times 10^{-5}$ \\
-Cu & 71 & $-0.019$ & $7.7 \times 10^{-5}$ \\
-Mn & 34 & $-0.017$ & $3.8 \times 10^{-4}$ \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
 Excluding Al, Tl, and S---elements with fewer dedicated resistance systems and
 less complete functional annotation in the current gene list---does not change
 the qualitative conclusion: the six remaining transition metals (Fe, Ni, Zn, Co,
@@ -507,6 +485,28 @@ suggest that the per-metal results primarily reflect the same underlying
 ecological signal rather than nine independent discoveries.
 
 % ── 3.3 The Multi-Axis Framework ────────────────────────────────────────────
+
+\begin{table}[htbp]
+\caption{Metal-specific PGLS results. BH-FDR across 9 metals.}
+\label{tab:5}
+\centering
+\small
+\begin{tabular}{lrcc}
+\toprule
+Metal & $n$ KOs & $\beta$ & $p$ (FDR) \\
+\midrule
+Tl & 45 & $-0.027$ & $1.1 \times 10^{-8}$ \\
+Fe & 98 & $-0.025$ & $1.2 \times 10^{-7}$ \\
+Ni & 84 & $-0.025$ & $1.9 \times 10^{-7}$ \\
+Zn & 67 & $-0.023$ & $1.1 \times 10^{-6}$ \\
+Al & 34 & $-0.023$ & $8.8 \times 10^{-6}$ \\
+Co & 101 & $-0.022$ & $3.9 \times 10^{-6}$ \\
+S  & 74 & $-0.021$ & $4.9 \times 10^{-5}$ \\
+Cu & 71 & $-0.019$ & $7.7 \times 10^{-5}$ \\
+Mn & 34 & $-0.017$ & $3.8 \times 10^{-4}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{A consistent polarity across four independent niche axes}
 \label{ss:multiaxis}
