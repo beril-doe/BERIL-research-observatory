@@ -58,8 +58,8 @@ samples (MicrobeAtlas~\cite{rodrigues2026}). The central finding is an internal
 functional split that holds across four independent niche axes and is confirmed
 by permutation testing (split magnitude $\Delta\beta = 0.035$, $p < 0.001$):
 cofactor biosynthesis KOs (Fe--S cluster assembly, molybdopterin, and cobalamin
-pathways) show strongly negative niche-breadth scaling ($\beta = -0.033$,
-$p = 5.2 \times 10^{-9}$), while resistance and detoxification KOs (106 KOs)
+pathways) show negative niche-breadth scaling equal to the housekeeping baseline
+($\beta = -0.033$, $p = 5.2 \times 10^{-9}$), while resistance and detoxification KOs (106 KOs)
 show no cross-biome association ($\beta \approx 0$, $p = 0.66$) despite
 positive geochemical and co-occurrence centrality signals. To identify the
 driving pathway, we applied PGLS separately to 47 KOs spanning all five
@@ -320,8 +320,9 @@ degree ($\beta = +4.1$, $p < 10^{-6}$): resistance-rich genera occupy a wide
 geochemical niche and are ecological hubs, without being generalists at the
 biome scale. Cofactor biosynthesis genes (7 KOs encoding Fe--S cluster
 assembly, molybdopterin synthesis, and cobalamin pathway genes) show the
-opposite profile: strongly negative cross-biome niche breadth
-($\beta = -0.033$, SE $= 0.005$, $p = 5.2 \times 10^{-9}$) and uniquely
+opposite profile: a cross-biome niche-breadth association equal in magnitude
+to the housekeeping streamlining baseline ($\beta = -0.033$, SE $= 0.005$,
+95\% CI $[-0.043, -0.023]$, $p = 5.2 \times 10^{-9}$) and uniquely
 negative soil niche breadth. The split magnitude ($\Delta\beta = 0.035$) is
 validated by a permutation test ($p < 0.001$) and is larger than the
 equivalent split in three comparison gene families (ABC transporters, AMR,
@@ -348,23 +349,26 @@ membership; each was assigned to the subcategory with the strongest annotated
 functional evidence, and their exclusion does not change any qualitative result.
 
 \begin{table*}[htbp]
-\caption{Internal functional split within the 140-KO primary metal-gene set.}
+\caption{Internal functional split within the 140-KO primary metal-gene set.
+95\% CI computed as $\beta \pm 1.96 \times \mathrm{SE}$. Non-overlapping CIs
+between Cofactor Biosynthesis ($[-0.043, -0.023]$) and
+Resistance/Detoxification ($[-0.009, +0.015]$) confirm the split.}
 \label{tab:4}
 \centering
 \small
-\begin{tabular}{lrcccc}
+\begin{tabular}{lrccccl}
 \toprule
-Category & $n$ KOs & $\beta$ & SE & $p$ (FDR) & Direction \\
+Category & $n$ KOs & $\beta$ & SE & 95\% CI & $p$ (FDR) & Direction \\
 \midrule
-Resistance/Detoxification & 106 & $+0.003$ & 0.006 & 0.656
-  & \textbf{null} --- expected \\
-Transport/Homeostasis & 213 & $-0.022$ & 0.005 & $2.8 \times 10^{-5}$
+Resistance/Detoxification & 106 & $+0.003$ & 0.006 & $[-0.009, +0.015]$ & 0.656
+  & \textbf{not sig.} \\
+Transport/Homeostasis & 213 & $-0.022$ & 0.005 & $[-0.032, -0.012]$ & $2.8 \times 10^{-5}$
   & confirmed \\
-Sensing/Regulation & 48 & $-0.018$ & 0.005 & $9.1 \times 10^{-4}$
+Sensing/Regulation & 48 & $-0.018$ & 0.005 & $[-0.028, -0.008]$ & $9.1 \times 10^{-4}$
   & confirmed \\
-Cofactor Biosynthesis & 7 & $\mathbf{-0.033}$ & 0.005 & $5.2 \times 10^{-9}$
+Cofactor Biosynthesis & 7 & $\mathbf{-0.033}$ & 0.005 & $[-0.043, -0.023]$ & $5.2 \times 10^{-9}$
   & \textbf{strongest} \\
-Metal-dependent Metabolism & 54 & $-0.021$ & 0.005 & $1.2 \times 10^{-4}$
+Metal-dependent Metabolism & 54 & $-0.021$ & 0.005 & $[-0.031, -0.011]$ & $1.2 \times 10^{-4}$
   & confirmed \\
 \bottomrule
 \end{tabular}
@@ -1422,6 +1426,30 @@ sporadic genomic distribution. This pangenome contrast should be treated as
 exploratory evidence given the small number of cofactor KOs with prevalence data
 ($n = 4$).
 
+\textbf{Alternative explanations for the functional split.}
+Three alternative hypotheses cannot be ruled out from the present data and
+deserve explicit consideration. First, the split could reflect \emph{clade-specific
+confounding}: the global result might be driven by a single phylum (e.g.,
+Proteobacteria) where cofactors happen to be disproportionately absent in
+generalists. The clade-stratified PGLS (all four phyla show negative cofactor
+$\beta$; Cochran's Q $p = 0.31$) argues against this, but inter-phylum power
+is limited at $k = 4$ clades. Second, the resistance null could be an
+\emph{artefact of plasmid exclusion} from MAG assemblies: if resistance gene
+true abundance is 2--5$\times$ higher than MAG-derived estimates due to
+systematic plasmid loss during binning, the null result may be a technical
+failure rather than a biological one. The MAG-based and isolate-genome-based
+predictors agree directionally (both null), but neither captures extrachromosomal
+DNA comprehensively. Third, \emph{annotation specificity bias} could favour
+cofactor detection: cofactor KOs may be more consistently annotated due to
+higher structural specificity and better KEGG module coverage, while resistance
+KOs are more heterogeneous and possibly under-represented. The Pfam validation
+(directionally consistent for Transport and Cofactor, near-null for Resistance)
+does not resolve this because Pfam coverage of metal-binding domains is itself
+incomplete. These three alternatives are not mutually exclusive and collectively
+mean that the resistance null should be interpreted as an upper bound on the
+true ecological signal of resistance genes, not as definitive evidence of
+HGT-mediated decoupling.
+
 The cofactor signal reflects the metabolic essentiality of constitutive
 biosynthesis pathways rather than metal chemistry per se. Within the metal-gene
 set, Fe--S cluster assembly, molybdopterin, and cobalamin
@@ -1732,6 +1760,28 @@ strength of any claim that metal-interacting genes, as a category, are uniquely
 associated with niche breadth. The distinctive feature of the metal-gene set
 is therefore the internal functional split (resistance null, cofactor/constitutive
 significant), not the aggregate association.
+
+\textbf{Bedrock chromium as a potential confound.} The exploratory bedrock
+geochemistry analysis finds that genus-level mean bedrock Cr is positively
+associated with niche breadth ($\beta_\mathrm{Cr} = +0.019$,
+$p = 1.1 \times 10^{-9}$), and mafic/ultramafic bedrock geology (peridotite,
+ophiolite) both enriches Cr and supports specific microbial communities. If
+metal-gene-dense genera are disproportionately associated with mafic bedrock
+through shared geological history---rather than through active metal adaptation
+per se---the primary KO-density/niche-breadth association could reflect this
+geological confound rather than metal-gene function. Against this
+interpretation: the nine environmental mechanism models confirm that
+$\beta_\mathrm{metal}$ remains stable ($-0.019$ to $-0.023$) when bedrock Cr,
+latitude, pH, and redox proxies are included simultaneously, and the Cr signal
+operates on niche breadth in the \emph{opposite} direction ($+0.019$, wider
+niche in Cr-rich environments) from the primary KO density predictor ($-0.021$,
+narrower niche in KO-dense genera). Confounding by Cr would require that
+Cr-rich environments harbour genera with high metal-gene density AND broader
+niches simultaneously---but Cr predicts broader niches while KO density predicts
+narrower niches. These opposite directions make a simple Cr-confound explanation
+geometrically implausible; nonetheless, a joint causal model integrating bedrock
+geology, genomic composition, and niche breadth remains an important future
+analytical direction.
 
 \textbf{Plasmid under-representation in MAG-derived pangenomes.} MAG assembly
 pipelines systematically underrepresent extrachromosomal and mobile DNA, which
@@ -2377,7 +2427,12 @@ per-genus KO density matrices (\texttt{data/01\_pgls\_input\_bacteria.csv},
 files, and the master results table (\texttt{results/master\_results\_table.csv},
 53 analyses) are included. The pre-registered analysis plan
 (\texttt{RESEARCH\_PLAN.md}) and complete interpretation table
-(\texttt{INTERPRETATION\_TABLE.md}) are also in the repository. The
+(\texttt{INTERPRETATION\_TABLE.md}) are also in the repository; the
+interpretation table provides a row-by-row mapping from every reported
+statistic to the notebook cell and output CSV from which it derives (53
+analyses documented). The pre-registration was committed to the repository
+prior to analysis; the commit hash and timestamp can be verified in the
+GitHub commit history for \texttt{RESEARCH\_PLAN.md}. The
 MAG-to-MicrobeAtlas taxonomy bridge (\texttt{data/otu\_pangenome\_link\_v2.csv}),
 which assigns each deblurred OTU to a GTDB genus by 16S rRNA classification and
 enables the cross-database linkage of genomic and 16S amplicon data, is also

@@ -346,9 +346,25 @@ genera present in the PGLS input dataset using
 
 Tip labels use lowercase genus names with spaces replaced by underscores,
 matching the \texttt{genus\_lower} column in all data files.  All branch
-lengths are in units of substitutions per site.  The circular cladogram of
-the bacterial tree coloured by KO density and niche breadth is shown in
-Fig.~S1.
+lengths are in units of substitutions per site (molecular phylogram;
+root-to-tip distances range from 0.886 to 2.994 substitutions per site,
+confirming the tree is \textbf{not ultrametric}).
+
+\textbf{Note on ultrametric assumption.} PGLS under Brownian motion
+theoretically assumes an ultrametric (time-calibrated) phylogeny.  The GTDB
+bacterial tree is a molecular phylogram, not a time-scaled tree, and this is a
+limitation acknowledged here.  Two features of our implementation mitigate the
+impact: (1) Pagel's $\lambda$ is estimated by maximum likelihood for each model,
+which scales off-diagonal covariances and partially corrects for the
+non-ultrametric structure~\cite{pagel1999}; (2) sensitivity analyses confirm
+that the primary result holds at $\lambda = 0$ (OLS; $\beta = -0.032$,
+$p \approx 0$) and $\lambda = 1$ (full Brownian motion; $\beta = -0.018$,
+$p = 3.7 \times 10^{-6}$), spanning the range from ``tree structure ignored''
+to ``full BM''.  The Grafen (1989) transformation to an arbitrary ultrametric
+tree was not applied; this is a future robustness direction.
+
+The circular cladogram of the bacterial tree coloured by KO density and niche
+breadth is shown in Fig.~S1.
 
 % ============================================================================
 \section{Phylogenetic generalised least squares}
@@ -358,8 +374,12 @@ Fig.~S1.
 \subsection{Implementation}
 
 All PGLS models were fitted using \texttt{scripts/pgls\_utils.py}, a custom
-implementation using \texttt{dendropy} for tree operations and
-\texttt{scipy}~\cite{virtanen2020} / \texttt{numpy} for optimisation and linear algebra.
+implementation using \texttt{dendropy}~5.0.8 for tree operations and
+\texttt{scipy}~1.17.1~\cite{virtanen2020} / \texttt{numpy}~2.4.4 for
+optimisation and linear algebra. All analyses were run in Python~3.13.9
+(conda-forge, GCC~14.3.0). CatBoost (version 1.2) was used for the
+exploratory LOPO analysis (SM~11). No R packages were used in the primary
+confirmatory analyses.
 
 \textbf{Variance--covariance matrix.}
 Built from the pruned GTDB tree as $V[i,j] = $ shared branch length from root
@@ -1647,6 +1667,14 @@ and regional patterns of soil metal(loid) mobility and associated risks.
 von Meijenfeldt FAB, Hogeweg P, Dutilh BE (2023) A social niche breadth
 score reveals niche range strategies of generalists and specialists.
 \textit{Nat Ecol Evol} \textbf{7}:768--781. doi:10.1038/s41559-023-02027-7
+
+\bibitem{pagel1999}
+Pagel M (1999) Inferring the historical patterns of biological evolution.
+\textit{Nature} \textbf{401}:877--884.
+
+\bibitem{grafen1989}
+Grafen A (1989) The phylogenetic regression.
+\textit{Philos Trans R Soc Lond B Biol Sci} \textbf{326}:119--157.
 
 \end{thebibliography}
 
