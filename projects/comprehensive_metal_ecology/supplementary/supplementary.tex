@@ -820,6 +820,71 @@ $\text{SNB}_\text{SES}$ vs.\ Levins' $B_\text{std}$ & $-0.184$ & $1.7 \times 10^
 
 % ============================================================================
 \clearpage
+\section{Two-scale phylogenetic signal: method detail and validity assessment}
+\label{sm:twoscale}
+% ============================================================================
+
+\subsection{Method overview and novelty}
+
+The two-scale framework combines genus-level Pagel's $\lambda$ (applied to continuous genus presence fractions) with genome-level Fritz~\&~Purvis D (applied to binary genome presence/absence) on the same set of 275 curated metal KOs.
+This specific combination does not appear in the literature we searched; the closest conceptual analog pairs two distinct evolutionary signals (synteny index and sequence-mutability measure) to detect HGT between closely related taxa~\cite{adato2015}.
+The general logic---that different methods detect transfers at different evolutionary timescales, with composition/signal-based methods sensitive to recent transfers and phylogenetic/topology-based methods to ancient fixed transfers---is established across the HGT-detection literature.
+$\lambda$ here captures deep, genus-level phylogenetic clustering (trait conserved across millions of years of vertical transmission); D captures genome-level dispersal (recent or episodic horizontal acquisition detectable as phylogenetic randomness within and across genera).
+
+\subsection{D computation: single pooled genome tree}
+
+Fritz~\&~Purvis D was estimated once per KO on a single pooled 18,961-tip GTDB genome tree (all bacterial genomes in the dataset), not per-genus.
+For each KO, binary presence/absence was coded across all 18,961 genome tips; the observed ancestral-state-change statistic was calibrated against Brownian-motion ($D = 0$ expectation) and random-permutation ($D = 1$ expectation) null distributions, each with $n = 1{,}000$ simulations.
+This produces a single D value per KO, interpretable as a spectrum from phylogenetically clustered ($D \approx 0$, Brownian-motion-like) to phylogenetically dispersed ($D \approx 1$, random).
+
+The choice of a pooled tree over per-genus trees is a deliberate design decision: it tests for genome-level randomness across the full phylogenetic depth of the dataset, capturing both deep and shallow dispersal, rather than per-genus dispersal which would require a separate tree and sufficient sample size for each genus.
+The trade-off is that small genera (few genomes) may have limited power to contribute meaningful signal to the genome-scale D estimate; because D is computed on the pooled tree, this is less of a per-genus issue than for $\lambda$.
+
+\subsection{Validity concern 1: Pagel's $\lambda$ on bounded presence-fraction data}
+
+Pagel's $\lambda$ was designed for continuous traits evolving under Brownian motion (BM)---an unconstrained Gaussian process.
+Genus presence fractions are bounded proportions in $[0, 1]$, violating the Gaussian/BM assumption in two specific ways:
+
+\begin{enumerate}
+\item \textbf{Boundary compression.} Near-core genes (fraction $\to 1$) and rare genes (fraction $\to 0$) cannot vary freely; $\lambda$ estimation assumes residuals can take any real value, which is false at the boundaries.
+Many genes in a curated 275-KO metal-gene set will fall near one boundary or the other (core cofactor genes near 1.0; rare resistance genes near 0.0), making this a particularly relevant concern.
+
+\item \textbf{Unequal measurement precision.}
+A genus with $n = 2$ genomes can only yield presence fractions of 0, 0.5, or 1 --- completely discrete --- while a genus with $n = 200$ genomes provides a continuous fraction with real precision.
+Standard PGLS/$\lambda$ estimation does not downweight low-precision tips unless genome-count-weighted measurement error is explicitly modelled.
+In the primary dataset, 308 of 1,574 genera have exactly two genomes ($n_\text{genomes} = 2$ minimum), potentially injecting discretisation noise at the tips.
+\end{enumerate}
+
+\textbf{Mitigation.} The field has developed bounded-BM models and beta-regression alternatives specifically for proportion data.
+Two robustness checks that should be applied in future work:
+(a) apply an arcsine-square-root transformation to genus presence fractions before $\lambda$ estimation, which approximately stabilises variance for proportions away from the extremes;
+(b) fit a beta-regression phylogenetic model (e.g., using \texttt{phytools} or \texttt{phylolm} in R) and compare $\lambda$ estimates to those obtained from the standard Gaussian model.
+If estimates are materially different, the bounded-proportion structure is driving the result.
+
+\subsection{Validity concern 2: sparse-genus noise and the orthogonality result}
+
+The Spearman correlation between D and $\lambda$ across 275 KOs is $\rho = -0.041$ ($p = 0.49$), reported in the main text as consistent with the two metrics capturing distinct evolutionary processes.
+However, a near-zero correlation has two equally plausible interpretations:
+
+\begin{itemize}
+\item \textbf{True independence:} D and $\lambda$ capture biologically distinct signals (dispersal timescale) and are genuinely orthogonal.
+\item \textbf{Noise dominance:} One or both metrics are dominated by estimation variance (particularly for $\lambda$ estimated from sparse-genome genera or small-KO-presence KOs), and the near-zero $\rho$ reflects the absence of a detectable signal in either direction rather than biological independence.
+\end{itemize}
+
+Distinguishing these interpretations requires a bootstrap stability check:
+(a) repeatedly subsample genera above varying minimum-genome-count thresholds ($n_\text{min} = 2, 5, 10, 20$) and recompute $\rho$ at each threshold;
+(b) if $\rho$ is stable across thresholds, the near-zero result is unlikely to be driven by sparse-genus noise.
+This analysis was not performed in the current study and represents a priority robustness check.
+
+\subsection{Comparison with Panstripe}
+
+Panstripe~\cite{tonkinhill2023} is a generalised-linear-regression-based tool designed specifically for phylogenetically controlled analysis of gene gain and loss rates in prokaryotic pangenomes.
+It is robust to population structure, sampling bias, and errors in predicted presence/absence of genes---all concerns that apply to the D statistic as applied here.
+Panstripe was not applied in this analysis primarily because it requires a per-gene presence/absence matrix with a shared pangenome phylogeny, whereas our D estimation used a pooled genome tree from GTDB.
+Applying Panstripe to the 140 primary metal KOs and comparing gene-gain/loss rates between cofactor biosynthesis and resistance subcategories would provide a more rigorous, purpose-built alternative to the D-based HGT screen and is an explicit future priority.
+
+% ============================================================================
+\clearpage
 \section*{Supplementary Tables}
 \addcontentsline{toc}{section}{Supplementary Tables}
 \setcounter{table}{1}
@@ -1675,6 +1740,17 @@ Pagel M (1999) Inferring the historical patterns of biological evolution.
 \bibitem{grafen1989}
 Grafen A (1989) The phylogenetic regression.
 \textit{Philos Trans R Soc Lond B Biol Sci} \textbf{326}:119--157.
+
+\bibitem{adato2015}
+Adato O, Ninyo N, Gophna U, Snir S (2015) Detecting horizontal gene transfer
+between closely related taxa. \textit{PLoS Comput Biol} \textbf{11}:e1004408.
+doi:10.1371/journal.pcbi.1004408
+
+\bibitem{tonkinhill2023}
+Tonkin-Hill G, Gladstone RA, P\"{o}ntinen AK, Arredondo-Alonso S, Bentley SD,
+Corander J (2023) Robust analysis of prokaryotic pangenome gene gain and loss
+rates with Panstripe. \textit{Genome Res} \textbf{33}:129--140.
+doi:10.1101/gr.277340.122
 
 \end{thebibliography}
 

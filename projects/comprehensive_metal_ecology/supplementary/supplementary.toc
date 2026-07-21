@@ -33,5 +33,11 @@
 \contentsline {subsection}{\numberline {11.5}KO prioritisation composite score}{13}{subsection.11.5}%
 \contentsline {subsection}{\numberline {11.6}Output files}{13}{subsection.11.6}%
 \contentsline {section}{\numberline {12}Social niche breadth benchmarking}{13}{section.12}%
-\contentsline {section}{Supplementary Tables}{15}{table.caption.6}%
-\contentsline {section}{Supplementary Figures}{26}{table.caption.8}%
+\contentsline {section}{\numberline {13}Two-scale phylogenetic signal: method detail and validity assessment}{15}{section.13}%
+\contentsline {subsection}{\numberline {13.1}Method overview and novelty}{15}{subsection.13.1}%
+\contentsline {subsection}{\numberline {13.2}D computation: single pooled genome tree}{15}{subsection.13.2}%
+\contentsline {subsection}{\numberline {13.3}Validity concern 1: Pagel's $\lambda $ on bounded presence-fraction data}{15}{subsection.13.3}%
+\contentsline {subsection}{\numberline {13.4}Validity concern 2: sparse-genus noise and the orthogonality result}{16}{subsection.13.4}%
+\contentsline {subsection}{\numberline {13.5}Comparison with Panstripe}{16}{subsection.13.5}%
+\contentsline {section}{Supplementary Tables}{17}{subsection.13.5}%
+\contentsline {section}{Supplementary Figures}{28}{table.caption.8}%
