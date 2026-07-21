@@ -115,7 +115,7 @@ core metabolic enzymes and cannot be acquired by passive cross-feeding at the
 scale of individual cells; these are the class for which streamlining predicts
 strong retention in ecological specialists. All three pathways are included in our
 primary gene set, and we test each pathway independently at expanded resolution in
-Results: Part~II---where cobalamin biosynthesis emerges as the sole pathway with
+\S\ref{ss:cobalamin}---where cobalamin biosynthesis emerges as the sole pathway with
 a significant independent cross-biome niche constraint. Metal resistance and detoxification
 genes---encoding membrane efflux systems, enzymatic reductases, and
 metal-binding proteins---are conditionally adaptive, are disproportionately
@@ -171,7 +171,7 @@ capacity is the mechanistic driver most consistent with the observed pattern.
 % 3. RESULTS PART I: The Macro-Ecological Polarity
 % ─────────────────────────────────────────────────────────────────────────────
 
-\section*{Results: Part~I---The Macro-Ecological Polarity}
+\section*{Results}
 \setcounter{subsection}{0}
 
 % ── 3.1 The Streamlining Landscape ──────────────────────────────────────────
@@ -206,7 +206,7 @@ Five categories showed no significant association with niche breadth
 (beta-lactam), glycan biosynthesis (peptidoglycan), cell motility, and
 two-component systems. All five are variable, inducible, or horizontally
 acquired gene sets not constitutively coupled to genome size, establishing them
-as confirmed true-negative controls (see §E).
+as confirmed true-negative controls (see \S\ref{ss:negctrl}).
 
 The streamlining landscape provides essential context for all subsequent
 findings: the appropriate null model for the metal-gene signal is the
@@ -262,7 +262,7 @@ where specialist genera have smaller genomes and therefore higher per-Mb densiti
 any constitutive gene set. The primary metal-gene signal attenuates from
 $\beta = -0.021$ to $\beta = -0.011$ ($47\%$ reduction; $p = 0.006$ after
 adjustment), reproducing the genome-size correction result from the confounder
-analysis (§G) and confirming a non-trivial residual independent of
+analysis (\S\ref{sec:confounders}) and confirming a non-trivial residual independent of
 genome compaction.
 
 
@@ -552,9 +552,6 @@ cofactor/vitamin genes show the strongest Levins' $B$ signal.}
 % 4. RESULTS PART II: Cobalamin biosynthesis drives the cofactor constraint
 % ─────────────────────────────────────────────────────────────────────────────
 
-\section*{Results: Part~II---Cobalamin biosynthesis drives the cofactor constraint on niche breadth}
-\setcounter{subsection}{0}
-
 \subsection{Cobalamin biosynthesis is the primary driver of the cofactor
 constraint on niche breadth}
 \label{ss:cobalamin}
@@ -660,9 +657,6 @@ minimal quantitative impact (exploratory cross-reference;
 % ─────────────────────────────────────────────────────────────────────────────
 % 5. RESULTS PART III: Transient Geochemistry and the Mobilome
 % ─────────────────────────────────────────────────────────────────────────────
-
-\section*{Results: Part~III---Geochemical Replication and Environmental Context}
-\setcounter{subsection}{0}
 
 \subsection{Geochemical replication and the Australian temporal disconnect}
 \label{ss:georeplication}
@@ -955,7 +949,7 @@ B_\mathrm{std}(g) \;\sim\; \beta_0 + \beta_1 \cdot \mathrm{metal\_z}(g) \\
 %
 Ribosomal protein per-Mb density (\texttt{ribo\_per\_mb\_z}) was chosen as the
 housekeeping baseline because it was a pre-specified named negative control
-(§E) with a larger $\beta$ than metal-gene density. On the
+(\S\ref{ss:negctrl}) with a larger $\beta$ than metal-gene density. On the
 1,073-genera subset, the unadjusted metal-gene $\beta$ was $-0.0223$
 ($p = 4.7 \times 10^{-8}$). After simultaneously controlling for genome size
 and ribosomal density, the metal-gene $\beta$ was $-0.0105$
@@ -1109,6 +1103,7 @@ clan-based Pfam filtering.
 
 \subsection{Negative controls confirm the signal is real but contextualise
 its magnitude}
+\label{ss:negctrl}
 
 Three lines of negative-control evidence establish the statistical and
 biological validity of the primary result while placing it within the
@@ -1125,7 +1120,7 @@ controls---ribosomal proteins ($\beta = -0.029$), amino acid biosynthesis
 ($\beta = -0.034$), and DNA repair ($\beta = -0.033$)---all showed strongly
 significant negative associations (all $p < 10^{-9}$). Rather than validating
 the specificity of the metal-gene signal, these results established the
-pervasive streamlining baseline described in §C. The metal-gene
+pervasive streamlining baseline described in \S\ref{ss:landscape}. The metal-gene
 $\beta$ ($-0.021$) is weaker than all three, indicating that metal genes are
 less compacted than housekeeping genes, consistent with selective retention.
 
@@ -1145,17 +1140,17 @@ is confirmed by the direction and significance of the primary analysis. It conte
 signal: the overall $\beta = -0.021$ is part of the pervasive streamlining
 landscape, and the mechanistically distinctive feature of the metal-gene set is
 not the overall magnitude but the internal functional split described in
-§D.
+\S\ref{ss:split}.
 
 \textbf{True-negative identification.} Five functional categories from the
-landscape analysis (§C) serve as confirmed true-negative controls,
+landscape analysis (\S\ref{ss:landscape}) serve as confirmed true-negative controls,
 showing no significant association with niche breadth (all $|\beta| < 0.006$,
 all $q > 0.45$): ABC transporters (non-metal, $\beta = -0.006$), AMR
 beta-lactam ($\beta = -0.004$), glycan biosynthesis/peptidoglycan ($\beta =
 +0.001$), cell motility ($\beta = +0.004$), and two-component systems ($\beta
 = +0.006$). All five share a common character: they are variable, inducible, or
 horizontally acquired gene sets not constitutively coupled to genome size. Metal
-resistance genes ($\beta \approx 0$; §D) share this character, falling
+resistance genes ($\beta \approx 0$; \S\ref{ss:split}) share this character, falling
 among the true negatives rather than between the streamlining baseline and zero.
 
 \textbf{Synthetic comparator for the cofactor/resistance functional split.}
@@ -1437,7 +1432,7 @@ signal---though differential selection pressure, annotation biases, and
 conditional expression are also consistent with the resistance null.
 Indirect support for lower vertical stability of resistance KOs comes from their
 2.2-fold lower mean pangenome prevalence compared to cofactor KOs (0.013 vs 0.030;
-Mann--Whitney $p = 0.038$, one-tailed; §D), consistent with more
+Mann--Whitney $p = 0.038$, one-tailed; \S\ref{ss:split}), consistent with more
 sporadic genomic distribution. This pangenome contrast should be treated as
 exploratory evidence given the small number of cofactor KOs with prevalence data
 ($n = 4$).
@@ -1541,7 +1536,7 @@ while resistance genes can be acquired in response to transient metal stress and
 discarded when pressure relaxes, decoupling their density from cross-biome
 ecological commitment.
 
-This temporal decoupling explains the asymmetry at the heart of Part I: cofactor genes predict cross-biome niche breadth while resistance genes do not. The Pagel's $\lambda$ signal for cofactor KOs (median $\lambda = 0.71$) places their evolution on a geological timescale commensurate with the environmental gradients that niche breadth integrates; a genus that retains \textit{de novo} cobalamin synthesis does so because its lineage has occupied environments where no cross-feeding partner was reliably available, and that ecological history accretes across millions of years of vertical transmission. Resistance genes, by contrast, are acquired opportunistically in response to local metal pulses and shed when the selective pressure relaxes, leaving behind no deep phylogenetic signature ($D > 0.2$ for the double-signal KOs). Their density therefore reflects current or recent geochemical exposure---the geochemical replication result---rather than the time-integrated ecological breadth the Levins metric captures. The two-scale clock thus explains why resistance genes are predictive in the geochemical domain but silent in the cross-biome one, and points toward long-read, phylogenetically-resolved pangenome studies as the tool best suited to test this model directly: only data that can resolve chromosomal versus plasmid provenance and infer gene gain/loss rates will distinguish slow vertical fixation from episodic horizontal replacement.
+This temporal decoupling explains the asymmetry of \S\ref{ss:landscape}--\S\ref{ss:split}: cofactor genes predict cross-biome niche breadth while resistance genes do not. The Pagel's $\lambda$ signal for cofactor KOs (median $\lambda = 0.71$) places their evolution on a geological timescale commensurate with the environmental gradients that niche breadth integrates; a genus that retains \textit{de novo} cobalamin synthesis does so because its lineage has occupied environments where no cross-feeding partner was reliably available, and that ecological history accretes across millions of years of vertical transmission. Resistance genes, by contrast, are acquired opportunistically in response to local metal pulses and shed when the selective pressure relaxes, leaving behind no deep phylogenetic signature ($D > 0.2$ for the double-signal KOs). Their density therefore reflects current or recent geochemical exposure---the geochemical replication result---rather than the time-integrated ecological breadth the Levins metric captures. The two-scale clock thus explains why resistance genes are predictive in the geochemical domain but silent in the cross-biome one, and points toward long-read, phylogenetically-resolved pangenome studies as the tool best suited to test this model directly: only data that can resolve chromosomal versus plasmid provenance and infer gene gain/loss rates will distinguish slow vertical fixation from episodic horizontal replacement.
 
 % ── 6.3 Benchmarking Against Social Niche Breadth ───────────────────────────
 
@@ -1822,7 +1817,7 @@ work.
 substantially across the dataset (median $= 8$, IQR $= 3$--30; range
 2--18{,}969). While the sensitivity analysis with $\log(\text{MAG count})$ as
 covariate confirmed that the density $\beta$ is robust to this variation
-($\beta = -0.026$, $p = 9.8 \times 10^{-9}$; Methods §B), genera with few
+($\beta = -0.026$, $p = 9.8 \times 10^{-9}$; \S\ref{ss:permb}), genera with few
 MAGs may have less reliable density estimates due to limited pangenome sampling.
 Weighted analyses incorporating within-genus variance estimates are a priority
 for future work.
@@ -1978,7 +1973,7 @@ annotation ontology. A preliminary Pfam-based cross-validation found
 directionally consistent results for Transport ($\beta = -0.016$,
 $p = 2.3 \times 10^{-5}$) and Cofactor ($\beta = -0.013$, $p = 0.006$), and a
 near-null result for Resistance ($\beta = -0.007$, $p = 0.052$), consistent with
-the KEGG-based functional split (§D); fully independent validation using
+the KEGG-based functional split (\S\ref{ss:split}); fully independent validation using
 COG or TIGRFAMs remains an important future direction.
 
 % ─────────────────────────────────────────────────────────────────────────────
@@ -2056,9 +2051,10 @@ metal-binding clan membership or metal-binding singleton Pfam for 10/140 KOs
 Pfam domains (ABC transporter scaffolds, MerR/Fur/Zur sensor domains,
 outer-membrane efflux proteins) that lack curated metal-coordination clan
 annotations---an expected annotation gap for substrate-binding metal transporters
-(see §K).
+(see \S\ref{ss:structural}).
 
 \subsection{Per-Mb metal-gene KO density}
+\label{ss:permb}
 
 For each genus $g$, per-Mb KO density was computed as:
 \[
@@ -2159,12 +2155,13 @@ B_\mathrm{std}(g) \sim \beta_0 + \beta_1 \cdot \mathrm{ko\_per\_mb\_z}(g)
 where $\varepsilon \sim \mathrm{MVN}(0, \sigma^2 \Sigma_\lambda)$. The
 pre-specified primary test used 1,574 bacterial genera. Additional
 pre-specified tests (archaeal replication, $n = 95$; NGSA Australia, $n = 482$) are
-described in Methods §E. Effect size was characterised by $\beta$, SE, $t$,
+described in \S\ref{ss:ami}. Effect size was characterised by $\beta$, SE, $t$,
 $p$ (two-tailed), Pagel's $\lambda$, $\Delta$AIC (vs null model), and marginal
 $r^2$ (proportion of variance explained by the predictor alone in GLS).
 FDR correction used Benjamini--Hochberg (BH) within pre-specified test families.
 
 \subsection{AMI + NGSA geochemical replication}
+\label{ss:ami}
 
 ICP-MS soil metal concentration data from the NGSA (National Geochemical Survey
 of Australia) were spatially joined to AMI 16S sample sites using a
@@ -2206,7 +2203,7 @@ BH-FDR was applied across 19 categories independently.
 Category-level $\beta$ and $q$ values are reported in Table~\ref{tab:3}.
 Genome-size-adjusted $\beta$ values (adding z-scored genome size Mb per genus as
 a simultaneous covariate) are also reported in Table~\ref{tab:3}; see
-§C for interpretation.
+\S\ref{ss:landscape} for interpretation.
 
 \subsection{Internal functional subcategory analysis}
 
