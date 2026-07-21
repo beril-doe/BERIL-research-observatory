@@ -125,6 +125,30 @@ Two independent databases converge at marginal significance (NCBI p=0.045, BV-BR
 
 gesA/gesB (gold efflux system): untestable in both databases (n=1 NCBI, n=1 BV-BRC). These genes are absent from CARD/AMRFinder and have not been deposited to GenBank under any confirmed gene synonym or product term.
 
+**Cross-category plasmid fraction comparison (NCBI Entrez, n_total ≥ 50):**
+
+All 275 KOs were queried; the full table is at `data/ncbi_plasmid_fraction_allcats.csv`.
+
+| Subcategory | n (n≥50) | Median frac | Mean frac | Max frac |
+|-------------|----------|-------------|-----------|----------|
+| Resistance/Detoxification | 54 | 0.00043 | 0.00480 | 0.0427 (merD) |
+| Transport/Homeostasis | 48 | 0.00021 | 0.00324 | 0.0514 (aph†) |
+| Sensing/Regulation | 21 | 0.00020 | 0.00076 | 0.0082 (hutC) |
+| Metal-dependent Metabolism | 14 | 0.00016 | 0.00248 | 0.0286 (nicB) |
+| Cofactor Biosynthesis | 2‡ | 0.00012 | 0.00012 | 0.0002 (hemH) |
+
+†aph (aminoglycoside phosphotransferase) is functionally a resistance gene; its classification as Transport inflates that category's max but barely affects the median.
+‡ Only hemH and MOCS2B have n≥50; cobC1 (n=45) and ahbAB (n=2) are excluded.
+
+Mann-Whitney tests (alternative='greater', n_total ≥ 50):
+- Resistance > Metal-dependent Metabolism: U=510, **p=0.023** (n=54 vs n=14)
+- Resistance > All non-resistance combined: U=2804, **p=0.020** (n=54 vs n=86)
+- Resistance > Transport/Homeostasis: U=1507, p=0.079 (n=54 vs n=48; aph outlier inflates transport)
+- Resistance > Sensing/Regulation: U=696, p=0.065 (n=54 vs n=21)
+- Resistance > Cofactor Biosynthesis: U=86, p=0.082 (underpowered; n_cofactor=2)
+
+The gradient in median plasmid fraction (resistance > transport ≈ sensing > metabolism > cofactor) mirrors the phylogenetic λ signal gradient, where cofactor KOs have highest λ (most vertically inherited) and resistance KOs lowest λ. Cofactor biosynthesis KOs (hemH, MOCS2B) have plasmid fractions ≤ 0.023%, consistent with strict chromosomal location.
+
 MWU test (mobile fraction DS > control, original 13 vs 10 comparison): U=80, p=0.062
 
 ---

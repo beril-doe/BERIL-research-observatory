@@ -540,13 +540,29 @@ The 13 double-signal KOs (D > 0.2, λ < 0.3; Finding 12) were characterised for 
 
 **Part 4 (environmental metal enrichment — MGnify):** 5/8 DS KOs with MGnify data are significant at FDR q < 0.1 (nicC q = 5.6×10⁻⁵, nikB q = 2.8×10⁻⁵, gesA q = 9.4×10⁻⁵, iucD q = 1.1×10⁻⁴, norB q = 7.1×10⁻²). Median |ρ| = 0.034 (Spearman, DS KO presence vs bioavailable metals). The 5 DS KOs not in the MGnify enrichment dataset (nrsD, merE, merD, shp, doxDA) cannot be assessed by this metric.
 
-| Evidence line | DS result | Control result | MWU p |
-|---------------|-----------|----------------|--------|
-| D (discordance proxy) | median 0.385 | median −0.077 | **1.8×10⁻⁴** |
-| Plasmid fraction — NCBI Entrez (resist. DS n=3 vs bg n=51) | median 0.0042 | median 0.0004 | **0.045** |
-| Plasmid fraction — BV-BRC (resist. DS n=2 vs bg n=48) | median 0.0049 | median 0.0005 | **0.044** |
+| Evidence line | Group A | Group B | MWU p |
+|---------------|---------|---------|--------|
+| D (discordance proxy) | DS median 0.385 | ctrl median −0.077 | **1.8×10⁻⁴** |
+| Plasmid frac — NCBI Entrez (resist. DS n=3 vs bg n=51) | median 0.0042 | median 0.0004 | **0.045** |
+| Plasmid frac — BV-BRC (resist. DS n=2 vs bg n=48) | median 0.0049 | median 0.0005 | **0.044** |
+| Plasmid frac — Resistance vs Metabolism (n=54 vs n=14) | median 0.00043 | median 0.00016 | **0.023** |
+| Plasmid frac — Resistance vs all non-resistance (n=54 vs n=86) | median 0.00043 | median 0.00022 | **0.020** |
 | Mobile-element fraction (NCBI, DS n=13 vs ctrl n=10) | median 0.000 | median 0.000 | 0.062 |
 | MGnify metal enrichment | 5/8 sig (q<0.1) | not available | — |
+
+**Cross-category plasmid fraction comparison (NCBI Entrez, all 275 KOs queried, n_total ≥ 50; script: `scripts/plsdb_resistance_crossref.py`; data: `data/ncbi_plasmid_fraction_allcats.csv`):**
+
+| Subcategory | n | Median plasmid_frac |
+|-------------|---|---------------------|
+| Resistance/Detoxification | 54 | 0.00043 |
+| Transport/Homeostasis | 48 | 0.00021 |
+| Sensing/Regulation | 21 | 0.00020 |
+| Metal-dependent Metabolism | 14 | 0.00016 |
+| Cofactor Biosynthesis | 2* | 0.00012 |
+
+*Only hemH and MOCS2B have n≥50; cobC1 (n=45) and ahbAB (n=2) excluded.
+
+Resistance > Metal-dependent Metabolism: MWU p = 0.023. Resistance > all non-resistance combined: MWU p = 0.020. Resistance > Cofactor: p = 0.082 (underpowered, n_cofactor=2). Cofactor KOs have plasmid fracs ≤ 0.023%, consistent with strict chromosomal location. The gradient (resistance > transport ≈ sensing > metabolism > cofactor) mirrors the λ ordering.
 
 **Internal structure consistency:** All 13 double-signal KOs are resistance/transport/sensing genes — matching the category-level null result (Finding 4), which found resistance genes show no niche-breadth association (β ≈ 0, p = 0.66). HGT-mobile resistance genes are thus decoupled from ecological specialisation at both the category level (niche breadth) and the individual KO level (phylogenetic randomness). No cofactor biosynthesis KO appears among the double-signal set, consistent with cofactor genes being constitutively required and vertically inherited.
 
@@ -566,7 +582,7 @@ The 13 double-signal KOs (D > 0.2, λ < 0.3; Finding 12) were characterised for 
 - **Metal-gene-rich genera occupy narrower pH niches but not narrower temperature niches (exploratory)**: PGLS shows that per-Mb metal-gene density predicts pH niche width (β = −0.760, p = 0.001; λ = 0.11) and composite environmental gradient (β = −0.064, p < 0.001) but not temperature niche (p = 0.929). The pH specificity reflects metal-speciation pH-dependence; the temperature null contrasts with the primary thermal-stability framework.
 - **Metal-gene-rich genera have significantly more positive co-occurrence partners across all environments (exploratory)**: PGLS of positive partner count on metal-gene KO density yields β = 138.4–210.5 across ALL/ENV/SOIL strata (all p < 3.4×10⁻²²). The soil stratum effect (β = 210.5, p = 8.2×10⁻⁴¹) is 2.5× larger than the all-strata effect, converging with the stronger primary PGLS signal in soil specialists (Finding 10). Caution: all three networks are near-saturated (38–42% significant positive pairs), making clustering and betweenness metrics degenerate.
 - **Partners of metal-gene-rich focal genera are themselves metal-gene-rich and show a Firmicutes bias (exploratory)**: Top-50 soil focal genera (mean 20.32 ko/Mb) attract partners with significantly higher mean KO density (12.776 vs 8.903 ko/Mb; MWU p = 1.98×10⁻⁷) and 56.1% vs 26.3% in the top quartile — consistent with a metal-tolerance guild assembly pattern. Partner phyla shift from Proteobacteria dominance (controls) to Firmicutes (40.4% of focal partner instances; χ² = 113.74, p = 2.77×10⁻¹³).
-- **Direct HGT evidence is concentrated in resistance KOs (exploratory)**: MWU comparing D-statistics (double-signal vs high-λ controls): p = 1.81×10⁻⁴ (median 0.385 vs −0.077). NCBI Entrez plasmid fraction enrichment test (resistance-subcategory KOs, n_total ≥ 50): double-signal resistance KOs (n=3: merD 4.3%, aoxB 0.4%, norB 0.1%) vs background resistance (n=51); MWU p = 0.045. Independent BV-BRC validation: p = 0.044 (n_double=2, n_background=48, arsC deduplicated). Two databases converge at marginal significance; result driven by merD. gesA/gesB untestable (n=1 in both databases); golS effectively chromosomal (frac<0.001) despite double-signal classification. 5/8 double-signal KOs with MGnify data significant at FDR q < 0.1 for metal-environment association. All 13 double-signal KOs are resistance/transport/sensing genes; zero are cofactor biosynthesis. Script: `scripts/plsdb_resistance_crossref.py`; data: `data/plsdb_enrichment_test.json`, `data/bvbrc_plasmid_fraction.csv`.
+- **Direct HGT evidence is concentrated in resistance KOs (exploratory)**: MWU comparing D-statistics (double-signal vs high-λ controls): p = 1.81×10⁻⁴ (median 0.385 vs −0.077). NCBI Entrez plasmid fraction enrichment test (resistance-subcategory KOs, n_total ≥ 50): double-signal resistance KOs (n=3: merD 4.3%, aoxB 0.4%, norB 0.1%) vs background resistance (n=51); MWU p = 0.045. Independent BV-BRC validation: p = 0.044 (n_double=2, n_background=48, arsC deduplicated). Cross-category comparison (all 275 KOs, n_total ≥ 50): resistance median (0.00043) > metal-dependent metabolism median (0.00016) at MWU p=0.023; resistance > all non-resistance at MWU p=0.020. Cofactor biosynthesis KOs have near-zero plasmid fractions (hemH=0.023%, MOCS2B=0%) but underpowered comparison (n=2). The plasmid-fraction gradient (resistance > transport ≈ sensing > metabolism > cofactor) mirrors the phylogenetic λ signal gradient. 5/8 double-signal KOs with MGnify data significant at FDR q < 0.1 for metal-environment association. All 13 double-signal KOs are resistance/transport/sensing genes; zero are cofactor biosynthesis. Scripts: `scripts/plsdb_resistance_crossref.py`; data: `data/plsdb_enrichment_test.json`, `data/bvbrc_plasmid_fraction.csv`, `data/ncbi_plasmid_fraction_allcats.csv`.
 
 ---
 
