@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from beril_cli import ov_client
-from beril_cli.ov_client import OvLinkError, fetch_ov_credential
+from beril_cli.ov_client import OvLinkError, fetch_ov_credential, ov_health
 
 
 def _client_from_handler(handler):
@@ -168,3 +168,23 @@ class TestFetchOvCredential:
         assert all("//api" not in u.replace("https://", "") for u in seen)
         # ...nor in the derived proxy URL.
         assert url == "https://srv/ov"
+
+
+class TestOvHealth:
+    def test_health_returns_body(self):
+        def handler(method, path, request):
+            assert path == "/api/ov/health"
+            return _json({"status": "ok", "ov_url": "https://srv/ov"})
+
+        with patch.object(ov_client.httpx, "Client", _client_from_handler(handler)):
+            body = ov_health("https://srv", "tok")
+
+        assert body["status"] == "ok"
+
+    def test_health_401_raises(self):
+        def handler(method, path, request):
+            return _json({"detail": "Unauthorized"}, status=401)
+
+        with patch.object(ov_client.httpx, "Client", _client_from_handler(handler)):
+            with pytest.raises(OvLinkError):
+                ov_health("https://srv", "tok")
