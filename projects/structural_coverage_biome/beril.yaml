@@ -11,5 +11,5 @@ authors:
 artifacts:
   readme: true
   research_plan: true
-  report: false
+  report: true
   review: false

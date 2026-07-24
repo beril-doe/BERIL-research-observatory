@@ -227,6 +227,27 @@ Output: `data/priority_gap_list.csv` with ~500–1000 rows total.
 
 - **v0** (2026-07-24): Initial plan. Design choices locked via interactive review with Justin: compartment+env_broad_scale axis, two-tier PDB hits (95%/30%), top-100 per biome for Phase 3.
 
+- **v1** (2026-07-24, same day, during first execution): Three schema-driven pivots forced by real data.
+
+  1. **PDB tier: two-tier via identity → single-tier via Pfam.** `kescience_pdb.pdb_uniprot_mapping` is a SIFTS residue-range table (`pdb_id`, `chain_id`, `uniprot_accession`, `res_beg`, `res_end`, `sp_beg`, `sp_end`) with no identity or coverage columns. First fallback: single-tier "has SIFTS mapping vs. none" via UniRef100 exact string match. Discovered the exact-match rate is only 0.034% of the pangenome (11,847 / 34.9M) — the environmental pangenome is dominated by TrEMBL-only accessions that never appear in SIFTS. Final pivot: **`kescience_pdb.pdb_pfam` (990K rows: PDB × chain × UniProt × Pfam) intersected with `kbase_ke_pangenome.interproscan_domains` (analysis='Pfam') as the coverage bridge.** Coverage is now at the protein-family (Pfam) level, not the identity level — a stronger functional-homology signal.
+
+  2. **Pfam source: `bakta_pfam_domains` → `interproscan_domains`.** `bakta_pfam_domains` has only 10,798 distinct Pfams vs. `interproscan_domains` (analysis='Pfam') which has 20,273 — the pre-registered pitfall memo warned bakta silently drops secretion-system Pfams; the actual silent gap is ~half of all Pfams. Per-cluster Pfam annotation rate jumps from 7.7% (bakta) to 72.3% (IPS). Use IPS as canonical source.
+
+  3. **Biome axis: `genome_environment.csv` → `gtdb_metadata.ncbi_isolation_source` keyword classifier.** `genome_environment.csv` from the `plant_microbiome_ecotypes` project (which was to supply pre-curated `compartment` + `env_broad_scale`) is not on this cluster's filesystem — it lives in a different user's home. Rebuilt biome labels natively from `gtdb_metadata.ncbi_isolation_source` (78.7% of 293K genomes have real values) via an ordered 17-label keyword classifier (`host_gut`, `host_respiratory`, `host_urogenital`, `host_blood_tissue`, `host_skin`, `host_other`, `plant_associated`, `soil`, `sediment`, `marine`, `freshwater`, `subsurface_extreme`, `built_environment`, `food_industrial`, `agricultural_animal`, `insect_invertebrate`, `other`). Species-level biome = majority vote across genomes.
+
+  **Executed pipeline (see REPORT.md for numbers):**
+  - Extract per-cluster Pfam tier: `no_pfam_annotation` / `pfam_no_covered` / `pfam_partial_covered` / `pfam_all_covered` (from IPS-Pfam × pdb_pfam)
+  - Join to `gene_cluster.gtdb_species_clade_id` for is_core status
+  - Join to species majority-vote biome
+  - Aggregate: biome × pfam_tier × is_core (145 cells)
+  - Statistics: χ² independence tests (marginal + core-stratified), Fisher vs. global rate + BH-FDR, bootstrap 95% CIs on no-Pfam rate
+
+  **Key finding vs. hypothesis:**
+  - H1 (environmental > host coverage gap) *inverts* on marginal rates (host_gut 29.4% no-Pfam > freshwater 27.6%) because host pangenomes are 10–100× larger and skew accessory.
+  - H1 *confirms* within core clusters (freshwater 18.0% > host_urogenital 11.3%), monotonic environmental > host gradient.
+  - Chi-square rejects biome/tier independence at every stratification (p < 10⁻³⁰⁰).
+  - Top uncovered Pfams are membrane proteins and Pfam-B-derived families — the expected structural-biology blind spots.
+
 ## Authors
 
 - Justin Reese | ORCID: 0000-0002-2170-2250 | Lawrence Berkeley National Laboratory

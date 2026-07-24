@@ -6,20 +6,27 @@ Where does experimental (PDB) and high-confidence predicted (AlphaFold) structur
 
 ## Status
 
-In progress — scaffolding created 2026-07-24.
+**Analysis complete** — extraction, biome stratification, statistics, figures, and REPORT all done 2026-07-24. NB04 (per-Pfam curated priority list) is deferred.
+
+## Headline Finding
+
+H1 (environmental > host coverage gap) is **rejected on marginal rates** but **confirmed within core clusters**: freshwater 18.0% no-Pfam > host_urogenital 11.3% (monotonic environmental > host gradient among is_core=True). The marginal-rate confound is pangenome depth — host biomes are 10–100× larger and skew accessory. See REPORT.md for full findings.
 
 ## Overview
 
-The BERDL pangenome links 132.5M gene clusters to UniProt via `bakta_annotations.uniref100`. That same UniProt key joins into (a) `kescience_pdb.pdb_uniprot_mapping` (967K SIFTS chain-to-UniProt rows across 250K experimental structures) and (b) `kescience_alphafold.alphafold_entries` + `alphafold_msa_depths` (241M predicted structures with confidence proxies). Meanwhile `genome_environment.csv` (293K genomes) carries `compartment` and `env_broad_scale` labels for each genome.
+**As-executed pipeline (revised from v0 scaffold — see RESEARCH_PLAN.md v1):**
 
-This project intersects those layers to produce a **biome × functional-category coverage matrix** — for each cell, what fraction of clusters have a direct PDB match (≥95% identity), a PDB homolog (30–95%), an AF-confident model (MSA depth ≥ 300), an AF-low-confidence model, or nothing? The output is a prioritized gap list of biome-relevant, functionally-annotated clusters with no structural evidence — a crystallography wishlist grounded in environmental relevance.
+The pangenome is joined to the PDB via **Pfam family**, not UniRef100 identity: `kescience_pdb.pdb_pfam` (990K rows: PDB × chain × UniProt × Pfam) supplies "which Pfams have PDB structure"; `kbase_ke_pangenome.interproscan_domains` filtered to `analysis='Pfam'` (preferred over `bakta_pfam_domains`, which silently drops half of pangenome Pfams) supplies each cluster's Pfam set. Per-cluster tier is `no_pfam_annotation` / `pfam_no_covered` / `pfam_partial_covered` / `pfam_all_covered`.
 
-## Key databases
+Biome comes from `gtdb_metadata.ncbi_isolation_source` via a 17-label keyword classifier (host_gut, soil, marine, freshwater, subsurface_extreme, etc.), rolled up to species via majority vote. This rebuild was necessary because the `genome_environment.csv` referenced in v0 lives in another user's home directory not accessible here.
 
-- `kbase_ke_pangenome` — `gene_cluster`, `bakta_annotations`, `interproscan_domains`, `marker_gene_clusters`
-- `kescience_pdb` — `pdb_entries`, `pdb_uniprot_mapping`, `pdb_validation`
-- `kescience_alphafold` — `alphafold_entries`, `alphafold_msa_depths`
-- Local CSVs from `plant_microbiome_ecotypes` — `genome_environment.csv`, `ncbi_env_pivot.csv`, `bacdive_isolation.csv`
+## Key databases (as-executed)
+
+- `kescience_pdb.pdb_pfam` — 990K rows: PDB × chain × UniProt × Pfam (the canonical "PDB has structure of this family" source)
+- `kbase_ke_pangenome.interproscan_domains` — 833M rows; filter `analysis='Pfam'` for pangenome Pfam annotations
+- `kbase_ke_pangenome.gene_cluster` — 132.4M rows: cluster → species + is_core/is_auxiliary/is_singleton
+- `kbase_ke_pangenome.genome` — 226K rows: genome → gtdb species
+- `kbase_ke_pangenome.gtdb_metadata` — 293K rows: genome → `ncbi_isolation_source` (biome source)
 
 ## Quick Links
 
@@ -34,13 +41,14 @@ This project intersects those layers to produce a **biome × functional-category
 
 ## Reproduction
 
-Prerequisites: BERDL JupyterHub (Spark) for NB01–NB02; local Python 3.10+ for NB03–NB04. See `requirements.txt`.
+Prerequisites: on-cluster Spark (any BERDL JupyterHub node) for step 1; local Python 3.10+ for step 2. See `requirements.txt`.
 
-Notebooks in order:
-1. `NB01_coverage_extraction.ipynb` — Spark; extract per-cluster PDB + AF tier assignment
-2. `NB02_biome_stratification.ipynb` — Spark; join to genome_environment, aggregate by biome × function
-3. `NB03_coverage_model.ipynb` — local; logistic regression, plots, biome gap rankings
-4. `NB04_priority_gap_list.ipynb` — local; top-100 per biome with per-candidate functional annotation
+```bash
+python scripts/01_extract_and_stratify.py   # Spark, ~10 min → writes data/*.csv
+python scripts/02_analysis_and_figures.py   # local, ~30 s   → writes data/*.csv + figures/*.png
+```
+
+Notebooks in `notebooks/` mirror the pipeline for interactive exploration. Interpretation lives in `REPORT.md`.
 
 ## Authors
 
