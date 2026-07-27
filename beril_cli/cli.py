@@ -43,6 +43,12 @@ def main(argv: list[str] | None = None) -> int:
         metavar="VERSION",
         help="Pin to a specific release tag (e.g. v0.3.4.5). Defaults to the latest tag.",
     )
+    start_parser.add_argument(
+        "--dev",
+        action="store_true",
+        default=False,
+        help="Only run the local BERIL without fetching the latest release. Overrides any value given in --version."
+    )
 
     # user
     user_parser = sub.add_parser(
@@ -104,6 +110,7 @@ def main(argv: list[str] | None = None) -> int:
             extra_args=remaining,
             skip_onboard=args.skip_onboard,
             version=args.version,
+            dev_mode=args.dev,
         )
 
     if args.command == "user":
