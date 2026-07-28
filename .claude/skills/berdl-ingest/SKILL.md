@@ -14,7 +14,7 @@ MinIO are directly accessible inside the cluster, no SSH tunnels, pproxy, or
 
 1. Verify the JH environment (Spark + MinIO connect directly).
 2. Detect source format and parse schema.
-3. Collect dataset metadata.
+3. Collect dataset metadata — **mandatory**, gated on schema validation (Step 3b).
 4. Upload source files to MinIO bronze via `minio_client.fput_object()`.
 5. Call `ingest()` per table — Spark reads from bronze and writes Iceberg to silver.
 6. Verify row counts.
@@ -200,7 +200,26 @@ If it exists, list tables and row counts, then ask:
 - **Overwrite** — `MODE = "overwrite"` (replaces existing Iceberg tables)
 - **Append** — `MODE = "append"` (adds rows to existing tables)
 
-### Step 3b: Collect dataset metadata
+### Step 3b: Collect dataset metadata — MANDATORY
+
+**This step is not optional and must not be skipped, deferred, or batched into Step 4.**
+No table may be uploaded or ingested until its metadata file exists locally with every
+required field populated and the user has explicitly confirmed the values. If the user asks
+to skip metadata, explain that ingest cannot proceed without it and offer to fill the
+required fields with minimal values instead.
+
+**Read the field contract first:**
+
+```bash
+cat .claude/skills/berdl-ingest/references/dataset_metadata_schema.yaml
+```
+
+`references/dataset_metadata_schema.yaml` is the authoritative definition of the metadata
+record: which fields exist, their types, and which are required. The `required:` list in that
+file is the gate for this step — read it before generating files and validate against it
+before uploading. If a field in the schema is not produced by the script below, the schema
+wins; update the script rather than dropping the field. This file is kept identical to the
+copy in `berdl-ingest-remote/references/` — the two skills must not drift.
 
 One YAML metadata file per table, stored at `<DATA_DIR>/metadata/{table}.yaml` and
 uploaded to `s3a://cdm-lake/{BRONZE_PREFIX}/metadata/{table}.yaml` twice: before
@@ -212,6 +231,9 @@ ingest (`status: in_progress`) and after (`status: completed` or `failed`).
 git config user.name
 ```
 
+If this returns a name, use it as the default. If git is unavailable or returns empty, fall
+back to `$JUPYTERHUB_USER`, and prompt the user if that is also empty.
+
 **Check for existing metadata (re-ingest warning):** Use the Python MinIO client —
 there is no `mc` CLI in the JH terminal environment:
 
@@ -222,8 +244,57 @@ if objects:
     print(f"WARNING: {len(objects)} metadata file(s) already exist and will be overwritten.")
 ```
 
-**Ask about source:** Same-source or mixed? Follow the same prompting logic as
-`berdl-ingest-remote` Step 3b (create `_source_input.yaml` for mixed sources).
+If any are listed, warn the user:
+> "Metadata files already exist for this dataset and will be overwritten."
+
+**Ask about source:**
+
+> "Are all tables from the same source (e.g., the same URL or download location), or do some
+> tables come from different sources?"
+
+**(a) Same source for all tables — ask once:**
+
+> "What is the source URL or download location for this dataset?"
+
+Use that value for all table metadata files.
+
+**(b) Mixed sources — generate a temp fill-in file:**
+
+Create `<DATA_DIR>/metadata/_source_input.yaml`. List every table with blank fields, ordered
+by priority so the user fills in the most important ones first:
+
+```yaml
+# Ingest metadata input for {NAMESPACE}
+# 'shared' fields apply to all tables. Per-table fields override the shared value.
+# Fields left blank will not be set in the metadata.
+# Save and close when done, then let the agent know.
+
+shared:
+  ingested_by: "{inferred name or blank}"
+  ingest_contributors: []
+
+tables:
+  {table1}:
+    source: ""
+    description: ""
+    ingested_by: ""      # leave blank to use shared value above
+    ingest_contributors: []
+    version: ""
+  {table2}:
+    source: ""
+    description: ""
+    ingested_by: ""
+    ingest_contributors: []
+    version: ""
+  # ... one entry per table
+```
+
+Tell the user the file path and ask them to fill it in and confirm when done. After
+confirmation, read the file, extract values, and **delete the temp file**:
+
+```bash
+rm "<DATA_DIR>/metadata/_source_input.yaml"
+```
 
 **Generate local metadata files:**
 
@@ -279,10 +350,79 @@ for table in tables:
     print(f"  wrote {out.name}")
 ```
 
-**Present required fields for user confirmation — REQUIRED STOPPING POINT.**
-Same flow as `berdl-ingest-remote` Step 3b: confirm `title`, `source`, `ingested_by`,
-`date_accessed`. Then offer optional fields (`description`, `version`,
-`ingest_contributors`).
+**Present required non-auto fields for user confirmation — REQUIRED STOPPING POINT:**
+
+Display the values that need confirmation. For same-source ingests this is one set of values;
+for mixed-source, show a compact per-table table:
+
+```
+Required fields — please confirm or correct:
+  title         : {table}  (one per table — defaults to table name)
+  source        : {source value(s)}
+  ingested_by   : {name}
+  date_accessed : {today}
+```
+
+Ask: **(a) Confirm these values and proceed, or (b) correct specific values.**
+
+If (b): ask which field and table to correct, update the relevant local `.yaml` file, and
+re-present the summary. Repeat until the user explicitly confirms. Do not proceed until
+confirmation is received.
+
+**Optional fields step — REQUIRED STOPPING POINT:**
+
+After confirmation, strongly suggest completing the optional fields:
+
+> "Consider filling in: `description`, `version`, `ingest_contributors`. These improve
+> discoverability and traceability. How would you like to proceed?
+> (a) Let me help you fill them in now
+> (b) Edit the files manually — they are at `<DATA_DIR>/metadata/`
+> (c) Skip for now (you can update them later)"
+
+Wait for the user's explicit choice before continuing.
+
+- **(a)** Prompt for each optional field. For `description` and `version`: ask once if same
+  for all tables, otherwise per-table. For `ingest_contributors`: always shared. Update
+  local `.yaml` files after each answer.
+- **(b)** List all file paths clearly and wait for the user to confirm they are done editing.
+- **(c)** Warn: "Metadata will be uploaded with optional fields blank. You should return to
+  fill these in before the dataset is used in analyses."
+
+**Validate against the schema — BLOCKING GATE:**
+
+Every required field from `references/dataset_metadata_schema.yaml` must be present and
+non-empty in every table's file. Run the check, do not hand-inspect:
+
+```python
+import yaml
+from pathlib import Path
+
+schema   = yaml.safe_load(Path(
+    ".claude/skills/berdl-ingest/references/dataset_metadata_schema.yaml").read_text())
+required = schema["required"]
+files    = sorted(metadata_dir.glob("*.yaml"))
+
+assert files, "FAIL: no metadata files found — Step 3b did not run"
+
+bad = False
+for f in files:
+    meta = yaml.safe_load(f.read_text()) or {}
+    # `tenant` is legitimately null for user-tenant (my.*) ingests — see
+    # required_exceptions in the schema.
+    exempt  = {"tenant"} if str(meta.get("namespace", "")).startswith("my.") else set()
+    missing = [k for k in required
+               if k not in exempt and meta.get(k) in (None, "", [], {})]
+    if missing:
+        bad = True
+        print(f"  FAIL {f.name}: missing/empty {missing}")
+    else:
+        print(f"  ok   {f.name}")
+print("\nMETADATA VALIDATION:", "FAILED" if bad else "PASSED", f"({len(files)} file(s))")
+assert not bad, "Metadata validation failed — fix the fields above before uploading"
+```
+
+If this fails, fix the offending fields and re-run it. **Do not upload and do not proceed to
+Step 4 until it prints `PASSED`.**
 
 **Upload metadata (first push — in_progress):**
 
@@ -295,7 +435,13 @@ print(f"Metadata uploaded (first push — in_progress) for {len(tables)} table(s
 print(f"  → s3a://cdm-lake/{BRONZE_PREFIX}/metadata/")
 ```
 
+**Step 3b is complete only when the validation passed and the first push succeeded.** If you
+reach Step 4 without both, stop and return to Step 3b.
+
 ### Step 4: Generate, configure, and run the ingest notebook
+
+**Precondition:** Step 3b passed schema validation and completed its first push. The notebook
+uploads data and writes Iceberg tables — do not run it otherwise.
 
 Copy the in-cluster template into the source directory:
 

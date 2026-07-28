@@ -10,7 +10,8 @@ allowed-tools: Bash, Read, Write, Edit, Task
 
 Ingests a local dataset into the BERDL Lakehouse as a new tenant namespace, running entirely
 from a local machine via the off-cluster proxy chain. Detects source format, parses schema,
-exports data if needed, then executes a **two-phase ingest**:
+exports data if needed, collects **mandatory dataset metadata** (Step 3b — every table gets a
+metadata record before any bytes move), then executes a **two-phase ingest**:
 
 1. **Upload** — all source files uploaded to MinIO bronze in full before any ingest begins.
 2. **Ingest** — Iceberg tables written to silver. Tables larger than `CHUNK_TARGET_GB` (default 20 GB)
@@ -223,7 +224,25 @@ If the user chooses append, confirm which tables they want to append to. For any
 note it now — the user can set `"enabled": false` in the per-table config or skip the relevant
 ingest step in the notebook.
 
-### Step 3b: Collect dataset metadata
+### Step 3b: Collect dataset metadata — MANDATORY
+
+**This step is not optional and must not be skipped, deferred, or batched into Step 4.**
+No table may be uploaded or ingested until its metadata file exists locally with every
+required field populated and the user has explicitly confirmed the values. If the user asks
+to skip metadata, explain that ingest cannot proceed without it and offer to fill the
+required fields with minimal values instead.
+
+**Read the field contract first:**
+
+```bash
+cat .claude/skills/berdl-ingest-remote/references/dataset_metadata_schema.yaml
+```
+
+`references/dataset_metadata_schema.yaml` is the authoritative definition of the metadata
+record: which fields exist, their types, and which are required. The `required:` list in that
+file is the gate for this step — read it before generating files and validate against it
+before uploading. If a field in the schema is not produced by the script below, the schema
+wins; update the script rather than dropping the field.
 
 One YAML metadata file is created per table, stored locally at `<DATA_DIR>/metadata/{table}.yaml`
 and uploaded to MinIO at `{BRONZE_PREFIX}/metadata/{table}.yaml`. The file is uploaded twice:
@@ -299,20 +318,31 @@ rm "<DATA_DIR>/metadata/_source_input.yaml"
 **Generate local metadata files:**
 
 Create `<DATA_DIR>/metadata/` if it does not exist. Run the following script, substituting
-actual values for all `<PLACEHOLDER>` entries:
+actual values for all `<PLACEHOLDER>` entries. `USER_TENANT` must match the choice made in
+Step 2 — the namespace, bronze prefix, and `tenant` field all depend on it:
 
 ```bash
 source .venv-berdl/bin/activate
 python3 - <<'PYEOF'
-import uuid, yaml
+import json, uuid, yaml
 from datetime import date, datetime, timezone
 from pathlib import Path
 
 DATA_DIR      = Path("<DATA_DIR>")
-TENANT        = "<TENANT>"
+TENANT        = "<TENANT>"          # ignored when USER_TENANT=True
 DATASET       = "<DATASET>"
 BUCKET        = "cdm-lake"
-BRONZE_PREFIX = f"tenant-general-warehouse/{TENANT}/datasets/{DATASET}"
+USER_TENANT   = <True|False>        # must match the Step 2 choice
+
+# Mirrors the notebook config cell (b0000003) — keep the two in sync.
+if USER_TENANT:
+    _username     = json.loads((Path.home() / ".mc/config.json").read_text()
+                               )["aliases"]["berdl-minio"]["accessKey"]
+    NAMESPACE     = f"my.{DATASET}"
+    BRONZE_PREFIX = f"users-general-warehouse/{_username}/data/{DATASET}"
+else:
+    NAMESPACE     = f"{TENANT}.{DATASET}"
+    BRONZE_PREFIX = f"tenant-general-warehouse/{TENANT}/datasets/{DATASET}"
 
 tables        = [<list of table names as Python strings>]
 ingested_by   = "<inferred or provided name>"
@@ -334,9 +364,9 @@ for table in tables:
     meta = {
         "schema_version":      "0.2.0",
         "identifier":          str(uuid.uuid4()),
-        "tenant":              TENANT,
+        "tenant":              None if USER_TENANT else TENANT,
         "dataset":             DATASET,
-        "namespace":           f"{TENANT}.{DATASET}",
+        "namespace":           NAMESPACE,
         "table":               table,
         "title":               table,
         "source":              source,
@@ -395,6 +425,46 @@ Wait for the user's explicit choice before continuing.
 - **(c)** Warn: "Metadata will be uploaded with optional fields blank. You should return to
   fill these in before the dataset is used in analyses."
 
+**Validate against the schema — BLOCKING GATE:**
+
+Every required field from `references/dataset_metadata_schema.yaml` must be present and
+non-empty in every table's file. Run the check, do not hand-inspect:
+
+```bash
+source .venv-berdl/bin/activate
+python3 - <<'PYEOF'
+import sys, yaml
+from pathlib import Path
+
+schema   = yaml.safe_load(Path(
+    ".claude/skills/berdl-ingest-remote/references/dataset_metadata_schema.yaml").read_text())
+required = schema["required"]
+files    = sorted((Path("<DATA_DIR>") / "metadata").glob("*.yaml"))
+
+if not files:
+    sys.exit("FAIL: no metadata files found — Step 3b did not run")
+
+bad = False
+for f in files:
+    meta = yaml.safe_load(f.read_text()) or {}
+    # `tenant` is legitimately null for user-tenant (my.*) ingests — see
+    # required_exceptions in the schema.
+    exempt  = {"tenant"} if str(meta.get("namespace", "")).startswith("my.") else set()
+    missing = [k for k in required
+               if k not in exempt and meta.get(k) in (None, "", [], {})]
+    if missing:
+        bad = True
+        print(f"  FAIL {f.name}: missing/empty {missing}")
+    else:
+        print(f"  ok   {f.name}")
+print("\nMETADATA VALIDATION:", "FAILED" if bad else "PASSED", f"({len(files)} file(s))")
+sys.exit(1 if bad else 0)
+PYEOF
+```
+
+If this fails, fix the offending fields and re-run it. **Do not upload and do not proceed to
+Step 4 until it prints `PASSED`.**
+
 **Upload to MinIO (first push — in_progress):**
 
 ```bash
@@ -408,12 +478,18 @@ Confirm to the user:
 > "Metadata uploaded (first push — **in_progress**) for {N} tables →
 > `s3a://cdm-lake/{BRONZE_PREFIX}/metadata/`"
 
+**Step 3b is complete only when the validation passed and the first push succeeded.** If you
+reach Step 4 without both, stop and return to Step 3b.
+
 ### Step 4: Generate, configure, and run the ingest notebook
+
+**Precondition:** Step 3b passed schema validation and completed its first push. The notebook
+uploads data and writes Iceberg tables — do not run it otherwise.
 
 Copy the reference template into the source directory, named after the dataset:
 
 ```bash
-cp .claude/skills/berdl-ingest/references/ingest.ipynb <DATA_DIR>/<dataset>_ingest.ipynb
+cp .claude/skills/berdl-ingest-remote/references/ingest.ipynb <DATA_DIR>/<dataset>_ingest.ipynb
 ```
 
 Edit the configuration cell (cell id `b0000003`) in the copied notebook, replacing the
