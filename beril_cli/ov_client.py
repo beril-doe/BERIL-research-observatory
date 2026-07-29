@@ -21,6 +21,7 @@ import httpx
 _USER_PATH = "/api/ov/user"
 _REGENERATE_PATH = "/api/ov/user/regenerate"
 _CREDENTIALS_PATH = "/api/ov/credentials"
+_HEALTH_PATH = "/api/ov/health"
 _HTTP_TIMEOUT_SECONDS = 15.0
 
 
@@ -93,6 +94,26 @@ def fetch_ov_credential(
             "BERIL did not return an OpenViking user_key."
         )
     return (ov_url, user_key)
+
+
+def ov_health(base_url: str, token: str) -> dict:
+    """Return BERIL's view of OpenViking health via ``GET /api/ov/health``.
+
+    The route always answers 200 with ``{"status": "ok"|"unreachable", ...}``
+    when the caller is authenticated. Raises :class:`OvLinkError` on transport
+    failure or a non-2xx (e.g. 401).
+    """
+    base = base_url.rstrip("/")
+    with httpx.Client(
+        timeout=_HTTP_TIMEOUT_SECONDS,
+        headers={"Authorization": f"Bearer {token}"},
+    ) as client:
+        resp = _request(client, "GET", base + _HEALTH_PATH)
+        _guard(resp, action="check OpenViking health")
+    try:
+        return resp.json()
+    except ValueError as e:
+        raise OvLinkError("BERIL returned invalid JSON for OpenViking health.") from e
 
 
 def _request(client: httpx.Client, method: str, url: str) -> httpx.Response:

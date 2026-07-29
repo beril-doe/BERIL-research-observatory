@@ -19,8 +19,12 @@ OpenViking holds an indexed context layer over BERIL projects and central docs. 
 ## Picking the right primitive
 
 ```
-QUERY="uv run --env-file .env knowledge/scripts/knowledge_query.py"
+QUERY="uv run knowledge/scripts/knowledge_query.py"
 ```
+
+Credentials resolve from `~/.beril` after `beril login` (see § Configuration) —
+no `--env-file` needed. To override, set `OPENVIKING_URL` / `OPENVIKING_API_KEY`
+in the env or prepend `--env-file .env`.
 
 | Question | Use | Why |
 |---|---|---|
@@ -216,7 +220,7 @@ For everything else (project→doc, doc→doc, file-level links), use the `link`
 ## Refreshing context
 
 ```bash
-INGEST="uv run --env-file .env knowledge/scripts/ingest_context.py"
+INGEST="uv run knowledge/scripts/ingest_context.py"   # creds from ~/.beril; see § Configuration
 $INGEST --project <project_id>     # after editing one project
 $INGEST --changed                  # after mixed edits — diffs against state manifest
 $INGEST --all                      # full refresh
@@ -228,22 +232,36 @@ $INGEST --docs                     # central docs only
 
 ## Configuration
 
-`.env` (copy from `.env.example`):
+**Remote server (recommended for most users):** BERIL runs a shared OpenViking
+server (currently the dev host `https://beril-dev.kbase.us`). The one-call setup
+is `beril login` — it validates your token and links + caches your OpenViking
+credential in `~/.beril`, so the query CLI resolves it automatically:
+
+```bash
+beril login                 # links OpenViking too; no browser cookie needed
+$QUERY doctor               # verify (no --env-file required once cached)
+```
+
+If login couldn't reach OpenViking (or you logged in before this was wired up),
+link it separately against the same stored token:
+
+```bash
+beril ov setup              # or `beril ov setup --regenerate` to rotate the key
+beril ov status             # show the cached credential + server health
+```
+
+`ContextConfig.from_env` precedence is: explicit env vars → the `~/.beril`
+cached credential → the local default URL. So `OPENVIKING_URL` /
+`OPENVIKING_API_KEY` (in `.env` or the shell) still override the cache when set
+— useful for CI or pointing at a different server. `beril ov print-env` emits
+those two lines if you'd rather populate `.env` (`eval "$(beril ov print-env)"`).
+
+`.env` keys (copy from `.env.example`), when you set them explicitly:
 
 - `OPENVIKING_URL` — defaults to `http://127.0.0.1:1933`
 - `OPENVIKING_API_KEY` — only when the server enforces auth (remote deployments)
 
-**Remote server (recommended for most users):** BERIL runs a shared OpenViking
-server (currently the dev host `https://beril-dev.kbase.us`). Get a one-time API
-key and write it into `.env` with the helper, then verify:
-
-```bash
-uv run knowledge/scripts/setup_remote_ov.py --cookie '<beril_session cookie>'
-$QUERY doctor
-```
-
-Full walkthrough (how to copy the cookie, rotation, troubleshooting):
-`docs/remote-openviking-setup.md`.
+Full walkthrough (rotation, troubleshooting): `docs/remote-openviking-setup.md`.
 
 **Local server:** copy `knowledge/openviking/ov.conf.example` → `knowledge/openviking/ov.conf` and set the OpenRouter key in `embedding` and the CBORG key in `vlm`. The local `ov.conf` is gitignored.
 

@@ -103,6 +103,31 @@ def main(argv: list[str] | None = None) -> int:
         help = "Log out of BERIL server, deletes local BERIL auth credentials"
     )
 
+    # ov — link/inspect/export the OpenViking credential (login links it too)
+    ov_parser = sub.add_parser(
+        "ov",
+        help="Link, inspect, or export your OpenViking credential",
+    )
+    ov_sub = ov_parser.add_subparsers(dest="ov_action", required=True)
+    ov_setup = ov_sub.add_parser(
+        "setup",
+        help="Link OpenViking against your stored login (repair / rotation path)",
+    )
+    ov_setup.add_argument(
+        "--regenerate",
+        action="store_true",
+        default=False,
+        help="Mint a fresh OpenViking key, invalidating the old one",
+    )
+    ov_sub.add_parser(
+        "status",
+        help="Show the cached OpenViking credential and probe server health",
+    )
+    ov_sub.add_parser(
+        "print-env",
+        help='Emit OPENVIKING_URL / OPENVIKING_API_KEY (eval "$(beril ov print-env)")',
+    )
+
     # runtime-snapshot (settings.json SessionStart hook; reads the hook payload from stdin)
     sub.add_parser(
         "runtime-snapshot",
@@ -152,6 +177,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "logout":
         from beril_cli.auth_cmd import run_logout
         return run_logout()
+
+    if args.command == "ov":
+        from beril_cli.ov_cmd import run_ov
+        return run_ov(args)
 
     if args.command == "runtime-snapshot":
         from beril_cli.audit_cmd import run_runtime_snapshot
