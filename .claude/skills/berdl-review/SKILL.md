@@ -19,7 +19,7 @@ The reviewer hunts **evaluation-integrity** failures (selection bias, metric mis
 Options:
 - `--type project|plan` — Review type (default: `project`)
 - `--reviewer claude|codex` — Reviewer backend (default: `claude`)
-- `--model <model_id>` — Model override (default: `claude-sonnet-4-20250514` for claude, `gpt-5.4` for codex)
+- `--model <model_id>` — Model override (default: `claude-sonnet-5` for claude, `gpt-5.6-sol` for codex)
 
 If no `<project_id>` argument is provided, detect from the current working directory (if inside `projects/{id}/`).
 
