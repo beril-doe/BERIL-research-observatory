@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "BERIL Research Observatory — CLI launcher and environment manager"
 requires-python = ">=3.11"
 license = "MIT"
-dependencies = []
+dependencies = ["httpx", "certifi"]
 
 [project.scripts]
 beril = "beril_cli.cli:main"
