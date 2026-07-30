@@ -1,4 +1,4 @@
-name: Install and test
+name: Install and test BERIL CLI
 on:
   pull_request:
     types:
@@ -23,13 +23,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd ui
-          uv sync --all-extras
+          uv sync --group test
 
-      - name: Run tests
+      - name: Run CLI tests
         run: |
-          cd ui
-          uv run pytest
+          uv run pytest tests/
 
       - name: Send to Codecov
         uses: codecov/codecov-action@v5
