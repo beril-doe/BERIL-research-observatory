@@ -270,7 +270,8 @@ Establish the project directory and manifest **before** any querying, planning, 
 6. **Branch (recommended)**: offer to create branch `projects/<id>` and switch to it. Long-running projects on `main` create merge pain. If the user declines, leave on the current branch. Record the actual branch in `beril.yaml`.
 7. **Write a stub `README.md`** (template at the bottom): title (humanized from project_id), Status block reading "Exploration — research plan not yet written", authors from beril user, Quick Links pointing at `RESEARCH_PLAN.md` (TBD) and `REPORT.md` (TBD), Reproduction placeholder.
 8. **Update `beril.yaml`**: `artifacts.readme: true`.
-9. **Commit**: `feat(project): scaffold {id} (exploration phase)`.
+9. **Open the worklog**: write the first entry to `projects/<id>/WORKLOG.md` (`project scaffolded → exploration`) per `.claude/skills/worklog-capture/SKILL.md`. One entry per transition and per unit of work from here on.
+10. **Commit**: `feat(project): scaffold {id} (exploration phase)`.
 10. Suggest naming this session to match the project: "Consider naming this session `{project_id}` to match the branch — useful for long-running or remote sessions where the connection may drop."
 
 After Phase 0, **every artifact has a home**. User data → `projects/<id>/user_data/`. Exploration queries → `projects/<id>/notebooks/00_*.ipynb`. References → `projects/<id>/references.md`. Move on to Phase A.
@@ -307,7 +308,8 @@ Status transition: `exploration` → `proposed`.
 1. Write `projects/<id>/RESEARCH_PLAN.md` (template at the bottom of this file): Research Question, Hypothesis (H0/H1), Literature Context, Approach, Data Sources, Query Strategy (tables, filter strategy, performance tier), Analysis Plan (numbered notebooks with goals + expected outputs), Expected Outcomes, Revision History (v1 with today's date), Authors.
 2. Update `projects/<id>/README.md` Status block to "Proposed — research plan written, awaiting analysis." Fill in any other sections that became clearer (Overview, Research Question).
 3. Update `beril.yaml`: `status: proposed`, `last_session_at` to now, `artifacts.research_plan: true`.
-4. Commit: `feat(project): research plan for {id}`.
+4. Append a worklog entry (`plan written → proposed`) recording *why* this framing was chosen and what was rejected — see `.claude/skills/worklog-capture/SKILL.md`.
+5. Commit: `feat(project): research plan for {id}`.
 
 **STOP HERE.** The plan is the contract for what comes next. Do NOT write or execute notebooks yet. Proceed to the Checkpoint.
 
@@ -338,12 +340,22 @@ Then ask explicitly:
 Status transition: `proposed` → `active`.
 
 - Update `beril.yaml`: `status: active`, `last_session_at` to now.
+- Append a worklog entry (`analysis started → active`).
+- Start the live dashboard and give the user its URL, **once**:
+
+  ```bash
+  setsid nohup python3 tools/dashboard.py projects/<id> > projects/<id>/.dash.log 2>&1 &
+  sleep 1 && head -5 projects/<id>/.dash.log
+  ```
+
+  Surface the printed URL as a plain clickable line, then move on — do not block, do not wait, and do not re-print it on later turns. If the log reports that `jupyter-server-proxy` is not enabled, relay the one-time fix verbatim: it needs a Jupyter restart that will kill this terminal, so the user should hear it now rather than mid-analysis.
 - Write numbered analysis notebooks (`01_data_exploration.ipynb`, `02_analysis.ipynb`, ...) following the analysis plan in `RESEARCH_PLAN.md`.
 - Notebooks are the primary audit trail — do as much work as possible in notebooks so humans can inspect intermediate results.
 - When parallel execution or complex pipelines are needed, write scripts in `projects/<id>/src/` but call them from notebooks.
 - **Run notebooks** — execute cells, inspect outputs, iterate.
 - If new information emerges that changes the approach, update `RESEARCH_PLAN.md` Revision History as `- **v{n}** ({date}): {change}` before continuing.
 - **Commit frequently** — after each major milestone (notebook complete, data extracted, key result reproduced).
+- **Append a worklog entry at each of those milestones** — a notebook written and executed, a batch of figures saved, a data export, or a correction (bug found, re-run, approach abandoned). Corrections are the highest-value entries; they're the only record of why the project wasn't a straight line. See `.claude/skills/worklog-capture/SKILL.md`.
 - Re-read `docs/pitfalls.md` when something doesn't behave as expected.
 
 ##### Checkpoint: Results Review
@@ -393,6 +405,7 @@ If the user discovers an error after submission and wants to revise: run `/synth
 
 - Commit code often — don't let work accumulate uncommitted.
 - **Capture pitfalls as you go**: when something goes wrong, follow `.claude/skills/pitfall-capture/SKILL.md` — it appends to `projects/<id>/memories/pitfalls.md` (per-project, append-only with corrections). Don't write to the central `docs/pitfalls.md`; it's a frozen historical archive.
+- **Keep the worklog current**: every transition and every completed unit of work gets an entry in `projects/<id>/WORKLOG.md` per `.claude/skills/worklog-capture/SKILL.md`. Append-only, never blocks, log the *why* and link the artifacts. A pitfall gets its full write-up in `memories/pitfalls.md` and one line here noting the correction.
 - **Capture discoveries and performance notes in REPORT.md**: when you find something worth surfacing across projects, draft it in the optional `## Discoveries` section of `REPORT.md` (added by `/synthesize`). Project-specific tuning observations go in `## Performance Notes`. These flow through `/berdl-review` and get extracted into `projects/<id>/memories/{discoveries,performance}.md` by `/submit` at approval — only after review and approval, so the memories layer reflects vetted content.
 - **When debugging or designing queries**, check both layers: grep `docs/pitfalls.md` (historical archive — still has most of the canonical gotchas) AND scan `projects/*/memories/pitfalls.md` for recent gotchas hit by related projects (especially the same database family).
 - Re-read `docs/performance.md` when queries are slow — it's still the canonical reference for table-size strategies and anti-patterns. Project-specific tuning hits captured at past approvals live in `projects/*/memories/performance.md`.

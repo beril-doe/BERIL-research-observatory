@@ -250,6 +250,7 @@ Phase 2c is split into a **pre-write validation pass** (no state mutation) follo
     {trimmed captured content}
     ```
     The HTML-comment provenance line keeps the file readable as plain markdown while making the generation context unambiguous (project tag, approval timestamp, source review). Overwrite the file if it exists from a prior approval.
+- Append a worklog entry (`approved by {approval.by} → complete`) to `projects/{project_id}/WORKLOG.md` per `.claude/skills/worklog-capture/SKILL.md`: what the project concluded in one sentence, and any caveat the approver accepted despite. Link `REPORT.md` and the approved `REVIEW.md`. This is the last narrative entry before the project is archived, so it should read as the closing line of the story.
 - **Do NOT pre-clear** existing `SUBMITTED.md` or `SUBMISSION_FAILED.md`. Markers are managed exclusively by Phase 3 success/failure handlers. This avoids ambiguity if Phase 3 is interrupted.
 
 At this point the project is **approved locally** regardless of upload outcome. The user can `git add` and commit if they want git history to reflect the approval.

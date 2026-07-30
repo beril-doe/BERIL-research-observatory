@@ -243,6 +243,12 @@ Update `projects/{project_id}/beril.yaml` (skip silently if the file is missing 
 
 This makes `/synthesize` self-contained: when invoked directly (outside the `/berdl_start` orchestration), the manifest reflects the correct state without bypassing the plan-review checkpoint or the `proposed` → `active` transition that Phase C owns.
 
+#### Step 7d: Append a worklog entry
+
+Append `findings synthesized → analysis` to `projects/{project_id}/WORKLOG.md` per `.claude/skills/worklog-capture/SKILL.md`: what the findings actually were in a sentence, and what the synthesis had to reconcile or discard. Link `REPORT.md`.
+
+If Step 0 demoted the project from `reviewed` or `complete`, that demote is itself a transition — write its own entry first, saying what went stale and why the report was reopened.
+
 #### Step 8: Update References
 
 Add any new papers found during synthesis to `projects/{project_id}/references.md`.
