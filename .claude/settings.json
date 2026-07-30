@@ -16,6 +16,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/beril-runtime.sh"
+          }
+        ]
+      }
     ]
   }
 }

@@ -34,6 +34,17 @@ def _repo(tmp_path: Path, projects: dict) -> Path:
     """
     subprocess.run(["git", "init", "-q", "."], cwd=tmp_path, check=True)
     (tmp_path / "tools").symlink_to(ROOT / "tools")
+    # beril_cli and the hook are symlinked in too, so the hook resolves *this*
+    # tree as its repo root (it derives it from its own path) and can never
+    # write into the real projects/ directory.
+    (tmp_path / "beril_cli").symlink_to(ROOT / "beril_cli")
+    # audit_cmd._find_repo_root walks up from cwd looking for this marker;
+    # without it the snapshot silently declines to resolve any project.
+    (tmp_path / "PROJECT.md").write_text("# throwaway\n")
+    (tmp_path / ".claude" / "hooks").mkdir(parents=True)
+    (tmp_path / ".claude" / "hooks" / "beril-runtime.sh").symlink_to(
+        ROOT / ".claude" / "hooks" / "beril-runtime.sh"
+    )
     for pid, sessions in projects.items():
         pdir = tmp_path / "projects" / pid
         pdir.mkdir(parents=True)
@@ -126,3 +137,91 @@ def test_cwd_outranks_recorded_provenance(tmp_path):
 
     assert "beta" in out
     assert "alpha" not in out
+
+
+# --------------------------------------------------------------------------
+# Binding a mid-session project — the PostToolUse hook
+# --------------------------------------------------------------------------
+
+def _hook(repo: Path, payload: dict, session_id: str) -> subprocess.CompletedProcess:
+    """Run the hook the way Claude Code does, but from inside the throwaway repo.
+
+    Invoked through the symlink in `repo/.claude/hooks/`, because the hook
+    derives its root from its own resolved path — running the one in the real
+    repo would make every assertion here about the real projects/ tree.
+    """
+    import os
+
+    env = {**os.environ, "CLAUDE_CODE_SESSION_ID": session_id}
+    return subprocess.run(
+        ["bash", str(repo / ".claude" / "hooks" / "beril-runtime.sh")],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        cwd=str(repo),
+        env=env,
+        timeout=60,
+    )
+
+
+def test_a_tool_write_binds_the_session_to_the_project_it_touched(tmp_path):
+    """The gap this closes: a project created *during* a session was never bound.
+
+    None of the other signals can fire — Claude Code was launched before the
+    directory existed, `/berdl_start` only *offers* to create the branch, and the
+    SessionStart snapshot ran before Phase 0 scaffolded anything. The first write
+    into the project is the earliest moment the binding is knowable.
+    """
+    repo = _repo(tmp_path, {"newproj": None})   # no runtime.json yet
+    sid = "sess-posttooluse"
+
+    done = _hook(repo, {
+        "session_id": sid,
+        "hook_event_name": "PostToolUse",
+        "cwd": str(repo),
+        "tool_name": "Write",
+        "tool_input": {"file_path": str(repo / "projects" / "newproj" / "beril.yaml")},
+    }, sid)
+    assert done.returncode == 0, done.stderr          # never blocks a tool call
+
+    # Gotcha 1: a guard that reads stdin would eat the payload and this file
+    # would never be written.
+    recorded = json.loads((repo / "projects" / "newproj" / "runtime.json").read_text())
+    assert any(s.get("session_id") == sid for s in recorded["sessions"])
+
+    # ...and the status line now names it, having had no other signal.
+    assert "newproj" in _render(repo, session_id=sid)
+
+
+def test_the_guard_does_not_skip_a_non_tool_payload(tmp_path):
+    """Gotcha 2. A SessionStart payload for a session on branch `projects/<id>`
+    sitting at the repo root contains no `projects/` string at all — the branch is
+    read by shelling out to git. A blanket "skip unless the payload mentions
+    projects/" would silently break the path that works today."""
+    repo = _repo(tmp_path, {"branchproj": None})
+    subprocess.run(["git", "checkout", "-q", "-b", "projects/branchproj"],
+                   cwd=repo, check=True)
+    sid = "sess-sessionstart"
+
+    done = _hook(repo, {"session_id": sid, "hook_event_name": "SessionStart",
+                        "cwd": str(repo), "source": "startup"}, sid)
+    assert done.returncode == 0, done.stderr
+    assert (repo / "projects" / "branchproj" / "runtime.json").is_file(), (
+        "the guard skipped a SessionStart payload whose only project signal is the "
+        "git branch, which is never in the payload"
+    )
+
+
+def test_a_write_outside_any_project_records_nothing(tmp_path):
+    """The guard's whole purpose: most writes are not into a project, and paying
+    ~70ms for each would be the cost that made the hook not worth registering."""
+    repo = _repo(tmp_path, {"untouched": None})
+    done = _hook(repo, {
+        "session_id": "sess-elsewhere",
+        "hook_event_name": "PostToolUse",
+        "cwd": str(repo),
+        "tool_name": "Edit",
+        "tool_input": {"file_path": str(repo / "tools" / "dashboard.py")},
+    }, "sess-elsewhere")
+    assert done.returncode == 0, done.stderr
+    assert not (repo / "projects" / "untouched" / "runtime.json").exists()

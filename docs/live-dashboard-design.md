@@ -121,6 +121,37 @@ Markdown and parquet are excluded for measured reasons — a blank pane from a m
 `edit/<path>?factory=` route that looks correct and isn't, is in the `MARKDOWN_EXT` comment
 in `tools/dashboard.py` — kept next to the constant it explains.
 
+## How the status line finds the project
+
+`.claude/statusline.sh` renders a second line naming the project, its stage and this
+dashboard's URL. It resolves the project from four signals, and for a project created
+*during* a session only the last one can fire: Claude Code was launched before the
+directory existed, `/berdl_start` only *offers* to create the `projects/<id>` branch, and
+`/add-dir` is manual. The fourth is `projects/<id>/runtime.json` keyed by session id.
+
+That file's only writer is `.claude/hooks/beril-runtime.sh`, which is registered on
+**`SessionStart` and `PostToolUse`**. SessionStart alone was not enough — it fires before
+Phase 0 scaffolds anything, so the intended path was the dead one and the line stayed blank
+for a whole run. PostToolUse binds on the first write into any project;
+`project_resolution._path_projects` finds it in `tool_input.file_path` with no explicit
+binding.
+
+Two things about that hook are easy to break and are pinned by tests:
+
+- It **captures stdin into a variable first**. The cost guard reads the payload, and a
+  pipeline that greps stdin would consume it, leaving the snapshot nothing to read.
+- The guard applies to **tool events only**. A `SessionStart` payload for a session on
+  branch `projects/<id>` at the repo root contains no `projects/` string — the branch is
+  read by shelling out to git — so a blanket "skip unless the payload mentions `projects/`"
+  would silently break the path that already worked.
+
+Unguarded the hook costs ~103 ms on every `Write`/`Edit`; guarded, a write outside any
+project costs ~16 ms (measured).
+
+Everything stays keyed to `session_id` on purpose. Several sessions can run in one clone on
+different projects, so any repo-wide signal — an env var, "whichever `beril.yaml` was
+touched last" — hands all of them the same answer and flips under them as each one writes.
+
 ## Failure modes
 
 | Failure | Symptom | Fallback |
