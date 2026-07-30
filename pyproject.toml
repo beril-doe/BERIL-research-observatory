@@ -10,7 +10,12 @@ dependencies = []
 beril = "beril_cli.cli:main"
 
 [dependency-groups]
-test = ["pytest>=8"]
+# mistune and markdown are OPTIONAL AT RUNTIME — tools/dashboard.py imports each
+# in a try/except and degrades to escaped <pre>, and the project's runtime
+# `dependencies` stays empty by design. They are pinned here so all three
+# markdown tiers are exercised on every machine; without them the tier-1 and
+# tier-2 tests silently fall through to tier 3 and assert nothing.
+test = ["pytest>=8", "mistune>=3", "markdown>=3"]
 knowledge = [
   "openviking",
   "pyyaml",

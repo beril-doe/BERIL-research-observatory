@@ -89,6 +89,11 @@ projects/*/user_data/**/*.db
 projects/*/user_data/**/*.xlsx
 !projects/*/user_data/.gitkeep
 
+# Live dashboard — generated snapshot and launcher log, per project.
+# WORKLOG.md and plan_deviations.jsonl stay tracked: they are provenance.
+projects/*/dashboard.html
+projects/*/.dash.log
+
 # UI application
 ui/data/cache.json
 ui/data/indexdir/
@@ -116,3 +121,6 @@ knowledge/workspace
 knowledge/ov.conf
 knowledge/openviking/ov.conf
 knowledge/openviking/gcp-key.json
+
+# Superpowers brainstorm session artifacts
+.superpowers/
