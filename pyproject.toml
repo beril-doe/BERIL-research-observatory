@@ -10,7 +10,10 @@ dependencies = ["httpx", "certifi"]
 beril = "beril_cli.cli:main"
 
 [dependency-groups]
-test = ["pytest>=8"]
+test = [
+  "pytest>=8.0.0",
+  "pytest-cov>=5.0.0",
+]
 knowledge = [
   "openviking",
   "pyyaml",
