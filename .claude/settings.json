@@ -16,6 +16,26 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/plan-gate.py\"; exit 0'"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/plan-gate.py\"; exit 0'"
+          }
+        ]
+      }
     ]
   }
 }

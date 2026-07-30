@@ -80,6 +80,20 @@ def main(argv: list[str] | None = None) -> int:
         help="Emit machine-readable JSON (summary action)",
     )
 
+    # approve — the human witness for the plan-review checkpoint (records plan_approval)
+    approve_parser = sub.add_parser(
+        "approve",
+        help="Record human approval of a project's RESEARCH_PLAN.md",
+    )
+    approve_parser.add_argument("project", help="Project id under projects/")
+    approve_parser.add_argument(
+        "--relayed",
+        action="store_true",
+        default=False,
+        help="Assert the user approved in conversation; the CLI did not witness"
+        " it, and the record says so (via: agent-relayed)",
+    )
+
     # auth
     login_parser = sub.add_parser(
         "login",
@@ -177,6 +191,10 @@ def main(argv: list[str] | None = None) -> int:
 
         return run_claims(args)
 
+    if args.command == "approve":
+        from beril_cli.approve_cmd import run_approve
+
+        return run_approve(args)
     if args.command == "login":
         from beril_cli.auth_cmd import run_login
         return run_login(token=args.token, base_url=args.base_url, status=args.status)
