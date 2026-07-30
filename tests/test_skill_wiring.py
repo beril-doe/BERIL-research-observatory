@@ -63,18 +63,30 @@ def test_every_lifecycle_transition_owner_hooks_the_worklog():
     )
 
 
-def test_dashboard_launcher_is_wired_into_exactly_one_lifecycle_skill():
-    """Zero means it never starts for the operator. More than one means the URL
-    is re-printed every phase — the noise the design explicitly cut."""
-    launchers = [
+def test_only_the_statusline_launches_the_dashboard():
+    """The launcher lives in `.claude/statusline.sh` and nowhere else.
+
+    It used to sit in skill prose, and that never fired during exploration: the
+    earliest copy was in `/berdl_start` Phase C, after the plan is written *and*
+    approved, and the other was four hops deep in worklog-capture. The statusline
+    is the only place that reliably can — it already resolves the project and
+    probes the port, and it runs every turn, so a dashboard lost to a pod restart
+    comes back on its own.
+
+    A skill growing its own launcher again would be prose that drifts from the
+    real one and fires at the wrong time, so this fails if one reappears.
+    """
+    offenders = [
         path.parent.name
         for path in sorted(SKILLS.glob("*/SKILL.md"))
         if "tools/dashboard.py" in path.read_text(encoding="utf-8")
-        and path.parent.name != "worklog-capture"
     ]
-    assert len(launchers) == 1, f"expected exactly one launcher skill, found {launchers}"
+    assert not offenders, (
+        f"these skills launch the dashboard: {offenders}. The statusline owns it; "
+        "a second launcher fires at the wrong moment and drifts."
+    )
 
-    assert "tools/dashboard.py" in WORKLOG_SKILL.read_text(encoding="utf-8"), (
-        "worklog-capture no longer re-runs the launcher; a dashboard killed by a "
-        "pod restart would never come back"
+    statusline = (ROOT / ".claude" / "statusline.sh").read_text(encoding="utf-8")
+    assert "tools" in statusline and "dashboard.py" in statusline, (
+        "the statusline no longer launches the dashboard, and nothing else does"
     )

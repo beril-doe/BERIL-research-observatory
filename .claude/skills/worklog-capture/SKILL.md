@@ -95,15 +95,3 @@ If `projects/<id>/WORKLOG.md` doesn't exist, the first entry creates it with a o
 ```
 
 Use `Write` to create, `Edit` to append. Entries go in chronological order, newest at the bottom.
-
-## Keep the dashboard alive
-
-After appending an entry, re-run the launcher:
-
-```bash
-setsid nohup python3 tools/dashboard.py projects/<id> > projects/<id>/.dash.log 2>&1 &
-```
-
-It is idempotent — an already-running dashboard exits 0 on `EADDRINUSE` in about 50 ms, so this is a no-op on every call after the first. **Do not print the URL here**; `/berdl_start` Phase C surfaces it once, and repeating it on every worklog entry is noise.
-
-This falls under the never-block rule above: if the launcher fails for any reason, carry on with the real work. The dashboard is a view, not a participant.

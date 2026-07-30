@@ -341,14 +341,6 @@ Status transition: `proposed` → `active`.
 
 - Update `beril.yaml`: `status: active`, `last_session_at` to now.
 - Append a worklog entry (`analysis started → active`).
-- Start the live dashboard and give the user its URL, **once**:
-
-  ```bash
-  setsid nohup python3 tools/dashboard.py projects/<id> > projects/<id>/.dash.log 2>&1 &
-  sleep 1 && head -5 projects/<id>/.dash.log
-  ```
-
-  Surface the printed URL as a plain clickable line, then move on — do not block, do not wait, and do not re-print it on later turns. If the log reports that `jupyter-server-proxy` is not enabled, relay the one-time fix verbatim: it needs a Jupyter restart that will kill this terminal, so the user should hear it now rather than mid-analysis.
 - Write numbered analysis notebooks (`01_data_exploration.ipynb`, `02_analysis.ipynb`, ...) following the analysis plan in `RESEARCH_PLAN.md`.
 - Notebooks are the primary audit trail — do as much work as possible in notebooks so humans can inspect intermediate results.
 - When parallel execution or complex pipelines are needed, write scripts in `projects/<id>/src/` but call them from notebooks.

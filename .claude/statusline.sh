@@ -126,13 +126,35 @@ except Exception:
 
 # Only advertise a URL that answers. A dead link is exactly the small lie the
 # page itself is built to avoid.
+#
+# ...and if nothing answers, start it. This is the only place that reliably can:
+# it already resolves the project and derives the port, it runs every turn so a
+# dashboard lost to a pod restart comes back by itself, and it is the thing
+# displaying the URL, so there is no second step to surface it. The two skill-text
+# launchers this replaces never fired during exploration — the earliest one sat in
+# Phase C, after the plan is written *and* approved.
+#
+# A display component with a side effect is unusual, so it is bounded: it fires
+# only when a project resolved AND the port is closed, and the launcher exits 0 on
+# EADDRINUSE. Steady state is one 0.05s socket check and nothing else.
 url = ""
 if port:
     s = socket.socket()
     s.settimeout(0.05)
-    if s.connect_ex(("127.0.0.1", port)) == 0:
-        url = public_url(port)
+    listening = s.connect_ex(("127.0.0.1", port)) == 0
     s.close()
+    if not listening:
+        try:
+            log = open(pdir / ".dash.log", "ab")
+            subprocess.Popen(
+                [sys.executable, str(root / "tools" / "dashboard.py"), str(pdir)],
+                stdout=log, stderr=log, stdin=subprocess.DEVNULL,
+                start_new_session=True, cwd=str(root),
+            )
+        except Exception:
+            pass  # never let a display component break a turn
+    else:
+        url = public_url(port)
 
 tail = [f"{G}●{X} {pid}" if url else f"{DIM}○{X} {pid}"]
 if label:

@@ -225,3 +225,51 @@ def test_a_write_outside_any_project_records_nothing(tmp_path):
     }, "sess-elsewhere")
     assert done.returncode == 0, done.stderr
     assert not (repo / "projects" / "untouched" / "runtime.json").exists()
+
+
+def test_the_statusline_starts_a_dashboard_that_is_not_running(tmp_path):
+    """The launcher moved here because skill prose never fired during
+    exploration: the earliest copy sat in `/berdl_start` Phase C, after the plan
+    is written *and* approved.
+
+    Bounded on purpose — it fires only when a project resolved and the port is
+    closed, so the steady state is one socket check and nothing else.
+    """
+    import socket
+    import time
+
+    repo = _repo(tmp_path, {"spawnme": ["sess-spawn"]})
+    port = 8700 + __import__("zlib").crc32(b"spawnme") % 100
+
+    probe = socket.socket(); probe.settimeout(0.2)
+    assert probe.connect_ex(("127.0.0.1", port)) != 0, f"port {port} already in use"
+    probe.close()
+
+    first = _render(repo, session_id="sess-spawn")
+    assert "dashboard not running" in first          # nothing to advertise yet
+
+    try:
+        for _ in range(40):                          # give it a moment to bind
+            time.sleep(0.25)
+            probe = socket.socket(); probe.settimeout(0.2)
+            up = probe.connect_ex(("127.0.0.1", port)) == 0
+            probe.close()
+            if up:
+                break
+        assert up, "the statusline did not start a dashboard"
+        assert f":{port}/" in _render(repo, session_id="sess-spawn")
+    finally:
+        subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects/spawnme"],
+                       capture_output=True)
+
+
+def test_it_does_not_spawn_when_no_project_resolves(tmp_path):
+    """A display component with a side effect has to stay bounded: no project,
+    no process."""
+    repo = _repo(tmp_path, {"unbound": None})
+    before = subprocess.run(["pgrep", "-fc", "tools/dashboard.py"],
+                            capture_output=True, text=True).stdout.strip() or "0"
+    assert "unbound" not in _render(repo, session_id="no-such-session")
+    after = subprocess.run(["pgrep", "-fc", "tools/dashboard.py"],
+                           capture_output=True, text=True).stdout.strip() or "0"
+    assert before == after, "spawned a dashboard with no project resolved"

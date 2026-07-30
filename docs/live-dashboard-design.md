@@ -121,6 +121,29 @@ Markdown and parquet are excluded for measured reasons — a blank pane from a m
 `edit/<path>?factory=` route that looks correct and isn't, is in the `MARKDOWN_EXT` comment
 in `tools/dashboard.py` — kept next to the constant it explains.
 
+## What starts the dashboard
+
+`.claude/statusline.sh`, and nothing else.
+
+It used to be launched from skill prose, and that never fired during exploration —
+which is most of a project's early life. The earliest copy sat in `/berdl_start`
+Phase C, after the plan is written *and* approved; the other was four hops deep in
+`worklog-capture` and `berdl_start` Phase 0 never mentioned a dashboard at all, so
+the agent had no reason to think one existed. Observed blank through a real run.
+
+The status line is the only place that reliably can. It already resolves the project
+and derives the port, it already probes whether anything is listening, and it runs
+every turn — so a dashboard lost to a pod restart comes back on its own, and the URL
+appears where it is already being displayed rather than needing a second step to
+surface it.
+
+A display component with a side effect is unusual, so it is bounded: it fires only
+when a project resolved **and** the port is closed, and the launcher exits 0 on
+`EADDRINUSE`. The steady state is one 0.05 s socket check and nothing else. Both
+bounds are pinned by tests, and `test_only_the_statusline_launches_the_dashboard`
+fails if a skill grows its own launcher again — prose that drifts from the real one
+and fires at the wrong moment is exactly what this replaced.
+
 ## How the status line finds the project
 
 `.claude/statusline.sh` renders a second line naming the project, its stage and this
