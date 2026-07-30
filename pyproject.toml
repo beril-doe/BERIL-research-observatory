@@ -18,6 +18,7 @@ knowledge = [
   "openviking",
   "pyyaml",
   "rich",
+  "boto3",
 ]
 
 [build-system]

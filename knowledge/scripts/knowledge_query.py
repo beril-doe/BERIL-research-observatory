@@ -4,6 +4,7 @@
 # dependencies = [
 #     "openviking",
 #     "pyyaml",
+#     "boto3",
 # ]
 # ///
 from __future__ import annotations
@@ -15,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from observatory_context import fallback
+from observatory_context import berdl_fallback, fallback
 from observatory_context.config import ContextConfig
 from observatory_context.openviking_client import (
     create_client,
@@ -105,15 +106,42 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _berdl_then_local(config, uri, berdl_fn, local_fn) -> str:
+    """Try the BERDL lakehouse archive first, then the local working tree.
+
+    ``read``/``overview`` fetch a specific resource, so they can be served from
+    the submitted lakehouse copy when OpenViking is down. If that tier is
+    unavailable — no credentials, unreachable, unauthorized, or the resource
+    isn't archived — fall through to the local file. A per-tier banner tells the
+    user which source actually answered.
+    """
+    try:
+        result = berdl_fn(config, uri)
+        print(berdl_fallback.BANNER, file=sys.stderr)
+        return result
+    except berdl_fallback.BerdlUnavailable as exc:
+        print(
+            f"⚠ BERDL lakehouse unavailable ({exc}) — using local working tree.",
+            file=sys.stderr,
+        )
+        print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)
+        return local_fn(config, uri)
+
+
 def _run_fallback(args, config: ContextConfig) -> None:
-    print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)
+    # find/grep are keyword search over the whole corpus, so they skip the
+    # lakehouse tier (which would mean downloading everything) and go straight
+    # to local. read/overview fetch one resource and try BERDL first — each
+    # branch prints its own banner so the user sees which tier answered.
     if args.command == "find":
+        print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)
         target_uri = target_uri_for_find(
             project=args.project, docs=args.docs, target_uri=args.target_uri
         )
         result = fallback.local_find(config, args.query, target_uri, args.limit)
         print(json.dumps(result, default=str) if args.json else format_find_text(result))
     elif args.command == "grep":
+        print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)
         print(
             json.dumps(
                 fallback.local_grep(
@@ -129,10 +157,15 @@ def _run_fallback(args, config: ContextConfig) -> None:
             )
         )
     elif args.command == "read":
-        print(fallback.local_read(config, args.uri))
+        print(_berdl_then_local(config, args.uri, berdl_fallback.berdl_read, fallback.local_read))
     elif args.command == "overview":
-        print(fallback.local_overview(config, args.uri))
+        print(
+            _berdl_then_local(
+                config, args.uri, berdl_fallback.berdl_overview, fallback.local_overview
+            )
+        )
     else:
+        print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)
         print(fallback.DEGRADED_NOTICE.format(command=args.command), file=sys.stderr)
 
 
