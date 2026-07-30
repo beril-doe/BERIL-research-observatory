@@ -969,22 +969,25 @@ def e(value) -> str:
 def render_markdown(text: str) -> str:
     """Markdown to an HTML **fragment**, for the document overlay.
 
-    Three tiers, best available wins, because this file is otherwise pure stdlib
-    and a dashboard that refuses to start without a markdown library would be a
-    worse tool. The popup therefore always works; only its typography depends on
-    an optional import:
+    Two tiers, because this file is otherwise pure stdlib and a dashboard that
+    refuses to start without a markdown library would be a worse tool. The popup
+    always works; only its typography depends on an optional import:
 
     1. ``mistune`` — tables and strikethrough, the two things reports actually use.
-    2. ``markdown`` — same job, different engine.
-    3. Neither installed: the escaped source in a ``<pre>``. Readable, unstyled,
-       and still a working popup.
+       Declared in the PEP 723 header, so ``uv run`` always gets it, and present
+       on the BERDL image, so the pod's bare ``python3`` does too.
+    2. Not installed: the escaped source in a ``<pre>``. Readable, unstyled, and
+       still a working popup.
+
+    A third tier using ``markdown`` was removed: reaching it required an
+    environment with that library but *not* mistune, running bare ``python3``,
+    which is none of the three we actually run in.
 
     **Raw HTML is escaped in every tier.** Markdown here is agent-authored, the
     same trust boundary ``e()`` exists for, and this page is served under the hub's
     own origin — a ``<script>`` in a REPORT.md would run with the reader's Jupyter
-    session cookies. mistune is asked for ``escape=True``; ``markdown`` has no such
-    switch and passes raw HTML straight through, so its input is pre-escaped
-    instead. That costs intentional inline HTML in tier 2, which is the right trade.
+    session cookies. mistune is asked for ``escape=True``; the fallback escapes
+    the source outright.
     """
     try:
         import mistune
@@ -992,16 +995,6 @@ def render_markdown(text: str) -> str:
         return mistune.create_markdown(
             escape=True, plugins=["table", "strikethrough"]
         )(text)
-    except ImportError:
-        pass
-    try:
-        import markdown as _markdown
-
-        # quote=False: this is body text, not an attribute value, and escaping
-        # quotes here would show &quot; inside code spans.
-        return _markdown.markdown(
-            _html.escape(text, quote=False), extensions=["tables", "fenced_code"]
-        )
     except ImportError:
         pass
     return f"<pre>{e(text)}</pre>"

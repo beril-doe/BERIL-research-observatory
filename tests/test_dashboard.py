@@ -662,7 +662,7 @@ def test_proxy_detection_replicates_the_real_config_merge(tmp_path, monkeypatch)
     assert dash.proxy_enabled() is False
 
 
-def test_markdown_is_escaped_in_every_renderer_tier(monkeypatch):
+def test_markdown_is_escaped_in_both_renderer_tiers(monkeypatch):
     """The same trust boundary as the worklog, one layer deeper. The agent writes
     REPORT.md, and the overlay injects the rendered result with innerHTML into a
     page served under the hub's own origin — so a <script> here would run with the
@@ -677,20 +677,12 @@ def test_markdown_is_escaped_in_every_renderer_tier(monkeypatch):
     assert "&lt;script&gt;" in html
     assert "<h1>" in html          # still actually rendering, not just escaping
 
-    # Tier 2 is the dangerous one: `markdown` has no escape switch and passes raw
-    # HTML through, so its input is pre-escaped instead. mistune wins on most
-    # images, so tier 2 never runs there and the guard is asserted directly —
-    # deleting the pre-escape left the suite green when this was not here.
+    # Fallback tier: mistune absent. Still a working popup, just unstyled — and
+    # still escaped, which is the part that matters.
     _without(monkeypatch, "mistune")
-    tier2 = render_markdown(evil)
-    assert "<pre>" not in tier2 and "<h1>" in tier2
-    assert "<script>" not in tier2 and "&lt;script&gt;" in tier2
-
-    # Tier 3: neither library installed. Still a working popup, just unstyled.
-    _without(monkeypatch, "mistune", "markdown")
-    tier3 = render_markdown(evil)
-    assert tier3.startswith("<pre>") and "# H" in tier3
-    assert "<script>" not in tier3
+    plain = render_markdown(evil)
+    assert plain.startswith("<pre>") and "# H" in plain
+    assert "<script>" not in plain
 
 
 def _without(monkeypatch, *blocked: str) -> None:

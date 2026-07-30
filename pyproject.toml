@@ -10,12 +10,12 @@ dependencies = []
 beril = "beril_cli.cli:main"
 
 [dependency-groups]
-# mistune and markdown are OPTIONAL AT RUNTIME — tools/dashboard.py imports each
-# in a try/except and degrades to escaped <pre>, and the project's runtime
-# `dependencies` stays empty by design. They are pinned here so all three
-# markdown tiers are exercised on every machine; without them the tier-1 and
-# tier-2 tests silently fall through to tier 3 and assert nothing.
-test = ["pytest>=8", "mistune>=3", "markdown>=3"]
+# mistune is OPTIONAL AT RUNTIME — tools/dashboard.py imports it in a try/except
+# and degrades to escaped <pre>, and the project's runtime `dependencies` stays
+# empty by design. Pinned here because tier 1 is what actually runs in the pod,
+# and its `escape=True` is a security property: without the library installed
+# that assertion silently falls through to the <pre> tier and proves nothing.
+test = ["pytest>=8", "mistune>=3"]
 knowledge = [
   "openviking",
   "pyyaml",
