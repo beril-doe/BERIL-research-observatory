@@ -21,11 +21,10 @@ def repo(tmp_path, monkeypatch):
     return tmp_path
 
 
-def _ns(locator: str, payload: str = "", project: str | None = "p1", **kwargs):
+def _ns(locator: str, payload: str = "SELECT 1", project: str | None = "p1", **kwargs):
     return argparse.Namespace(
         locator=locator,
         payload=payload,
-        kind=kwargs.get("kind", "query"),
         project=project,
         session=kwargs.get("session"),
     )
@@ -64,11 +63,12 @@ def test_project_resolves_from_cwd_when_not_named(repo, monkeypatch):
     assert _lines(repo)[0]["locator"] == "q:from_cwd"
 
 
-def test_capture_never_blocks_on_a_bad_locator_or_unknown_project(repo, capsys):
+def test_capture_never_blocks_and_records_nothing_it_cannot_stand_behind(repo, capsys):
     assert run_capture_event(_ns("enrichment")) == 0  # no q: prefix
     assert run_capture_event(_ns("q:enrichment", project="nope")) == 0
+    assert run_capture_event(_ns("q:enrichment", payload="  ")) == 0  # no SQL
     assert _lines(repo) == []
-    assert "nothing recorded" in capsys.readouterr().err
+    assert capsys.readouterr().err.count("nothing recorded") == 3
 
 
 def test_find_query_returns_the_most_recent_and_skips_junk(repo):
@@ -77,10 +77,36 @@ def test_find_query_returns_the_most_recent_and_skips_junk(repo):
         '{"ts": "2026-07-01T00:00:00Z", "kind": "query", "locator": "q:a", "payload": "old"}\n'
         "not json at all\n"
         '{"kind": "query", "locator": "q:a", "payload": "no ts"}\n'
+        '{"ts": "", "kind": "query", "locator": "q:a", "payload": "empty ts"}\n'
         '{"ts": "2026-07-02T00:00:00Z", "kind": "query", "locator": "q:a", "payload": "new"}\n'
     )
     assert find_query(journal.parent, "q:a")["payload"] == "new"
     assert find_query(journal.parent, "q:b") is None
+
+
+def test_undecodable_bytes_never_raise_out_of_the_resolver(repo):
+    """A partial write must not abort `beril claims build` for the whole project.
+
+    ``UnicodeDecodeError`` is a ``ValueError``, so an ``except OSError`` around
+    the read does not catch it — it would propagate through
+    ``build_claim_state`` and take down the projection. Undecodable bytes
+    degrade to U+FFFD instead: a record whose ``ts`` and ``locator`` survive
+    still resolves (with a mangled payload), and one corrupted into invalid
+    JSON is skipped like any other junk line.
+    """
+    project = repo / "projects" / "p1"
+    (project / JOURNAL_FILE).write_bytes(
+        b'{"ts": "2026-07-01T00:00:00Z", "kind": "query", "locator": "q:a", "payload": "\xff\xfe"}\n'
+        b'{"ts": "2026-07-02T00:00:00Z", "kind": "query", "\xff\xfe": "q:b", "payload": "x"}\n'
+    )
+    assert find_query(project, "q:a")["ts"] == "2026-07-01T00:00:00Z"
+    assert find_query(project, "q:b") is None  # its locator key did not survive
+    assert (
+        resolve_evidence_pointer(
+            project, {"kind": "query", "locator": "q:b", "exact": ""}
+        )["resolution"]["reason"]
+        == "query-not-recorded"
+    )
 
 
 def test_captured_query_resolves_and_grounds_a_claim(repo):

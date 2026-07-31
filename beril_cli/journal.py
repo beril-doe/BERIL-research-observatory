@@ -71,9 +71,14 @@ def append_event(
 def find_query(project_dir: Path, locator: str) -> dict | None:
     """Return the most recent ``kind == "query"`` record for ``locator``.
 
-    Lines that are not JSON objects, and records carrying no string ``ts``, are
-    skipped rather than trusted: a truncated or hand-edited journal must not
-    resolve a pointer to a timestamp that isn't there.
+    Lines that are not JSON objects, and records carrying no non-empty string
+    ``ts``, are skipped rather than trusted: a truncated or hand-edited journal
+    must not resolve a pointer to a timestamp that isn't there.
+
+    Reads with ``errors="replace"`` so that undecodable bytes degrade a single
+    line to unparseable rather than raising out of the resolver. ``claims
+    build`` reads this file; a journal corrupted by a partial write must leave a
+    query unresolved, not abort the whole projection.
 
     Returns ``None`` when the journal is absent, unreadable, or holds no record
     for this locator — all three are the same fact to a reader, that the query
@@ -81,17 +86,20 @@ def find_query(project_dir: Path, locator: str) -> dict | None:
     """
     found = None
     try:
-        with open(Path(project_dir) / JOURNAL_FILE, encoding="utf-8") as handle:
+        with open(
+            Path(project_dir) / JOURNAL_FILE, encoding="utf-8", errors="replace"
+        ) as handle:
             for line in handle:
                 try:
                     record = json.loads(line)
                 except (json.JSONDecodeError, ValueError):
                     continue
+                ts = record.get("ts") if isinstance(record, dict) else None
                 if (
-                    isinstance(record, dict)
+                    isinstance(ts, str)
+                    and ts.strip()
                     and record.get("kind") == "query"
                     and record.get("locator") == locator
-                    and isinstance(record.get("ts"), str)
                 ):
                     found = record
     except OSError:

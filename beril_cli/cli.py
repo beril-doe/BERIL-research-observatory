@@ -96,12 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     capture_parser.add_argument(
         "--payload",
         default="",
-        help="What was run — for a query, the SQL text",
-    )
-    capture_parser.add_argument(
-        "--kind",
-        default="query",
-        help="Event kind (default: query)",
+        help="The SQL that actually ran — what makes the record re-runnable",
     )
     capture_parser.add_argument(
         "--project",

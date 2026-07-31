@@ -61,7 +61,8 @@ This appends one line to `projects/<id>/journal.jsonl`. Rules:
 - **Only register queries whose numbers will be cited.** Probes, `SELECT 1`, schema
   peeks, and exploratory scans are noise — the same bar as `WORKLOG.md`.
 - **Register the query that produced the number**, not a cleaned-up version of it.
-  The `--payload` is the SQL that actually ran.
+  `--payload` is the SQL that actually ran, and is mandatory — a record with no SQL
+  resolves a claim's pointer to nothing re-runnable, so an empty one is refused.
 - **Never blocks.** `capture-event` always exits 0. If it warns on stderr, fix the
   locator and re-run it, but carry on with the analysis either way.
 - **One `q:<id>` per distinct query.** Re-registering the same id is fine — the

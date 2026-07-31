@@ -372,13 +372,30 @@ def run_capture_event(args: argparse.Namespace) -> int:
     failure warns on stderr and still exits 0: losing an evidence record must
     never derail the analysis that produced it. The warning goes to the model,
     which is the one party that can retry with a corrected locator.
+
+    Queries are the only kind this verb writes. ``kind`` stays in the record
+    because the journal is a general evidence log, but exposing it as a flag
+    would let an unvalidated locator in under a kind nothing reads yet — a
+    record no resolver could ever use. A second kind can add the flag along
+    with the grammar that validates it.
     """
     try:
         locator = (args.locator or "").strip()
-        if args.kind == "query" and not QUERY_LOCATOR.fullmatch(locator):
+        if not QUERY_LOCATOR.fullmatch(locator):
             print(
                 f"beril capture-event: '{locator}' is not a q:<id> locator — "
                 "nothing recorded",
+                file=sys.stderr,
+            )
+            return 0
+        # Checked here rather than as an argparse ``required``, which would exit
+        # 2 before this function runs and make "always exits 0" true except in
+        # one case. A record with no SQL resolves a pointer to nothing
+        # re-runnable, which is worse than leaving the query unregistered.
+        if not (args.payload or "").strip():
+            print(
+                "beril capture-event: --payload is the SQL that ran and cannot "
+                "be empty — nothing recorded",
                 file=sys.stderr,
             )
             return 0
@@ -396,9 +413,9 @@ def run_capture_event(args: argparse.Namespace) -> int:
             return 0
         append_event(
             project_dir,
-            kind=args.kind,
+            kind="query",
             locator=locator,
-            payload=args.payload or "",
+            payload=args.payload,
             session_id=args.session or os.environ.get("CLAUDE_CODE_SESSION_ID"),
         )
     except Exception as exc:
