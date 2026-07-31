@@ -914,10 +914,24 @@ setInterval(relTimes,15000);relTimes();
 #   with no `allow-same-origin` (measured against the live server), so the
 #   document has an opaque origin and `fetch` cannot send the hub cookie. The
 #   poll could only ever fail, silently, forever.
+#
+# **A hidden tab still fetches**, at 15s instead of 4s. It used to skip the
+# fetch entirely, which is cheaper and wrong: a backgrounded tab is exactly the
+# tab that needs to learn the agent is blocked on a permission prompt, and one
+# that never fetches can never learn anything — it has only the title and the
+# favicon to speak through, and both are painted from the response. The cost is
+# small enough to check rather than argue about: a 304 still runs a full
+# `scan()` at 6.8ms measured, so 15s hidden is ~1.6s of CPU per hour per tab,
+# less than a *visible* tab costs today.
+#
+# The single `timer` handle is not decoration. `tick` schedules the next tick,
+# and the visibilitychange listener calls `tick` directly, so every return to
+# the tab used to start a second concurrent chain that never ended — harmless
+# while hidden ticks were free, a compounding multiplier on real requests now.
 POLL_JS = """
 if(!location.pathname.endsWith('/'))location.replace(location.pathname+'/');
+var timer=0;
 function tick(){
-if(document.visibilityState==='visible'){
 var h=tag?{'If-None-Match':tag}:{};
 fetch('.',{headers:h}).then(function(r){
 if(r.status!==200)return null;tag=r.headers.get('ETag');return r.text();})
@@ -929,11 +943,11 @@ var next=doc.getElementById('root');if(!next)return;
 R.innerHTML=next.innerHTML;
 for(var j=0;j<open.length;j++){var d=R.querySelector('#'+CSS.escape(open[j]));
 if(d)d.open=true;}
-relTimes();}).catch(function(){});}
-setTimeout(tick,4000);}
+relTimes();}).catch(function(){});
+clearTimeout(timer);timer=setTimeout(tick,document.hidden?15000:4000);}
 document.addEventListener('visibilitychange',function(){
 if(document.visibilityState==='visible')tick();});
-setTimeout(tick,4000);
+timer=setTimeout(tick,4000);
 """
 
 # The overlay is a sibling of #root, and every listener is delegated on document,

@@ -690,6 +690,32 @@ def test_a_snapshot_says_it_is_one_and_how_to_get_live(tmp_path):
         assert dash.inline_md(step) in snap, f"missing restart step: {step}"
 
 
+def test_a_hidden_tab_still_polls_only_slower():
+    """The poll used to wrap its `fetch` in `visibilityState==='visible'`, so a
+    backgrounded tab fetched nothing at all — and a backgrounded tab is exactly
+    the one that needs to find out the agent is blocked. Nothing that reaches an
+    unattended reader (the title marker, the favicon dot, a notification) can
+    work on top of a transport that stops when nobody is looking.
+
+    The two assertions are the two halves of that fix, and each fails on the
+    obvious way to undo it:
+
+    - the cadence is chosen by visibility rather than the fetch being skipped;
+    - the only `visibilityState` left is the listener's, i.e. nothing guards the
+      fetch any more.
+
+    The shared `timer` handle is the third: `tick` schedules the next tick *and*
+    the listener calls `tick` directly, so without a `clearTimeout` every return
+    to the tab left another chain running forever. Free when hidden ticks did
+    nothing; a compounding multiplier on real requests now.
+    """
+    import tools.dashboard as dash
+
+    assert "document.hidden?15000:4000" in dash.POLL_JS
+    assert dash.POLL_JS.count("visibilityState") == 1, "something still gates the fetch"
+    assert "clearTimeout(timer)" in dash.POLL_JS, "tab returns would stack poll chains"
+
+
 def _dropin(cfg_dir: Path, name: str, enabled: bool) -> None:
     d = cfg_dir / "jupyter_server_config.d"
     d.mkdir(parents=True, exist_ok=True)
