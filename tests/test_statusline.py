@@ -130,34 +130,36 @@ def test_simultaneous_sessions_on_one_clone_resolve_to_their_own_project(tmp_pat
     assert "beta" in second and "alpha" not in second
 
 
-def test_the_model_replaces_the_context_gauge(tmp_path):
+def test_the_model_shares_the_gauge_cell(tmp_path):
     """Which model is answering is what you check before trusting a surprising
-    result, so it earns a cell — and it took the context gauge's, because Claude
-    Code's own UI already warns as context runs low and this does not report the
-    model anywhere.
+    result, so it earns a place — sharing the context gauge's cell rather than
+    taking one of its own, because the two are read in the same glance and a `|`
+    between them would claim they are separate readouts.
 
-    `display_name`, never `id`: "Sonnet 5", not "claude-sonnet-5". The id is what
-    you would paste into an API call and this line is not for that.
+    Never truncated: "Opus 5 (1M context)", not "Opus 5". The parenthetical is
+    the half you would act on — it is why a long run has not compacted yet.
+    `display_name`, never `id`, which is what you would paste into an API call.
 
-    The absent case is the one worth pinning. The status line renders every turn
-    in whatever harness drives it, and a missing `model` must drop the cell
-    rather than leave a trailing `|` — which reads as a line that failed to
-    finish rendering.
+    The absent case is the one that breaks silently. The status line renders
+    every turn in whatever harness drives it, and a missing `model` must leave
+    the gauge alone rather than prefix it with a stray space.
     """
     repo = _repo(tmp_path, {"alpha": ["sid-a"]})
 
     first = _render(
-        repo, model={"display_name": "Sonnet 5", "id": "claude-sonnet-5"}
+        repo, model={"display_name": "Opus 5 (1M context)", "id": "claude-opus-5[1m]"}
     ).splitlines()[0]
 
-    assert "Sonnet 5" in first
-    assert "claude-sonnet-5" not in first, "that is the API id, not a label"
-    assert "%" not in first and "░" not in first, "the gauge was supposed to go"
+    assert "Opus 5 (1M context)" in first, "the model name was truncated"
+    assert "claude-opus-5" not in first, "that is the API id, not a label"
+    assert "20%" in first, "the context gauge has to stay"
+    # The point of the change: a space between them, not a separator.
+    assert re.search(r"Opus 5 \(1M context\) [▓░]", first), "separator still there"
 
     for missing in (None, {}, {"display_name": ""}, {"display_name": None}):
         bare = _render(repo, model=missing).splitlines()[0]
-        assert "Sonnet 5" not in bare
-        assert not bare.rstrip().endswith("|"), f"empty cell left behind: {missing!r}"
+        assert "Opus 5" not in bare
+        assert "|  " not in bare, f"stray space before the gauge for {missing!r}"
 
 
 def test_no_signal_names_no_project(tmp_path):

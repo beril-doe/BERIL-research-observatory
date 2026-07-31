@@ -2,17 +2,18 @@
 # Built for a BERIL session, not as a copy of the global statusline.
 #
 # Kept, because you act on them mid-research: which project, what stage it is
-# at, where to watch it, and which model is answering.
+# at, where to watch it, how close context is to running out, and which model is
+# answering.
 # Dropped: cost, elapsed, directory. All true, none of them change what you do
 # next while a project is running.
 #
-# Model was on that dropped list and came back, and the context gauge took its
-# place there. The reasoning that dropped model was that it does not change what
-# you do next, and that was wrong in one direction: which model is answering is
-# exactly what you check before deciding whether to trust a surprising result or
-# switch and re-run it. The gauge, by contrast, is duplicated — Claude Code's own
-# UI already warns as context runs low — so two readouts of it earned one line's
-# worth of width between them, and this is the one that is not shown elsewhere.
+# Model was on that dropped list and came back. The reasoning that put it there
+# was that it does not change what you do next, and that is wrong in one
+# direction: which model is answering is exactly what you check before deciding
+# whether to trust a surprising result, or before switching and re-running it.
+# It shares the context gauge's cell rather than taking one of its own — the two
+# are read in the same glance, and a `|` between them would claim they are
+# separate readouts.
 #
 # python3 rather than jq: jq is not guaranteed on the BERDL singleuser image and
 # python3 always is, and this has to work in the pod where the dashboard runs.
@@ -22,11 +23,13 @@ from pathlib import Path
 
 d = json.load(sys.stdin)
 cwd = d.get("workspace", {}).get("current_dir", "") or os.getcwd()
-# `display_name`, not `id`: "Sonnet 5" rather than "claude-sonnet-5". The id is
-# what you would paste into an API call and this line is not for that.
+pct = int(float(d.get("context_window", {}).get("used_percentage") or 0))
+# `display_name`, not `id`, and never truncated: "Opus 5 (1M context)" rather
+# than "claude-opus-5[1m]". The parenthetical is the half you would actually act
+# on — it is why a long run has not compacted yet.
 model = str((d.get("model") or {}).get("display_name") or "")
 
-C, G, Y, DIM, X = "\033[36m", "\033[32m", "\033[33m", "\033[2m", "\033[0m"
+C, G, Y, R, DIM, X = "\033[36m", "\033[32m", "\033[33m", "\033[31m", "\033[2m", "\033[0m"
 
 def run(*a):
     try:
@@ -98,6 +101,8 @@ pdir = root / "projects" / pid if pid else None
 if not (pdir and pdir.is_dir()):
     pid = pdir = None
 
+bar = "▓" * (pct // 10) + "░" * (10 - pct // 10)
+heat = R if pct >= 90 else Y if pct >= 70 else G
 # The checkout, ~-relative. Not the basename: there are two clones and both are
 # named BERIL-research-observatory, so the folder name alone would look like it
 # was telling you which one while telling you nothing.
@@ -111,11 +116,11 @@ line = [f"{C}BERIL{X}", f"{DIM}{where}{X}"]
 # — displayed no branch at all, which reads as "detached" rather than "same name".
 if branch:
     line.append(branch)
-# Last, and dim. Omitted entirely when the harness sends no model rather than
-# shown as an empty cell — a trailing `|` with nothing after it reads as a line
-# that failed to finish rendering.
-if model:
-    line.append(f"{DIM}{model}{X}")
+# One cell, model first, separated by a space rather than a `|`. Dropped
+# entirely when the harness sends no model, so the gauge is never preceded by a
+# stray space.
+gauge = f"{heat}{bar}{X} {pct}%"
+line.append(f"{DIM}{model}{X} {gauge}" if model else gauge)
 print(" | ".join(line))
 
 if not pdir:
