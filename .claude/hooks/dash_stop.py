@@ -78,9 +78,21 @@ def main() -> None:
     # `waiting` on disk with nobody left to answer it. Removing it here covers
     # every exit Claude Code gets to announce; the renderer expires the file on
     # age and session id for the exits it does not (pod culled, SIGKILL).
+    #
+    # Only this session's own record, though. Two sessions can share a project,
+    # and one exiting used to delete the other's live "waiting for you" — the
+    # departing session silencing the one that still needs a human.
+    session_id = payload.get("session_id") or os.environ.get("CLAUDE_CODE_SESSION_ID")
     for name in projects:
+        state = ROOT / "projects" / name / ".agent-state.json"
         try:
-            (ROOT / "projects" / name / ".agent-state.json").unlink()
+            owner = json.loads(state.read_text(encoding="utf-8")).get("session_id")
+        except (OSError, ValueError, AttributeError):
+            owner = None  # unreadable or gone; nothing to defer to
+        if owner and owner != session_id:
+            continue
+        try:
+            state.unlink()
         except OSError:
             pass
 

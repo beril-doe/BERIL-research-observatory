@@ -211,9 +211,43 @@ def resolve(payload: dict) -> "Path | None":
     return project if project.is_dir() else None
 
 
+def blocks_another_session(project: Path, session_id) -> bool:
+    """Is a *different* session currently blocked on this project?
+
+    Two sessions can share one project, and they share this file with it —
+    there is one dashboard per project, on a port derived from the project id,
+    so there is only ever one state to show. The question is which.
+
+    An active session must not silence a blocked one. `clear_waiting` is already
+    session-scoped, but `Stop` and `UserPromptSubmit` were not: a second session
+    ending a turn overwrote a real "waiting for you" with its own `turn_ended`,
+    and submitting a prompt deleted it outright. Both directions lost the only
+    thing on the page anyone needs to act on, silently.
+
+    Priority, not ownership: `waiting` outranks the states these two events
+    write, so they defer to it. `PermissionRequest` is not gated — when both
+    sessions are blocked, either is a true answer and the newest wins.
+
+    ponytail: an unclean death leaves the loser showing the dead session's
+    prompt until the renderer expires it at 30 minutes. Bound it on `since` here
+    too if that ever bites; a clean exit already clears via SessionEnd.
+    """
+    current = read_state(project)
+    return current.get("state") == "waiting" and current.get("session_id") not in (
+        "",
+        None,
+        session_id,
+    )
+
+
 def record_for(payload: dict, project: Path):
     """The new state file contents: a dict, None to clear, or UNCHANGED."""
     event = payload.get("hook_event_name")
+
+    if event in ("Stop", "UserPromptSubmit") and blocks_another_session(
+        project, payload.get("session_id")
+    ):
+        return UNCHANGED
 
     if event == "UserPromptSubmit":
         return None

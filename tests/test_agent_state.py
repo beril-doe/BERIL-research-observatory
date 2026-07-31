@@ -99,8 +99,14 @@ def repo(tmp_path: Path) -> Path:
     (tmp_path / ".claude" / "hooks" / "agent_state.py").symlink_to(HOOK)
     project = tmp_path / "projects" / "demo"
     project.mkdir(parents=True)
+    # Both sessions recorded against the one project: without this, a second
+    # session resolves to nothing and every multi-session test below passes
+    # vacuously, "unchanged" because the hook wrote nothing at all.
     (project / "runtime.json").write_text(
-        json.dumps({"project": "demo", "sessions": [{"session_id": SESSION}]})
+        json.dumps({
+            "project": "demo",
+            "sessions": [{"session_id": SESSION}, {"session_id": "sess-2"}],
+        })
     )
     return tmp_path
 
@@ -382,6 +388,71 @@ def test_a_clean_exit_takes_the_state_file_with_it(repo):
 
     assert done.returncode == 0, done.stderr
     assert not (repo / "projects" / "demo" / ".agent-state.json").exists()
+
+
+OTHER = "sess-2"
+
+
+def test_an_active_session_cannot_silence_a_blocked_one(repo):
+    """Two sessions, one project — and they share this file with it, since
+    there is one dashboard per project on a port derived from the project id.
+
+    `clear_waiting` was already session-scoped, but `Stop` and
+    `UserPromptSubmit` were not: a second session ending a turn overwrote a real
+    "waiting for you" with its own `turn_ended`, and submitting a prompt deleted
+    it. Both lose the one thing on the page anyone has to act on, silently, and
+    in the worst direction — the session that is *working* drowning out the one
+    that is *blocked*.
+    """
+    blocked = _run(repo, PERMISSION)
+
+    for event, extra in (
+        ("Stop", {"last_assistant_message": "the other session finished"}),
+        ("UserPromptSubmit", {"prompt": "the other session carries on"}),
+        ("PostToolUse", {"tool_name": "Read"}),
+    ):
+        after = _run(
+            repo,
+            {"session_id": OTHER, "cwd": "/repo", "hook_event_name": event, **extra},
+        )
+        assert after == blocked, f"{event} from another session erased a live prompt"
+
+
+def test_a_session_still_clears_its_own(repo):
+    """The guard is priority, not ownership of the file. It must not leave a
+    session unable to retire its own prompt, or the strip would stick until the
+    renderer expired it half an hour later."""
+    _run(repo, PERMISSION)
+    assert _run(repo, PROMPT) is None
+
+    # ...and a second session may still write when nobody is blocked.
+    assert _run(repo, {**STOP, "session_id": OTHER})["state"] == "turn_ended"
+
+
+def test_leaving_does_not_take_another_sessions_prompt_with_it(repo):
+    """The same rule on the way out. `dash_stop.py` clears every project the
+    departing session touched, which for a shared project meant deleting the
+    prompt the *other* session is still blocked on."""
+    (repo / ".claude" / "hooks" / "dash_stop.py").symlink_to(
+        ROOT / ".claude" / "hooks" / "dash_stop.py"
+    )
+    state = repo / "projects" / "demo" / ".agent-state.json"
+
+    def session_end(session_id):
+        done = subprocess.run(
+            ["python3", str(repo / ".claude" / "hooks" / "dash_stop.py")],
+            input=json.dumps({"session_id": session_id, "hook_event_name": "SessionEnd",
+                              "cwd": str(repo), "reason": "other"}),
+            capture_output=True, text=True, cwd=str(repo), timeout=60,
+        )
+        assert done.returncode == 0, done.stderr
+
+    _run(repo, PERMISSION)
+    session_end(OTHER)
+    assert state.exists(), "another session exiting deleted a live prompt"
+
+    session_end(SESSION)
+    assert not state.exists(), "its own session left the file behind"
 
 
 def test_the_state_file_is_replaced_never_truncated(repo, monkeypatch):

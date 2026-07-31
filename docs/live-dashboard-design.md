@@ -224,6 +224,20 @@ about a single permission prompt. Those rules are executed rather than asserted 
 `STATE_JS` runs against a DOM stub under node, which is the only way to drive the
 clock and the visibility flag, the two inputs that decide every branch.
 
+**Two sessions in one clone** was already the constraint that shaped project
+resolution, and it shapes this too. On *different* projects nothing is shared:
+separate state files, separate ports, separate dashboards. On the *same*
+project they share both, because the port is derived from the project id — so
+there is only ever one state to show, and the question is which one wins.
+
+An active session must not silence a blocked one. `Stop` and `UserPromptSubmit`
+both used to erase another session's live `waiting` — overwritten with a
+`turn_ended` in one case, deleted in the other — and `SessionEnd` deleted it on
+the way out. All three now defer to a `waiting` that belongs to someone else.
+It is priority, not ownership: a session can always retire its own, and
+`PermissionRequest` is ungated, since when both are blocked either answer is
+true and the newest is the more useful one.
+
 Known limits, not defects. Snapshot mode has no poll, so it reports the state it
 was written with and updates on reload only. A **closed** tab gets nothing: that
 needs a service worker and a push service, which a stdlib server in a pod cannot
