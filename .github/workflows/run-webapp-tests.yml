@@ -29,9 +29,11 @@ jobs:
       - name: Run tests
         run: |
           cd ui
-          uv run pytest
+          uv run pytest --cov-report=xml
 
       - name: Send to Codecov
         uses: codecov/codecov-action@v5
         with:
             token: ${{ secrets.CODECOV_TOKEN }}
+            files: ./ui/coverage.xml
+            disable_search: true
