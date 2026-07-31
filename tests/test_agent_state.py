@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import time
@@ -171,6 +172,103 @@ def test_a_notification_that_does_carry_detail_is_kept(repo):
     assert state["detail"] == "fix-flaky-tests needs your input: which suite?"
 
 
+POST_TOOL = {
+    "session_id": SESSION,
+    "cwd": "/repo",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Bash",
+    "tool_input": {"command": "sw_vers"},
+    "tool_response": {"stdout": "ProductName: macOS"},
+}
+
+
+def test_an_answered_prompt_clears_before_the_turn_ends(repo):
+    """REGRESSION, reported from a real BERDL session: approving a `Skill` left
+    "The agent is waiting for you" on screen while the agent worked.
+
+    Claude Code emits no "the prompt was answered" event — logging every hook
+    across an approved prompt shows `PreToolUse` firing *before*
+    `PermissionRequest`, so it cannot mean granted. `PostToolUse` is the first
+    thing that happens only because a human said yes.
+
+    Without it the strip survives until `Stop`, which is the end of the whole
+    turn — minutes, for anything that does real work after approval. A banner
+    that is wrong for minutes is worse than no banner: it teaches the reader to
+    ignore it.
+    """
+    _run(repo, PERMISSION)
+
+    assert _run(repo, POST_TOOL) is None, "still blocking on a prompt already answered"
+
+
+def test_clearing_an_answered_prompt_needs_no_project(repo):
+    """It runs after *every* tool call, so it must not pay for the git
+    subprocess and the `beril_cli` import that resolution costs.
+
+    The state file records which session wrote it, and that is the whole
+    question — which also keeps it session-scoped, so two sessions in one clone
+    cannot clear each other's. Deleting `runtime.json` removes the only signal
+    resolution has here: if this still clears, no resolution happened.
+    """
+    _run(repo, PERMISSION)
+
+    # Another session's prompt is not this session's to clear.
+    assert _run(repo, {**POST_TOOL, "session_id": "someone-else"}) is not None
+
+    # Now remove the only signal resolution has here. If it still clears, the
+    # fast path really did skip resolving.
+    (repo / "projects" / "demo" / "runtime.json").unlink()
+    assert _run(repo, POST_TOOL) is None
+
+
+def test_the_posttooluse_guard_still_lets_the_clear_through(repo):
+    """Run the command string `settings.json` actually registers, not the hook.
+
+    This one is on **every** tool call, so it is wrapped in the same kind of
+    shell guard `beril-runtime.sh` uses: no state file, no interpreter — 6ms
+    instead of 59, and the guard is nearly free here because a state file only
+    exists mid-turn when a prompt is genuinely pending.
+
+    A guard is also a new way to fail silently, in the direction nobody notices:
+    skip too much and the strip goes back to surviving until `Stop`, with every
+    unit test still green because they call the hook directly. So this drives
+    the real string, both ways.
+    """
+    settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    command = next(
+        hook["command"]
+        for entry in settings["hooks"]["PostToolUse"]
+        for hook in entry["hooks"]
+        if "agent_state" in hook["command"]
+    )
+
+    def fire(payload) -> "dict | None":
+        done = subprocess.run(
+            command, shell=True, input=json.dumps(payload), capture_output=True,
+            text=True, cwd=str(repo), timeout=60,
+            env={**os.environ, "CLAUDE_PROJECT_DIR": str(repo)},
+        )
+        assert done.returncode == 0, done.stderr
+        state = repo / "projects" / "demo" / ".agent-state.json"
+        return json.loads(state.read_text()) if state.exists() else None
+
+    # Guard closed: no state file, so it must consume stdin and exit clean.
+    assert fire(POST_TOOL) is None
+
+    # Guard open: a real pending prompt has to reach the hook and be cleared.
+    _run(repo, PERMISSION)
+    assert fire(POST_TOOL) is None, "the guard swallowed a prompt that needed clearing"
+
+
+def test_a_tool_call_does_not_retire_a_finished_turn(repo):
+    """`turn_ended` describes the past; only the next `UserPromptSubmit` retires
+    it. Clearing on any tool call would erase the closing line the moment a new
+    turn touched anything."""
+    _run(repo, STOP)
+
+    assert _run(repo, POST_TOOL)["state"] == "turn_ended"
+
+
 def test_the_human_coming_back_clears_it(repo):
     """`Stop` is the end of a turn, not a block: the page should say the turn
     ended and show the closing line, not claim anyone is waiting. A prompt
@@ -196,11 +294,12 @@ def test_an_unresolvable_or_malformed_event_writes_nothing(repo):
 def test_every_event_it_handles_is_actually_registered():
     """A hook nothing calls is a file that passes its own tests forever.
 
-    The four names are not interchangeable and dropping any one breaks a
+    The five names are not interchangeable and dropping any one breaks a
     different thing: without `PermissionRequest` the page can say *that* the
-    agent is blocked but never on what; without `Stop` the last state ever
-    written is `waiting`, so a finished turn reads as a blocked one; without
-    `UserPromptSubmit` nothing clears when the human answers.
+    agent is blocked but never on what; without `PostToolUse` an answered prompt
+    stays on screen until the whole turn ends; without `Stop` the last state
+    ever written is `waiting`, so a finished turn reads as a blocked one;
+    without `UserPromptSubmit` nothing clears when the human replies.
     """
     settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
     registered = {
@@ -211,7 +310,9 @@ def test_every_event_it_handles_is_actually_registered():
         if "agent_state.py" in hook["command"]
     }
 
-    assert registered == {"PermissionRequest", "Notification", "Stop", "UserPromptSubmit"}
+    assert registered == {
+        "PermissionRequest", "Notification", "Stop", "UserPromptSubmit", "PostToolUse",
+    }
 
 
 def test_a_clean_exit_takes_the_state_file_with_it(repo):

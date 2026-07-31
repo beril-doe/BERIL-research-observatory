@@ -570,11 +570,21 @@ def test_using_another_projects_data_does_not_switch_projects():
     That is one edit away from breaking — broadening the matcher is a tempting fix
     for "the status line did not notice my project", and it would silently make
     every cross-project read a switch.
+
+    Scoped to the *binding* hook by name, not to everything on `PostToolUse`.
+    Other hooks legitimately want every tool call — `agent_state.py` clears an
+    answered permission prompt there — and they bind nothing, so a matcher-less
+    entry of theirs is not this failure.
     """
     import re
 
     settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
-    matchers = [entry["matcher"] for entry in settings["hooks"]["PostToolUse"]]
+    matchers = [
+        entry.get("matcher", ".*")
+        for entry in settings["hooks"]["PostToolUse"]
+        if any("beril-runtime" in hook["command"] for hook in entry["hooks"])
+    ]
+    assert matchers, "the binding hook is no longer on PostToolUse at all"
     for readonly in ("Read", "Bash", "Grep", "Glob"):
         assert not any(re.fullmatch(m, readonly) for m in matchers), (
             f"{readonly} now reaches the binding hook: reading another project's "

@@ -56,7 +56,14 @@ MAX_DETAIL = 200
 # usefulness. Searched at any depth because `AskUserQuestion` — the single most
 # important case, the agent literally asking a question — nests its text under
 # `questions[0].question` while `Bash` puts it flat in `command`.
-DETAIL_KEYS = ("command", "question", "file_path", "path", "url", "pattern", "prompt")
+#
+# `skill` and `query` are here because a bare tool name is a poor answer for the
+# two that ask most often: "Skill" alone says nothing, and an MCP search tool is
+# only meaningful as what it is searching for.
+DETAIL_KEYS = (
+    "command", "question", "skill", "query",
+    "file_path", "path", "url", "pattern", "prompt",
+)
 
 # Fixed strings Claude Code sends as a Notification `message`. They carry no
 # information a `state` of `waiting` does not already carry, so they are dropped
@@ -121,6 +128,54 @@ def write_state(project: Path, record: "dict | None") -> None:
     staging = target.with_name(STATE_FILE + ".tmp")
     staging.write_text(json.dumps(record), encoding="utf-8")
     os.replace(staging, target)
+
+
+def clear_waiting(session_id) -> None:
+    """Drop this session's `waiting`, wherever it is. The answer arrived.
+
+    Claude Code emits **no event for "the prompt was answered"** — measured, by
+    logging every hook across an approved prompt. `PreToolUse` fires *before*
+    `PermissionRequest`, so it cannot mean granted; the first thing that happens
+    only because a human said yes is `PostToolUse`, when the tool has run.
+
+    Without it the strip clears at `Stop`, which is the end of the whole turn.
+    Approving a `Skill` and then watching the agent work for ten minutes under a
+    banner saying it is still blocked on you is the bug this fixes, and it is
+    worse than showing nothing: the reader learns to distrust the strip.
+
+    **No project resolution here, deliberately.** This runs after *every* tool
+    call, so it skips the git subprocess and the `beril_cli` import that
+    `resolve` needs — the state file already records which session wrote it, and
+    that is the only question being asked. Session-scoped, so two sessions in
+    one clone cannot clear each other's.
+
+    That still leaves 59ms against the resolving path's 78ms, and 36ms of it is
+    bare `python3` startup — so `settings.json` wraps this one in the same kind
+    of shell guard `beril-runtime.sh` uses, and never starts an interpreter when
+    no state file exists at all (6ms). The guard is nearly free here rather than
+    a compromise: between `UserPromptSubmit` clearing the file and `Stop`
+    writing the next one, a state file exists *only* while a prompt is genuinely
+    pending, which is exactly when this needs to run.
+
+    Only `waiting` is cleared. `turn_ended` is a fact about the past that the
+    next `UserPromptSubmit` retires; a tool call has nothing to say about it.
+    """
+    if not session_id:
+        return
+    for path in (ROOT / "projects").glob("*/" + STATE_FILE):
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if (
+            isinstance(record, dict)
+            and record.get("state") == "waiting"
+            and record.get("session_id") == session_id
+        ):
+            try:
+                path.unlink()
+            except OSError:
+                pass
 
 
 def resolve(payload: dict) -> "Path | None":
@@ -188,6 +243,11 @@ def record_for(payload: dict, project: Path):
 
 def main() -> None:
     payload = json.load(sys.stdin)
+    # Before `resolve`, because this is the one event that fires on every single
+    # tool call and it does not need a project to do its job.
+    if payload.get("hook_event_name") == "PostToolUse":
+        return clear_waiting(payload.get("session_id"))
+
     project = resolve(payload)
     if project is None:
         return

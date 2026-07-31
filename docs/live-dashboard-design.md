@@ -143,6 +143,30 @@ Undocumented types also present in the matcher metadata, for whoever needs them
 next: `auth_success`, `elicitation_dialog`, `elicitation_complete`,
 `elicitation_response`.
 
+**Nothing announces that a prompt was answered**, which is the second thing the
+docs do not say and the one that produced a real bug report. Logging every hook
+across an *approved* prompt gives the order:
+
+```
+PreToolUse  →  PermissionRequest  →  Notification  →  [human answers]  →  PostToolUse  →  Stop
+```
+
+`PreToolUse` fires *before* `PermissionRequest`, so it cannot mean granted.
+`PostToolUse` is the first thing that happens only because a human said yes.
+Without it the strip clears at `Stop` — the end of the whole turn — so approving
+a `Skill` and watching the agent work for ten minutes under "the agent is waiting
+for you" was the reported symptom. A banner that is wrong for minutes is worse
+than no banner; the reader learns to ignore it.
+
+That clear needs no project resolution: the state file records which session
+wrote it, which is the whole question, and keeps one session from clearing
+another's. It still costs 59ms against the resolving path's 78ms, of which 36ms
+is bare `python3` startup — so this registration carries the same kind of shell
+guard `beril-runtime.sh` uses and starts no interpreter when no state file
+exists (6ms). The guard is nearly free rather than a compromise: between
+`UserPromptSubmit` clearing the file and `Stop` writing the next one, a state
+file exists *only* while a prompt is pending, which is exactly when it must run.
+
 **A hidden tab now polls, at 15s rather than not at all.** The old guard —
 `if(document.visibilityState==='visible')` around the `fetch` — made every channel
 above impossible: the backgrounded tab is precisely the one that needs to learn the
