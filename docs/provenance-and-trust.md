@@ -88,6 +88,12 @@ pointers would then flip `unresolved` → `resolved` and feed the existing compu
 axis — **no schema change and no new version of `claims.json`**; the `2.0` contract
 already reserves the slot.
 
+`plan_deviations.jsonl` is **not** that journal, despite the same append-only,
+written-as-tools-run shape: it records exactly one event — analysis code written
+under a plan no human approved (see
+[scientific-planning.md](scientific-planning.md#the-plan-approval-witness)) — and
+captures no evidence locators, so `query:` pointers still resolve `unresolved`.
+
 Two scope boundaries hold when that lands:
 
 - It is an **evidence / query registry**, not the general per-tool trace, which stays
@@ -164,4 +170,7 @@ upward rather than duplicate it:
 | `projects/<id>/claims.json` | versioned author assertions + resolved artifact-support projection | generated, advisory |
 | `projects/<id>/runtime.json` | atomic per-session runtime history (PROV-shaped) | non-authoritative |
 | `beril.yaml.approval` | ORCID + SHA-256 digests (in-toto-style) | authoritative |
+| `beril.yaml.plan_approval` | ORCID + timestamp + `via` + digest of the approved plan | human- or agent-written (`via` says which); gates nothing |
+| `projects/<id>/plan_deviations.jsonl` | analysis code written under a missing or stale `plan_approval` | append-only, advisory |
+| `projects/<id>/SCOREBOARD.md` | per-*hypothesis* standing against the plan's decision criteria, in the `CLAIM_STATUSES` vocabulary | derived, advisory; agent-written, gates nothing |
 | `REVIEW_N.md` / `REFUTATION_N.md` / `PLAN_REVIEW_N.md` | hashed-subject review artifacts | advisory |

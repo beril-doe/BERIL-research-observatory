@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -243,6 +243,10 @@ wheels = [
 name = "beril-cli"
 version = "0.1.0"
 source = { editable = "." }
+dependencies = [
+    { name = "certifi" },
+    { name = "httpx" },
+]
 
 [package.dev-dependencies]
 knowledge = [
@@ -257,6 +261,10 @@ test = [
 ]
 
 [package.metadata]
+requires-dist = [
+    { name = "certifi" },
+    { name = "httpx" },
+]
 
 [package.metadata.requires-dev]
 knowledge = [

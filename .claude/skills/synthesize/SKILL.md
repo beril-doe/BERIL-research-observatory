@@ -68,7 +68,7 @@ Scan the project for results:
 Based on the data, draft findings that address:
 
 1. **Key results**: What did the data show? (specific numbers, correlations, counts)
-2. **Hypothesis outcome**: Was H1 supported or H0 not rejected?
+2. **Adjudication**: for *each* hypothesis (H1, H2, H3, …), state whether **its own** decision criterion was met, unmet, or unreachable, quoting the observed value and its locator (`SCOREBOARD.md` or the notebook cell); then apply the **Pre-registered Decision Rule** (H0 is adjudicated by rejection) and say whether the plan's **Confidence Prior** moved up, down, or not at all.
 3. **Statistical significance**: Report p-values, effect sizes, confidence intervals if available
 4. **Unexpected patterns**: Note any surprising results or anomalies
 

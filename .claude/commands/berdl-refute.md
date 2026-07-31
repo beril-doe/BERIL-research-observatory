@@ -25,7 +25,7 @@ Run from the repository root. `--type refute` selects the `.claude/reviewer/REFU
 bash tools/review.sh {project_id} --type refute
 ```
 
-- A refutation pass benefits from the **strongest available model** (weak models have a high false-positive rate on falsification). Pass `--model <model_id>` to override the default, e.g. `--model claude-opus-4-8`.
+- A refutation pass benefits from the **strongest available model** (weak models have a high false-positive rate on falsification). Pass `--model <model_id>` to override the default, e.g. `--model claude-opus-5`.
 - The script claims the next `REFUTATION_N.md` immediately (race-safe). It does **not** touch `beril.yaml`, `README.md`, or the project status.
 
 ### Step 3: Verify completion
