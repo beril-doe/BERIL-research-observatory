@@ -84,6 +84,27 @@ Each science project in `projects/` should have:
 - `requirements.txt`: Python dependencies
 - `src/`: Reusable scripts (if applicable)
 
+## Telling the tools which project you are on
+
+The status line and dashboard resolve the current project from four signals, in
+falling order of certainty: the directory Claude Code was launched in, a
+`projects/<id>` branch, `/add-dir`, and the session's own record in
+`projects/<id>/runtime.json`. Working from the repo root on a non-project branch,
+only the last one fires — and it is written by the `PostToolUse` hook on the
+first `Write`/`Edit`/`NotebookEdit` into the project, so a session that has only
+*read* a project is not bound to it.
+
+**When the user says which project they are working on — starting one, switching
+to one, or coming back to an old one — write `projects/<id>/.beril-pin`** (an
+empty file is enough) **using the Write tool.** That write binds the session to
+that project immediately, and the status line resolves to whichever project this
+session most recently bound, so it also switches away from the previous one.
+
+Use the Write tool, not `touch` through Bash: the hook that records the binding
+is registered on `Write|Edit|NotebookEdit`, and a Bash command carries no file
+path for it to find a project in. The marker is gitignored and carries no
+content — the act of writing it is the whole point.
+
 ## Project Lifecycle
 
 **Every BERIL session works inside a project — including ad-hoc exploration.** This gives every artifact a home from the first command, makes work resumable, and avoids loose accumulation. There is no "no-project" mode. The legacy `exploratory/` directory predates this discipline and should not receive new work; new exploration uses scratch projects (`projects/scratch_<YYYYMMDD>/` or `projects/<topic>_scratch/`) which are first-class — same structure, same templates, just a default name.

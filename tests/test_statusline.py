@@ -448,15 +448,20 @@ def test_switching_projects_resolves_to_the_one_worked_on_most_recently(tmp_path
         assert older not in out
 
 
-def test_the_exit_hook_stops_the_dashboard_of_the_project_last_worked_on(tmp_path):
-    """The same first-match-wins bug lived in `.claude/hooks/dash_stop.py`, where it
-    is worse: on exit it stopped whichever project sorted earlier and left the real
-    one running — the leak this hook exists to prevent."""
+def test_the_exit_hook_stops_every_dashboard_the_session_started(tmp_path):
+    """Display picks one project; cleanup has to take all of them.
+
+    The status line starts a dashboard for whichever project the session is on, so
+    a session that switched has one running per project it touched, each on its own
+    port. Stopping only the current one left the earlier ones alive after Claude
+    Code exited, which is the leak this hook exists to prevent — and switching
+    projects is now a single pin away, so it is the common case, not a corner.
+    """
     repo = _repo(tmp_path, {"alpha_old": None, "zeta_current": None})
     _bind(repo, "alpha_old", "moved", "2026-07-31T10:00:00Z")
     _bind(repo, "zeta_current", "moved", "2026-07-31T11:00:00Z")
 
-    stale = _spawn_dashboard(repo, "alpha_old")
+    left_behind = _spawn_dashboard(repo, "alpha_old")
     current = _spawn_dashboard(repo, "zeta_current")
     try:
         assert _wait_until_listening(_port("alpha_old"))
@@ -467,9 +472,140 @@ def test_the_exit_hook_stops_the_dashboard_of_the_project_last_worked_on(tmp_pat
         assert done.returncode == 0, done.stderr
 
         assert current.wait(timeout=15) is not None, "left the live dashboard running"
-        time.sleep(0.25)
-        assert stale.poll() is None, "stopped a dashboard this session had moved off"
+        assert left_behind.wait(timeout=15) is not None, (
+            "left a dashboard running for a project the session had switched away from"
+        )
     finally:
-        for proc in (stale, current):
+        for proc in (left_behind, current):
             if proc.poll() is None:
                 proc.kill()
+
+
+def test_writing_the_pin_marker_switches_the_session_to_that_project(tmp_path):
+    """How you say "I'm working on X" from the repo root, where no other signal can
+    fire: cwd is the checkout, the branch is not `projects/<id>`, and `/add-dir`
+    would be adding a subfolder of a directory already in scope.
+
+    The marker needs no new resolution path — writing it *is* a write into the
+    project, which the PostToolUse hook already binds on. Asserted in both
+    alphabetical orders because `observed_at` is stamped only to the second, so
+    two pins land in the same one and a naive tie-break picks a name, not a time.
+    """
+    def project_line(out: str) -> str:
+        """Second line only: the first carries the checkout path, which in a tmp
+        tree can contain a project name and match by accident."""
+        return next((l for l in out.splitlines() if l.startswith("  ")), "")
+
+    for case, (first, second) in enumerate(
+        (("alpha_first", "zeta_second"), ("zeta_first", "alpha_second"))
+    ):
+        root = tmp_path / f"case{case}"
+        root.mkdir()
+        repo = _repo(root, {first: None, second: None})
+
+        try:
+            assert not project_line(_render(repo, session_id="sid"))  # nothing bound yet
+            for project in (first, second):                        # pinned back to back
+                done = _hook(repo, {
+                    "session_id": "sid", "hook_event_name": "PostToolUse",
+                    "cwd": str(repo), "tool_name": "Write",
+                    "tool_input": {"file_path": str(repo / "projects" / project / ".beril-pin")},
+                }, "sid")
+                assert done.returncode == 0, done.stderr
+            out = _render(repo, session_id="sid")
+        finally:
+            subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects"],
+                           capture_output=True)
+
+        line = project_line(out)
+        assert second in line, f"pinning {second} did not switch away from {first}"
+        assert first not in line
+
+
+def test_two_sessions_pin_different_projects_in_one_clone(tmp_path):
+    """The pin must be session-scoped, not repo-wide.
+
+    `projects/<id>/.beril-pin` is a file in a shared tree, so the obvious worry is
+    that one session pinning re-points every other one. It cannot: nothing reads
+    the marker. Writing it only triggers the PostToolUse hook, which records *this*
+    session's id in that project's runtime.json, and the lookup filters by the
+    caller's own session id. A marker left by another session, or by last week, has
+    no effect at all.
+    """
+    repo = _repo(tmp_path, {"metal_cofit": None, "phage_defense": None})
+
+    def pin(session_id: str, project: str) -> None:
+        done = _hook(repo, {
+            "session_id": session_id, "hook_event_name": "PostToolUse",
+            "cwd": str(repo), "tool_name": "Write",
+            "tool_input": {"file_path": str(repo / "projects" / project / ".beril-pin")},
+        }, session_id)
+        assert done.returncode == 0, done.stderr
+
+    def project_of(session_id: str) -> str:
+        try:
+            out = _render(repo, session_id=session_id)
+        finally:
+            subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects"],
+                           capture_output=True)
+        return next((l for l in out.splitlines() if l.startswith("  ")), "")
+
+    pin("session-A", "metal_cofit")
+    pin("session-B", "phage_defense")
+
+    assert "metal_cofit" in project_of("session-A")
+    assert "phage_defense" not in project_of("session-A"), "B's pin leaked into A"
+    assert "phage_defense" in project_of("session-B")
+    assert "metal_cofit" not in project_of("session-B"), "A's pin leaked into B"
+
+
+def test_using_another_projects_data_does_not_switch_projects():
+    """Reading across projects is normal work, not a switch.
+
+    Projects routinely load another project's exported data, so the binding must
+    not follow a read. Two things stop it, and this pins the fragile one: only
+    `Write|Edit|NotebookEdit` reach the hook at all, so a `Read` or a `Bash` that
+    cats another project's CSV never even runs it.
+
+    That is one edit away from breaking — broadening the matcher is a tempting fix
+    for "the status line did not notice my project", and it would silently make
+    every cross-project read a switch.
+    """
+    import re
+
+    settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    matchers = [entry["matcher"] for entry in settings["hooks"]["PostToolUse"]]
+    for readonly in ("Read", "Bash", "Grep", "Glob"):
+        assert not any(re.fullmatch(m, readonly) for m in matchers), (
+            f"{readonly} now reaches the binding hook: reading another project's "
+            "data would switch the session to it"
+        )
+
+
+def test_a_write_that_merely_cites_another_project_does_not_rebind(tmp_path):
+    """The other half: writing *your* report, which cites another project's export.
+
+    The path is in this project and the content names another, so the payload
+    carries two project ids. `resolve_project` refuses on ambiguity rather than
+    picking one, which leaves the existing binding standing — the right answer
+    here, since the write really was into the project already bound.
+    """
+    repo = _repo(tmp_path, {"my_work": None, "other_proj": None})
+    _hook(repo, {"session_id": "s", "hook_event_name": "PostToolUse", "cwd": str(repo),
+                 "tool_name": "Write",
+                 "tool_input": {"file_path": str(repo / "projects" / "my_work" / "WORKLOG.md")}}, "s")
+
+    _hook(repo, {"session_id": "s", "hook_event_name": "PostToolUse", "cwd": str(repo),
+                 "tool_name": "Write",
+                 "tool_input": {
+                     "file_path": str(repo / "projects" / "my_work" / "REPORT.md"),
+                     "content": "Counts reused from projects/other_proj/data/counts.csv\n",
+                 }}, "s")
+    try:
+        line = next((l for l in _render(repo, session_id="s").splitlines()
+                     if l.startswith("  ")), "")
+    finally:
+        subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects"], capture_output=True)
+
+    assert "my_work" in line
+    assert "other_proj" not in line, "citing another project switched the session to it"

@@ -159,12 +159,15 @@ def project_from_runtime(session_id: str | None, repo_root: Path) -> str | None:
     writes a record, so the forward case is exact; switching *back* with nothing
     else changed keeps the older stamp until the next commit refreshes it.
 
-    Ties and unparsable stamps fall back to the sorted order, so the answer is
-    always deterministic.
+    `observed_at` is stamped to the second (`audit_cmd._now_iso`), so two bindings
+    made in the same second tie — which is exactly what pinning one project and
+    then another does. Ties break on the manifest's mtime, which has sub-second
+    resolution; only if that also ties does sorted order decide, so the answer
+    stays deterministic.
     """
     if not session_id:
         return None
-    best: tuple[str, str] | None = None
+    best: tuple[tuple[str, float], str] | None = None
     for manifest in sorted((repo_root / "projects").glob("*/runtime.json")):
         try:
             recorded = json.loads(manifest.read_text(encoding="utf-8"))
@@ -180,8 +183,38 @@ def project_from_runtime(session_id: str | None, repo_root: Path) -> str | None:
         if not stamps:
             continue
         # ISO-8601 UTC to a fixed format, so string order is time order.
-        newest = max(stamps)
+        try:
+            mtime = manifest.stat().st_mtime
+        except OSError:
+            mtime = 0.0
+        key = (max(stamps), mtime)
         project = recorded.get("project") or manifest.parent.name
-        if best is None or newest > best[0]:
-            best = (newest, project)
+        if best is None or key > best[0]:
+            best = (key, project)
     return best[1] if best else None
+
+
+def projects_for_session(session_id: str | None, repo_root: Path) -> list[str]:
+    """Every project this session bound to, oldest binding first.
+
+    `project_from_runtime` answers "which one is it *now*", which is the question a
+    display asks. Cleanup asks a different one: a session that switched projects
+    started a dashboard for each, on its own port, and stopping only the current
+    one leaves the rest running after Claude Code exits.
+    """
+    if not session_id:
+        return []
+    found = []
+    for manifest in sorted((repo_root / "projects").glob("*/runtime.json")):
+        try:
+            recorded = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(recorded, dict):
+            continue
+        if any(
+            isinstance(item, dict) and item.get("session_id") == session_id
+            for item in recorded.get("sessions", [])
+        ):
+            found.append(recorded.get("project") or manifest.parent.name)
+    return found
