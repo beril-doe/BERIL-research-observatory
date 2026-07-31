@@ -1,7 +1,7 @@
 ---
 name: literature-review
 description: Search and review biological literature using MCP tools (PubMed, arXiv, bioRxiv, Google Scholar) with full-text reading, citation snowballing, and PaperBLAST integration. Use when the user wants to find papers, review existing research on a topic, check what's known about an organism or pathway, or support a hypothesis with citations.
-allowed-tools: Bash, Read, Write, WebSearch, Agent, ToolSearch
+allowed-tools: Bash, Read, Write, WebSearch, WebFetch, Agent, ToolSearch
 user-invocable: true
 ---
 
@@ -29,21 +29,23 @@ The `pubmed` MCP server (`https://pubmed.mcp.claude.com/mcp`) provides the riche
 
 ### Secondary: paper-search-mcp (openags)
 
-The `paper-search-mcp` from [openags/paper-search-mcp](https://github.com/openags/paper-search-mcp) provides keyword search across arXiv, bioRxiv, medRxiv, and Google Scholar. It runs via `uvx --from paper-search-mcp python -m paper_search_mcp.server` — collaborators only need Python 3.10+ and [uv](https://docs.astral.sh/uv/).
+The `paper-search-mcp` from [openags/paper-search-mcp](https://github.com/openags/paper-search-mcp) provides keyword search across arXiv and Google Scholar, plus category browsing on bioRxiv/medRxiv. It runs via `uvx --from paper-search-mcp python -m paper_search_mcp.server` — collaborators only need Python 3.10+ and [uv](https://docs.astral.sh/uv/).
 
 **Search tools:**
-- **`search_pubmed`** — PubMed search (use as fallback; prefer bio-research `search_articles`)
-- **`search_arxiv`** — Search arXiv preprints
-- **`search_biorxiv`** — Search bioRxiv preprints (keyword search — bio-research bioRxiv plugin only supports category/date browsing)
-- **`search_medrxiv`** — Search medRxiv preprints
-- **`search_google_scholar`** — Search Google Scholar
+- **`search_arxiv`** — Search arXiv preprints. Plain keywords only: field prefixes (`cat:`, `au:`, `ti:`) are rejected, and `sort_by="submittedDate"` returns newest-arXiv-overall rather than newest-on-topic. Leave the default relevance sort alone.
+- **`search_google_scholar`** — Search Google Scholar (scraped; may be captcha-blocked without notice)
+- **`search_europepmc`** — Keyword search over PubMed/PMC content, EBI-hosted. Prefer this over `search_pubmed`: it is not subject to NCBI's 3 req/s limit.
+- **`search_biorxiv`** / **`search_medrxiv`** — **NOT keyword search.** The query is used as a *category* filter over the last 30 days, and an unrecognized category silently returns ALL recent preprints, which look like real hits. Pass only real category names (`bioinformatics`, `microbiology`, `genomics`, `genetics`, `ecology`, `systems biology`). For *topical* preprint discovery use `search_arxiv`, `search_google_scholar`, or `mcp__pubmed__search_articles` (which indexes bioRxiv).
+- **`search_pubmed`** — Avoid. Shares NCBI's 3 req/s per-IP limit and surfaces the rate-limit response as a cryptic `not well-formed (invalid token): line 1, column 0` XML error. Use `mcp__pubmed__search_articles`, or `search_europepmc`.
 
 **Full-text read tools** (extract text from preprint PDFs):
 - **`read_arxiv_paper`** — Read arXiv paper full text
 - **`read_biorxiv_paper`** — Read bioRxiv paper full text
 - **`read_medrxiv_paper`** — Read medRxiv paper full text
 
-> **Note**: `download_pubmed` and `read_pubmed_paper` from paper-search-mcp are **not supported** and return errors. Use the pubmed MCP's `get_full_text_article` for PubMed/PMC full text instead.
+> **Note**: `download_pubmed` and `read_pubmed_paper` from paper-search-mcp are **not implemented**. `read_pubmed_paper` makes no network call at all — it returns the same canned "cannot be read directly through this tool" string for every input, including invalid PMIDs. Do not mistake that string for paper content. Use the pubmed MCP's `get_full_text_article` for PubMed/PMC full text instead.
+>
+> **Silent failures**: every paper-search-mcp search tool returns an empty list when the upstream API rate-limits, blocks, or breaks — there is no error and no log. An empty result means *unknown*, never *no literature exists*. Confirm against a second source before concluding a topic is unstudied.
 
 ### PaperBLAST (BERDL local resource)
 
@@ -54,7 +56,7 @@ The `kescience_paperblast` database (gene-paper associations and text snippets f
 | Source | Best for | Primary tool |
 |---|---|---|
 | PubMed | Biomedical, microbiology, genomics — primary for BERDL | `mcp__pubmed__search_articles` |
-| bioRxiv | Recent preprints in biology, genomics, microbiology | paper-search-mcp `search_biorxiv` |
+| bioRxiv | *Browsing* recent preprints by category (last 30 days only) — not topic search | paper-search-mcp `search_biorxiv` |
 | arXiv | Computational biology, bioinformatics methods | paper-search-mcp `search_arxiv` |
 | Google Scholar | Broad coverage, catching papers not in other databases | paper-search-mcp `search_google_scholar` |
 | PaperBLAST | Gene/protein-focused literature from PMC text mining | BERDL SQL queries |
@@ -128,6 +130,7 @@ Gather these values from Steps 1-2:
 - Research question
 - Review tier (`quick_scan`, `standard`, `deep`)
 - Search queries (PubMed, preprint, Scholar)
+- bioRxiv category, if preprint browsing is wanted — a real category name (`bioinformatics`, `microbiology`, `genomics`, …), never the research question
 - Organism filters
 - Paper count target (5-10 for quick, 20-30 for standard, 50+ for deep)
 
@@ -144,22 +147,38 @@ SEARCH QUERIES:
 - PubMed: [pubmed_query]
 - Preprint: [preprint_query]
 - Scholar: [scholar_query]
+- bioRxiv category (optional, must be a real category name): [biorxiv_category or "none"]
 - Organism filters: [organism_filters]
 PAPER COUNT TARGET: [5-10|20-30|50+]
 
 STEP 1 — Load tools via ToolSearch:
 - "select:mcp__pubmed__search_articles"
-- "select:mcp__paper-search__search_biorxiv"
 - "select:mcp__paper-search__search_arxiv"
 - "select:mcp__paper-search__search_google_scholar"
 - "select:mcp__pubmed__convert_article_ids"
 - "select:mcp__pubmed__find_related_articles"
+Load "select:mcp__paper-search__search_biorxiv" ONLY if a bioRxiv category was supplied above.
 
 STEP 2 — Search all sources (priority order):
-1. PubMed → 2. bioRxiv → 3. arXiv → 4. Google Scholar
+1. PubMed → 2. arXiv → 3. Google Scholar → 4. bioRxiv (only if a category was supplied)
 Start focused; broaden if <5 results; narrow if >100.
 Collect: title, authors, year, DOI, PMID/PMCID, abstract, source.
-If a tool fails, note failure and continue with remaining sources.
+
+CRITICAL — search_biorxiv is NOT keyword search. It filters by CATEGORY over the
+last 30 days, and an unrecognized category silently returns every recent preprint
+regardless of topic. NEVER pass the research question or preprint query to it.
+Call it only with a real category name, and discard any returned paper whose
+title/abstract is off-topic. Preprint discovery by topic goes through arXiv,
+Google Scholar, and PubMed (which indexes bioRxiv).
+
+CRITICAL — an empty result is NOT evidence of absence. Every paper-search tool
+returns [] on rate-limit, block, or upstream breakage, with no error raised. If a
+source returns 0 papers, retry once; if still 0, list it under SOURCES_FAILED as
+"[source]: returned empty — unverified" rather than treating it as a real negative.
+Only report a genuine "no literature found" if PubMed AND at least one other
+source both returned results for related queries but nothing for this one.
+
+If a tool errors outright, note failure and continue with remaining sources.
 
 STEP 3 — Deduplicate by DOI (primary) or PMID.
 Use convert_article_ids to resolve PMID↔PMCID↔DOI.
@@ -522,8 +541,11 @@ The `references.md` file created by this skill is checked during project submiss
 
 If MCP tools are unavailable:
 
-1. **PubMed MCP unavailable**: Fall back to paper-search-mcp's `search_pubmed` for PubMed search
-2. **paper-search-mcp unavailable**: Check `.mcp.json` is configured with `"command": "uvx", "args": ["--from", "paper-search-mcp", "python", "-m", "paper_search_mcp.server"]`. Test: `uvx --from paper-search-mcp python -m paper_search_mcp.server`
+1. **PubMed MCP unavailable**: Fall back to paper-search-mcp's `search_europepmc` (EBI-hosted, covers PubMed/PMC content, not subject to NCBI rate limits). Use `search_pubmed` only if EuropePMC is also down — it fails cryptically under NCBI's 3 req/s limit.
+2. **paper-search-mcp unavailable**: It is a **stdio** server, so it only runs where the `uvx` binary exists and PyPI is reachable — in a remote/sandboxed session it may be absent entirely, which removes *all* `mcp__paper-search__*` tools at once. Check with `claude mcp list` and `which uvx`. Verify the server itself with:
+   `uvx --from paper-search-mcp python -c "import paper_search_mcp.server; print('ok')"`
+   (Do **not** run `python -m paper_search_mcp.server` as a test — it starts a stdio server and blocks forever waiting for a JSON-RPC client.)
+   If `uvx` is missing and cannot be installed, rely on the `pubmed` HTTP MCP plus WebSearch.
 3. **All MCP unavailable**: Use `WebSearch` to search PubMed: `site:pubmed.ncbi.nlm.nih.gov [query]`
 4. Use `WebFetch` to retrieve paper details from DOIs: `https://doi.org/[doi]`
 5. Note in the output that results may be less comprehensive than MCP-based search (no full-text retrieval, no citation snowballing)
