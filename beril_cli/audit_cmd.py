@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from beril_cli import __version__
+from beril_cli.journal import QUERY_LOCATOR, append_event
 from beril_cli.project_resolution import resolve_project
 
 RUNTIME_FILE = "runtime.json"
@@ -361,4 +362,45 @@ def run_runtime_snapshot(args: argparse.Namespace) -> int:
     except Exception:
         # Best-effort: snapshotting must never block a session.
         return 0
+    return 0
+
+
+def run_capture_event(args: argparse.Namespace) -> int:
+    """Append one evidence event to the project journal. Always returns 0.
+
+    Agent-invoked from the ``berdl-query`` / ``synthesize`` skills, so every
+    failure warns on stderr and still exits 0: losing an evidence record must
+    never derail the analysis that produced it. The warning goes to the model,
+    which is the one party that can retry with a corrected locator.
+    """
+    try:
+        locator = (args.locator or "").strip()
+        if args.kind == "query" and not QUERY_LOCATOR.fullmatch(locator):
+            print(
+                f"beril capture-event: '{locator}' is not a q:<id> locator — "
+                "nothing recorded",
+                file=sys.stderr,
+            )
+            return 0
+        # resolve_project reads cwd from the payload (it is built for hooks), so
+        # an agent-invoked call has to supply it or the documented cwd fallback
+        # silently never fires.
+        project_dir = _project_dir(
+            {"project": args.project} if args.project else {"cwd": os.getcwd()}
+        )
+        if project_dir is None:
+            print(
+                "beril capture-event: no project resolved — nothing recorded",
+                file=sys.stderr,
+            )
+            return 0
+        append_event(
+            project_dir,
+            kind=args.kind,
+            locator=locator,
+            payload=args.payload or "",
+            session_id=args.session or os.environ.get("CLAUDE_CODE_SESSION_ID"),
+        )
+    except Exception as exc:
+        print(f"beril capture-event: {type(exc).__name__}: {exc}", file=sys.stderr)
     return 0
