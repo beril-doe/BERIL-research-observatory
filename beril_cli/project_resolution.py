@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -135,3 +136,52 @@ def resolve_project(
             return cwd_project
 
     return _branch_project(root, branch if branch is not None else _git_branch(root))
+
+
+def project_from_runtime(session_id: str | None, repo_root: Path) -> str | None:
+    """The project this session most recently bound to, by `observed_at`.
+
+    The signal `resolve_project` cannot supply: a project created *during* a
+    session has no cwd, branch or path to be found by, and `runtime.json` keyed by
+    session id is the only record that it was worked on. Session-scoped by
+    construction, so two sessions in one clone still resolve to their own.
+
+    **Newest wins, never the first match.** A session that moved between projects
+    is recorded in both files, and taking the first hit from a sorted glob returned
+    whichever project sorted earlier — so working in `zeta_current` after
+    `alpha_old` displayed `alpha_old`, with a live dashboard URL for the project
+    you left.
+
+    `observed_at` means "when this session's provenance for this project last
+    materially changed", not "last touched": `audit_cmd._effective_session` strips
+    the timestamp before its idempotency check, so a repeat write with the same
+    git state, model and mode does not refresh it. Switching *to* a project always
+    writes a record, so the forward case is exact; switching *back* with nothing
+    else changed keeps the older stamp until the next commit refreshes it.
+
+    Ties and unparsable stamps fall back to the sorted order, so the answer is
+    always deterministic.
+    """
+    if not session_id:
+        return None
+    best: tuple[str, str] | None = None
+    for manifest in sorted((repo_root / "projects").glob("*/runtime.json")):
+        try:
+            recorded = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(recorded, dict):
+            continue
+        stamps = [
+            item.get("observed_at") or ""
+            for item in recorded.get("sessions", [])
+            if isinstance(item, dict) and item.get("session_id") == session_id
+        ]
+        if not stamps:
+            continue
+        # ISO-8601 UTC to a fixed format, so string order is time order.
+        newest = max(stamps)
+        project = recorded.get("project") or manifest.parent.name
+        if best is None or newest > best[0]:
+            best = (newest, project)
+    return best[1] if best else None

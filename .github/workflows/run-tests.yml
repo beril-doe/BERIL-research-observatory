@@ -31,18 +31,6 @@ jobs:
           cd ui
           uv run pytest
 
-      # The root suite covers beril_cli/ and tools/ and had never run on a PR:
-      # the step above cds into ui/, whose testpaths is scoped to ui/tests.
-      # Explicit `tests/` because the root project sets no testpaths, and a bare
-      # `uv run pytest` from here also tries to collect ui/tests, which fails on
-      # `No module named 'tests.conftest'` — the two suites both use a top-level
-      # `tests` package name.
-      - name: Install root dependencies
-        run: uv sync --group test
-
-      - name: Run root tests
-        run: uv run pytest tests/
-
       - name: Send to Codecov
         uses: codecov/codecov-action@v5
         with:

@@ -50,24 +50,19 @@ def under_projects(candidate):
 
 
 def from_runtime(session_id):
-    """The project whose runtime.json already records this session.
+    """The project whose runtime.json most recently recorded this session.
 
     Keyed by the id of the running session, so two sessions on two projects each
-    resolve to their own. Costs ~1ms across the whole tree (measured; 2 of 79
-    projects carry one today) and reads state the normal workflow already wrote,
-    so it needs no new file and no ceremony.
+    resolve to their own. Shared with `.claude/hooks/dash_stop.py` rather than
+    copied: both had the same first-match-wins bug, so the exit hook stopped the
+    dashboard of whichever project sorted earlier.
     """
-    if not session_id:
+    try:
+        from beril_cli.project_resolution import project_from_runtime
+
+        return project_from_runtime(session_id, root)
+    except Exception:
         return None
-    for manifest in sorted(projects_dir.glob("*/runtime.json")):
-        try:
-            recorded = json.loads(manifest.read_text())
-        except Exception:
-            continue
-        for session in recorded.get("sessions", []):
-            if session.get("session_id") == session_id:
-                return recorded.get("project") or manifest.parent.name
-    return None
 
 
 # 1. cwd. Only fires when Claude Code was *launched* inside the project:

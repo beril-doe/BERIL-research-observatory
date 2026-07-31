@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import subprocess
 from pathlib import Path
 
@@ -409,3 +410,66 @@ def test_a_mode_toggle_does_not_stop_the_dashboard(tmp_path):
         assert proc.poll() is None, "the dashboard was killed on a non-exit reason"
     finally:
         proc.kill()
+
+
+def _bind(repo: Path, project: str, session_id: str, observed_at: str) -> None:
+    """Record a session in one project's runtime.json, with a chosen timestamp."""
+    (repo / "projects" / project / "runtime.json").write_text(
+        json.dumps({"schema_version": "2.0", "project": project,
+                    "sessions": [{"session_id": session_id, "observed_at": observed_at}]})
+    )
+
+
+def test_switching_projects_resolves_to_the_one_worked_on_most_recently(tmp_path):
+    """REGRESSION. A session that moves between projects is recorded in both files,
+    and the lookup took the first hit from a sorted glob — so the answer was
+    whichever project sorted earlier, and working in `zeta_current` after
+    `alpha_old` displayed `alpha_old` with a live dashboard URL for the project you
+    had left.
+
+    Asserted in *both* alphabetical directions: with only one, a first-match-wins
+    implementation passes half the time by accident.
+    """
+    for older, newer in (("alpha_old", "zeta_current"), ("zeta_current", "alpha_old")):
+        root = tmp_path / newer
+        root.mkdir()
+        repo = _repo(root, {older: None, newer: None})
+        _bind(repo, older, "moved", "2026-07-31T10:00:00Z")
+        _bind(repo, newer, "moved", "2026-07-31T11:00:00Z")
+
+        try:
+            out = _render(repo, session_id="moved")
+        finally:
+            # _render is the real status line, so resolving a project starts its
+            # dashboard. Left running it holds the port the next test asserts free.
+            subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects"],
+                           capture_output=True)
+        assert newer in out, f"resolved to the stale project, not {newer}"
+        assert older not in out
+
+
+def test_the_exit_hook_stops_the_dashboard_of_the_project_last_worked_on(tmp_path):
+    """The same first-match-wins bug lived in `.claude/hooks/dash_stop.py`, where it
+    is worse: on exit it stopped whichever project sorted earlier and left the real
+    one running — the leak this hook exists to prevent."""
+    repo = _repo(tmp_path, {"alpha_old": None, "zeta_current": None})
+    _bind(repo, "alpha_old", "moved", "2026-07-31T10:00:00Z")
+    _bind(repo, "zeta_current", "moved", "2026-07-31T11:00:00Z")
+
+    stale = _spawn_dashboard(repo, "alpha_old")
+    current = _spawn_dashboard(repo, "zeta_current")
+    try:
+        assert _wait_until_listening(_port("alpha_old"))
+        assert _wait_until_listening(_port("zeta_current"))
+
+        done = _stop(repo, {"session_id": "moved", "hook_event_name": "SessionEnd",
+                            "cwd": str(repo), "reason": "other"}, "moved")
+        assert done.returncode == 0, done.stderr
+
+        assert current.wait(timeout=15) is not None, "left the live dashboard running"
+        time.sleep(0.25)
+        assert stale.poll() is None, "stopped a dashboard this session had moved off"
+    finally:
+        for proc in (stale, current):
+            if proc.poll() is None:
+                proc.kill()

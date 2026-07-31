@@ -40,25 +40,20 @@ def project_for(payload: dict) -> "str | None":
     the only signal that covers a project created mid-session."""
     sys.path.insert(0, str(ROOT))
     try:
-        from beril_cli.project_resolution import resolve_project
-
-        found = resolve_project(payload, repo_root=ROOT)
-        if found:
-            return found
+        from beril_cli.project_resolution import project_from_runtime, resolve_project
     except Exception:
-        pass
-
-    session_id = payload.get("session_id") or os.environ.get("CLAUDE_CODE_SESSION_ID")
-    if not session_id:
         return None
-    for manifest in sorted((ROOT / "projects").glob("*/runtime.json")):
-        try:
-            recorded = json.loads(manifest.read_text())
-        except Exception:
-            continue
-        if any(s.get("session_id") == session_id for s in recorded.get("sessions", [])):
-            return recorded.get("project") or manifest.parent.name
-    return None
+
+    try:
+        found = resolve_project(payload, repo_root=ROOT)
+    except Exception:
+        found = None  # a shelled-out git call can fail; the runtime record still answers
+    if found:
+        return found
+
+    return project_from_runtime(
+        payload.get("session_id") or os.environ.get("CLAUDE_CODE_SESSION_ID"), ROOT
+    )
 
 
 def main() -> None:
