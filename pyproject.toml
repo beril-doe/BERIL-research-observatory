@@ -1,6 +1,6 @@
 [project]
 name = "beril-cli"
-version = "0.1.0"
+version = "0.0.6"
 description = "BERIL Research Observatory — CLI launcher and environment manager"
 requires-python = ">=3.11"
 license = "MIT"
@@ -10,7 +10,12 @@ dependencies = ["httpx", "certifi"]
 beril = "beril_cli.cli:main"
 
 [dependency-groups]
-test = ["pytest>=8"]
+# mistune is OPTIONAL AT RUNTIME — tools/dashboard.py imports it in a try/except
+# and degrades to escaped <pre>, and the project's runtime `dependencies` stays
+# empty by design. Pinned here because tier 1 is what actually runs in the pod,
+# and its `escape=True` is a security property: without the library installed
+# that assertion silently falls through to the <pre> tier and proves nothing.
+test = ["pytest>=8", "mistune>=3"]
 knowledge = [
   "openviking",
   "pyyaml",

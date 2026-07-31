@@ -85,7 +85,9 @@ For `--type project` reviews against a project at `status: analysis` (or coming 
   ```
   (Replace `N` with the numbered review just produced.) This keeps the README's user-facing status in sync with `beril.yaml.status`. Without this, the demote-then-review path leaves README stuck on the `analysis` wording even though `beril.yaml` advances to `reviewed`.
 
-For `reviewed` starting status, refresh `README.md` `## Status` similarly (the `N` updates) and ensure `artifacts.review: true` is still set; leave `beril.yaml.status` unchanged. For `complete` (matching hash) starting status, leave both `beril.yaml` and `README.md` unchanged — re-running `/berdl-review` against an approved project only adds another opinion file; the project remains complete. Plan reviews never touch `beril.yaml` or `README.md`.
+- Append a worklog entry (`review completed → reviewed`) to `projects/{project_id}/WORKLOG.md` per `.claude/skills/worklog-capture/SKILL.md`: the reviewer used, the overall assessment in one sentence, and the critical issues raised. Link the numbered `REVIEW_N.md`. If Step 2 demoted a `complete` project on a hash mismatch, that demote gets its own entry first, naming what changed.
+
+For `reviewed` starting status, refresh `README.md` `## Status` similarly (the `N` updates) and ensure `artifacts.review: true` is still set; leave `beril.yaml.status` unchanged. Later reviews on an already-`reviewed` project still get a worklog entry — iterating on reviews is work worth recording. For `complete` (matching hash) starting status, leave both `beril.yaml` and `README.md` unchanged — re-running `/berdl-review` against an approved project only adds another opinion file; the project remains complete. Plan reviews never touch `beril.yaml` or `README.md`.
 
 ### Step 6: Present Summary
 
