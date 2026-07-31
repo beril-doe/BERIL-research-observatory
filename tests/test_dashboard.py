@@ -15,6 +15,7 @@ import json
 import shutil
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,7 @@ sys.path.insert(0, str(ROOT))
 from tools.dashboard import (  # noqa: E402
     jupyter_python,
     _approval_chip,
+    _timeline_html,
     count_deviations,
     main,
     notebook_stats,
@@ -441,6 +443,42 @@ def test_parse_worklog(tmp_path):
     assert (demote.correction, demote.title, demote.new_status) == (
         True, "plan revised", "proposed",
     )
+
+
+def test_activity_entries_fold_without_hiding_the_narrative(tmp_path):
+    """The `~` tier exists to carry the 15-minute running summary without
+    burying the entries a human actually reads. Three things have to hold at
+    once, and each of them was a way to get this wrong: activity entries parse
+    and are flagged, consecutive ones collapse into a disclosure whose id is
+    stable under appends (POLL_JS restores open state by id, so an id keyed on
+    rendered position would slam the panel shut every 4s), and the `now` card
+    keeps showing the newest *narrative* entry rather than whatever ran last."""
+    project = _project(tmp_path)
+    log = (
+        "## 2026-02-18 · plan written → proposed\nFramed it.\n\n"
+        "## 2026-02-18 · ~ checked coverage\nOnly 900 samples carry pH.\n\n"
+        "## 2026-02-18 · ~ read the Price 2019 methods\nInconclusive.\n\n"
+        "## 2026-02-19 · vectors built\nDropped 412 genes.\n"
+    )
+    entries = parse_worklog(log, project)
+    assert [e.activity for e in entries] == [False, True, True, False]
+    assert entries[1].title == "checked coverage"
+
+    html = _timeline_html(entries, None)
+    # One disclosure for the run of two, not one per entry.
+    assert html.count("<details") == 1
+    assert "2 activity entries" in html
+    # Id keyed on the run's position in the file: appending a third activity
+    # entry to that run must not renumber it.
+    assert 'id="act-1"' in html
+    grown = parse_worklog(
+        log + "\n## 2026-02-19 · ~ one more\nStill nothing.\n", project
+    )
+    assert 'id="act-1"' in _timeline_html(grown, None)
+
+    page = render(replace(scan(project), entries=entries), css="body{}")
+    assert "<b>vectors built</b>" in page.split('class="d-tl"')[0]
+    assert "Worklog (2)" in page and "+2 activity" in page
 
 
 def test_notebook_stats_and_partial_writes(tmp_path):

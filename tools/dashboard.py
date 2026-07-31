@@ -201,6 +201,7 @@ class Entry:
     prose: str = ""
     links: list = field(default_factory=list)
     correction: bool = False
+    activity: bool = False
 
 
 @dataclass
@@ -666,8 +667,23 @@ def parse_worklog(text: str, project: Path) -> list:
             correction = title.startswith("!")
             if correction:
                 title = title[1:].strip()
+            # A leading `~` marks an activity entry — the 15-minute running
+            # summary the Stop hook asks for. Same one-character mechanism as
+            # `!` above, for the same reason: the grammar is unchanged and a
+            # worklog written before this existed parses exactly as before.
+            # The renderer folds consecutive activity entries into one
+            # collapsed run so the narrative stays scannable.
+            activity = title.startswith("~")
+            if activity:
+                title = title[1:].strip()
             entries.append(
-                Entry(head.group(1), title, head.group(3), correction=correction)
+                Entry(
+                    head.group(1),
+                    title,
+                    head.group(3),
+                    correction=correction,
+                    activity=activity,
+                )
             )
             continue
         if not entries:
@@ -924,6 +940,21 @@ background:var(--d-accent);}
    timeline finds the moments the project changed direction. */
 .d-ev.fix:before{background:var(--d-warn);border-color:var(--d-warn);}
 .d-ev.fix{border-left:2px solid #d2992255;margin-left:-14px;padding-left:12px;}
+/* Activity runs: collapsed by default, so the narrative reads unbroken and the
+   15-minute summaries are one click away rather than in the way. Dimmed and
+   marked with a hollow tick inside the panel — once opened they are still the
+   lesser tier, and should not compete with the entries around them. */
+.d-act{margin:0 0 18px;}
+.d-act>summary{cursor:pointer;color:var(--d-mut);font-size:12px;list-style:none;
+padding:2px 0;}
+.d-act>summary::-webkit-details-marker{display:none;}
+.d-act>summary:before{content:'\\25B8  ';color:#4a5265;}
+.d-act[open]>summary:before{content:'\\25BE  ';}
+.d-act>summary:hover{color:var(--d-fg);}
+.d-act[open]>summary{margin-bottom:10px;}
+.d-ev.act{margin-bottom:12px;opacity:.72;}
+.d-ev.act:before{width:5px;height:5px;left:-20.5px;top:8px;border-color:#3a4152;}
+.d-ev.act p{font-size:13px;}
 .d-ev p{max-width:68ch;margin:4px 0;color:#c4cad8;}
 .d-links{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:6px;}
 /* The gallery earns real size; the 104px inline thumbs in the timeline do not.
@@ -1362,8 +1393,46 @@ def _link_html(link: Link, routes: "JupyterRoutes | None") -> str:
     return f'<a class="d-chip" href="{href}" target="_blank">{label}{count}</a>'
 
 
+def _timeline_html(entries: list, routes: "JupyterRoutes | None") -> str:
+    """Newest first, with consecutive activity entries folded into one
+    ``<details>``.
+
+    Folded *in place* rather than swept into a section of their own: where in
+    the story the dense work happened is itself information, and a separate
+    container throws the chronology away.
+
+    The disclosure id keys on the run's index in the file (oldest-first), which
+    is why this walks the entries in file order and reverses afterwards. An
+    append extends the newest run without renumbering the earlier ones, so the
+    id survives, and with it the open/closed state that POLL_JS restores across
+    the 4s refresh — id keyed on the *rendered* position would collapse the
+    panel the reader just opened every time the agent wrote an entry.
+    """
+    runs: list = []
+    for index, entry in enumerate(entries):
+        if runs and runs[-1][0] == entry.activity:
+            runs[-1][2].append(entry)
+        else:
+            runs.append((entry.activity, index, [entry]))
+
+    parts = []
+    for is_activity, start, group in reversed(runs):
+        body = "".join(_entry_html(entry, routes) for entry in reversed(group))
+        if not is_activity:
+            parts.append(body)
+            continue
+        label = "%d activity %s" % (len(group), "entry" if len(group) == 1 else "entries")
+        parts.append(
+            f'<details class="d-act" id="act-{start}">'
+            f"<summary>{label}</summary>{body}</details>"
+        )
+    return '<div class="d-tl">' + "".join(parts) + "</div>"
+
+
 def _entry_html(entry: Entry, routes: "JupyterRoutes | None") -> str:
     big = " big" if entry.new_status else ""
+    if entry.activity:
+        big += " act"
     # Corrections are the only record of why a project was not a straight line,
     # and they used to render identically to "ran notebook 3". Labelled as well
     # as coloured — hue alone is not a signal everyone can read.
@@ -1621,7 +1690,16 @@ def render(state: State, css: str, live: bool = True) -> str:
     # summary, and the same entry sits in full at the top of the timeline a
     # scroll away. Unclamped, a long review write-up pushed the sticky header to
     # ~390px and buried the content it was supposed to sit above.
-    newest = state.entries[-1] if state.entries else None
+    # Newest *narrative* entry. Activity entries are the running summary and
+    # outnumber the narrative ones badly, so keying this on the literal last
+    # line would park "reviewed three tables, nothing conclusive" above the fold
+    # for the whole project. Falls back to the last entry only when there is
+    # nothing else, which is the honest answer for a project that has so far
+    # only been explored.
+    newest = next(
+        (entry for entry in reversed(state.entries) if not entry.activity),
+        state.entries[-1] if state.entries else None,
+    )
     now_card = (
         '<div class="d-now"><span class="d-eyebrow">now</span>'
         f"<b>{inline_md(newest.title)}</b>"
@@ -1631,10 +1709,20 @@ def render(state: State, css: str, live: bool = True) -> str:
         else ""
     )
 
+    # The heading counts the narrative entries only — that is the number a
+    # reader is being offered. Activity entries are announced beside it rather
+    # than summed in, so the count cannot imply a denser timeline than the one
+    # on screen.
+    activity_count = sum(1 for entry in state.entries if entry.activity)
+    narrative = len(state.entries) - activity_count
+    activity_chip = (
+        f'<span class="d-chip">+{activity_count} activity</span>'
+        if activity_count
+        else ""
+    )
+
     if state.entries:
-        timeline = '<div class="d-tl">' + "".join(
-            _entry_html(entry, state.routes) for entry in reversed(state.entries)
-        ) + "</div>"
+        timeline = _timeline_html(state.entries, state.routes)
     else:
         timeline = (
             '<p class="d-empty">No worklog entries yet — the agent writes one per '
@@ -1686,7 +1774,10 @@ def render(state: State, css: str, live: bool = True) -> str:
         f"{now_card}"
         "</header>\n"
         f"{_plan_html(state)}\n"
-        f'<h2 class="d-sec">Worklog ({len(state.entries)})</h2>{timeline}\n'
+        # The count is the narrative one — the number a reader is being offered.
+        # Activity entries are announced separately rather than summed in, so
+        # the heading cannot imply the timeline is denser than what it shows.
+        f'<h2 class="d-sec">Worklog ({narrative}){activity_chip}</h2>{timeline}\n'
         f"{_artifacts_html(state)}\n"
         "</div>\n"
         # Sibling of #root, so the 4s poll never wipes it. Reuses main.css's

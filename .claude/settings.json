@@ -96,6 +96,16 @@
         ]
       }
     ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/worklog_gate.py\"; exit 0'"
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [

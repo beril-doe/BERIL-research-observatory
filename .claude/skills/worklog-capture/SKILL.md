@@ -21,6 +21,7 @@ Not in `memories/`. That directory is for cross-project knowledge destined for O
 ```markdown
 ## {YYYY-MM-DD} · {what happened}{ → new_status}
 ## {YYYY-MM-DD} · ! {a correction}
+## {YYYY-MM-DD} · ~ {a running activity summary}
 {One to three sentences: what was done and *why*. The decision, not the mechanics.}
 → [{label}]({project-relative-path})
 → [{label}]({project-relative-path}) ×{n}
@@ -29,6 +30,8 @@ Not in `memories/`. That directory is for cross-project knowledge destined for O
 The `→ new_status` suffix appears **only** on the six lifecycle transitions. Work-unit entries omit it.
 
 A **leading `!`** marks a correction — a bug found, a re-run, an approach abandoned. Use it whenever the entry records the project changing direction. These are the highest-value entries in the file, and the dashboard gives them an amber marker so a reader scanning the timeline finds the turning points without reading every entry. Without the `!` a correction is indistinguishable from "ran notebook 3". The marker is optional and unmarked worklogs parse exactly as before.
+
+A **leading `~`** marks an *activity* entry — see "Two tiers" below. The dashboard folds consecutive activity entries into one collapsed disclosure, so they never break up the narrative.
 
 Worked example:
 
@@ -50,6 +53,26 @@ and added a threshold sensitivity pass to check the result wasn't cutoff-driven.
 → [nb 02](notebooks/02_concordance_analysis.ipynb)
 → [fig](figures/threshold_sensitivity.png)
 ```
+
+## Two tiers
+
+The file holds two kinds of entry, in one chronological stream.
+
+**Narrative** (unmarked, or `!`) — what a human reads. Lifecycle transitions and completed units of work. Written when something *concluded*.
+
+**Activity** (`~`) — the running record. Written on a clock, not on a conclusion: roughly every 15 minutes of work, covering whatever happened since the last entry. These exist because the narrative tier is blind to the work that produces no artifact — exploration, in particular, where an agent can spend hours querying BERDL and reading papers and leave nothing on disk to write an entry *about*. That whole phase used to collapse into a single "plan written" entry composed in hindsight, after the dead ends had been tidied away.
+
+An activity entry records what the stretch **ruled out, constrained, or established** — not what was searched:
+
+- ✅ `~ pH framing dead` — "MicrobeAtlas has 40k samples but only ~900 carry pH. Not enough for a gradient analysis; falling back to a categorical split."
+- ✅ `~ TnSeq coverage checked` — "Three of the seven organisms have TnSeq. A two-organism comparison is the most the data supports."
+- ❌ "Queried the pangenome table and looked at some papers."
+
+**"Nothing to record" is a valid activity entry.** One line saying a stretch was inconclusive is worth having — an hour that produced no constraint is itself a fact about the question — and it is always better than padding. Never invent significance to fill an entry.
+
+Activity entries are collapsed by default on the dashboard, so they cost the reader nothing. That is not licence to write badly: the reason to open them is usually that a result looks wrong and someone is reconstructing how it was reached.
+
+If a stretch produced something that belongs in the narrative tier, write it as a narrative entry instead — one entry, not both.
 
 ## When to write an entry
 
@@ -73,6 +96,10 @@ Demotions are transitions too: a `/synthesize` re-open of a `complete` project, 
 - A data export lands in `data/`.
 - A correction: a bug found, a re-run, an approach abandoned. **These are the highest-value entries** — they are the only record of why the project isn't a straight line. Mark them with a leading `!` so they stand out on the dashboard.
 - The plan changes mid-flight (pair it with the `RESEARCH_PLAN.md` Revision History bump).
+
+### Activity — on the clock
+
+`.claude/hooks/worklog_gate.py` asks for one when ~15 minutes of work have gone by with nothing written, and asks for a *narrative* entry when an artifact is newer than the last entry. Both self-debounce: writing resets the clock. You do not need to watch the clock yourself — write entries as work concludes and the gate will rarely fire.
 
 ## Rules
 
