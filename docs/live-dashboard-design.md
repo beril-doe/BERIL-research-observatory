@@ -203,22 +203,27 @@ touched last" — hands all of them the same answer and flips under them as each
 
 ## Relationship to the planning workflow
 
-This targets `main` and **does not depend on** `feat/planning-workflow` (#305).
-`plan_approval` returns `na`/`missing` and `count_deviations` returns `0` when those files
-are absent, so the page degrades correctly on every project on disk today — none of which
-has a `plan_approval` block. The chips start showing real values once that branch lands,
-with no code change here.
+#305 is merged and merged *into* this branch, so the approval and deviation chips
+now read real values. `plan_approval` still returns `na`/`missing` and
+`count_deviations` still returns `0` when those files are absent, which is most of
+the 78 projects on disk — the page degrades rather than accusing them.
 
-Verified both directions: the suite passes on `main`, and passes rebased onto
-`feat/planning-workflow` with the twin test active against the real
-`beril_cli.approve_cmd`.
+`plan_digest` here is a byte-identical twin of `beril_cli.approve_cmd.plan_digest`,
+and the test that pins them together is no longer skipped: it now runs against the
+real implementation. The rule is subtle enough to be worth restating — it excises
+the `## Revision History` *section*, keeping whatever follows it. An earlier version
+excised everything to end-of-file, which agreed on all four fixtures (each had
+Revision History last) and disagreed on 53 of 73 real plans.
 
-**Merge order is free**, with one follow-up either way: two mechanical conflicts
-(`.claude/skills/berdl_start/SKILL.md`, `PROJECT.md`) and the Phase B/C hooks move to
-`research-plan` / `execute-plan`. `tests/test_skill_wiring.py` fails loudly if that move is
-missed — verified red on a simulated bad merge, green on the correct one. The rehearsed
-resolution is preserved at `backup/worklog-capture-stacked`.
+The merge itself needed one thing git could not see. #305 split `/berdl_start` into
+`/research-plan` and `/execute-plan`, and taking main's version of that file — the
+correct resolution — dropped the worklog hooks for the first three lifecycle
+transitions, silently, because the skills they moved to are new files with no common
+ancestor. `tests/test_skill_wiring.py` exists for exactly that failure and caught it:
+416 passed, 1 failed on the merge commit. It reads worklog-capture's own transitions
+table as its source of truth, so a table left naming a phase that no longer exists
+fails as loudly as a missing hook.
 
-A rename of the `analysis` status to `synthesized` is planned as its own PR after #305
-merges; `analysis` currently names the activity that happens during `active`. Until then
+A rename of the `analysis` status to `synthesized` is planned as its own PR;
+`analysis` currently names the activity that happens during `active`. Until then
 `STAGE_LABELS` relabels the rail for humans without touching the enum.
