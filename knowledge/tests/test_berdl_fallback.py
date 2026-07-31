@@ -28,6 +28,17 @@ class _FakeBody:
         return self._data
 
 
+class _FakePaginator:
+    def __init__(self, objects: dict[str, str]) -> None:
+        self.objects = objects
+
+    def paginate(self, *, Bucket: str, Prefix: str):
+        contents = [
+            {"Key": key} for key in self.objects if key.startswith(Prefix)
+        ]
+        yield {"Contents": contents}
+
+
 class _FakeS3:
     """Minimal stand-in for a boto3 S3 client backed by an in-memory store."""
 
@@ -40,6 +51,9 @@ class _FakeS3:
                 {"Error": {"Code": "NoSuchKey", "Message": "missing"}}, "GetObject"
             )
         return {"Body": _FakeBody(self.objects[Key])}
+
+    def get_paginator(self, name: str):
+        return _FakePaginator(self.objects)
 
 
 def _patch_client(monkeypatch, client) -> None:
@@ -129,6 +143,54 @@ def test_berdl_overview_file_returns_file(tmp_path, monkeypatch):
         _config(tmp_path), "viking://resources/projects/alpha/REPORT.md"
     )
     assert "# Report" in out
+
+
+# --- find (keyword search over the archived corpus) -----------------------
+
+_TENANT = "tenant-general-warehouse/microbialdiscoveryforge/projects"
+
+
+def test_berdl_find_scores_curated_files_and_skips_non_corpus(tmp_path, monkeypatch):
+    store = {
+        f"{_TENANT}/alpha/README.md": "# Alpha\nStudies phage timing in soil.\n",
+        f"{_TENANT}/alpha/memories/pitfalls.md": "Spark OOM on the big table.\n",
+        # non-corpus content must never be fetched or scored
+        f"{_TENANT}/alpha/data/notes.md": "phage phage phage timing\n",
+        f"{_TENANT}/alpha/notebooks/nb.ipynb": "phage timing\n",
+    }
+    _patch_client(monkeypatch, _FakeS3(store))
+
+    result = bf.berdl_find(
+        _config(tmp_path), "phage timing", "viking://resources/projects/", 10
+    )
+
+    assert result["source"] == "berdl"
+    assert result["degraded"] is True
+    uris = [r["uri"] for r in result["resources"]]
+    assert "viking://resources/projects/alpha/README.md" in uris
+    # data/ and notebooks/ are outside the curated corpus -> never returned.
+    assert all("/data/" not in u and "/notebooks/" not in u for u in uris)
+
+
+def test_berdl_find_single_project_scope(tmp_path, monkeypatch):
+    store = {
+        f"{_TENANT}/alpha/README.md": "alpha readme mentions spark\n",
+        f"{_TENANT}/beta/README.md": "beta readme mentions spark\n",
+    }
+    _patch_client(monkeypatch, _FakeS3(store))
+
+    result = bf.berdl_find(
+        _config(tmp_path), "spark", "viking://resources/projects/alpha/", 10
+    )
+    uris = [r["uri"] for r in result["resources"]]
+    assert uris == ["viking://resources/projects/alpha/README.md"]
+
+
+def test_berdl_find_docs_scope_is_unavailable(tmp_path, monkeypatch):
+    # Docs aren't archived in the lakehouse -> caller falls back to local.
+    _patch_client(monkeypatch, _FakeS3({}))
+    with pytest.raises(bf.BerdlUnavailable):
+        bf.berdl_find(_config(tmp_path), "spark", "viking://resources/docs/", 10)
 
 
 # --- credential / availability gating -------------------------------------

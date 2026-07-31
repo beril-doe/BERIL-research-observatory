@@ -11,6 +11,7 @@ as the server, so a skill reads them identically either way.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from pathlib import Path
 
 from .config import ContextConfig, DOCS_TARGET_URI, PROJECTS_TARGET_URI
@@ -90,13 +91,23 @@ def _read(path: Path) -> str:
         return ""
 
 
-def local_find(
-    config: ContextConfig, query: str, target_uri: str, limit: int
+def score_corpus(
+    query: str,
+    documents: Iterable[tuple[str, str]],
+    limit: int,
+    *,
+    source: str,
 ) -> dict:
+    """Rank ``(uri, text)`` documents by query-term coverage.
+
+    Shared keyword-search core for the degraded ``find``. The caller supplies
+    the documents — from local disk (:func:`local_find`) or the BERDL archive
+    (``berdl_fallback.berdl_find``) — so ranking stays identical across tiers.
+    ``source`` labels where the documents came from ("local" / "berdl").
+    """
     terms = set(_TOKEN_RE.findall(query.lower()))
     scored: list[dict] = []
-    for path, uri in _scoped(config, target_uri):
-        text = _read(path)
+    for uri, text in documents:
         lowered = text.lower()
         present = {term for term in terms if term in lowered}
         if not present:
@@ -117,8 +128,15 @@ def local_find(
         "resources": resources,
         "total": len(resources),
         "degraded": True,
-        "source": "local",
+        "source": source,
     }
+
+
+def local_find(
+    config: ContextConfig, query: str, target_uri: str, limit: int
+) -> dict:
+    documents = ((uri, _read(path)) for path, uri in _scoped(config, target_uri))
+    return score_corpus(query, documents, limit, source="local")
 
 
 def _snippet(text: str, terms: set[str]) -> str:

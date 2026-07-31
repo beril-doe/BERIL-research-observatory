@@ -106,14 +106,15 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _berdl_then_local(config, uri, berdl_fn, local_fn) -> str:
+def _berdl_then_local(config, uri, berdl_fn, local_fn):
     """Try the BERDL lakehouse archive first, then the local working tree.
 
-    ``read``/``overview`` fetch a specific resource, so they can be served from
-    the submitted lakehouse copy when OpenViking is down. If that tier is
-    unavailable — no credentials, unreachable, unauthorized, or the resource
-    isn't archived — fall through to the local file. A per-tier banner tells the
-    user which source actually answered.
+    ``find``/``read``/``overview`` each fetch specific resources, so they can be
+    served from the submitted lakehouse copy when OpenViking is down. If that
+    tier is unavailable — no credentials, unreachable, unauthorized, or the
+    resource/scope isn't archived — fall through to local. A per-tier banner
+    tells the user which source actually answered. Returns whatever the tier
+    function returns (str for read/overview, result dict for find).
     """
     try:
         result = berdl_fn(config, uri)
@@ -134,11 +135,15 @@ def _run_fallback(args, config: ContextConfig) -> None:
     # to local. read/overview fetch one resource and try BERDL first — each
     # branch prints its own banner so the user sees which tier answered.
     if args.command == "find":
-        print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)
         target_uri = target_uri_for_find(
             project=args.project, docs=args.docs, target_uri=args.target_uri
         )
-        result = fallback.local_find(config, args.query, target_uri, args.limit)
+        result = _berdl_then_local(
+            config,
+            target_uri,
+            lambda cfg, uri: berdl_fallback.berdl_find(cfg, args.query, uri, args.limit),
+            lambda cfg, uri: fallback.local_find(cfg, args.query, uri, args.limit),
+        )
         print(json.dumps(result, default=str) if args.json else format_find_text(result))
     elif args.command == "grep":
         print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)

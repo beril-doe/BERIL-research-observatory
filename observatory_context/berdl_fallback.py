@@ -22,14 +22,17 @@ through to the local tier. Nothing here talks to the network at import time.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
+from . import fallback
 from .config import (
     LAKEHOUSE_BUCKET,
     ContextConfig,
     lakehouse_projects_key,
     s3_settings,
 )
+from .selection import MEMORY_DIR_NAME, PROJECT_CURATED_NAMES
 
 BANNER = (
     "⚠ knowledge layer unavailable — served from the BERDL lakehouse archive "
@@ -207,3 +210,99 @@ def berdl_overview(config: ContextConfig, uri: str) -> str:
         text = _get_object_text(client, bucket, f"{key}/README.md")
         return "\n".join(text.splitlines()[:40])
     return _get_object_text(client, bucket, key)
+
+
+# --- find (keyword search over the archived corpus) -----------------------
+#
+# `find` fetches files to score them, so it pulls only the *curated* corpus —
+# the same files local find searches (PROJECT_CURATED_NAMES, REFUTATION_*.md,
+# and memories/*.md) — never data/ or notebooks. Scoping and ranking are shared
+# with the local tier via ``fallback.score_corpus``.
+
+_PROJECTS_KEY_PREFIX = lakehouse_projects_key("", "")  # ".../projects/"
+_REFUTATION_KEY = re.compile(r"REFUTATION_[1-9][0-9]*\.md$")
+
+
+def _key_to_uri(key: str) -> str | None:
+    """Reverse ``lakehouse_projects_key`` → ``viking://resources/projects/...``."""
+    if not key.startswith(_PROJECTS_KEY_PREFIX):
+        return None
+    rel = key[len(_PROJECTS_KEY_PREFIX):]
+    return f"{_PROJECTS_PREFIX}{rel}" if rel else None
+
+
+def _is_curated_key(key: str) -> bool:
+    """True if ``key`` names a curated corpus file (mirrors ``selection.py``).
+
+    Matches the top-level curated docs and numbered refutations, plus any file
+    directly under a project's ``memories/`` directory. Anything deeper (data/,
+    notebooks/, figures/) is excluded, exactly like the local corpus.
+    """
+    rel = key[len(_PROJECTS_KEY_PREFIX):]  # "<project_id>/<path...>"
+    parts = rel.split("/")
+    if len(parts) == 2:  # <project_id>/<name>
+        name = parts[1]
+        return name in PROJECT_CURATED_NAMES or bool(_REFUTATION_KEY.fullmatch(name))
+    if len(parts) == 3 and parts[1] == MEMORY_DIR_NAME:  # <id>/memories/<name>.md
+        return parts[2].endswith(".md")
+    return False
+
+
+def _scope_prefixes(target_uri: str) -> list[str]:
+    """S3 key prefixes to enumerate for a find, derived from ``target_uri``.
+
+    All projects → the projects prefix; a single project → just that project's
+    prefix. Docs (and any non-project scope) aren't archived here, so an empty
+    list signals "not servable by BERDL" → :class:`BerdlUnavailable`.
+    """
+    if target_uri == _PROJECTS_PREFIX or target_uri.rstrip("/") == _PROJECTS_PREFIX.rstrip("/"):
+        return [_PROJECTS_KEY_PREFIX]
+    if target_uri.startswith(_PROJECTS_PREFIX):
+        project_id = target_uri[len(_PROJECTS_PREFIX):].strip("/").split("/")[0]
+        if project_id:
+            return [f"{lakehouse_projects_key(project_id)}/"]
+    return []
+
+
+def _list_curated_keys(client, prefixes: list[str]) -> list[str]:
+    """List curated corpus object keys under the given prefixes."""
+    try:
+        from botocore.exceptions import BotoCoreError, ClientError
+    except ImportError as exc:  # pragma: no cover - dependency guard
+        raise BerdlUnavailable("botocore is not installed") from exc
+    keys: list[str] = []
+    try:
+        paginator = client.get_paginator("list_objects_v2")
+        for prefix in prefixes:
+            for page in paginator.paginate(Bucket=LAKEHOUSE_BUCKET, Prefix=prefix):
+                for obj in page.get("Contents", []):
+                    if _is_curated_key(obj["Key"]):
+                        keys.append(obj["Key"])
+    except ClientError as exc:
+        code = str(exc.response.get("Error", {}).get("Code", ""))
+        raise BerdlUnavailable(f"lakehouse {code} listing archive") from exc
+    except BotoCoreError as exc:
+        raise BerdlUnavailable(f"lakehouse unreachable: {exc}") from exc
+    return keys
+
+
+def berdl_find(config: ContextConfig, query: str, target_uri: str, limit: int) -> dict:
+    """Keyword search over the archived curated corpus.
+
+    Enumerates curated files under ``target_uri`` in the lakehouse, fetches
+    them, and ranks with the shared scorer. Raises :class:`BerdlUnavailable`
+    (→ local fallback) if the tier can't serve the scope — no creds,
+    unreachable, unauthorized, or a non-project scope (e.g. docs).
+    """
+    prefixes = _scope_prefixes(target_uri)
+    if not prefixes:
+        raise BerdlUnavailable(f"no lakehouse archive for scope: {target_uri}")
+    client = _s3_client()
+    bucket = LAKEHOUSE_BUCKET
+    documents = []
+    for key in _list_curated_keys(client, prefixes):
+        uri = _key_to_uri(key)
+        if uri is None:
+            continue
+        documents.append((uri, _get_object_text(client, bucket, key)))
+    return fallback.score_corpus(query, documents, limit, source="berdl")
