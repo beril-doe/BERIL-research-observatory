@@ -45,6 +45,9 @@ def _repo(tmp_path: Path, projects: dict) -> Path:
     (tmp_path / ".claude" / "hooks" / "beril-runtime.sh").symlink_to(
         ROOT / ".claude" / "hooks" / "beril-runtime.sh"
     )
+    (tmp_path / ".claude" / "hooks" / "dash_stop.py").symlink_to(
+        ROOT / ".claude" / "hooks" / "dash_stop.py"
+    )
     for pid, sessions in projects.items():
         pdir = tmp_path / "projects" / pid
         pdir.mkdir(parents=True)
@@ -273,3 +276,68 @@ def test_it_does_not_spawn_when_no_project_resolves(tmp_path):
     after = subprocess.run(["pgrep", "-fc", "tools/dashboard.py"],
                            capture_output=True, text=True).stdout.strip() or "0"
     assert before == after, "spawned a dashboard with no project resolved"
+
+
+# --------------------------------------------------------------------------
+# Stopping it — the SessionEnd hook
+# --------------------------------------------------------------------------
+
+def _stop(repo: Path, payload: dict, session_id: str) -> subprocess.CompletedProcess:
+    import os
+
+    return subprocess.run(
+        ["python3", str(repo / ".claude" / "hooks" / "dash_stop.py")],
+        input=json.dumps(payload), capture_output=True, text=True,
+        cwd=str(repo), env={**os.environ, "CLAUDE_CODE_SESSION_ID": session_id},
+        timeout=60,
+    )
+
+
+def _spawn_dashboard(repo: Path, pid: str):
+    import subprocess as sp
+    import sys as s
+
+    return sp.Popen(
+        [s.executable, str(ROOT / "tools" / "dashboard.py"), str(repo / "projects" / pid)],
+        stdout=sp.DEVNULL, stderr=sp.DEVNULL, start_new_session=True,
+    )
+
+
+def test_session_end_stops_the_dashboard_for_its_project(tmp_path):
+    """The counterpart to the status line starting it. Without this the server is
+    detached, so it outlives Claude Code and nothing ever stops it."""
+    repo = _repo(tmp_path, {"stopme": ["sess-stop"]})
+    proc = _spawn_dashboard(repo, "stopme")
+    try:
+        import time
+        time.sleep(2)
+        assert proc.poll() is None, "dashboard did not start"
+
+        done = _stop(repo, {"session_id": "sess-stop", "hook_event_name": "SessionEnd",
+                            "cwd": str(repo), "reason": "other"}, "sess-stop")
+        assert done.returncode == 0, done.stderr      # must never block the exit
+        assert proc.wait(timeout=15) is not None
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+
+
+def test_a_mode_toggle_does_not_stop_the_dashboard(tmp_path):
+    """SessionEnd fires for things that end nothing. `bypass_permissions_disabled`
+    is a mode toggle — same session, same project — so killing there is pure
+    churn. Every other reason, `clear` included, ends the session: /clear starts
+    a fresh one that may be a different project, so the old dashboard should go."""
+    repo = _repo(tmp_path, {"keepme": ["sess-clear"]})
+    proc = _spawn_dashboard(repo, "keepme")
+    try:
+        import time
+        time.sleep(2)
+        for reason in ("bypass_permissions_disabled",):
+            done = _stop(repo, {"session_id": "sess-clear", "reason": reason,
+                                "hook_event_name": "SessionEnd", "cwd": str(repo)},
+                         "sess-clear")
+            assert done.returncode == 0
+        time.sleep(1)
+        assert proc.poll() is None, "the dashboard was killed on a non-exit reason"
+    finally:
+        proc.kill()
