@@ -58,6 +58,7 @@ import re
 import shutil
 import site
 import sys
+import time
 import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -101,6 +102,21 @@ RESTART_STEPS = (
     "Reopen a terminal and run `claude --resume` to pick this session back up.",
 )
 SETUP_STEPS = (f"Run `{SETUP_CMD}` and answer yes to the live dashboard step.",) + RESTART_STEPS
+
+# Written by .claude/hooks/agent_state.py, read here and nowhere else.
+AGENT_STATE_FILE = ".agent-state.json"
+# How long a `waiting` claim is believed. It is the one *present tense* thing
+# this page says — "a human is blocked on this right now" — and the only event
+# that ends it is one Claude Code has to still be alive to send. A pod culled or
+# a SIGKILL mid-prompt leaves `waiting` on disk with nobody left to answer it,
+# and a page that says "waiting for you" about a process that no longer exists
+# is worse than one that says nothing.
+#
+# 30 minutes because the file is not evidence of a *live* prompt, only of one
+# opened at `since`: stepping away for lunch with a real prompt open is normal,
+# and expiring at 5 minutes would call that a lie. `turn_ended` never expires —
+# it is a claim about the past, so it cannot go stale.
+WAIT_TTL = 1800.0
 
 FIGURE_EXT = {".png", ".jpg", ".jpeg", ".svg"}
 DATA_EXT = {".csv", ".tsv", ".json", ".parquet"}
@@ -284,6 +300,7 @@ class State:
     etag: str
     routes: "JupyterRoutes | None"
     plan: dict = field(default_factory=dict)
+    agent: dict = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -304,6 +321,62 @@ def read_status(project: Path) -> tuple:
         return None, False
     found = _STATUS_RE.search(text)
     return (found.group(1) if found else None), bool(_APPROVAL_RE.search(text))
+
+
+def _session_is_gone(project: Path, session_id) -> bool:
+    """True when `runtime.json` knows this project's sessions and not this one.
+
+    The cheap half of not lying. `runtime.json` is written by
+    `.claude/hooks/beril-runtime.sh` on SessionStart and on the first write into
+    a project, so by the time anything can resolve a project well enough to
+    record a state for it, that session is already listed — an absence therefore
+    means the file outlived the session that wrote it.
+
+    No `runtime.json` at all is not evidence of anything, so it is not treated
+    as any: the check only fires on a file that *does* have an opinion.
+    """
+    try:
+        recorded = json.loads((project / "runtime.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    sessions = recorded.get("sessions") if isinstance(recorded, dict) else None
+    if not isinstance(sessions, list) or not sessions:
+        return False
+    return not any(
+        isinstance(item, dict) and item.get("session_id") == session_id
+        for item in sessions
+    )
+
+
+def read_agent_state(project: Path) -> dict:
+    """Is the agent blocked on a human? `{}` when there is nothing to say.
+
+    Expiry happens **here rather than in the hook**, because the hook only runs
+    when something happens and going stale is precisely what happens when
+    nothing does. There is no event for "the pod was culled".
+
+    `state` is therefore not the file's state: a `waiting` past `WAIT_TTL`, or
+    one whose session `runtime.json` has never heard of, is downgraded to
+    `unknown` — which renders as a neutral chip, no strip and no notification.
+    Saying "I no longer know" costs a reader nothing; saying "come back, you are
+    blocking the agent" about a dead process costs them a trip.
+    """
+    try:
+        record = json.loads((project / AGENT_STATE_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(record, dict) or record.get("state") not in ("waiting", "turn_ended"):
+        return {}
+
+    since = record.get("since")
+    since = float(since) if isinstance(since, (int, float)) else 0.0
+    state = record["state"]
+    if state == "waiting" and (
+        time.time() - since > WAIT_TTL
+        or _session_is_gone(project, record.get("session_id"))
+    ):
+        state = "unknown"
+    return {"state": state, "detail": str(record.get("detail") or ""), "since": since}
 
 
 def _has_executed_notebook(project: Path) -> bool:
@@ -701,6 +774,15 @@ def scan(project: Path) -> State:
                 (os.path.join(root, name), stat.st_mtime_ns, stat.st_size)
             )
 
+    # The agent state goes into the fingerprint as its *resolved* value, not as
+    # the file's mtime — the two disagree exactly when it matters. Nothing on
+    # disk changes when a `waiting` ages past WAIT_TTL, so an mtime-only etag
+    # keeps answering 304 and the page holds "waiting for you" on screen forever
+    # while `read_agent_state` has long since stopped believing it. Folding the
+    # answer in means the expiry itself invalidates the cache.
+    agent = read_agent_state(project)
+    fingerprint.append(("\x00agent-state", agent.get("state", ""), agent.get("since", 0)))
+
     return State(
         project_id=project.name,
         stage=stage,
@@ -717,6 +799,7 @@ def scan(project: Path) -> State:
         etag=compute_etag(fingerprint),
         routes=jupyter_routes(project),
         plan=plan_summary(project),
+        agent=agent,
     )
 
 
@@ -788,6 +871,23 @@ margin:0 0 18px;border-radius:0 6px 6px 0;font-size:13.5px;color:#c4cad8;}
 .d-setup li{margin:4px 0;}
 .d-setup code{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;
 background:#0d1017;border:1px solid var(--d-line);border-radius:4px;padding:1px 6px;}
+/* "The agent is blocked on you." Same anchoring as .d-setup and for the same
+   reason — a sibling of #root, so the 4s poll cannot wipe it — but with a
+   second reason on top: an element inside #root is destroyed and rebuilt every
+   4s, which would restart the pulse below on every poll. A 0.6s highlight every
+   4s, forever, is a flashing banner: WCAG 2.3.1, and unbearable to sit next to.
+   Out here it animates once, on the transition that earned it.
+   Filled by STATE_JS, which is why it starts empty and hidden. */
+.d-wait{border-left:2px solid var(--d-warn);background:#2a1f0c;padding:9px 14px;
+margin:0 0 14px;border-radius:0 6px 6px 0;font-size:13.5px;color:#e8dcc0;}
+.d-wait b{color:#e3b341;}
+.d-wait code{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;
+background:#0d1017;border:1px solid var(--d-line);border-radius:4px;padding:1px 6px;}
+.d-wait.pulse{animation:d-pulse .6s ease-out 1;}
+@keyframes d-pulse{from{background:#5a3f10;}to{background:#2a1f0c;}}
+/* No sustained flashing anywhere, and none at all for a reader who has asked
+   the OS not to move things. The strip still appears; it just appears. */
+@media (prefers-reduced-motion:reduce){.d-wait.pulse{animation:none;}}
 /* Two lines, then fade. The full text is the first timeline entry. */
 .d-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
 overflow:hidden;margin:3px 0 0;color:#c4cad8;font-size:13.5px;max-width:none;}
@@ -902,6 +1002,49 @@ el.className=age<600?'live':(age<3600?'idle':'cold');}}
 setInterval(relTimes,15000);relTimes();
 """
 
+# Everything about "the agent needs you" that cannot be server-rendered, for the
+# same reason relative times cannot be: a 304 freezes whatever the server wrote,
+# and this is the one readout whose whole job is to be current. The server emits
+# `#d-state` inside #root carrying `data-state` and `data-since`; `mark()` reads
+# them after every swap and drives four things off them.
+#
+# Two channels reach a reader who is not looking at the page — the title marker
+# and the favicon — and they are the only two a browser gives a foreground tab.
+# A closed tab gets nothing without a service worker and a push service, which a
+# stdlib server inside a pod cannot be.
+#
+# `#d-detail` is agent-authored text, so it is *not* interpolated here. The
+# server renders it through the same `inline_md` -> `e()` path as the worklog and
+# this copies the resulting node's HTML verbatim; the escaping decision stays in
+# one place, in Python, where it is tested.
+#
+# The `(state, since)` pair is what makes a *transition* distinguishable from a
+# re-render. Without it the strip would re-pulse every 4s, which is a flashing
+# banner rather than a signal.
+STATE_JS = """
+(function(){
+var W=document.getElementById('d-wait'),
+F=document.getElementById('d-favicon'),BASE=document.title,last=null;
+var MARK={waiting:'\\u25cf ',turn_ended:'\\u2713 '};
+function icon(c){return 'data:image/svg+xml,'+encodeURIComponent(
+'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'+
+'<circle cx="8" cy="8" r="7" fill="'+c+'"/></svg>');}
+var ICON={waiting:icon('#d29922'),turn_ended:icon('#3fb950'),'':icon('#30363d')};
+function mark(){
+var c=document.getElementById('d-state'),d=document.getElementById('d-detail'),
+s=c?(c.dataset.state||''):'',key=s+'|'+(c?c.dataset.since:'');
+document.title=(MARK[s]||'')+BASE;
+if(F)F.href=ICON[s]||ICON[''];
+if(key===last)return;
+if(s==='waiting'&&W){
+W.innerHTML='<b>The agent is waiting for you.</b> '+(d?d.innerHTML:'');
+W.hidden=false;
+W.classList.remove('pulse');void W.offsetWidth;W.classList.add('pulse');}
+else if(W){W.hidden=true;W.innerHTML='';}
+last=key;}
+window.dashMark=mark;mark();})();
+"""
+
 # POLL_JS is emitted **only in live mode**, and both of its outer statements are
 # why: the trailing-slash redirect and the `fetch` are each actively wrong on a
 # snapshot.
@@ -943,7 +1086,7 @@ var next=doc.getElementById('root');if(!next)return;
 R.innerHTML=next.innerHTML;
 for(var j=0;j<open.length;j++){var d=R.querySelector('#'+CSS.escape(open[j]));
 if(d)d.open=true;}
-relTimes();}).catch(function(){});
+relTimes();dashMark();}).catch(function(){});
 clearTimeout(timer);timer=setTimeout(tick,document.hidden?15000:4000);}
 document.addEventListener('visibilitychange',function(){
 if(document.visibilityState==='visible')tick();});
@@ -1379,6 +1522,41 @@ def _artifacts_html(state: State) -> str:
     return f'<h2 class="d-sec">Artifacts ({total})</h2>' + "".join(blocks)
 
 
+# What the chip says, and how loudly. `unknown` is deliberately the quiet one:
+# it is what a `waiting` decays into, and a decayed claim should read as a
+# shrug, not as an alarm.
+AGENT_LABELS = {
+    "waiting": "waiting for you",
+    "turn_ended": "turn ended",
+    "unknown": "state unknown",
+}
+AGENT_CHIP = {"waiting": " warn", "turn_ended": " ok", "unknown": ""}
+
+
+def _agent_html(agent: dict) -> str:
+    """The header chip, plus the hidden node STATE_JS lifts into the strip.
+
+    `data-state` and `data-since` are the whole client-side contract: the title
+    marker, the favicon, the strip and the notification all derive from them, so
+    a 304 cannot freeze any of it into a stale claim.
+
+    The detail is escaped here and only here. It is agent-authored — the tool
+    argument the agent chose, or a question it wrote — so it runs through the
+    same `inline_md` -> `e()` path as the worklog prose, which is the same trust
+    boundary. STATE_JS copies the resulting node rather than building markup out
+    of a string, so there is exactly one place where this text becomes HTML.
+    """
+    state = agent.get("state")
+    if state not in AGENT_LABELS:
+        return ""
+    detail = agent.get("detail") or ""
+    return (
+        f'<span class="d-chip{AGENT_CHIP[state]}" id="d-state" data-state="{e(state)}"'
+        f' data-since="{agent.get("since", 0)}">{AGENT_LABELS[state]}</span>'
+        + (f'<span id="d-detail" hidden>{inline_md(detail)}</span>' if detail else "")
+    )
+
+
 def _setup_banner() -> str:
     """The snapshot-mode banner: what the reader is looking at, and how to fix it.
 
@@ -1443,16 +1621,24 @@ def render(state: State, css: str, live: bool = True) -> str:
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
         f"<title>{e(state.project_id)}</title>\n"
+        # Swapped by STATE_JS for a coloured dot. Declared here with the neutral
+        # one so there is a <link> to retarget; a browser will not adopt one that
+        # appears later in a page it has already painted.
+        '<link rel="icon" id="d-favicon" href="data:,">\n'
         f"<style>{css}\n{DASH_CSS}</style>\n</head>\n<body>\n"
         # Outside #root, so the 4s poll cannot wipe it and so it does not sit
         # under the sticky header. Empty string in live mode.
         + ("" if live else _setup_banner())
+        # A sibling of #root, filled by STATE_JS: it has to survive the poll to
+        # pulse once on a transition rather than every 4s.
+        + '<div class="d-wait" id="d-wait" role="status" hidden></div>\n'
         + '<div id="root">\n'
         '<header class="d-hd">'
         '<div class="d-row">'
         f'<span class="d-id">{e(state.project_id)}</span>'
         f'<span class="d-chip now">{e(state.stage)}</span>'
         f"{_approval_chip(state.approval)}{deviations}{inferred}"
+        f"{_agent_html(state.agent)}"
         # Readouts sit inline on the identity row rather than in a band of their
         # own: it reclaims the dead space to the right and keeps the sticky
         # region short, which is the whole point of the clamp below.
@@ -1477,7 +1663,10 @@ def render(state: State, css: str, live: bool = True) -> str:
         '<img src="" alt="Full size figure">'
         '<div class="lightbox-doc" role="document"></div>'
         "</div>\n"
-        f"<script>{REL_JS}{POLL_JS if live else ''}</script>\n"
+        # STATE_JS ships in both modes: a snapshot still has a title and a
+        # favicon, and a snapshot written while a prompt was open should still
+        # say so.
+        f"<script>{REL_JS}{STATE_JS}{POLL_JS if live else ''}</script>\n"
         f"<script>{LIGHTBOX_JS}</script>\n</body>\n</html>\n"
     )
 

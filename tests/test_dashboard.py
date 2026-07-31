@@ -690,6 +690,151 @@ def test_a_snapshot_says_it_is_one_and_how_to_get_live(tmp_path):
         assert dash.inline_md(step) in snap, f"missing restart step: {step}"
 
 
+def _waiting(project: Path, **over) -> Path:
+    """Drop an `.agent-state.json` shaped like the hook's own output."""
+    import time as _time
+
+    record = {
+        "state": "waiting",
+        "detail": "Bash: sw_vers",
+        "since": _time.time(),
+        "session_id": "sess-1",
+    }
+    record.update(over)
+    (project / ".agent-state.json").write_text(json.dumps(record), encoding="utf-8")
+    return project
+
+
+def test_the_waiting_detail_is_escaped_like_every_other_agent_string(tmp_path):
+    """Same trust boundary as the worklog, and it moved: this string is a tool
+    argument the agent chose, or a question it wrote, and it lands in HTML.
+
+    It goes through `inline_md` for the same reason the worklog prose does —
+    agents write backticks — and `inline_md` escapes *first*, so the only tags
+    that can survive are the three it emits itself.
+    """
+    import tools.dashboard as dash
+
+    project = _waiting(
+        _project(tmp_path), detail="Bash: rm <img src=x onerror=alert(1)> `db.sql`"
+    )
+
+    page = dash.render(dash.scan(project), "")
+
+    assert "<img src=x" not in page, "agent text reached the page as live markup"
+    assert "&lt;img src=x onerror=alert(1)&gt;" in page
+    assert "<code>db.sql</code>" in page, "escaped, but no longer readable as markdown"
+
+
+def test_a_waiting_claim_expires_rather_than_outliving_the_agent(tmp_path):
+    """"A human is blocked on this **right now**" is the one present-tense claim
+    the page makes, and nothing on disk ever retracts it: a culled pod or a
+    SIGKILL mid-prompt leaves `waiting` behind with nobody left to answer.
+
+    Two independent ways to stop believing it, because they catch different
+    deaths — a session that hung around too long, and one `runtime.json` has
+    never heard of. `turn_ended` is exempt on purpose: it describes the past, so
+    it cannot become false.
+    """
+    import time
+
+    import tools.dashboard as dash
+
+    fresh = _waiting(_project(tmp_path, name="fresh"))
+    assert dash.read_agent_state(fresh)["state"] == "waiting"
+
+    old = _waiting(_project(tmp_path, name="old"), since=time.time() - dash.WAIT_TTL - 1)
+    assert dash.read_agent_state(old)["state"] == "unknown"
+
+    orphan = _waiting(_project(tmp_path, name="orphan"), session_id="ghost")
+    (orphan / "runtime.json").write_text(
+        json.dumps({"project": "orphan", "sessions": [{"session_id": "someone-else"}]})
+    )
+    assert dash.read_agent_state(orphan)["state"] == "unknown"
+
+    past = _waiting(
+        _project(tmp_path, name="past"), state="turn_ended", since=time.time() - 90000
+    )
+    assert dash.read_agent_state(past)["state"] == "turn_ended", "a fact about the past"
+
+
+def test_the_expiry_reaches_a_polling_page(tmp_path, monkeypatch):
+    """REGRESSION-in-waiting, and the subtle half of expiring at all.
+
+    Nothing on disk changes when a `waiting` ages out, so an etag built only
+    from file mtimes keeps answering 304 — and 304 means the browser keeps
+    showing the page it already has. The stale "waiting for you" would survive
+    the very expiry meant to remove it, which is exactly the failure the design
+    doc records for server-rendered timestamps.
+
+    Folding the *resolved* state into the fingerprint is what fixes it: the
+    expiry invalidates its own cache entry.
+
+    Only the clock moves here. Rewriting the file to age it would change its
+    mtime and pass on the strength of that alone — which is the version of this
+    test that was written first, and it agreed with a build that had no expiry
+    in the etag at all.
+    """
+    import time
+
+    import tools.dashboard as dash
+
+    born = time.time()
+    project = _waiting(_project(tmp_path), since=born)
+    before = dash.scan(project)
+    assert before.agent["state"] == "waiting"
+
+    fingerprint = sorted((project / ".agent-state.json").stat().st_mtime_ns for _ in "x")
+    monkeypatch.setattr(dash.time, "time", lambda: born + dash.WAIT_TTL + 1)
+    after = dash.scan(project)
+
+    assert after.agent["state"] == "unknown"
+    assert after.etag != before.etag, "a polling browser would be served a 304 forever"
+    assert fingerprint == [(project / ".agent-state.json").stat().st_mtime_ns], (
+        "the file changed, so this proved nothing about the clock"
+    )
+
+
+def test_the_alert_strip_is_anchored_outside_root(tmp_path):
+    """It would work inside #root. It would also be destroyed and rebuilt every
+    4s, and that is the bug: the 600ms pulse would restart on every poll, so a
+    banner meant to flash once on a transition would flash forever — WCAG 2.3.1,
+    and intolerable to sit beside."""
+    import tools.dashboard as dash
+
+    page = dash.render(dash.scan(_waiting(_project(tmp_path))), "")
+    before_root, _, after_root = page.partition('<div id="root">')
+
+    assert 'id="d-wait"' in before_root, "the pulse would restart every 4s"
+    assert 'id="d-state"' in after_root, "the state itself must come from the poll"
+
+
+def test_the_title_marker_and_favicon_are_client_side(tmp_path):
+    """The same rule as relative times, for the same reason: a 304 freezes
+    anything the server wrote, and these two are the only channels that reach a
+    reader whose tab is in the background. A `<title>` baked with a marker would
+    keep claiming the agent needs you long after it stopped."""
+    import tools.dashboard as dash
+
+    page = dash.render(dash.scan(_waiting(_project(tmp_path))), "")
+
+    assert "<title>demo</title>" in page, "the marker was baked into the response"
+    assert "document.title=(MARK[s]||'')+BASE" in page
+    assert 'id="d-favicon"' in page and "F.href=ICON[s]" in page
+
+
+def test_a_snapshot_still_reports_the_state_it_was_written_with(tmp_path):
+    """A snapshot is a point-in-time render, so it is honest about a prompt that
+    was open when it was written — and its title and favicon still work, since
+    STATE_JS needs no transport."""
+    import tools.dashboard as dash
+
+    snap = dash.render(dash.scan(_waiting(_project(tmp_path))), "", live=False)
+
+    assert 'data-state="waiting"' in snap
+    assert "function mark" in snap, "the title and favicon still work on a snapshot"
+
+
 def test_a_hidden_tab_still_polls_only_slower():
     """The poll used to wrap its `fetch` in `visibilityState==='visible'`, so a
     backgrounded tab fetched nothing at all — and a backgrounded tab is exactly
