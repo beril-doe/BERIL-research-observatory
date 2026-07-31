@@ -100,6 +100,120 @@ def _login(client):
 
 
 # ---------------------------------------------------------------------------
+# GET /account (overview page)
+# ---------------------------------------------------------------------------
+
+
+class TestAccountOverview:
+    def test_redirects_when_not_logged_in(self, client):
+        resp = client.get("/account", follow_redirects=False)
+        assert resp.status_code == 302
+        assert "/auth/login" in resp.headers["location"]
+
+    def test_returns_200_when_logged_in(self, client, beril_user):
+        _login(client)
+        resp = client.get("/account")
+        assert resp.status_code == 200
+
+    def test_shows_identity_fields(self, client, beril_user):
+        _login(client)
+        resp = client.get("/account")
+        assert GOOD_TOKEN["name"] in resp.text
+        assert GOOD_TOKEN["orcid"] in resp.text
+
+    async def test_shows_affiliation_when_set(self, client, beril_user, db_session):
+        beril_user.affiliation = "LBNL"
+        await db_session.commit()
+
+        _login(client)
+        resp = client.get("/account")
+        assert "LBNL" in resp.text
+
+    async def test_hides_affiliation_row_when_none(
+        self, client, beril_user, db_session
+    ):
+        # affiliation defaults to None on beril_user fixture
+        _login(client)
+        resp = client.get("/account")
+        # The row label is conditional on the value being set.
+        assert "Affiliation" not in resp.text
+
+    async def test_shows_admin_role_badge(self, client, beril_user, db_session):
+        from app.db.models import UserRole
+
+        db_session.add(UserRole(user_id=beril_user.id, role="admin"))
+        await db_session.commit()
+
+        _login(client)
+        resp = client.get("/account")
+        assert "admin" in resp.text.lower()
+
+    async def test_no_roles_section_when_user_has_none(
+        self, client, beril_user
+    ):
+        _login(client)
+        resp = client.get("/account")
+        # Roles row is entirely omitted when the user has no rows in user_role.
+        assert "Roles" not in resp.text
+
+    async def test_token_count_reflects_active_tokens(
+        self, client, beril_user, db_session
+    ):
+        _login(client)
+        resp = client.get("/account")
+        assert "No active tokens" in resp.text
+
+        await create_named_api_token(db_session, beril_user.id, name="laptop")
+        resp = client.get("/account")
+        assert "1 active token" in resp.text
+
+        await create_named_api_token(db_session, beril_user.id, name="workstation")
+        resp = client.get("/account")
+        assert "2 active tokens" in resp.text
+
+    async def test_token_count_ignores_revoked(
+        self, client, beril_user, db_session
+    ):
+        from app.db.crud import revoke_api_token
+
+        _, record = await create_named_api_token(
+            db_session, beril_user.id, name="doomed"
+        )
+        await revoke_api_token(db_session, record.id, beril_user.id)
+
+        _login(client)
+        resp = client.get("/account")
+        assert "No active tokens" in resp.text
+
+    def test_manage_tokens_link_present(self, client, beril_user):
+        _login(client)
+        resp = client.get("/account")
+        assert "/account/tokens" in resp.text
+
+    async def test_ov_linked_status(self, client, beril_user, db_session):
+        from app.db.models import OvUserCredential
+
+        _login(client)
+        resp = client.get("/account")
+        assert "Not linked" in resp.text
+
+        db_session.add(
+            OvUserCredential(
+                user_id=beril_user.id,
+                account_id="acct-123",
+                ov_user_id="ov-user-abc",
+                encrypted_key="<encrypted-blob>",
+            )
+        )
+        await db_session.commit()
+
+        resp = client.get("/account")
+        assert "Linked" in resp.text
+        # And the "Not linked" badge is gone.
+        assert "Not linked" not in resp.text
+
+
+# ---------------------------------------------------------------------------
 # GET /account/tokens
 # ---------------------------------------------------------------------------
 
@@ -114,7 +228,7 @@ class TestAccountTokensPage:
         _login(client)
         resp = client.get("/account/tokens")
         assert resp.status_code == 200
-        assert "API Tokens" in resp.text
+        assert "Personal Access Tokens" in resp.text
 
     async def test_lists_active_tokens(self, client, beril_user, db_session):
         _login(client)

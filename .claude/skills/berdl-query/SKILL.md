@@ -68,7 +68,9 @@ This appends one line to `projects/<id>/journal.jsonl`. Rules:
 - **One `q:<id>` per distinct query.** Re-registering the same id is fine — the
   resolver takes the most recent record — but two different queries sharing one id
   means a claim cites evidence that isn't what it says it is.
-- Pass `--project <id>` when the working directory isn't inside the project.
+- The project is resolved from the working directory, then the branch, then the
+  project this session is bound to (the same signal the status line shows). Pass
+  `--project <id>` if the warning says none resolved.
 
 This capture is **agent-invoked and best-effort**: a BERDL query runs inside a Spark
 session, not as a distinct tool call, so no hook can observe it. If you don't register

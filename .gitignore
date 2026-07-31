@@ -92,6 +92,8 @@ projects/*/user_data/**/*.xlsx
 # Live dashboard — generated snapshot and launcher log, per project.
 # WORKLOG.md and plan_deviations.jsonl stay tracked: they are provenance.
 projects/*/dashboard.html
+# Session pin marker — see PROJECT.md "Telling the tools which project"
+projects/*/.beril-pin
 projects/*/.dash.log
 
 # UI application

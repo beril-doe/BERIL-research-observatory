@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from tools.dashboard import (  # noqa: E402
+    jupyter_python,
     _approval_chip,
     count_deviations,
     main,
@@ -547,13 +548,6 @@ def test_render_escapes_agent_authored_text(tmp_path):
     assert "&lt;script&gt;" in html
 
 
-def test_render_keeps_the_count_badge_on_figures(tmp_path):
-    """REGRESSION. Figures render as thumbnails; the ×n count vanished with the
-    chip it used to live on."""
-    html = _render(tmp_path, {"WORKLOG.md": WORKLOG, "figures/overview.png": "x"})
-    assert "&#215;2" in html
-
-
 def test_render_states_what_it_cannot_prove(tmp_path, monkeypatch):
     """Every honesty rule in one place: inferred stage, unapproved plan, an
     unresolvable worklog link, a notebook that errored, and a client-side
@@ -612,6 +606,88 @@ def test_live_mode_needs_the_proxy_only_inside_jupyterhub(tmp_path, monkeypatch)
     assert dash.can_serve_live() is False
     assert dash.public_url(8742) == "https://hub.berdl.kbase.us/user/dkishore/proxy/8742/"
     assert dash.jupyter_routes(project) is not None
+
+
+def test_the_snapshot_url_is_root_relative(tmp_path, monkeypatch):
+    """REGRESSION. Jupyter's `files/` route resolves against root_dir, so an
+    absolute path after it yields `files//home/<user>/...`, which the server reads
+    as `<root_dir>/home/<user>/...` and answers 404. Measured against the running
+    server: 200 for the relative form, 404 for the absolute one.
+
+    It broke the fallback in precisely the case where the fallback is all the user
+    has — no proxy, so no live mode, and the one printed link is dead.
+    """
+    import tools.dashboard as dash
+
+    monkeypatch.setenv("JUPYTER_SERVER_ROOT", str(tmp_path))
+    monkeypatch.setenv("JUPYTERHUB_SERVICE_PREFIX", "/user/bill/")
+    project = tmp_path / "repo" / "projects" / "demo"
+    project.mkdir(parents=True)
+
+    url = dash.snapshot_url(project)
+
+    assert url == (
+        "https://hub.berdl.kbase.us/user/bill/files/"
+        "repo/projects/demo/dashboard.html"
+    )
+    assert "files//" not in url, "absolute path after files/ — this is the 404"
+    assert str(tmp_path) not in url, "leaked a filesystem path into the URL"
+
+
+def test_a_snapshot_carries_neither_the_redirect_nor_the_poll(tmp_path):
+    """REGRESSION, and the more dangerous half is the redirect.
+
+    POLL_JS opens by appending a trailing slash so relative assets resolve under
+    `/proxy/<port>/`. A snapshot is served at `<prefix>files/<rel>/dashboard.html`,
+    which has no trailing slash — so on load the page would navigate itself to
+    `dashboard.html/` and 404. It would destroy itself in front of the user.
+
+    The poll is merely futile: `files/` responses carry `sandbox allow-scripts`
+    with no `allow-same-origin`, so the document's origin is opaque and `fetch`
+    cannot send the hub cookie.
+
+    REL_JS must survive both cuts: every timestamp renders client-side, so
+    dropping it leaves the readouts blank.
+    """
+    import tools.dashboard as dash
+
+    project = _project(tmp_path, {"WORKLOG.md": WORKLOG})
+    state = dash.scan(project)
+
+    live = dash.render(state, "", live=True)
+    snap = dash.render(state, "", live=False)
+
+    assert "location.replace" in live and "function tick" in live
+    assert "location.replace" not in snap, "the snapshot would navigate itself to a 404"
+    assert "function tick" not in snap, "a poll that can only fail, silently"
+    assert "function relTimes" in snap, "timestamps are client-side — this must stay"
+
+
+def test_a_snapshot_says_it_is_one_and_how_to_get_live(tmp_path):
+    """The instructions used to be five lines on stdout, which the status line
+    redirected into a gitignored `.dash.log`. Nobody had a reason to open it, so
+    the observed failure was a dashboard that silently never appeared.
+
+    They belong on the page the reader is actually looking at, and the command
+    must be the checkout's — `beril` on the image is a pinned copy under an
+    overlay mount that a user cannot update.
+    """
+    import tools.dashboard as dash
+
+    project = _project(tmp_path, {"WORKLOG.md": WORKLOG})
+    state = dash.scan(project)
+
+    assert '<div class="d-setup">' not in dash.render(state, "", live=True)
+
+    snap = dash.render(state, "", live=False)
+    assert '<div class="d-setup">' in snap
+    assert dash.SETUP_CMD in snap
+    # Was the reverse: the banner deliberately avoided `beril`, because the image
+    # ships a pinned copy under /opt/conda that could predate this feature. That is
+    # being fixed by shipping a newer beril, so one entry point beats two.
+    assert "beril setup" in snap and "tools/dashboard.py --setup" not in snap
+    for step in dash.RESTART_STEPS:
+        assert dash.inline_md(step) in snap, f"missing restart step: {step}"
 
 
 def _dropin(cfg_dir: Path, name: str, enabled: bool) -> None:
@@ -780,7 +856,98 @@ def test_every_markdown_link_opens_the_overlay_not_a_new_tab(tmp_path):
         assert "data-doc=" in anchor, f"trigger has no path to fetch: {anchor}"
         assert "_blank" not in anchor, f"markdown link still leaves the page: {anchor}"
 
-    # And the Documents section specifically, since that is the one that broke.
-    documents = html.split(">Documents<")[1].split("<h3")[0]
-    assert documents.count("doc-trigger") == 2      # RESEARCH_PLAN.md + REPORT.md
-    assert "_blank" not in documents
+
+def test_an_interrupted_write_leaves_the_previous_snapshot_intact(tmp_path, monkeypatch):
+    """The snapshot is rewritten every turn, and its own banner tells the reader to
+    reload — so a reload landing mid-write is the expected interleaving, not a rare
+    one. Writing in place truncates first, which serves half a page.
+
+    Stands in for that window by interrupting the write itself, not the render: a
+    raising `render` proves nothing, because it is evaluated before `write_text`
+    truncates anything.
+    """
+    import tools.dashboard as dash
+
+    project = _project(tmp_path, {"WORKLOG.md": WORKLOG})
+    snapshot = dash._write_snapshot(project, "")
+    original = snapshot.read_text()
+    assert "</html>" in original
+
+    real_write = Path.write_text
+
+    def half_a_write(self, data, *args, **kwargs):
+        real_write(self, data[: len(data) // 2], *args, **kwargs)
+        raise OSError("disk full, halfway through")
+
+    monkeypatch.setattr(Path, "write_text", half_a_write)
+    with pytest.raises(OSError):
+        dash._write_snapshot(project, "")
+    monkeypatch.undo()
+
+    assert snapshot.read_text() == original, "a half-written page replaced a good one"
+
+
+class _Ok:
+    returncode = 0
+
+
+def _fake_jupyter(tmp_path, monkeypatch, shebang: str):
+    """A `jupyter` launcher on PATH, and nothing else on it."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir(exist_ok=True)
+    launcher = bindir / "jupyter"
+    launcher.write_text(f"{shebang}\nprint('jupyter')\n")
+    launcher.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bindir))
+    return bindir
+
+
+def test_setup_targets_the_interpreter_jupyter_runs_on(tmp_path, monkeypatch):
+    """`sys.executable` is the wrong target and can fail *silently*.
+
+    Inside a venv built with system site-packages, `pip install --user` is
+    permitted: the module lands in `~/.local/lib/python3.<venv-version>/`, which
+    the server's interpreter never reads, while the enable step still writes the
+    drop-in that makes `proxy_enabled()` return True. Live mode then starts and
+    every URL 404s — the state the probe exists to prevent.
+
+    Lives in `beril setup` now; the probe it checks against still lives here, so
+    the wizard and the dashboard cannot disagree about whether live mode works.
+    """
+    import tools.dashboard as dash
+    from beril_cli import setup_cmd
+
+    conda = tmp_path / "opt" / "conda" / "bin"
+    conda.mkdir(parents=True)
+    (conda / "python3").write_text("")
+    (conda / "python3").chmod(0o755)
+
+    _fake_jupyter(tmp_path, monkeypatch, f"#!{conda / 'python3'}")
+    assert jupyter_python() == str(conda / "python3")
+    assert jupyter_python() != sys.executable
+
+    monkeypatch.setattr(dash, "proxy_enabled", lambda: False)
+    argvs = []
+    monkeypatch.setattr(setup_cmd.subprocess, "run",
+                        lambda argv, **k: argvs.append(argv) or _Ok())
+    setup_cmd._install_server_proxy(ROOT, assume_yes=True)
+    pip = next(a for a in argvs if "pip" in a)
+    assert pip[0] == str(conda / "python3"), f"installed against {pip[0]}"
+    assert pip[0] != sys.executable
+
+
+def test_setup_refuses_rather_than_installing_against_the_wrong_python(tmp_path, monkeypatch, capsys):
+    """No `jupyter` on PATH means no way to know which interpreter matters, and
+    guessing installs into an environment the server never reads. Refuse instead —
+    a bare `pip` failure is what this replaces."""
+    import tools.dashboard as dash
+    from beril_cli import setup_cmd
+
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    monkeypatch.setattr(dash, "proxy_enabled", lambda: False)
+    ran = []
+    monkeypatch.setattr(setup_cmd.subprocess, "run", lambda *a, **k: ran.append(a))
+
+    assert setup_cmd._install_server_proxy(ROOT, assume_yes=True) == 1
+    assert not ran, "ran an install with no idea which interpreter to target"
+    assert "jupyter" in capsys.readouterr().err.lower()

@@ -154,6 +154,7 @@ def run_start(
     extra_args: list[str] | None = None,
     skip_onboard: bool = False,
     version: str | None = None,
+    dev_mode: bool = False
 ) -> int:
     """Launch the selected coding agent from the repo root."""
     agent = agent or get_default_agent()
@@ -174,9 +175,10 @@ def run_start(
         return 1
 
     # Check out the requested release (or the latest published tag by default).
-    rc = _checkout_release(repo_root, version)
-    if rc != 0:
-        return rc
+    if not dev_mode:
+        rc = _checkout_release(repo_root, version)
+        if rc != 0:
+            return rc
 
     # Refresh KBASE_AUTH_TOKEN in .env from live environment (tokens expire)
     _sync_auth_token(repo_root / ".env")

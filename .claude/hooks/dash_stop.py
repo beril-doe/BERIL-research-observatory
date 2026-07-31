@@ -35,30 +35,29 @@ STAYING = {"bypass_permissions_disabled"}
 ROOT = Path(__file__).absolute().parent.parent.parent
 
 
-def project_for(payload: dict) -> "str | None":
-    """cwd/branch/path first, then the binding the runtime snapshot recorded —
-    the only signal that covers a project created mid-session."""
+def projects_for(payload: dict) -> "list[str]":
+    """Every project whose dashboard this session may have started.
+
+    Not one project. The status line starts a dashboard for whichever project the
+    session is on, so a session that switched has one running per project it
+    touched, each on its own port. Stopping only the current one left the rest
+    alive after Claude Code exited — the leak this hook exists to prevent.""" 
     sys.path.insert(0, str(ROOT))
     try:
-        from beril_cli.project_resolution import resolve_project
-
-        found = resolve_project(payload, repo_root=ROOT)
-        if found:
-            return found
+        from beril_cli.project_resolution import projects_for_session, resolve_project
     except Exception:
-        pass
+        return []
 
     session_id = payload.get("session_id") or os.environ.get("CLAUDE_CODE_SESSION_ID")
-    if not session_id:
-        return None
-    for manifest in sorted((ROOT / "projects").glob("*/runtime.json")):
-        try:
-            recorded = json.loads(manifest.read_text())
-        except Exception:
-            continue
-        if any(s.get("session_id") == session_id for s in recorded.get("sessions", [])):
-            return recorded.get("project") or manifest.parent.name
-    return None
+    found = list(projects_for_session(session_id, ROOT))
+    try:
+        # cwd/branch/`/add-dir` can name a project the runtime record never saw.
+        current = resolve_project(payload, repo_root=ROOT)
+    except Exception:
+        current = None  # a shelled-out git call can fail; the records still answer
+    if current and current not in found:
+        found.append(current)
+    return found
 
 
 def main() -> None:
@@ -69,8 +68,8 @@ def main() -> None:
     if payload.get("reason") in STAYING:
         return
 
-    project = project_for(payload)
-    if not project:
+    projects = projects_for(payload)
+    if not projects:
         return
 
     # Match the process's argv, not the port: tools/dashboard.py rejects pidfiles
@@ -81,7 +80,7 @@ def main() -> None:
     # /var/... while this process sees /private/var/..., and string matching loses
     # that either way round — it silently killed nothing in both directions before
     # this was resolved on both sides.
-    pdir = (ROOT / "projects" / project).resolve()
+    wanted = {(ROOT / "projects" / name).resolve() for name in projects}
     try:
         ps = subprocess.run(
             ["ps", "-axo", "pid=,command="], capture_output=True, text=True, timeout=5
@@ -97,7 +96,7 @@ def main() -> None:
         if not argv:
             continue
         try:
-            if Path(argv[0]).resolve() != pdir:
+            if Path(argv[0]).resolve() not in wanted:
                 continue
             os.kill(int(found.group(1)), signal.SIGTERM)
         except (OSError, ValueError):

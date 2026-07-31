@@ -20,7 +20,7 @@ from pathlib import Path
 
 from beril_cli import __version__
 from beril_cli.journal import QUERY_LOCATOR, append_event
-from beril_cli.project_resolution import resolve_project
+from beril_cli.project_resolution import project_from_runtime, resolve_project
 
 RUNTIME_FILE = "runtime.json"
 RUNTIME_SCHEMA_VERSION = "2.0"
@@ -220,6 +220,18 @@ def _project_dir(payload: dict) -> Path | None:
     return project_dir if project_dir.is_dir() else None
 
 
+def _session_project_dir(session_id: str | None) -> Path | None:
+    """The project this session last bound to, via its `runtime.json` records."""
+    root = _find_repo_root()
+    if root is None:
+        return None
+    project = project_from_runtime(session_id, root)
+    if not project:
+        return None
+    project_dir = root / "projects" / project
+    return project_dir if project_dir.is_dir() else None
+
+
 def _documented_datasets_snapshot(project_dir: Path, observed_at: str) -> dict | None:
     """Snapshot datasets documented in REPORT.md, never execution-time truth."""
     report_path = project_dir / "REPORT.md"
@@ -402,9 +414,19 @@ def run_capture_event(args: argparse.Namespace) -> int:
         # resolve_project reads cwd from the payload (it is built for hooks), so
         # an agent-invoked call has to supply it or the documented cwd fallback
         # silently never fires.
+        session_id = args.session or os.environ.get("CLAUDE_CODE_SESSION_ID")
         project_dir = _project_dir(
             {"project": args.project} if args.project else {"cwd": os.getcwd()}
         )
+        if project_dir is None and not args.project:
+            # An agent runs this from the repo root, where cwd names no project
+            # and the branch maps to one only by convention — so the common case
+            # dropped the record. `project_from_runtime` is the signal the status
+            # line already pins the session with; reuse it rather than make the
+            # model remember `--project`. Not tried when `--project` was given:
+            # an explicit binding that fails to resolve is an error to report,
+            # not a cue to guess a different project.
+            project_dir = _session_project_dir(session_id)
         if project_dir is None:
             print(
                 "beril capture-event: no project resolved — nothing recorded",
@@ -416,7 +438,7 @@ def run_capture_event(args: argparse.Namespace) -> int:
             kind="query",
             locator=locator,
             payload=args.payload,
-            session_id=args.session or os.environ.get("CLAUDE_CODE_SESSION_ID"),
+            session_id=session_id,
         )
     except Exception as exc:
         print(f"beril capture-event: {type(exc).__name__}: {exc}", file=sys.stderr)

@@ -63,6 +63,23 @@ def test_project_resolves_from_cwd_when_not_named(repo, monkeypatch):
     assert _lines(repo)[0]["locator"] == "q:from_cwd"
 
 
+def test_project_falls_back_to_the_session_binding_from_the_repo_root(repo):
+    """cwd is the repo root and the branch names no project — the common case.
+
+    Without this fallback the record was dropped exactly where an agent runs.
+    """
+    (repo / "projects" / "p1" / "runtime.json").write_text(
+        json.dumps(
+            {
+                "project": "p1",
+                "sessions": [{"session_id": "s-1", "observed_at": "2026-01-01T00:00:00Z"}],
+            }
+        )
+    )
+    assert run_capture_event(_ns("q:from_session", project=None, session="s-1")) == 0
+    assert _lines(repo)[0]["locator"] == "q:from_session"
+
+
 def test_capture_never_blocks_and_records_nothing_it_cannot_stand_behind(repo, capsys):
     assert run_capture_event(_ns("enrichment")) == 0  # no q: prefix
     assert run_capture_event(_ns("q:enrichment", project="nope")) == 0

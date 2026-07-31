@@ -44,6 +44,113 @@ def _step(number: int, label: str) -> None:
     print(f"{'─' * 50}")
 
 
+def _dashboard_api(repo_root: Path):
+    """Borrow the dashboard's own proxy probe rather than reimplementing it.
+
+    `tools/dashboard.py` is stdlib-only and cannot import from here — it runs under
+    a bare `python3` in the pod — so the dependency goes this way round. It also
+    means the wizard checks live mode with exactly the function the dashboard gates
+    on, so "setup worked" and "the dashboard will start" cannot disagree.
+    """
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    try:
+        from tools.dashboard import RESTART_STEPS, jupyter_python, proxy_enabled
+    except Exception:
+        return None, None, ()
+    return proxy_enabled, jupyter_python, RESTART_STEPS
+
+
+def _install_server_proxy(repo_root: Path, assume_yes: bool = False) -> int:
+    """Install and enable jupyter-server-proxy for this user, then say what next.
+
+    Targets ``--user`` (``~/.local``) deliberately. On this image ``/opt/conda``
+    is an *overlay* mount — writable, and reverted on every pod restart — while
+    ``$HOME`` is a persistent volume. So ``--user`` is both the only target that
+    survives and the only one a non-admin should be writing to. It also means
+    this is a once-per-*user* cost, not once per pod.
+
+    Never run implicitly. It mutates the user's environment and its last step
+    restarts their server, so it only ever happens because someone typed it.
+    """
+    proxy_enabled, jupyter_python, restart_steps = _dashboard_api(repo_root)
+    if proxy_enabled is None:
+        print("  Could not read tools/dashboard.py in this checkout — skipping.")
+        return 1
+
+    if proxy_enabled():
+        print("jupyter-server-proxy is already enabled — nothing to do.")
+        print("If live mode still is not working, restart your server:")
+        for step in restart_steps:
+            print(f"  - {step}")
+        return 0
+
+    python = jupyter_python()
+    if python is None:
+        print(
+            "Could not find the interpreter your Jupyter server runs on: no "
+            "`jupyter` on PATH.\nRun this from a terminal inside JupyterHub, where "
+            "it resolves to the server's own environment.",
+            file=sys.stderr,
+        )
+        return 1
+
+    steps = [
+        [python, "-m", "pip", "install", "--user", "jupyter-server-proxy"],
+        # Usually redundant: the pip install drops its own enable file into
+        # <userbase>/etc/jupyter/jupyter_server_config.d/. Kept because it is
+        # cheap and it covers the case where that drop-in did not land.
+        [shutil.which("jupyter") or "jupyter", "server", "extension", "enable",
+         "--user", "jupyter_server_proxy"],
+    ]
+
+    print("This will run, as your user:\n")
+    for step in steps:
+        print(f"  {' '.join(step)}")
+    print("\nThen you will need to:\n")
+    for item in restart_steps:
+        print(f"  - {item}")
+
+    if not assume_yes:
+        if not sys.stdin.isatty():
+            print("\nNot a terminal — re-run with --yes to proceed non-interactively.")
+            return 1
+        if input("\n  Proceed? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("  Skipped — the dashboard stays a snapshot. Re-run `beril setup`")
+            print("  any time to turn it on.")
+            return 1
+
+    for step in steps:
+        print(f"\n$ {' '.join(step)}")
+        try:
+            result = subprocess.run(step, check=False)
+        except OSError as exc:
+            print(f"could not run {step[0]}: {exc}", file=sys.stderr)
+            return 1
+        if result.returncode != 0:
+            print(f"\nFailed: {' '.join(step)}", file=sys.stderr)
+            return result.returncode
+
+    # Verified through the same probe the dashboard gates on, so "setup worked"
+    # and "the dashboard will start" cannot disagree.
+    if not proxy_enabled():
+        print(
+            "\nInstalled, but the extension still does not read as enabled.\n"
+            "Report this with the output above — it is not a case we have seen.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print("\n" + "=" * 64)
+    print("Installed and enabled. Two steps left, and this is the only time:")
+    for item in restart_steps:
+        print(f"  - {item}")
+    print("=" * 64)
+    return 0
+
+
+
+
 def run_setup() -> int:
     """Run the interactive setup wizard."""
     print()
@@ -287,8 +394,17 @@ def run_setup() -> int:
     config.save(cfg)
     print(f"\n  Config saved to {config.CONFIG_PATH}")
 
-    # ── Step 9: Launch ──────────────────────────────
-    _step(9, "Launch")
+    # ── Step 9: Live dashboard ──────────────────────
+    _step(9, "Live dashboard (optional)")
+
+    print("  While a project runs, the status line links to a dashboard page.")
+    print("  Without jupyter-server-proxy that page is a snapshot: it renders")
+    print("  fully but does not update itself. Installing it is once per user —")
+    print("  $HOME persists, so it survives every later pod restart.")
+    _install_server_proxy(repo_root)
+
+    # ── Step 10: Launch ─────────────────────────────
+    _step(10, "Launch")
 
     if agents_found and _confirm(f"  Launch {chosen} now?"):
         print(f"\n  Starting {chosen} with /berdl_start...\n")

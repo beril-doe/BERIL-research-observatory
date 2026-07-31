@@ -13,8 +13,8 @@ PROJECT_ID=""
 REVIEW_TYPE="project"
 OUTPUT_FILE=""
 
-CLAUDE_DEFAULT_MODEL="claude-sonnet-4-20250514"
-CODEX_DEFAULT_MODEL="gpt-5.4"
+CLAUDE_DEFAULT_MODEL="claude-sonnet-5"
+CODEX_DEFAULT_MODEL="gpt-5.6-sol"
 
 # --- Usage ---
 usage() {
@@ -28,7 +28,7 @@ Arguments:
 Options:
   --type project|plan|refute Review type (default: project)
   --reviewer claude|codex Reviewer backend (default: claude)
-  --model <model_id>      Model override (default: claude-sonnet-4-20250514 for claude, gpt-5.4 for codex)
+  --model <model_id>      Model override (default: claude-sonnet-5 for claude, gpt-5.6-sol for codex)
   --output <path>         Output file path (default: auto-numbered REVIEW_N.md in project dir)
   --help                  Show this help message
 
@@ -36,7 +36,7 @@ Examples:
   tools/review.sh bacdive_metal_validation
   tools/review.sh bacdive_metal_validation --type plan
   tools/review.sh bacdive_metal_validation --type plan --reviewer codex
-  tools/review.sh bacdive_metal_validation --reviewer codex --model gpt-5.4-mini
+  tools/review.sh bacdive_metal_validation --reviewer codex --model gpt-5.6-terra
   tools/review.sh bacdive_metal_validation --output projects/bacdive_metal_validation/REVIEW.md
 EOF
   exit "$exit_code"

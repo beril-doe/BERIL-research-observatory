@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}My Account — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div style="display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;">
+    <div>
+      <h1 class="page-title" style="margin-bottom: var(--space-1);">My Account</h1>
+      <p class="text-muted" style="margin: 0;">
+        {{ beril_user.display_name or beril_user.orcid_id }}
+      </p>
+    </div>
+    <div style="margin-left: auto; display: flex; gap: var(--space-2);">
+      <a href="/user_profile" class="btn btn-sm btn-outline">Profile</a>
+      <a href="/auth/logout" class="btn btn-sm btn-outline">Log out</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: var(--space-4);">
+  <h2 style="margin-top: 0;">Identity</h2>
+  <dl style="display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-4); margin: 0;">
+    <dt class="text-muted">Display name</dt>
+    <dd style="margin: 0;">{{ beril_user.display_name or "—" }}</dd>
+
+    <dt class="text-muted">ORCiD</dt>
+    <dd style="margin: 0;">
+      <a href="https://orcid.org/{{ beril_user.orcid_id }}" target="_blank" rel="noopener" class="orcid-link">
+        <img src="{{ url_for('static', path='img/orcid-logo.svg') }}" alt="ORCiD" class="orcid-icon">
+        {{ beril_user.orcid_id }}
+      </a>
+    </dd>
+
+    {% if beril_user.affiliation %}
+    <dt class="text-muted">Affiliation</dt>
+    <dd style="margin: 0;">{{ beril_user.affiliation }}</dd>
+    {% endif %}
+
+    <dt class="text-muted">Member since</dt>
+    <dd style="margin: 0;">{{ beril_user.created_at.strftime("%Y-%m-%d") }}</dd>
+
+    <dt class="text-muted">Last login</dt>
+    <dd style="margin: 0;">{{ beril_user.last_login_at.strftime("%Y-%m-%d %H:%M UTC") }}</dd>
+
+    <dt class="text-muted">Status</dt>
+    <dd style="margin: 0;">
+      {% if beril_user.is_active %}
+        <span class="badge" style="background: rgba(80,220,120,0.1); color: #50dc78; font-size: 0.7rem;">Active</span>
+      {% else %}
+        <span class="badge" style="background: rgba(220,80,80,0.1); color: #dc5050; font-size: 0.7rem;">Inactive</span>
+      {% endif %}
+    </dd>
+
+    {% if role_names %}
+    <dt class="text-muted">Roles</dt>
+    <dd style="margin: 0;">
+      {% for role in role_names %}
+        {% if role == "admin" %}
+          <span class="badge" style="background: rgba(230,120,57,0.15); color: #e67839; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;">{{ role }}</span>
+        {% else %}
+          <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--color-text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;">{{ role }}</span>
+        {% endif %}
+      {% endfor %}
+    </dd>
+    {% endif %}
+  </dl>
+</div>
+
+<div class="card" style="margin-bottom: var(--space-4); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap;">
+  <div>
+    <h2 style="margin: 0 0 var(--space-1) 0;">Personal access tokens</h2>
+    <p class="text-muted text-small" style="margin: 0;">
+      {% if active_token_count == 0 %}
+        No active tokens.
+      {% elif active_token_count == 1 %}
+        1 active token
+      {% else %}
+        {{ active_token_count }} active tokens
+      {% endif %}
+      for programmatic access.
+    </p>
+  </div>
+  <a href="/account/tokens" class="btn btn-primary" style="white-space: nowrap;">Manage tokens</a>
+</div>
+
+<!-- <div class="card" style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap;">
+  <div>
+    <h2 style="margin: 0 0 var(--space-1) 0;">OpenViking</h2>
+    <p class="text-muted text-small" style="margin: 0;">
+      {% if ov_linked %}
+        <span class="badge" style="background: rgba(80,220,120,0.1); color: #50dc78; font-size: 0.7rem;">Linked</span>
+        Your OpenViking credential is stored encrypted at rest.
+      {% else %}
+        <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--color-text-muted); font-size: 0.7rem;">Not linked</span>
+        Link an OpenViking API key to enable OV-backed skills.
+      {% endif %}
+    </p>
+  </div>
+</div> -->
+{% endblock %}

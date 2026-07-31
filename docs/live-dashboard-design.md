@@ -86,7 +86,23 @@ auto-reconnect, and bidirectional capability a read-only page cannot use.
 
 **Relative times must render client-side** from `data-epoch`. A server-rendered timestamp
 freezes on a `304`, which would leave a green "alive" dot on a wedged agent — the exact
-failure the dot exists to catch.
+failure the dot exists to catch. It pays a second time in snapshot mode: the same code
+ages an abandoned snapshot green → amber → grey against the *reader's* clock, so a stale
+page reports itself.
+
+**The snapshot cannot poll, and this is measured, not assumed.** Jupyter's `files/`
+route answers `Content-Security-Policy: frame-ancestors 'none'; sandbox allow-scripts`
+— no `allow-same-origin` — so the document has an opaque origin and `fetch` cannot send
+the hub cookie. Scripts still run, which is why the page ships `REL_JS` there and
+`POLL_JS` only in live mode. `POLL_JS`'s opening trailing-slash redirect is the more
+dangerous half of that split: a snapshot lives at `…/dashboard.html`, so the line would
+navigate the page to `dashboard.html/` and 404 it on load.
+
+A manual reload does work — user-initiated top-level navigation is not the document
+navigating itself — which is what makes "reload to refresh" an honest instruction.
+Whether `<meta http-equiv="refresh">` would survive the same sandbox was **not**
+tested; there is no browser on the image. If someone wants auto-refresh without the
+extension, that is the experiment to run first.
 
 ## Artifacts come from the filesystem, not the worklog
 
@@ -144,6 +160,23 @@ bounds are pinned by tests, and `test_only_the_statusline_launches_the_dashboard
 fails if a skill grows its own launcher again — prose that drifts from the real one
 and fires at the wrong moment is exactly what this replaced.
 
+**A third bound was missing, and it was the one that mattered.** The launcher
+spawned a *server* whenever the port was closed. Without `jupyter-server-proxy` that
+server cannot bind: it wrote a snapshot, exited 0, and left the port closed — so the
+next turn spawned it again. One process per turn, indefinitely, with the install
+instructions accumulating in `.dash.log`, which is gitignored and which nobody has a
+reason to open. The reported symptom was a dashboard that silently never appeared.
+
+`can_serve_live()` now selects the launcher, and it sits **inside** the
+not-listening branch rather than above the socket check, so the steady state is
+unchanged — it only runs on turns that were about to spawn anyway (0.08 ms with the
+extension enabled, 1.01 ms in the worst case, where no config directory has an
+opinion and all of them are read). When it is false the status line spawns
+`--static` instead: bounded work, no port, and a snapshot that is genuinely
+refreshed each turn. Its stdout goes to `/dev/null` — it would otherwise repeat,
+every turn, what the status line is already displaying — while stderr still reaches
+the log.
+
 ## How the status line finds the project
 
 `.claude/statusline.sh` renders a second line naming the project, its stage and this
@@ -175,17 +208,47 @@ Everything stays keyed to `session_id` on purpose. Several sessions can run in o
 different projects, so any repo-wide signal — an env var, "whichever `beril.yaml` was
 touched last" — hands all of them the same answer and flips under them as each one writes.
 
+## Setup, and why it is not in `beril`
+
+`jupyter-server-proxy` is **not on the BERDL image** — verified: none of the 22
+drop-ins under `/opt/conda/etc/jupyter/jupyter_server_config.d/` is it. The copy
+that made this work during development came from an unrelated `pip install --user`
+months earlier, which is why it worked for its author and for nobody else.
+
+`beril setup` installs and enables it at its "Live dashboard" step, verifies through the
+same `proxy_enabled()` probe the dashboard gates on, and then states the two steps
+it cannot do itself. It never runs implicitly: it mutates the user's environment and
+ends in a server restart, so it only ever happens because someone typed it.
+
+**`--user`, not `--sys-prefix`.** `/opt/conda` is an *overlay* mount — writable, and
+reverted on every pod restart — while `$HOME` is a persistent volume. So `--user` is
+both the only target that survives and the only one a non-admin should write to. It
+also makes this a once-per-*user* cost rather than once per pod.
+
+**Not a `beril` subcommand**, for the same reason. `/opt/conda/bin/beril` is a pinned
+copy on that overlay: it carries only `{doctor, setup, start}` against the eleven
+modules this checkout has, a user cannot update it, and which `beril_cli` wins
+depends on the working directory. `tools/dashboard.py` is the checkout's own code and
+always matches the branch. `.claude/hooks/dash_stop.py` solves the same problem the
+same way, by putting the repo root on `sys.path` first.
+
+The restart in step 2 is unavoidable: `jupyter_server` builds its handler table at
+startup, so a newly enabled extension is invisible until the server restarts. Step 3
+— `claude --resume` — is there because that restart kills the terminal Claude Code
+runs in, and people reasonably assume it kills the session too. It does not.
+
 ## Failure modes
 
 | Failure | Symptom | Fallback |
 |---|---|---|
-| `jupyter-server-proxy` absent | server runs, URL 404s — silent from the app's side | startup probe; no server started; static snapshot + install steps printed |
+| `jupyter-server-proxy` absent | no live URL — the common case on a fresh pod | probe; `--static` launcher; snapshot + `beril setup` named in the status line *and* on the page |
 | snapshot double-clicked | opens in JupyterLab's HTMLViewer; JS off until "Trust HTML" | page is fully readable as pure HTML+CSS; launcher says "right-click → Open in New Browser Tab" |
+| snapshot left open for hours | it does not update, and looks like it might | banner says so; `relTimes` measures age against the reader's clock, so it visibly ages green → amber → grey rather than freezing |
 | pod culled | page stops updating; `fetch` throws, loop keeps retrying | the agent died too, so there is nothing to serve; next session's launcher restores it from disk |
 | file read mid-write | one card shows `—` | routine, not exceptional; self-heals next poll |
 | no `WORKLOG.md` | timeline empty state | header, rail and all artifact sections still render |
 | no `beril.yaml` | `stage inferred from files` | filesystem inference |
-| port collision | ~1% per project pair | `bind()` fails, logs the busy port, exits 1 |
+| port collision | ~1% per project pair | `EADDRINUSE` → prints the URL and exits 0, treating the squatter as an already-running dashboard |
 | `main.css` missing | unstyled but readable | not handled |
 
 ## Deliberately cut
@@ -203,22 +266,27 @@ touched last" — hands all of them the same answer and flips under them as each
 
 ## Relationship to the planning workflow
 
-This targets `main` and **does not depend on** `feat/planning-workflow` (#305).
-`plan_approval` returns `na`/`missing` and `count_deviations` returns `0` when those files
-are absent, so the page degrades correctly on every project on disk today — none of which
-has a `plan_approval` block. The chips start showing real values once that branch lands,
-with no code change here.
+#305 is merged and merged *into* this branch, so the approval and deviation chips
+now read real values. `plan_approval` still returns `na`/`missing` and
+`count_deviations` still returns `0` when those files are absent, which is most of
+the 78 projects on disk — the page degrades rather than accusing them.
 
-Verified both directions: the suite passes on `main`, and passes rebased onto
-`feat/planning-workflow` with the twin test active against the real
-`beril_cli.approve_cmd`.
+`plan_digest` here is a byte-identical twin of `beril_cli.approve_cmd.plan_digest`,
+and the test that pins them together is no longer skipped: it now runs against the
+real implementation. The rule is subtle enough to be worth restating — it excises
+the `## Revision History` *section*, keeping whatever follows it. An earlier version
+excised everything to end-of-file, which agreed on all four fixtures (each had
+Revision History last) and disagreed on 53 of 73 real plans.
 
-**Merge order is free**, with one follow-up either way: two mechanical conflicts
-(`.claude/skills/berdl_start/SKILL.md`, `PROJECT.md`) and the Phase B/C hooks move to
-`research-plan` / `execute-plan`. `tests/test_skill_wiring.py` fails loudly if that move is
-missed — verified red on a simulated bad merge, green on the correct one. The rehearsed
-resolution is preserved at `backup/worklog-capture-stacked`.
+The merge itself needed one thing git could not see. #305 split `/berdl_start` into
+`/research-plan` and `/execute-plan`, and taking main's version of that file — the
+correct resolution — dropped the worklog hooks for the first three lifecycle
+transitions, silently, because the skills they moved to are new files with no common
+ancestor. `tests/test_skill_wiring.py` exists for exactly that failure and caught it:
+416 passed, 1 failed on the merge commit. It reads worklog-capture's own transitions
+table as its source of truth, so a table left naming a phase that no longer exists
+fails as loudly as a missing hook.
 
-A rename of the `analysis` status to `synthesized` is planned as its own PR after #305
-merges; `analysis` currently names the activity that happens during `active`. Until then
+A rename of the `analysis` status to `synthesized` is planned as its own PR;
+`analysis` currently names the activity that happens during `active`. Until then
 `STAGE_LABELS` relabels the rail for humans without touching the enum.
