@@ -110,6 +110,28 @@ def test_ambiguous_branch_mapping_returns_no_project(repo):
     assert resolve_project({"cwd": str(repo)}, repo_root=repo, branch="shared") is None
 
 
+def test_manifest_naming_default_branch_binds_nothing(repo):
+    """A lone `branch: main` must not capture every repo-root session on main.
+
+    The ambiguity guard cannot catch this: one such manifest looks exactly like a
+    correct unique match.
+    """
+    (repo / "projects" / "p2" / "beril.yaml").write_text(
+        "project_id: p2\nbranch: main\n"
+    )
+    assert resolve_project({"cwd": str(repo)}, repo_root=repo, branch="main") is None
+    assert resolve_project({"cwd": str(repo)}, repo_root=repo, branch="master") is None
+
+
+def test_default_branch_guard_spares_conventional_form(repo):
+    """`projects/<id>` still resolves even for a project literally named `main`."""
+    (repo / "projects" / "main").mkdir()
+    assert (
+        resolve_project({"cwd": str(repo)}, repo_root=repo, branch="projects/main")
+        == "main"
+    )
+
+
 def test_unknown_explicit_binding_does_not_fall_through(repo):
     payload = {"project_id": "ghost", "cwd": str(repo / "projects" / "p1")}
     assert resolve_project(payload, repo_root=repo, branch="projects/p1") is None
