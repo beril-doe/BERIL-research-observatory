@@ -25,6 +25,30 @@ STATUSLINE = ROOT / ".claude" / "statusline.sh"
 ANSI = re.compile(r"\033\[[0-9;]*m")
 
 
+def _wait_until_listening(port: int, timeout: float = 10.0) -> bool:
+    """Poll rather than sleep a fixed guess: startup is ~0.1s and the fixed 2s
+    waits this replaces were most of the suite's runtime."""
+    import socket
+    import time
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        probe = socket.socket()
+        probe.settimeout(0.2)
+        up = probe.connect_ex(("127.0.0.1", port)) == 0
+        probe.close()
+        if up:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def _port(project: str) -> int:
+    from tools.dashboard import port_for
+
+    return port_for(project)
+
+
 def _repo(tmp_path: Path, projects: dict) -> Path:
     """A throwaway clone-shaped tree.
 
@@ -239,7 +263,6 @@ def test_the_statusline_starts_a_dashboard_that_is_not_running(tmp_path):
     closed, so the steady state is one socket check and nothing else.
     """
     import socket
-    import time
 
     repo = _repo(tmp_path, {"spawnme": ["sess-spawn"]})
     port = 8700 + __import__("zlib").crc32(b"spawnme") % 100
@@ -252,14 +275,7 @@ def test_the_statusline_starts_a_dashboard_that_is_not_running(tmp_path):
     assert "dashboard not running" in first          # nothing to advertise yet
 
     try:
-        for _ in range(40):                          # give it a moment to bind
-            time.sleep(0.25)
-            probe = socket.socket(); probe.settimeout(0.2)
-            up = probe.connect_ex(("127.0.0.1", port)) == 0
-            probe.close()
-            if up:
-                break
-        assert up, "the statusline did not start a dashboard"
+        assert _wait_until_listening(port), "the statusline did not start a dashboard"
         assert f":{port}/" in _render(repo, session_id="sess-spawn")
     finally:
         subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects/spawnme"],
@@ -309,9 +325,7 @@ def test_session_end_stops_the_dashboard_for_its_project(tmp_path):
     repo = _repo(tmp_path, {"stopme": ["sess-stop"]})
     proc = _spawn_dashboard(repo, "stopme")
     try:
-        import time
-        time.sleep(2)
-        assert proc.poll() is None, "dashboard did not start"
+        assert _wait_until_listening(_port("stopme")), "dashboard did not start"
 
         done = _stop(repo, {"session_id": "sess-stop", "hook_event_name": "SessionEnd",
                             "cwd": str(repo), "reason": "other"}, "sess-stop")
@@ -331,13 +345,14 @@ def test_a_mode_toggle_does_not_stop_the_dashboard(tmp_path):
     proc = _spawn_dashboard(repo, "keepme")
     try:
         import time
-        time.sleep(2)
+
+        assert _wait_until_listening(_port("keepme")), "dashboard did not start"
         for reason in ("bypass_permissions_disabled",):
             done = _stop(repo, {"session_id": "sess-clear", "reason": reason,
                                 "hook_event_name": "SessionEnd", "cwd": str(repo)},
                          "sess-clear")
             assert done.returncode == 0
-        time.sleep(1)
+        time.sleep(0.25)
         assert proc.poll() is None, "the dashboard was killed on a non-exit reason"
     finally:
         proc.kill()
