@@ -19,13 +19,14 @@ Read all files in the project directory, including:
 2. **notebooks/*.ipynb** — analysis notebooks. Read each cell's **source** (code/markdown) **and** the numeric **outputs** that report results — metric values, split/sample sizes, class balances, `value_counts`, score tables. Skip only base64-encoded image blobs. Seeing the numeric outputs is required to catch data leakage and metric misuse.
 3. **data/** — data files (note their existence and sizes, don't parse large CSVs)
 4. **figures/** — generated visualizations (note their existence)
+5. **plan_deviations.jsonl** (if present) — one JSON record per line (`at`, `path`, `plan_hash`) for analysis code written while `beril.yaml` held no `plan_approval` matching the plan as it stood at that moment. Report every record under **Methodology**: the `path` written, the `at` timestamp, and whether `RESEARCH_PLAN.md`'s Revision History or the REPORT acknowledges that work as unplanned. A record is evidence to weigh, not an automatic fault — undisclosed work presented as pre-registered is the finding; disclosed exploration is not. Absent or empty file: say nothing. Also note `beril.yaml`'s `plan_approval.via` in one clause when present: `terminal` means a human ran `beril approve` at a terminal, `agent-relayed` means the agent recorded an approval the user gave in conversation and the CLI did not witness it. Neither is a fault — it is provenance a reader weighing a pre-registration claim should have.
 
 Also read these repository-level files for context:
 
-5. **docs/pitfalls.md** — known issues and gotchas (frozen historical archive); check if the project avoids or documents relevant pitfalls
-6. **`projects/<id>/memories/pitfalls.md`** (if present) — this project's live-captured gotchas. The project should be addressing these where applicable
-7. **`projects/<id>/memories/discoveries.md`** and **`projects/<id>/memories/performance.md`** (if present from a prior approval) — pre-existing memory state from a previous approval cycle, useful as context for re-review
-8. **Live BERDL discovery** — use `berdl_notebook_utils.get_databases/get_tables/get_table_schema` for current schema info
+6. **docs/pitfalls.md** — known issues and gotchas (frozen historical archive); check if the project avoids or documents relevant pitfalls
+7. **`projects/<id>/memories/pitfalls.md`** (if present) — this project's live-captured gotchas. The project should be addressing these where applicable
+8. **`projects/<id>/memories/discoveries.md`** and **`projects/<id>/memories/performance.md`** (if present from a prior approval) — pre-existing memory state from a previous approval cycle, useful as context for re-review
+9. **Live BERDL discovery** — use `berdl_notebook_utils.get_databases/get_tables/get_table_schema` for current schema info
 
 ## Review Focus Areas
 
