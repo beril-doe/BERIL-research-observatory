@@ -95,6 +95,10 @@ projects/*/dashboard.html
 # Session pin marker — see PROJECT.md "Telling the tools which project"
 projects/*/.beril-pin
 projects/*/.dash.log
+# Whether the agent is blocked on a human right now — true for seconds, and
+# only ever about the machine it was written on.
+projects/*/.agent-state.json
+projects/*/.agent-state.json.tmp
 
 # UI application
 ui/data/cache.json

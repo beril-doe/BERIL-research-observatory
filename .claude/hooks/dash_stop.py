@@ -72,6 +72,18 @@ def main() -> None:
     if not projects:
         return
 
+    # The clean half of "refuse to claim the agent is waiting when it is not".
+    # `.agent-state.json` is written by `.claude/hooks/agent_state.py` and has no
+    # natural end: a session that exits while a permission prompt is open leaves
+    # `waiting` on disk with nobody left to answer it. Removing it here covers
+    # every exit Claude Code gets to announce; the renderer expires the file on
+    # age and session id for the exits it does not (pod culled, SIGKILL).
+    for name in projects:
+        try:
+            (ROOT / "projects" / name / ".agent-state.json").unlink()
+        except OSError:
+            pass
+
     # Match the process's argv, not the port: tools/dashboard.py rejects pidfiles
     # because they misfire on a recycled PID, and killing whatever holds 87xx has
     # the same failure mode against an unrelated process that grabbed it.
