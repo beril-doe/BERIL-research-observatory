@@ -53,10 +53,11 @@ def lakehouse_projects_key(
 def s3_settings() -> dict[str, str | None]:
     """Resolve S3 endpoint + credentials for the object store from the env.
 
-    Endpoint precedence: ``S3_ENDPOINT_URL`` (Ceph-ready) → ``MINIO_ENDPOINT_URL``
-    (legacy) → :data:`DEFAULT_S3_ENDPOINT_URL`. Keys come from
-    ``MINIO_ACCESS_KEY`` / ``MINIO_SECRET_KEY`` and may be ``None`` (caller then
-    falls back to ``berdl-remote`` or treats the tier as unavailable).
+    Endpoint and key lookups both prefer the vendor-neutral ``S3_*`` names
+    (Ceph-ready) and fall back to the legacy ``MINIO_*`` names, so the Ceph
+    cutover is an env change rather than a code edit. Any missing value is
+    ``None`` (caller then falls back to ``berdl-remote`` or treats the tier as
+    unavailable).
     """
     endpoint = (
         os.getenv("S3_ENDPOINT_URL")
@@ -65,8 +66,8 @@ def s3_settings() -> dict[str, str | None]:
     )
     return {
         "endpoint_url": endpoint,
-        "access_key": os.getenv("MINIO_ACCESS_KEY"),
-        "secret_key": os.getenv("MINIO_SECRET_KEY"),
+        "access_key": os.getenv("S3_ACCESS_KEY") or os.getenv("MINIO_ACCESS_KEY"),
+        "secret_key": os.getenv("S3_SECRET_KEY") or os.getenv("MINIO_SECRET_KEY"),
     }
 
 
