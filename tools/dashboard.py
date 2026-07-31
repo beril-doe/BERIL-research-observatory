@@ -888,6 +888,13 @@ background:#0d1017;border:1px solid var(--d-line);border-radius:4px;padding:1px 
 /* No sustained flashing anywhere, and none at all for a reader who has asked
    the OS not to move things. The strip still appears; it just appears. */
 @media (prefers-reduced-motion:reduce){.d-wait.pulse{animation:none;}}
+/* Hidden until the browser can actually act on it: requestPermission needs a
+   user gesture, so there has to be something to click, but once the reader has
+   answered — either way — the button is noise and STATE_JS removes it. */
+.d-alert{background:var(--d-card);color:var(--d-mut);border:1px solid var(--d-line);
+border-radius:10px;font:600 11px/1.6 inherit;padding:1px 10px;margin:0 0 14px;
+cursor:pointer;}
+.d-alert:hover{color:var(--d-fg);border-color:var(--d-accent);}
 /* Two lines, then fade. The full text is the first timeline entry. */
 .d-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
 overflow:hidden;margin:3px 0 0;color:#c4cad8;font-size:13.5px;max-width:none;}
@@ -1016,32 +1023,50 @@ setInterval(relTimes,15000);relTimes();
 # `#d-detail` is agent-authored text, so it is *not* interpolated here. The
 # server renders it through the same `inline_md` -> `e()` path as the worklog and
 # this copies the resulting node's HTML verbatim; the escaping decision stays in
-# one place, in Python, where it is tested.
+# one place, in Python, where it is tested. The notification body takes
+# `textContent` instead, since it is not markup at all.
 #
-# The `(state, since)` pair is what makes a *transition* distinguishable from a
-# re-render. Without it the strip would re-pulse every 4s, which is a flashing
-# banner rather than a signal.
+# The `(state, since)` pair is the debounce key. Without it every 4s re-render is
+# a fresh transition: the strip would re-pulse and the OS notification would
+# re-fire for one permission prompt, which is how a notification gets muted.
 STATE_JS = """
 (function(){
-var W=document.getElementById('d-wait'),
-F=document.getElementById('d-favicon'),BASE=document.title,last=null;
+var W=document.getElementById('d-wait'),B=document.getElementById('d-alert'),
+F=document.getElementById('d-favicon'),BASE=document.title,last=null,
+hiddenAt=document.hidden?Date.now():0;
 var MARK={waiting:'\\u25cf ',turn_ended:'\\u2713 '};
 function icon(c){return 'data:image/svg+xml,'+encodeURIComponent(
 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'+
 '<circle cx="8" cy="8" r="7" fill="'+c+'"/></svg>');}
 var ICON={waiting:icon('#d29922'),turn_ended:icon('#3fb950'),'':icon('#30363d')};
+document.addEventListener('visibilitychange',function(){
+hiddenAt=document.hidden?Date.now():0;});
+function alertable(s){
+// Stop fires at the end of *every* turn. Notifying on each one gets the whole
+// feature muted inside a day, so it only speaks when the reader has actually
+// been away — the case where they cannot already see it happen.
+if(s==='waiting')return true;
+return s==='turn_ended'&&hiddenAt>0&&Date.now()-hiddenAt>60000;}
+function notify(s,body){
+if(!('Notification' in window)||Notification.permission!=='granted')return;
+if(!alertable(s))return;
+try{new Notification(BASE,{body:body,tag:'beril-'+BASE});}catch(err){}}
 function mark(){
 var c=document.getElementById('d-state'),d=document.getElementById('d-detail'),
 s=c?(c.dataset.state||''):'',key=s+'|'+(c?c.dataset.since:'');
 document.title=(MARK[s]||'')+BASE;
 if(F)F.href=ICON[s]||ICON[''];
+if(B)B.hidden=!('Notification' in window)||Notification.permission!=='default';
 if(key===last)return;
 if(s==='waiting'&&W){
 W.innerHTML='<b>The agent is waiting for you.</b> '+(d?d.innerHTML:'');
 W.hidden=false;
 W.classList.remove('pulse');void W.offsetWidth;W.classList.add('pulse');}
 else if(W){W.hidden=true;W.innerHTML='';}
+if(last!==null)notify(s,d?d.textContent:'');
 last=key;}
+if(B)B.addEventListener('click',function(){
+Notification.requestPermission().then(function(){B.hidden=true;});});
 window.dashMark=mark;mark();})();
 """
 
@@ -1629,9 +1654,18 @@ def render(state: State, css: str, live: bool = True) -> str:
         # Outside #root, so the 4s poll cannot wipe it and so it does not sit
         # under the sticky header. Empty string in live mode.
         + ("" if live else _setup_banner())
-        # A sibling of #root, filled by STATE_JS: it has to survive the poll to
-        # pulse once on a transition rather than every 4s.
+        # Both siblings of #root, both filled by STATE_JS. The strip has to
+        # survive the poll to pulse once rather than every 4s; the button has to
+        # survive it because a click handler on a node that is replaced every 4s
+        # would need re-binding, and requestPermission needs a real gesture.
+        # Live only: a snapshot cannot poll, so it can never learn of a
+        # transition to announce.
         + '<div class="d-wait" id="d-wait" role="status" hidden></div>\n'
+        + (
+            '<button class="d-alert" id="d-alert" hidden>Enable alerts</button>\n'
+            if live
+            else ""
+        )
         + '<div id="root">\n'
         '<header class="d-hd">'
         '<div class="d-row">'
@@ -1665,7 +1699,8 @@ def render(state: State, css: str, live: bool = True) -> str:
         "</div>\n"
         # STATE_JS ships in both modes: a snapshot still has a title and a
         # favicon, and a snapshot written while a prompt was open should still
-        # say so.
+        # say so. Only its notification half is dead there, and it is dead by
+        # construction — no button, so no permission, so nothing fires.
         f"<script>{REL_JS}{STATE_JS}{POLL_JS if live else ''}</script>\n"
         f"<script>{LIGHTBOX_JS}</script>\n</body>\n</html>\n"
     )

@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -795,17 +797,23 @@ def test_the_expiry_reaches_a_polling_page(tmp_path, monkeypatch):
     )
 
 
-def test_the_alert_strip_is_anchored_outside_root(tmp_path):
-    """It would work inside #root. It would also be destroyed and rebuilt every
-    4s, and that is the bug: the 600ms pulse would restart on every poll, so a
-    banner meant to flash once on a transition would flash forever — WCAG 2.3.1,
-    and intolerable to sit beside."""
+def test_the_alert_strip_and_button_are_anchored_outside_root(tmp_path):
+    """Both would work inside #root. Both would also be destroyed and rebuilt
+    every 4s, and that is the bug:
+
+    - the strip's 600ms pulse would restart on every poll, so a banner that is
+      supposed to flash once on a transition would flash forever — WCAG 2.3.1,
+      and intolerable to sit beside;
+    - the button's click handler would need re-binding after each swap, and
+      `Notification.requestPermission` only works from a real user gesture.
+    """
     import tools.dashboard as dash
 
     page = dash.render(dash.scan(_waiting(_project(tmp_path))), "")
     before_root, _, after_root = page.partition('<div id="root">')
 
     assert 'id="d-wait"' in before_root, "the pulse would restart every 4s"
+    assert 'id="d-alert"' in before_root, "the permission gesture would lose its handler"
     assert 'id="d-state"' in after_root, "the state itself must come from the poll"
 
 
@@ -823,16 +831,108 @@ def test_the_title_marker_and_favicon_are_client_side(tmp_path):
     assert 'id="d-favicon"' in page and "F.href=ICON[s]" in page
 
 
-def test_a_snapshot_still_reports_the_state_it_was_written_with(tmp_path):
+def test_a_snapshot_gets_the_state_but_never_the_alert_button(tmp_path):
     """A snapshot is a point-in-time render, so it is honest about a prompt that
-    was open when it was written — and its title and favicon still work, since
-    STATE_JS needs no transport."""
+    was open when it was written. It cannot poll, though, so it can never see a
+    *transition* — and a permission prompt for notifications that could never
+    fire one is a button that only costs trust."""
     import tools.dashboard as dash
 
     snap = dash.render(dash.scan(_waiting(_project(tmp_path))), "", live=False)
 
     assert 'data-state="waiting"' in snap
+    assert 'id="d-alert"' not in snap
     assert "function mark" in snap, "the title and favicon still work on a snapshot"
+
+
+# Enough DOM for STATE_JS and not one property more. Stubbed rather than mocked
+# through a real browser because the whole point is to drive the clock and the
+# visibility flag by hand — the two inputs a headless page will not let you set.
+NOTIFY_HARNESS = """
+const fired = [];
+let now = 1000000, hidden = false;
+const listeners = {};
+const nodes = {
+  'd-wait': {innerHTML:'', hidden:true, offsetWidth:1,
+             classList:{_s:new Set(), add(c){this._s.add(c)}, remove(c){this._s.delete(c)},
+                        has(c){return this._s.has(c)}}},
+  'd-alert': {hidden:true, addEventListener(){}},
+  'd-favicon': {href:''}, 'd-state': null, 'd-detail': null,
+};
+globalThis.document = {
+  title: 'demo',
+  get hidden(){ return hidden; },
+  getElementById: id => nodes[id] || null,
+  addEventListener: (k,f) => (listeners[k] ||= []).push(f),
+};
+globalThis.window = globalThis;
+globalThis.Notification = function(t,o){ fired.push(o.body); };
+Notification.permission = 'granted';
+globalThis.Date = {now: () => now};
+
+await import('./state.mjs');
+
+const set = (state, since, detail) => {
+  nodes['d-state'] = state ? {dataset:{state, since:String(since)}} : null;
+  nodes['d-detail'] = detail ? {innerHTML: detail, textContent: detail} : null;
+  dashMark();
+};
+const out = {};
+const go = (label, fn) => { fired.length = 0; fn(); out[label] = fired.slice(); };
+
+go('waiting_visible', () => set('waiting', 1, 'Bash: sw_vers'));
+go('waiting_rerendered', () => set('waiting', 1, 'Bash: sw_vers'));
+go('ended_visible', () => set('turn_ended', 2, 'all done'));
+hidden = true; (listeners.visibilitychange || []).forEach(f => f());
+go('ended_hidden_10s', () => { now += 10000; set('turn_ended', 3, 'done'); });
+go('ended_hidden_70s', () => { now += 70000; set('turn_ended', 4, 'done'); });
+go('waiting_hidden', () => set('waiting', 5, 'AskUserQuestion: which?'));
+set('waiting', 9, 'x');
+out.pulsed = nodes['d-wait'].classList.has('pulse');
+out.strip_shown = !nodes['d-wait'].hidden;
+set('', 0, '');
+out.strip_cleared = nodes['d-wait'].hidden;
+out.title_restored = document.title;
+console.log(JSON.stringify(out));
+"""
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node to execute STATE_JS")
+def test_when_a_system_notification_actually_fires(tmp_path):
+    """The one piece of real logic on the client, so it is run rather than read.
+
+    `Stop` fires at the end of **every** turn. Notifying on each one is how a
+    feature gets muted inside a day, so `turn_ended` only speaks when the reader
+    has genuinely been away — the case where they cannot already see it happen.
+    `waiting` always speaks, because being blocked is the whole point.
+
+    And nothing fires twice for one event: a re-render is not a transition, so
+    the `(state, since)` pair gates it. Without that gate the 4s poll would
+    notify fifteen times a minute about a single permission prompt.
+
+    Node stands in for a browser because the two inputs that matter — the clock
+    and the visibility flag — are exactly what a real headless page will not let
+    a test set.
+    """
+    import tools.dashboard as dash
+
+    (tmp_path / "state.mjs").write_text(dash.STATE_JS, encoding="utf-8")
+    (tmp_path / "harness.mjs").write_text(NOTIFY_HARNESS, encoding="utf-8")
+    done = subprocess.run(
+        ["node", "harness.mjs"], cwd=tmp_path, capture_output=True, text=True, timeout=60
+    )
+    assert done.returncode == 0, done.stderr
+    result = json.loads(done.stdout)
+
+    assert result["waiting_visible"] == ["Bash: sw_vers"]
+    assert result["waiting_hidden"] == ["AskUserQuestion: which?"]
+    assert result["waiting_rerendered"] == [], "a re-render is not a transition"
+    assert result["ended_visible"] == [], "you are looking straight at it"
+    assert result["ended_hidden_10s"] == [], "briefly away is not away"
+    assert result["ended_hidden_70s"] == ["done"]
+
+    assert result["pulsed"] and result["strip_shown"]
+    assert result["strip_cleared"] and result["title_restored"] == "demo"
 
 
 def test_a_hidden_tab_still_polls_only_slower():
