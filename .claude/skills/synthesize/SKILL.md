@@ -1,7 +1,7 @@
 ---
 name: synthesize
 description: Read analysis outputs, compare against literature, and draft findings for a project REPORT.md. Use when notebooks have been run and the user wants to interpret results and write up findings.
-allowed-tools: Bash, Read, Write, Edit, WebSearch, AskUserQuestion
+allowed-tools: Bash, Read, Write, Edit, WebSearch, AskUserQuestion, Skill
 user-invocable: true
 ---
 

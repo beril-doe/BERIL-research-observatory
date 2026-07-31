@@ -49,7 +49,7 @@ The `paper-search-mcp` from [openags/paper-search-mcp](https://github.com/openag
 
 ### PaperBLAST (BERDL local resource)
 
-The `kescience_paperblast` database (gene-paper associations and text snippets from PMC full-text mining) links protein sequences to scientific literature. Use `berdl_notebook_utils.get_tables`/`get_table_schema(... return_json=False)` for live schemas, and see the `kescience_paperblast` section of `docs/pitfalls.md` for non-derivable gotchas. Used in deep reviews when the research question involves specific genes, proteins, or pathways.
+The `kescience.paperblast` database (gene-paper associations and text snippets from PMC full-text mining) links protein sequences to scientific literature. Use `berdl_notebook_utils.get_tables`/`get_table_schema(... return_json=False)` for live schemas, and see the `kescience_paperblast` section of `docs/pitfalls.md` for non-derivable gotchas. Used in deep reviews when the research question involves specific genes, proteins, or pathways.
 
 ### Supported Sources
 
@@ -238,7 +238,7 @@ Use this manifest for all downstream steps. If the subagent fails, fall back to 
 
 > **Launch in parallel with Step 3**: Steps 3 and 4 are independent — spawn both subagents in a **single message** (two Agent tool calls) for efficiency.
 
-When the research question involves specific genes, proteins, enzymes, or pathways, a PaperBLAST subagent queries BERDL's `kescience_paperblast` database and returns a compact gene-literature summary.
+When the research question involves specific genes, proteins, enzymes, or pathways, a PaperBLAST subagent queries BERDL's `kescience.paperblast` database and returns a compact gene-literature summary.
 
 > **Context budget**: ~1-3K tokens returned vs. 9.5-40K+ tokens if PaperBLAST SQL ran in the main context.
 
@@ -273,6 +273,16 @@ QUERIES (for each identifier):
 5. GeneRIF: SELECT comment, pmId FROM kescience.paperblast.generif WHERE geneId='[geneId]' LIMIT 10
 
 IMPORTANT: year is STRING — always CAST(year AS INT).
+
+IMPORTANT — namespace: the queries above use the Iceberg form
+`catalog.namespace.table` (`kescience.paperblast.*`). The Delta→Iceberg
+migration is still in progress. If the FIRST query fails with
+TABLE_OR_VIEW_NOT_FOUND or an unresolved-relation error, this collection has
+not migrated yet — retry with the legacy underscore form
+(`kescience_paperblast.gene`, etc.) and use that form for all five queries.
+Only the catalog/namespace separator changes; table names are unchanged.
+Report which form worked. Do NOT report "gene not found" on a namespace
+error — that is a resolution failure, not a real negative.
 
 Return EXACTLY:
 
