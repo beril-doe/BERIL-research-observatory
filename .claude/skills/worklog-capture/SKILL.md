@@ -58,8 +58,8 @@ and added a threshold sensitivity pass to check the result wasn't cutoff-driven.
 | Transition | Written by | Heading |
 |---|---|---|
 | project scaffolded (`exploration`) | `/berdl_start` Phase 0 | `project scaffolded → exploration` |
-| `exploration` → `proposed` | `/berdl_start` Phase B | `plan written → proposed` |
-| `proposed` → `active` | `/berdl_start` Phase C | `analysis started → active` |
+| `exploration` → `proposed` | `/research-plan` step 7 | `plan written → proposed` |
+| `proposed` → `active` | `/execute-plan` Phase C | `analysis started → active` |
 | `active` → `analysis` | `/synthesize` | `findings synthesized → analysis` |
 | `analysis` → `reviewed` | `/berdl-review` | `review completed → reviewed` |
 | `reviewed` → `complete` | `/submit` | `approved by {ORCID} → complete` |
