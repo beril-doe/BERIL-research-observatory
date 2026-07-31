@@ -249,13 +249,16 @@ def _is_curated_key(key: str) -> bool:
 
 
 def _scope_prefixes(target_uri: str) -> list[str]:
-    """S3 key prefixes to enumerate for a find, derived from ``target_uri``.
+    """S3 key prefixes to enumerate for a find/grep, derived from a scope URI.
 
-    All projects → the projects prefix; a single project → just that project's
-    prefix. Docs (and any non-project scope) aren't archived here, so an empty
-    list signals "not servable by BERDL" → :class:`BerdlUnavailable`.
+    The lakehouse holds only projects, so the resources root
+    (``viking://resources/``, grep's default) and the projects root both map to
+    the projects prefix; a single project maps to just its prefix. Docs (and any
+    other non-project scope) aren't archived here, so an empty list signals "not
+    servable by BERDL" → :class:`BerdlUnavailable`.
     """
-    if target_uri == _PROJECTS_PREFIX or target_uri.rstrip("/") == _PROJECTS_PREFIX.rstrip("/"):
+    scope = target_uri.rstrip("/")
+    if scope in (_RESOURCES_PREFIX.rstrip("/"), _PROJECTS_PREFIX.rstrip("/")):
         return [_PROJECTS_KEY_PREFIX]
     if target_uri.startswith(_PROJECTS_PREFIX):
         project_id = target_uri[len(_PROJECTS_PREFIX):].strip("/").split("/")[0]
@@ -286,6 +289,27 @@ def _list_curated_keys(client, prefixes: list[str]) -> list[str]:
     return keys
 
 
+def _curated_documents(scope_uri: str) -> list[tuple[str, str]]:
+    """Resolve a scope URI to ``(uri, text)`` pairs for its curated archive.
+
+    Shared by ``berdl_find``/``berdl_grep``: maps the scope to project prefixes,
+    lists the curated keys, and fetches each. Raises :class:`BerdlUnavailable`
+    (→ local fallback) for a non-project scope, missing creds, or an
+    unreachable/unauthorized lakehouse.
+    """
+    prefixes = _scope_prefixes(scope_uri)
+    if not prefixes:
+        raise BerdlUnavailable(f"no lakehouse archive for scope: {scope_uri}")
+    client = _s3_client()
+    documents: list[tuple[str, str]] = []
+    for key in _list_curated_keys(client, prefixes):
+        uri = _key_to_uri(key)
+        if uri is None:
+            continue
+        documents.append((uri, _get_object_text(client, LAKEHOUSE_BUCKET, key)))
+    return documents
+
+
 def berdl_find(config: ContextConfig, query: str, target_uri: str, limit: int) -> dict:
     """Keyword search over the archived curated corpus.
 
@@ -294,15 +318,32 @@ def berdl_find(config: ContextConfig, query: str, target_uri: str, limit: int) -
     (→ local fallback) if the tier can't serve the scope — no creds,
     unreachable, unauthorized, or a non-project scope (e.g. docs).
     """
-    prefixes = _scope_prefixes(target_uri)
-    if not prefixes:
-        raise BerdlUnavailable(f"no lakehouse archive for scope: {target_uri}")
-    client = _s3_client()
-    bucket = LAKEHOUSE_BUCKET
-    documents = []
-    for key in _list_curated_keys(client, prefixes):
-        uri = _key_to_uri(key)
-        if uri is None:
-            continue
-        documents.append((uri, _get_object_text(client, bucket, key)))
+    documents = _curated_documents(target_uri)
     return fallback.score_corpus(query, documents, limit, source="berdl")
+
+
+def berdl_grep(
+    config: ContextConfig,
+    pattern: str,
+    uri: str,
+    *,
+    case_insensitive: bool = False,
+    exclude_uri: str | None = None,
+    node_limit: int | None = None,
+) -> dict:
+    """Exact line-match search over the archived curated corpus.
+
+    Same corpus and scoping as ``berdl_find``; matching/``exclude_uri``/
+    ``node_limit`` are handled by the shared ``fallback.grep_documents``. Raises
+    :class:`BerdlUnavailable` (→ local fallback) when the tier can't serve the
+    scope — no creds, unreachable, unauthorized, or a non-project scope.
+    """
+    documents = _curated_documents(uri)
+    return fallback.grep_documents(
+        pattern,
+        documents,
+        case_insensitive=case_insensitive,
+        exclude_uri=exclude_uri,
+        node_limit=node_limit,
+        source="berdl",
+    )

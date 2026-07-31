@@ -193,6 +193,55 @@ def test_berdl_find_docs_scope_is_unavailable(tmp_path, monkeypatch):
         bf.berdl_find(_config(tmp_path), "spark", "viking://resources/docs/", 10)
 
 
+# --- grep (exact line-match over the archived corpus) ---------------------
+
+
+def test_berdl_grep_matches_curated_and_reports_lines(tmp_path, monkeypatch):
+    store = {
+        f"{_TENANT}/alpha/README.md": "line one\nSpark timeout here\nline three\n",
+        f"{_TENANT}/alpha/memories/pitfalls.md": "Spark OOM on the big table\n",
+        # non-corpus: must never be searched even though it matches
+        f"{_TENANT}/alpha/data/log.md": "Spark Spark Spark\n",
+    }
+    _patch_client(monkeypatch, _FakeS3(store))
+
+    result = bf.berdl_grep(_config(tmp_path), "Spark", "viking://resources/")
+
+    assert result["source"] == "berdl"
+    hit_uris = {m["uri"] for m in result["matches"]}
+    assert "viking://resources/projects/alpha/README.md" in hit_uris
+    assert "viking://resources/projects/alpha/memories/pitfalls.md" in hit_uris
+    assert all("/data/" not in m["uri"] for m in result["matches"])
+    # line numbers are 1-based within the file
+    readme_hit = next(m for m in result["matches"] if m["uri"].endswith("README.md"))
+    assert readme_hit["line"] == 2
+
+
+def test_berdl_grep_respects_exclude_and_node_limit(tmp_path, monkeypatch):
+    store = {
+        f"{_TENANT}/alpha/README.md": "spark\nspark\nspark\n",
+        f"{_TENANT}/beta/README.md": "spark\n",
+    }
+    _patch_client(monkeypatch, _FakeS3(store))
+
+    limited = bf.berdl_grep(_config(tmp_path), "spark", "viking://resources/", node_limit=2)
+    assert len(limited["matches"]) == 2
+
+    excluded = bf.berdl_grep(
+        _config(tmp_path),
+        "spark",
+        "viking://resources/",
+        exclude_uri="viking://resources/projects/beta/",
+    )
+    assert all("/projects/beta/" not in m["uri"] for m in excluded["matches"])
+
+
+def test_berdl_grep_docs_scope_is_unavailable(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3({}))
+    with pytest.raises(bf.BerdlUnavailable):
+        bf.berdl_grep(_config(tmp_path), "spark", "viking://resources/docs/")
+
+
 # --- credential / availability gating -------------------------------------
 
 

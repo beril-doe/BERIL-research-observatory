@@ -150,6 +150,36 @@ def _snippet(text: str, terms: set[str]) -> str:
     return ""
 
 
+def grep_documents(
+    pattern: str,
+    documents: Iterable[tuple[str, str]],
+    *,
+    case_insensitive: bool = False,
+    exclude_uri: str | None = None,
+    node_limit: int | None = None,
+    source: str,
+) -> dict:
+    """Line-match ``pattern`` across ``(uri, text)`` documents.
+
+    Shared exact-search core for the degraded ``grep``. The caller supplies the
+    documents — from local disk (:func:`local_grep`) or the BERDL archive
+    (``berdl_fallback.berdl_grep``) — so matching, ``exclude_uri``, and
+    ``node_limit`` behave identically across tiers. ``source`` labels the origin.
+    """
+    needle = pattern.lower() if case_insensitive else pattern
+    matches: list[dict] = []
+    for resource_uri, text in documents:
+        if exclude_uri and resource_uri.startswith(exclude_uri):
+            continue
+        for number, line in enumerate(text.splitlines(), start=1):
+            haystack = line.lower() if case_insensitive else line
+            if needle in haystack:
+                matches.append({"uri": resource_uri, "line": number, "text": line.strip()[:300]})
+                if node_limit is not None and len(matches) >= node_limit:
+                    return {"matches": matches, "degraded": True, "source": source}
+    return {"matches": matches, "degraded": True, "source": source}
+
+
 def local_grep(
     config: ContextConfig,
     pattern: str,
@@ -159,18 +189,15 @@ def local_grep(
     exclude_uri: str | None = None,
     node_limit: int | None = None,
 ) -> dict:
-    needle = pattern.lower() if case_insensitive else pattern
-    matches: list[dict] = []
-    for path, resource_uri in _scoped(config, uri):
-        if exclude_uri and resource_uri.startswith(exclude_uri):
-            continue
-        for number, line in enumerate(_read(path).splitlines(), start=1):
-            haystack = line.lower() if case_insensitive else line
-            if needle in haystack:
-                matches.append({"uri": resource_uri, "line": number, "text": line.strip()[:300]})
-                if node_limit is not None and len(matches) >= node_limit:
-                    return {"matches": matches, "degraded": True, "source": "local"}
-    return {"matches": matches, "degraded": True, "source": "local"}
+    documents = ((resource_uri, _read(path)) for path, resource_uri in _scoped(config, uri))
+    return grep_documents(
+        pattern,
+        documents,
+        case_insensitive=case_insensitive,
+        exclude_uri=exclude_uri,
+        node_limit=node_limit,
+        source="local",
+    )
 
 
 def local_read(config: ContextConfig, uri: str) -> str:

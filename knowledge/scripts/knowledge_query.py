@@ -130,10 +130,11 @@ def _berdl_then_local(config, uri, berdl_fn, local_fn):
 
 
 def _run_fallback(args, config: ContextConfig) -> None:
-    # find/grep are keyword search over the whole corpus, so they skip the
-    # lakehouse tier (which would mean downloading everything) and go straight
-    # to local. read/overview fetch one resource and try BERDL first — each
-    # branch prints its own banner so the user sees which tier answered.
+    # find/grep/read/overview all try BERDL first, then fall through to local.
+    # find/grep search only the curated corpus (the files local search covers),
+    # so the per-query download stays bounded. link/unlink and structural
+    # queries (ls/tree/stat/...) have no degraded path and hit the else branch.
+    # Each branch prints its own banner so the user sees which tier answered.
     if args.command == "find":
         target_uri = target_uri_for_find(
             project=args.project, docs=args.docs, target_uri=args.target_uri
@@ -146,21 +147,27 @@ def _run_fallback(args, config: ContextConfig) -> None:
         )
         print(json.dumps(result, default=str) if args.json else format_find_text(result))
     elif args.command == "grep":
-        print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)
-        print(
-            json.dumps(
-                fallback.local_grep(
-                    config,
-                    args.pattern,
-                    args.uri,
-                    case_insensitive=args.case_insensitive,
-                    exclude_uri=args.exclude_uri,
-                    node_limit=args.node_limit,
-                ),
-                indent=2,
-                default=str,
-            )
+        result = _berdl_then_local(
+            config,
+            args.uri,
+            lambda cfg, uri: berdl_fallback.berdl_grep(
+                cfg,
+                args.pattern,
+                uri,
+                case_insensitive=args.case_insensitive,
+                exclude_uri=args.exclude_uri,
+                node_limit=args.node_limit,
+            ),
+            lambda cfg, uri: fallback.local_grep(
+                cfg,
+                args.pattern,
+                uri,
+                case_insensitive=args.case_insensitive,
+                exclude_uri=args.exclude_uri,
+                node_limit=args.node_limit,
+            ),
         )
+        print(json.dumps(result, indent=2, default=str))
     elif args.command == "read":
         print(_berdl_then_local(config, args.uri, berdl_fallback.berdl_read, fallback.local_read))
     elif args.command == "overview":
