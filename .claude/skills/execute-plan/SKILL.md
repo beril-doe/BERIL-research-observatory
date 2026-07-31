@@ -35,6 +35,7 @@ If no `<project_id>` argument is provided, detect from the current working direc
 Status transition: `proposed` → `active`.
 
 - Update `beril.yaml`: `status: active`, `last_session_at` to now.
+- Append a worklog entry (`analysis started → active`) — see `.claude/skills/worklog-capture/SKILL.md`.
 - For **each notebook in the Analysis Plan**, in order:
   1. Create the numbered analysis notebook (`01_data_exploration.ipynb`, `02_analysis.ipynb`, …) following the per-notebook spec in `RESEARCH_PLAN.md`.
   2. **Run the discriminating/refuting query FIRST** (Platt's strong inference): the crucial test the plan named for this step goes *before* any confirmatory cells. Lead with the result that could refute the hypothesis, not the one that would confirm a favorite. This is the forward complement of post-hoc refutation.
@@ -54,6 +55,7 @@ Status transition: `proposed` → `active`.
 
      `Standing` is one of `open | supported | refuted | needs-replication | blocked | needs-evidence` (`beril_cli/science.py` `CLAIM_STATUSES`), so rows carry into `REPORT.md` `## Claims` unchanged. Applying a pre-registered criterion to a number is arithmetic, not interpretation — what stays out is *why*: no mechanism, no literature, no "suggests that". No locator → the row stays `open`. New plans only; an in-flight project starts at its next un-run notebook and says so in the header.
   5. **Commit** after the notebook is complete (and after any data extraction or key result reproduced).
+  6. **Append a worklog entry** for that milestone — the notebook run, the figures saved, the data exported, or a correction (a bug found, a re-run, an approach abandoned). Corrections matter most: they are the only record of why the project was not a straight line. See `.claude/skills/worklog-capture/SKILL.md`.
 - Notebooks are the primary audit trail — do as much work as possible in notebooks so humans can inspect intermediate results. When parallel execution or complex pipelines are needed, write scripts in `projects/<id>/src/` but call them from notebooks.
 - **Capture pitfalls** as you go via `.claude/skills/pitfall-capture/SKILL.md` (appends to `projects/<id>/memories/pitfalls.md`). Re-read `docs/pitfalls.md` and `docs/performance.md` when something doesn't behave as expected.
 

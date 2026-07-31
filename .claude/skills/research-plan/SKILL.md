@@ -102,7 +102,8 @@ Write the Analysis Plan as a **per-notebook spec**. For each notebook:
 1. Write `projects/<id>/RESEARCH_PLAN.md` using the **Enriched Template** below. Fill every section; do not leave the competing-hypotheses table or the falsification column blank.
 2. Update `projects/<id>/README.md` Status block to "Proposed — research plan written, awaiting analysis." Fill in any sections that became clearer (Overview, Research Question).
 3. Update `beril.yaml`: `status: proposed`, `last_session_at` to now, `artifacts.research_plan: true`.
-4. Commit: `feat(project): research plan for {id}`.
+4. Append a worklog entry (`plan written → proposed`) recording *why* this framing was chosen and which competing hypotheses were rejected — see `.claude/skills/worklog-capture/SKILL.md`. The plan says what will be done; the worklog says why this plan and not another.
+5. Commit: `feat(project): research plan for {id}`.
 
 **STOP HERE.** The plan is the contract for what comes next. Do NOT write or execute notebooks. Proceed to the checkpoint.
 

@@ -270,8 +270,9 @@ Establish the project directory and manifest **before** any querying, planning, 
 6. **Branch (recommended)**: offer to create branch `projects/<id>` and switch to it. Long-running projects on `main` create merge pain. If the user declines, leave on the current branch. Record the actual branch in `beril.yaml`.
 7. **Write a stub `README.md`** (template at the bottom): title (humanized from project_id), Status block reading "Exploration — research plan not yet written", authors from beril user, Quick Links pointing at `RESEARCH_PLAN.md` (TBD) and `REPORT.md` (TBD), Reproduction placeholder.
 8. **Update `beril.yaml`**: `artifacts.readme: true`.
-9. **Commit**: `feat(project): scaffold {id} (exploration phase)`.
-10. Suggest naming this session to match the project: "Consider naming this session `{project_id}` to match the branch — useful for long-running or remote sessions where the connection may drop."
+9. **Append a worklog entry** (`project scaffolded → exploration`) recording what the user came in wanting to find out — see `.claude/skills/worklog-capture/SKILL.md`.
+10. **Commit**: `feat(project): scaffold {id} (exploration phase)`.
+11. Suggest naming this session to match the project: "Consider naming this session `{project_id}` to match the branch — useful for long-running or remote sessions where the connection may drop."
 
 After Phase 0, **every artifact has a home**. User data → `projects/<id>/user_data/`. Exploration queries → `projects/<id>/notebooks/00_*.ipynb`. References → `projects/<id>/references.md`. Move on to Phases A & B — invoke `/research-plan`.
 
