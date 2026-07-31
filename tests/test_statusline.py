@@ -90,7 +90,8 @@ def _repo(tmp_path: Path, projects: dict) -> Path:
     return tmp_path
 
 
-def _render(repo: Path, session_id: str = "no-such-session", cwd=None, added=()) -> str:
+def _render(repo: Path, session_id: str = "no-such-session", cwd=None, added=(),
+            model=None) -> str:
     payload = {
         "session_id": session_id,
         "workspace": {
@@ -99,6 +100,8 @@ def _render(repo: Path, session_id: str = "no-such-session", cwd=None, added=())
         },
         "context_window": {"used_percentage": 20},
     }
+    if model is not None:
+        payload["model"] = model
     done = subprocess.run(
         ["bash", str(STATUSLINE)],
         input=json.dumps(payload),
@@ -125,6 +128,36 @@ def test_simultaneous_sessions_on_one_clone_resolve_to_their_own_project(tmp_pat
 
     assert "alpha" in first and "beta" not in first
     assert "beta" in second and "alpha" not in second
+
+
+def test_the_model_replaces_the_context_gauge(tmp_path):
+    """Which model is answering is what you check before trusting a surprising
+    result, so it earns a cell — and it took the context gauge's, because Claude
+    Code's own UI already warns as context runs low and this does not report the
+    model anywhere.
+
+    `display_name`, never `id`: "Sonnet 5", not "claude-sonnet-5". The id is what
+    you would paste into an API call and this line is not for that.
+
+    The absent case is the one worth pinning. The status line renders every turn
+    in whatever harness drives it, and a missing `model` must drop the cell
+    rather than leave a trailing `|` — which reads as a line that failed to
+    finish rendering.
+    """
+    repo = _repo(tmp_path, {"alpha": ["sid-a"]})
+
+    first = _render(
+        repo, model={"display_name": "Sonnet 5", "id": "claude-sonnet-5"}
+    ).splitlines()[0]
+
+    assert "Sonnet 5" in first
+    assert "claude-sonnet-5" not in first, "that is the API id, not a label"
+    assert "%" not in first and "░" not in first, "the gauge was supposed to go"
+
+    for missing in (None, {}, {"display_name": ""}, {"display_name": None}):
+        bare = _render(repo, model=missing).splitlines()[0]
+        assert "Sonnet 5" not in bare
+        assert not bare.rstrip().endswith("|"), f"empty cell left behind: {missing!r}"
 
 
 def test_no_signal_names_no_project(tmp_path):
