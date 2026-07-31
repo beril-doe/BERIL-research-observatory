@@ -1,4 +1,4 @@
-name: Install and test BERIL CLI
+name: Install and test BERIL knowledge layer
 on:
   pull_request:
     types:
@@ -25,11 +25,13 @@ jobs:
         run: |
           uv sync --group test --group knowledge
 
-      - name: Run CLI tests
+      - name: Run knowledge layer tests
         run: |
-          uv run pytest knowledge/tests/
+          uv run pytest knowledge/tests/ --cov=knowledge --cov-report=xml
 
       - name: Send to Codecov
         uses: codecov/codecov-action@v5
         with:
             token: ${{ secrets.CODECOV_TOKEN }}
+            files: ./coverage.xml
+            disable_search: true

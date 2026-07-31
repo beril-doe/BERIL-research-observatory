@@ -27,9 +27,13 @@ jobs:
 
       - name: Run CLI tests
         run: |
-          uv run pytest tests/
+          uv run pytest tests/ --cov=beril_cli --cov=tools --cov-report=xml
 
       - name: Send to Codecov
         uses: codecov/codecov-action@v5
         with:
             token: ${{ secrets.CODECOV_TOKEN }}
+            files: ./coverage.xml
+            # Without this codecov filename-searches the repo and uploads any
+            # projects/**/ *coverage*.tsv it finds instead of a real report.
+            disable_search: true

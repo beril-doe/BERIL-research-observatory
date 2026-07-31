@@ -111,6 +111,7 @@ venv/
 
 # Python test results
 .coverage
+coverage.xml
 htmlcov/
 .pytest_cache/
 .ruff_cache/
