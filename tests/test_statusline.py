@@ -260,14 +260,79 @@ def test_the_statusline_starts_a_dashboard_that_is_not_running(tmp_path):
     probe.close()
 
     first = _render(repo, session_id="sess-spawn")
-    assert "dashboard not running" in first          # nothing to advertise yet
+    assert "dashboard starting" in first             # nothing to advertise yet
 
     try:
         assert _wait_until_listening(port), "the statusline did not start a dashboard"
-        assert f":{port}/" in _render(repo, session_id="sess-spawn")
+        # Through `public_url`, not a hardcoded `:<port>/`. That literal is the
+        # off-cluster form only, so this assertion passed in CI and failed on the
+        # hub — the one environment the dashboard exists for.
+        from tools.dashboard import public_url
+
+        assert public_url(port) in _render(repo, session_id="sess-spawn")
     finally:
         subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects/spawnme"],
                        capture_output=True)
+
+
+def _no_proxy(tmp_path: Path, repo: Path, monkeypatch) -> None:
+    """Bill's pod: an image with no jupyter-server-proxy anywhere.
+
+    JUPYTER_CONFIG_PATH outranks every other config dir and the first directory
+    with an opinion decides, so one `false` drop-in there is the whole simulation.
+    """
+    cfg = tmp_path / "nocfg" / "jupyter_server_config.d"
+    cfg.mkdir(parents=True)
+    (cfg / "jupyter_server_proxy.json").write_text(
+        json.dumps({"ServerApp": {"jpserver_extensions": {"jupyter_server_proxy": False}}})
+    )
+    monkeypatch.setenv("JUPYTER_CONFIG_PATH", str(tmp_path / "nocfg"))
+    monkeypatch.setenv("JUPYTERHUB_SERVICE_PREFIX", "/user/bill/")
+    monkeypatch.setenv("JUPYTER_SERVER_ROOT", str(repo))
+
+
+def test_without_the_proxy_it_snapshots_instead_of_respawning_forever(tmp_path, monkeypatch):
+    """REGRESSION, and the bug this whole branch was reported for.
+
+    The launcher spawned a *server* whenever the port was closed. On an image with
+    no jupyter-server-proxy that server cannot bind: it wrote a snapshot, exited 0,
+    and left the port closed — so the next turn spawned it again. One process per
+    turn, forever, with the install instructions accumulating in a gitignored log.
+
+    The gate belongs inside the not-listening branch, so the steady state still
+    costs one socket check and nothing more.
+    """
+    import socket
+    import time
+
+    repo = _repo(tmp_path, {"noproxy": ["sess-np"]})
+    _no_proxy(tmp_path, repo, monkeypatch)
+    port = _port("noproxy")
+    pdir = repo / "projects" / "noproxy"
+
+    for _ in range(3):
+        out = _render(repo, session_id="sess-np")
+
+    # No server was ever started — that is the loop, gone.
+    probe = socket.socket(); probe.settimeout(0.2)
+    assert probe.connect_ex(("127.0.0.1", port)) != 0, "started a server that cannot work"
+    probe.close()
+    for _ in range(40):
+        if not subprocess.run(["pgrep", "-f", f"dashboard.py {pdir}"],
+                              capture_output=True).stdout.strip():
+            break
+        time.sleep(0.05)
+    else:
+        raise AssertionError("dashboard processes still alive — the loop is back")
+
+    # ...and the user got something instead of nothing.
+    assert (pdir / "dashboard.html").is_file(), "no snapshot written"
+    assert "files/projects/noproxy/dashboard.html" in out, "no way to find the snapshot"
+    assert "tools/dashboard.py --setup" in out, "no way out of snapshot mode"
+
+    # The instructions must not go back to the log nobody reads.
+    log = pdir / ".dash.log"
+    assert not log.exists() or log.stat().st_size == 0, "boilerplate is piling up again"
 
 
 def test_it_does_not_spawn_when_no_project_resolves(tmp_path):

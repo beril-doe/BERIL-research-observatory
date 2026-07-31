@@ -607,6 +607,85 @@ def test_live_mode_needs_the_proxy_only_inside_jupyterhub(tmp_path, monkeypatch)
     assert dash.jupyter_routes(project) is not None
 
 
+def test_the_snapshot_url_is_root_relative(tmp_path, monkeypatch):
+    """REGRESSION. Jupyter's `files/` route resolves against root_dir, so an
+    absolute path after it yields `files//home/<user>/...`, which the server reads
+    as `<root_dir>/home/<user>/...` and answers 404. Measured against the running
+    server: 200 for the relative form, 404 for the absolute one.
+
+    It broke the fallback in precisely the case where the fallback is all the user
+    has — no proxy, so no live mode, and the one printed link is dead.
+    """
+    import tools.dashboard as dash
+
+    monkeypatch.setenv("JUPYTER_SERVER_ROOT", str(tmp_path))
+    monkeypatch.setenv("JUPYTERHUB_SERVICE_PREFIX", "/user/bill/")
+    project = tmp_path / "repo" / "projects" / "demo"
+    project.mkdir(parents=True)
+
+    url = dash.snapshot_url(project)
+
+    assert url == (
+        "https://hub.berdl.kbase.us/user/bill/files/"
+        "repo/projects/demo/dashboard.html"
+    )
+    assert "files//" not in url, "absolute path after files/ — this is the 404"
+    assert str(tmp_path) not in url, "leaked a filesystem path into the URL"
+
+
+def test_a_snapshot_carries_neither_the_redirect_nor_the_poll(tmp_path):
+    """REGRESSION, and the more dangerous half is the redirect.
+
+    POLL_JS opens by appending a trailing slash so relative assets resolve under
+    `/proxy/<port>/`. A snapshot is served at `<prefix>files/<rel>/dashboard.html`,
+    which has no trailing slash — so on load the page would navigate itself to
+    `dashboard.html/` and 404. It would destroy itself in front of the user.
+
+    The poll is merely futile: `files/` responses carry `sandbox allow-scripts`
+    with no `allow-same-origin`, so the document's origin is opaque and `fetch`
+    cannot send the hub cookie.
+
+    REL_JS must survive both cuts: every timestamp renders client-side, so
+    dropping it leaves the readouts blank.
+    """
+    import tools.dashboard as dash
+
+    project = _project(tmp_path, {"WORKLOG.md": WORKLOG})
+    state = dash.scan(project)
+
+    live = dash.render(state, "", live=True)
+    snap = dash.render(state, "", live=False)
+
+    assert "location.replace" in live and "function tick" in live
+    assert "location.replace" not in snap, "the snapshot would navigate itself to a 404"
+    assert "function tick" not in snap, "a poll that can only fail, silently"
+    assert "function relTimes" in snap, "timestamps are client-side — this must stay"
+
+
+def test_a_snapshot_says_it_is_one_and_how_to_get_live(tmp_path):
+    """The instructions used to be five lines on stdout, which the status line
+    redirected into a gitignored `.dash.log`. Nobody had a reason to open it, so
+    the observed failure was a dashboard that silently never appeared.
+
+    They belong on the page the reader is actually looking at, and the command
+    must be the checkout's — `beril` on the image is a pinned copy under an
+    overlay mount that a user cannot update.
+    """
+    import tools.dashboard as dash
+
+    project = _project(tmp_path, {"WORKLOG.md": WORKLOG})
+    state = dash.scan(project)
+
+    assert '<div class="d-setup">' not in dash.render(state, "", live=True)
+
+    snap = dash.render(state, "", live=False)
+    assert '<div class="d-setup">' in snap
+    assert dash.SETUP_CMD in snap
+    assert "tools/dashboard.py" in snap and "beril " not in snap
+    for step in dash.RESTART_STEPS:
+        assert dash.inline_md(step) in snap, f"missing restart step: {step}"
+
+
 def _dropin(cfg_dir: Path, name: str, enabled: bool) -> None:
     d = cfg_dir / "jupyter_server_config.d"
     d.mkdir(parents=True, exist_ok=True)

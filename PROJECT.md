@@ -46,6 +46,26 @@ When working on a science project, capture learnings in **per-project memory fil
 | `docs/performance.md` | **Frozen archive + ongoing curated reference.** Query strategies for large tables. Project-specific tuning observations now go in `projects/{id}/memories/performance.md`; truly general/canonical patterns continue to live here (manual curation only). |
 | `docs/discoveries.md` | **Frozen archive.** Pre-redirect log of insights. New discoveries flow through `## Discoveries` in `REPORT.md` → `projects/{id}/memories/discoveries.md` at approval. |
 | `docs/research_ideas.md` | Future research directions, project ideas (planning artifact, not a memory) |
+| `docs/live-dashboard-design.md` | The per-project live dashboard — design, decisions, and first-time setup |
+
+## Live dashboard — one-time setup
+
+While a project is running, the status line shows its stage and a link to a live
+dashboard. On a fresh BERDL pod that link is a **snapshot** — it renders fully but
+does not update itself, because the image does not ship `jupyter-server-proxy`.
+
+To switch to a live dashboard, once per user (`$HOME` persists, so it survives every
+later pod restart):
+
+```bash
+python3 tools/dashboard.py --setup     # installs + enables, into ~/.local
+# then: Hub Control Panel → Stop My Server, then Start
+# then: reopen a terminal and run `claude --resume`
+```
+
+The restart is unavoidable — Jupyter loads server extensions only at startup — and it
+kills the terminal, not your session: `claude --resume` picks it back up. Until you do
+it, everything else works and the status line keeps naming the snapshot URL.
 
 ## Project Structure
 

@@ -117,7 +117,8 @@ if not pdir:
 # Stage and URL come from the dashboard itself, so the two cannot disagree.
 sys.path.insert(0, str(root))
 try:
-    from tools.dashboard import STAGE_LABELS, port_for, public_url, resolve_stage
+    from tools.dashboard import (SETUP_CMD, STAGE_LABELS, can_serve_live, port_for,
+                                 public_url, resolve_stage, snapshot_url)
     stage, inferred = resolve_stage(pdir)
     label = STAGE_LABELS.get(stage, stage) + ("?" if inferred else "")
     port = port_for(pid)
@@ -137,28 +138,56 @@ except Exception:
 # A display component with a side effect is unusual, so it is bounded: it fires
 # only when a project resolved AND the port is closed, and the launcher exits 0 on
 # EADDRINUSE. Steady state is one 0.05s socket check and nothing else.
-url = ""
+#
+# `can_serve_live()` gates *which* launcher, and it sits inside the not-listening
+# branch on purpose. Without it this loop was unbounded: on an image with no
+# jupyter-server-proxy the server cannot bind, so it wrote a snapshot and exited
+# 0, the port stayed closed, and the next turn spawned it again — forever, one
+# process per turn, with the install instructions accumulating in `.dash.log`
+# where nobody had a reason to look. Below, that case spawns `--static`
+# deliberately instead: bounded work, no port, and a snapshot that is genuinely
+# refreshed every turn. Placing the probe here rather than above the socket check
+# keeps the steady state free — it only runs on turns that were about to spawn
+# anyway (measured: 0.08ms enabled, 1.01ms worst case).
+url = snap = ""
 if port:
     s = socket.socket()
     s.settimeout(0.05)
     listening = s.connect_ex(("127.0.0.1", port)) == 0
     s.close()
-    if not listening:
+    if listening:
+        url = public_url(port)
+    else:
+        live = can_serve_live()
         try:
             log = open(pdir / ".dash.log", "ab")
             subprocess.Popen(
-                [sys.executable, str(root / "tools" / "dashboard.py"), str(pdir)],
-                stdout=log, stderr=log, stdin=subprocess.DEVNULL,
-                start_new_session=True, cwd=str(root),
+                [sys.executable, str(root / "tools" / "dashboard.py"), str(pdir)]
+                + ([] if live else ["--static"]),
+                # The server logs its one startup line; the snapshot writer says
+                # the same thing this status line is already displaying, every
+                # turn, so its stdout is dropped. stderr is kept either way —
+                # that is the half worth having in a log.
+                stdout=log if live else subprocess.DEVNULL, stderr=log,
+                stdin=subprocess.DEVNULL, start_new_session=True, cwd=str(root),
             )
         except Exception:
             pass  # never let a display component break a turn
-    else:
-        url = public_url(port)
+        if not live:
+            snap = snapshot_url(pdir)
 
 tail = [f"{G}●{X} {pid}" if url else f"{DIM}○{X} {pid}"]
 if label:
     tail.append(label)
-tail.append(url or f"{DIM}dashboard not running{X}")
+if url:
+    tail.append(url)
+elif snap:
+    # Both halves matter: the URL is the only way to find the snapshot at all,
+    # and the command is the only way out of snapshot mode. This is where the
+    # instructions live now — the log file they used to sit in is gitignored.
+    tail.append(snap)
+    tail.append(f"{Y}{SETUP_CMD}{X} for live")
+else:
+    tail.append(f"{DIM}dashboard starting{X}")
 print(f"  {DIM}└{X} " + f" {DIM}·{X} ".join(tail))
 '

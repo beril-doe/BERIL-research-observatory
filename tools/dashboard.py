@@ -56,6 +56,7 @@ import json
 import os
 import re
 import site
+import subprocess
 import sys
 import zlib
 from dataclasses import dataclass, field
@@ -77,6 +78,28 @@ STAGE_LABELS = {
     "reviewed": "reviewed",
     "complete": "approved",
 }
+
+# Live mode needs jupyter-server-proxy, which the BERDL image does not ship, so
+# every new user meets this text once. It lives here as one constant because it
+# has three audiences — the snapshot banner, the console fallback and `--setup`
+# itself — and three hand-maintained copies of the same three steps is how the
+# instructions end up disagreeing with each other.
+#
+# `python3 tools/dashboard.py`, never `beril <something>`: the image's `beril` is
+# a pinned copy under `/opt/conda` (an *overlay* mount, so it reverts on every pod
+# restart and cannot be updated by a user), and which `beril_cli` wins depends on
+# the working directory. The checkout is the only copy guaranteed to match this
+# branch. `.claude/hooks/dash_stop.py` handles the same problem the same way.
+SETUP_CMD = "python3 tools/dashboard.py --setup"
+# Step 2 is unavoidable: jupyter_server builds its handler table at startup, so a
+# newly enabled extension is invisible until the server restarts. Step 3 exists
+# because that restart kills the terminal Claude Code is running in, and people
+# reasonably assume it kills the session with it. It does not.
+RESTART_STEPS = (
+    "Hub Control Panel → Stop My Server, then Start.",
+    "Reopen a terminal and run `claude --resume` to pick this session back up.",
+)
+SETUP_STEPS = (f"Run `{SETUP_CMD}` from the repo root.",) + RESTART_STEPS
 
 FIGURE_EXT = {".png", ".jpg", ".jpeg", ".svg"}
 DATA_EXT = {".csv", ".tsv", ".json", ".parquet"}
@@ -753,6 +776,17 @@ letter-spacing:.1em;color:var(--d-dim);margin-bottom:3px;}
 .d-now{border-left:2px solid var(--d-accent);background:#161b24;padding:8px 14px;
 margin-top:12px;border-radius:0 6px 6px 0;}
 .d-now b{font-size:14px;}
+/* Snapshot mode only, and loud on purpose: it is the one thing on this page the
+   reader has to act on, and the instructions it replaces were five lines in a
+   gitignored log file nobody had a reason to open. Above #root's header rather
+   than inside it — the header is sticky and must stay short. */
+.d-setup{border-left:2px solid var(--d-warn);background:#221c10;padding:10px 14px;
+margin:0 0 18px;border-radius:0 6px 6px 0;font-size:13.5px;color:#c4cad8;}
+.d-setup b{color:#e3b341;}
+.d-setup ol{margin:8px 0 0;padding-left:20px;}
+.d-setup li{margin:4px 0;}
+.d-setup code{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;
+background:#0d1017;border:1px solid var(--d-line);border-radius:4px;padding:1px 6px;}
 /* Two lines, then fade. The full text is the first timeline entry. */
 .d-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
 overflow:hidden;margin:3px 0 0;color:#c4cad8;font-size:13.5px;max-width:none;}
@@ -839,8 +873,16 @@ border-left:3px solid var(--d-line);}
 .lightbox-doc .doc-error{color:var(--d-bad);}
 """
 
-POLL_JS = """
-if(!location.pathname.endsWith('/'))location.replace(location.pathname+'/');
+# The page ships in two halves because it has two transports and only one of
+# them can poll.
+#
+# REL_JS always runs. Every timestamp renders client-side from `data-epoch`
+# (see the design doc), so without it the readouts are empty elements — which
+# is why the snapshot gets this half rather than no script at all. It is also
+# what keeps a *stale* snapshot honest: `relTimes` measures age against the
+# reader's clock, not the render time, so an abandoned snapshot visibly ages
+# green -> amber -> grey instead of freezing on a green dot.
+REL_JS = """
 var R=document.getElementById('root'),tag=null;
 function rel(s){var d=Math.max(0,Date.now()/1000-s);
 if(d<60)return Math.floor(d)+'s ago';if(d<3600)return Math.floor(d/60)+'m ago';
@@ -856,6 +898,23 @@ var age=Date.now()/1000-s;
 el.textContent=(el.dataset.mode==='since')?since(s):rel(s);
 if(el.dataset.mode!=='since')
 el.className=age<600?'live':(age<3600?'idle':'cold');}}
+setInterval(relTimes,15000);relTimes();
+"""
+
+# POLL_JS is emitted **only in live mode**, and both of its outer statements are
+# why: the trailing-slash redirect and the `fetch` are each actively wrong on a
+# snapshot.
+#
+# - The redirect exists so relative asset URLs resolve under `/proxy/<port>`.
+#   A snapshot is served at `<prefix>files/<rel>/dashboard.html`, which does not
+#   end in `/`, so this line would navigate the page to `dashboard.html/` — a
+#   Jupyter 404. The page would destroy itself on load.
+# - `files/` responses carry `Content-Security-Policy: sandbox allow-scripts`
+#   with no `allow-same-origin` (measured against the live server), so the
+#   document has an opaque origin and `fetch` cannot send the hub cookie. The
+#   poll could only ever fail, silently, forever.
+POLL_JS = """
+if(!location.pathname.endsWith('/'))location.replace(location.pathname+'/');
 function tick(){
 if(document.visibilityState==='visible'){
 var h=tag?{'If-None-Match':tag}:{};
@@ -871,7 +930,6 @@ for(var j=0;j<open.length;j++){var d=R.querySelector('#'+CSS.escape(open[j]));
 if(d)d.open=true;}
 relTimes();}).catch(function(){});}
 setTimeout(tick,4000);}
-setInterval(relTimes,15000);relTimes();
 document.addEventListener('visibilitychange',function(){
 if(document.visibilityState==='visible')tick();});
 setTimeout(tick,4000);
@@ -1306,8 +1364,30 @@ def _artifacts_html(state: State) -> str:
     return f'<h2 class="d-sec">Artifacts ({total})</h2>' + "".join(blocks)
 
 
-def render(state: State, css: str) -> str:
-    """Build the whole page. Every href/src is relative — see module docstring."""
+def _setup_banner() -> str:
+    """The snapshot-mode banner: what the reader is looking at, and how to fix it.
+
+    Only rendered when ``live`` is false, because in live mode there is nothing
+    to act on. The wording leads with what this *is* rather than what is missing:
+    the page in front of them works, it just does not update itself, and burying
+    that under an error made the earlier version read as a broken dashboard.
+    """
+    steps = "".join(f"<li>{inline_md(step)}</li>" for step in SETUP_STEPS)
+    return (
+        '<div class="d-setup"><b>Snapshot — this page does not update itself.</b> '
+        "Reload to refresh it; it is rewritten every turn while a session is running. "
+        "Live updates need <code>jupyter-server-proxy</code>, which this image does "
+        "not ship. To switch this project — and every one after it — to a live "
+        f"dashboard, once:<ol>{steps}</ol></div>"
+    )
+
+
+def render(state: State, css: str, live: bool = True) -> str:
+    """Build the whole page. Every href/src is relative — see module docstring.
+
+    ``live`` selects the transport, not the content: a snapshot renders exactly
+    the same page, minus the poll it cannot run, plus the banner saying so.
+    """
     inferred = (
         '<span class="d-chip warn">stage inferred from files</span>'
         if state.inferred
@@ -1349,7 +1429,10 @@ def render(state: State, css: str) -> str:
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
         f"<title>{e(state.project_id)}</title>\n"
         f"<style>{css}\n{DASH_CSS}</style>\n</head>\n<body>\n"
-        '<div id="root">\n'
+        # Outside #root, so the 4s poll cannot wipe it and so it does not sit
+        # under the sticky header. Empty string in live mode.
+        + ("" if live else _setup_banner())
+        + '<div id="root">\n'
         '<header class="d-hd">'
         '<div class="d-row">'
         f'<span class="d-id">{e(state.project_id)}</span>'
@@ -1379,7 +1462,7 @@ def render(state: State, css: str) -> str:
         '<img src="" alt="Full size figure">'
         '<div class="lightbox-doc" role="document"></div>'
         "</div>\n"
-        f"<script>{POLL_JS}</script>\n"
+        f"<script>{REL_JS}{POLL_JS if live else ''}</script>\n"
         f"<script>{LIGHTBOX_JS}</script>\n</body>\n</html>\n"
     )
 
@@ -1508,6 +1591,29 @@ def jupyter_routes(project: Path) -> "JupyterRoutes | None":
     return JupyterRoutes(f"{HUB}{prefix}", "" if rel == "." else rel.replace(os.sep, "/"))
 
 
+def snapshot_url(project: Path) -> str:
+    """Where to open ``dashboard.html``, as a URL the reader can actually click.
+
+    Jupyter's ``files/`` route resolves against the server's ``root_dir``, so the
+    path after it must be **root-relative**. Interpolating the absolute path
+    instead produces ``files//home/<user>/...``, which Jupyter resolves to
+    ``<root_dir>/home/<user>/...`` and answers 404 — verified against the running
+    server, which returns 200 for the relative form and 404 for the absolute one.
+    That was the earlier behaviour, and it broke the fallback in exactly the
+    situation where the fallback is the only thing the user has.
+
+    Reuses ``jupyter_routes`` rather than recomputing the relative path: it
+    already handles the root-relative case and the outside-root case, and a
+    second implementation is a second thing to get wrong.
+    """
+    snapshot = project / "dashboard.html"
+    routes = jupyter_routes(project)
+    if routes is None:  # off-cluster, or outside root_dir — no URL can reach it
+        return str(snapshot)
+    rel = f"{routes.rel}/dashboard.html" if routes.rel else "dashboard.html"
+    return f"{routes.base}files/{quote(rel)}"
+
+
 def in_jupyterhub() -> bool:
     return bool(os.environ.get("JUPYTERHUB_SERVICE_PREFIX"))
 
@@ -1629,20 +1735,116 @@ def serve(project: Path, port: int, css: str) -> None:
     server.serve_forever()
 
 
-def _write_snapshot(project: Path, css: str) -> Path:
+def _write_snapshot(project: Path, css: str, live: bool = False) -> Path:
     snapshot = project / "dashboard.html"
-    snapshot.write_text(render(scan(project), css), encoding="utf-8")
+    snapshot.write_text(render(scan(project), css, live=live), encoding="utf-8")
     return snapshot
+
+
+def run_setup(assume_yes: bool = False) -> int:
+    """Install and enable jupyter-server-proxy for this user, then say what next.
+
+    Targets ``--user`` (``~/.local``) deliberately. On this image ``/opt/conda``
+    is an *overlay* mount — writable, and reverted on every pod restart — while
+    ``$HOME`` is a persistent volume. So ``--user`` is both the only target that
+    survives and the only one a non-admin should be writing to. It also means
+    this is a once-per-*user* cost, not once per pod.
+
+    Never run implicitly. It mutates the user's environment and its last step
+    restarts their server, so it only ever happens because someone typed it.
+    """
+    if proxy_enabled():
+        print("jupyter-server-proxy is already enabled — nothing to do.")
+        print("If live mode still is not working, restart your server:")
+        for step in RESTART_STEPS:
+            print(f"  - {step}")
+        return 0
+
+    steps = [
+        [sys.executable, "-m", "pip", "install", "--user", "jupyter-server-proxy"],
+        # Usually redundant: the pip install drops its own enable file into
+        # <userbase>/etc/jupyter/jupyter_server_config.d/. Kept because it is
+        # cheap and it covers the case where that drop-in did not land.
+        ["jupyter", "server", "extension", "enable", "--user", "jupyter_server_proxy"],
+    ]
+
+    print("This will run, as your user:\n")
+    for step in steps:
+        print(f"  {' '.join(step)}")
+    print("\nThen you will need to:\n")
+    for item in RESTART_STEPS:
+        print(f"  - {item}")
+
+    if not assume_yes:
+        if not sys.stdin.isatty():
+            print("\nNot a terminal — re-run with --yes to proceed non-interactively.")
+            return 1
+        if input("\nProceed? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("Nothing was changed.")
+            return 1
+
+    for step in steps:
+        print(f"\n$ {' '.join(step)}")
+        try:
+            result = subprocess.run(step, check=False)
+        except OSError as exc:
+            print(f"could not run {step[0]}: {exc}", file=sys.stderr)
+            return 1
+        if result.returncode != 0:
+            print(f"\nFailed: {' '.join(step)}", file=sys.stderr)
+            return result.returncode
+
+    # Verified through the same probe the dashboard gates on, so "setup worked"
+    # and "the dashboard will start" cannot disagree.
+    if not proxy_enabled():
+        print(
+            "\nInstalled, but the extension still does not read as enabled.\n"
+            "Report this with the output above — it is not a case we have seen.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print("\n" + "=" * 64)
+    print("Installed and enabled. Two steps left, and this is the only time:")
+    for item in RESTART_STEPS:
+        print(f"  - {item}")
+    print("=" * 64)
+    return 0
+
+
+def _print_snapshot_fallback(project: Path) -> None:
+    """The console half of the snapshot banner, for whoever ran this by hand."""
+    print("Snapshot written — this page does not update itself; reload to refresh.")
+    print(f"  {snapshot_url(project)}")
+    if in_jupyterhub():
+        print('  (or right-click it in the file browser → "Open in New Browser Tab")')
+    print("\nFor a live dashboard that updates itself, once:")
+    for step in SETUP_STEPS:
+        print(f"  - {step.replace('`', '')}")
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Live dashboard for one BERIL project.")
-    parser.add_argument("project", help="Path to projects/<id>")
+    parser.add_argument("project", nargs="?", help="Path to projects/<id>")
     parser.add_argument("--port", type=int, help="Override the derived port")
     parser.add_argument(
         "--static", action="store_true", help="Write dashboard.html and exit"
     )
+    parser.add_argument(
+        "--setup",
+        action="store_true",
+        help="Install and enable jupyter-server-proxy for live mode, then exit",
+    )
+    parser.add_argument(
+        "--yes", action="store_true", help="Skip the confirmation prompt in --setup"
+    )
     args = parser.parse_args(argv)
+
+    if args.setup:
+        return run_setup(assume_yes=args.yes)
+
+    if not args.project:
+        parser.error("the following arguments are required: project")
 
     project = Path(args.project).resolve()
     if not project.is_dir():
@@ -1652,23 +1854,12 @@ def main(argv=None) -> int:
     css = load_css(Path(__file__).resolve().parent.parent)
     port = args.port or port_for(project.name)
 
+    # Two callers, one branch. `--static` is someone asking for a snapshot;
+    # `not can_serve_live()` is the status line's fallback, which passes
+    # `--static` too — so the only difference is who explains themselves.
     if args.static or not can_serve_live():
-        snapshot = _write_snapshot(project, css)
-        if not args.static:
-            print("jupyter-server-proxy not enabled — live mode unavailable.")
-            print("One-time fix:")
-            print("  pip install --user jupyter-server-proxy   # skip if already installed")
-            print("  jupyter server extension enable --user jupyter_server_proxy")
-            print(
-                "  then Hub Control Panel -> Stop My Server -> Start "
-                "(this kills this terminal)."
-            )
-        prefix = os.environ.get("JUPYTERHUB_SERVICE_PREFIX")
-        if prefix:
-            print(f'Snapshot: {HUB}{prefix}files/{snapshot}')
-            print('  (right-click in the file browser -> "Open in New Browser Tab")')
-        else:
-            print(f"Snapshot: {snapshot}")
+        _write_snapshot(project, css)
+        _print_snapshot_fallback(project)
         return 0
 
     try:
