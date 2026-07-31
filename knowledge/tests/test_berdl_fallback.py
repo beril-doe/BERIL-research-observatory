@@ -28,13 +28,22 @@ class _FakeBody:
         return self._data
 
 
+_FIXED_MODTIME = "2026-07-24T16:53:46Z"
+
+
 class _FakePaginator:
     def __init__(self, objects: dict[str, str]) -> None:
         self.objects = objects
 
     def paginate(self, *, Bucket: str, Prefix: str):
         contents = [
-            {"Key": key} for key in self.objects if key.startswith(Prefix)
+            {
+                "Key": key,
+                "Size": len(body.encode("utf-8")),
+                "LastModified": _FIXED_MODTIME,
+            }
+            for key, body in self.objects.items()
+            if key.startswith(Prefix)
         ]
         yield {"Contents": contents}
 
@@ -51,6 +60,16 @@ class _FakeS3:
                 {"Error": {"Code": "NoSuchKey", "Message": "missing"}}, "GetObject"
             )
         return {"Body": _FakeBody(self.objects[Key])}
+
+    def head_object(self, *, Bucket: str, Key: str):
+        if Key not in self.objects:
+            raise ClientError(
+                {"Error": {"Code": "404", "Message": "missing"}}, "HeadObject"
+            )
+        return {
+            "ContentLength": len(self.objects[Key].encode("utf-8")),
+            "LastModified": _FIXED_MODTIME,
+        }
 
     def get_paginator(self, name: str):
         return _FakePaginator(self.objects)
@@ -240,6 +259,135 @@ def test_berdl_grep_docs_scope_is_unavailable(tmp_path, monkeypatch):
     _patch_client(monkeypatch, _FakeS3({}))
     with pytest.raises(bf.BerdlUnavailable):
         bf.berdl_grep(_config(tmp_path), "spark", "viking://resources/docs/")
+
+
+# --- structural navigation (ls / glob / tree / stat) ----------------------
+
+# Shape parity: field sets asserted below mirror the live OpenViking output
+# (ls/tree entries: name/size/mode/modTime/isDir/uri; stat adds count for dirs;
+# glob: {matches, count}).
+_LS_FIELDS = {"name", "size", "mode", "modTime", "isDir", "uri"}
+
+
+def _tree_store() -> dict[str, str]:
+    return {
+        f"{_TENANT}/alpha/README.md": "readme\n",
+        f"{_TENANT}/alpha/beril.yaml": "y\n",
+        f"{_TENANT}/alpha/data/results.tsv": "a\tb\n",
+        f"{_TENANT}/alpha/memories/pitfalls.md": "p\n",
+    }
+
+
+def test_berdl_ls_non_recursive_lists_files_and_synthesized_dirs(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3(_tree_store()))
+
+    entries = bf.berdl_ls(_config(tmp_path), "viking://resources/projects/alpha/")
+
+    assert isinstance(entries, list)
+    for e in entries:
+        assert _LS_FIELDS <= set(e)  # shape parity with OpenViking ls
+    by_uri = {e["uri"]: e for e in entries}
+    # direct files present as non-dir entries
+    assert by_uri["viking://resources/projects/alpha/README.md"]["isDir"] is False
+    # data/ and memories/ collapse to synthesized directory entries (dir URIs
+    # carry no trailing slash, matching OpenViking's ls output)
+    assert by_uri["viking://resources/projects/alpha/data"]["isDir"] is True
+    assert by_uri["viking://resources/projects/alpha/memories"]["isDir"] is True
+    # non-recursive: results.tsv itself is NOT a top-level entry
+    assert "viking://resources/projects/alpha/data/results.tsv" not in by_uri
+
+
+def test_berdl_ls_simple_returns_uri_strings(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3(_tree_store()))
+    out = bf.berdl_ls(_config(tmp_path), "viking://resources/projects/alpha/", simple=True)
+    assert all(isinstance(u, str) and u.startswith("viking://") for u in out)
+
+
+def test_berdl_ls_recursive_includes_nested(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3(_tree_store()))
+    entries = bf.berdl_ls(
+        _config(tmp_path), "viking://resources/projects/alpha/", recursive=True
+    )
+    uris = {e["uri"] for e in entries}
+    assert "viking://resources/projects/alpha/data/results.tsv" in uris
+    assert "viking://resources/projects/alpha/memories/pitfalls.md" in uris
+
+
+def test_berdl_glob_matches_relative_pattern(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3(_tree_store()))
+    result = bf.berdl_glob(
+        _config(tmp_path), "**/*.md", "viking://resources/projects/alpha/"
+    )
+    assert set(result) == {"matches", "count"}  # shape parity with OpenViking glob
+    assert result["count"] == len(result["matches"])
+    assert "viking://resources/projects/alpha/README.md" in result["matches"]
+    assert "viking://resources/projects/alpha/memories/pitfalls.md" in result["matches"]
+    # beril.yaml is not a .md file
+    assert all(m.endswith(".md") for m in result["matches"])
+
+
+def test_berdl_glob_single_star_stays_within_segment(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3(_tree_store()))
+    result = bf.berdl_glob(_config(tmp_path), "*", "viking://resources/projects/alpha/")
+    # '*' matches only direct children, not nested paths
+    assert "viking://resources/projects/alpha/README.md" in result["matches"]
+    assert "viking://resources/projects/alpha/data/results.tsv" not in result["matches"]
+
+
+def test_berdl_tree_is_flat_preorder_with_rel_path(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3(_tree_store()))
+    entries = bf.berdl_tree(_config(tmp_path), "viking://resources/projects/alpha/")
+
+    assert isinstance(entries, list)
+    for e in entries:
+        assert _LS_FIELDS <= set(e)
+        assert "rel_path" in e  # tree adds rel_path
+    rel_paths = [e["rel_path"] for e in entries]
+    # a directory entry precedes the file inside it (pre-order)
+    assert rel_paths.index("data") < rel_paths.index("data/results.tsv")
+
+
+def test_berdl_tree_respects_node_limit(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3(_tree_store()))
+    entries = bf.berdl_tree(
+        _config(tmp_path), "viking://resources/projects/alpha/", node_limit=2
+    )
+    assert len(entries) == 2
+
+
+def test_berdl_stat_file_uses_head_object(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3(_tree_store()))
+    result = bf.berdl_stat(
+        _config(tmp_path), "viking://resources/projects/alpha/README.md"
+    )
+    assert result["isDir"] is False
+    assert result["name"] == "README.md"
+    assert result["size"] == len("readme\n".encode("utf-8"))
+
+
+def test_berdl_stat_directory_aggregates_count(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3(_tree_store()))
+    result = bf.berdl_stat(_config(tmp_path), "viking://resources/projects/alpha/")
+    assert result["isDir"] is True
+    assert result["count"] == len(_tree_store())
+    assert result["name"] == "alpha"
+
+
+def test_berdl_stat_missing_is_unavailable(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3({}))
+    with pytest.raises(bf.BerdlUnavailable):
+        bf.berdl_stat(_config(tmp_path), "viking://resources/projects/ghost/")
+
+
+def test_structural_docs_scope_is_unavailable(tmp_path, monkeypatch):
+    _patch_client(monkeypatch, _FakeS3({}))
+    for call in (
+        lambda: bf.berdl_ls(_config(tmp_path), "viking://resources/docs/"),
+        lambda: bf.berdl_glob(_config(tmp_path), "*", "viking://resources/docs/"),
+        lambda: bf.berdl_tree(_config(tmp_path), "viking://resources/docs/"),
+    ):
+        with pytest.raises(bf.BerdlUnavailable):
+            call()
 
 
 # --- credential / availability gating -------------------------------------

@@ -267,26 +267,33 @@ def _scope_prefixes(target_uri: str) -> list[str]:
     return []
 
 
-def _list_curated_keys(client, prefixes: list[str]) -> list[str]:
-    """List curated corpus object keys under the given prefixes."""
+def _list_objects(client, prefixes: list[str]) -> list[dict]:
+    """List raw S3 objects (``{Key, Size, LastModified}``) under the prefixes.
+
+    Recursive (no delimiter): returns every object below each prefix. Translates
+    S3/network failures to :class:`BerdlUnavailable`.
+    """
     try:
         from botocore.exceptions import BotoCoreError, ClientError
     except ImportError as exc:  # pragma: no cover - dependency guard
         raise BerdlUnavailable("botocore is not installed") from exc
-    keys: list[str] = []
+    objects: list[dict] = []
     try:
         paginator = client.get_paginator("list_objects_v2")
         for prefix in prefixes:
             for page in paginator.paginate(Bucket=LAKEHOUSE_BUCKET, Prefix=prefix):
-                for obj in page.get("Contents", []):
-                    if _is_curated_key(obj["Key"]):
-                        keys.append(obj["Key"])
+                objects.extend(page.get("Contents", []))
     except ClientError as exc:
         code = str(exc.response.get("Error", {}).get("Code", ""))
         raise BerdlUnavailable(f"lakehouse {code} listing archive") from exc
     except BotoCoreError as exc:
         raise BerdlUnavailable(f"lakehouse unreachable: {exc}") from exc
-    return keys
+    return objects
+
+
+def _list_curated_keys(client, prefixes: list[str]) -> list[str]:
+    """List curated corpus object keys under the given prefixes."""
+    return [obj["Key"] for obj in _list_objects(client, prefixes) if _is_curated_key(obj["Key"])]
 
 
 def _curated_documents(scope_uri: str) -> list[tuple[str, str]]:
@@ -347,3 +354,238 @@ def berdl_grep(
         node_limit=node_limit,
         source="berdl",
     )
+
+
+# --- structural navigation (ls / glob / tree / stat) ----------------------
+#
+# These enumerate the archive's object layout rather than file contents, so —
+# unlike find/grep — they are NOT limited to the curated corpus: they reflect
+# every archived object (data/, notebooks/, figures/). They map a project URI to
+# an S3 key prefix, list under it, and shape the objects into the structure the
+# corresponding OpenViking command returns. Every result carries
+# ``degraded: True`` / ``source: "berdl"`` so a caller can tell the tier apart.
+#
+# Scope is projects-only (the lakehouse holds nothing else): the resources root
+# and projects root both map to the projects prefix; a docs/other scope raises
+# BerdlUnavailable. There is no local equivalent for these commands, so the CLI
+# router degrades them to an "unavailable" notice rather than to local search.
+
+
+def _uri_to_prefix(uri: str) -> str:
+    """Map any project (sub)tree URI to its S3 key prefix (trailing slash).
+
+    Accepts the resources/projects roots and any depth beneath a project
+    (``.../projects/alpha/memories/``). Raises :class:`BerdlUnavailable` for a
+    non-project scope (docs, etc.), which has no lakehouse archive.
+    """
+    scope = uri.rstrip("/")
+    if scope in (_RESOURCES_PREFIX.rstrip("/"), _PROJECTS_PREFIX.rstrip("/")):
+        return _PROJECTS_KEY_PREFIX
+    if uri.startswith(_PROJECTS_PREFIX):
+        rel = uri[len(_PROJECTS_PREFIX):].strip("/")
+        base = _PROJECTS_KEY_PREFIX + rel
+        return base + "/" if rel else _PROJECTS_KEY_PREFIX
+    raise BerdlUnavailable(f"no lakehouse archive for scope: {uri}")
+
+
+# Entry field names mirror the OpenViking ls/tree output so a caller parses
+# either identically. Object storage has no directory objects, so synthesized
+# directory entries omit a real size/modTime (reported as 0/None). `mode` is a
+# best-effort POSIX-ish constant (dir 0o755 / file 0o644) — it isn't tracked in
+# the archive but the field is present for shape parity.
+_DIR_MODE = 0o755
+_FILE_MODE = 0o644
+
+
+def _file_entry(obj: dict, *, rel_path: str | None = None) -> dict:
+    entry = {
+        "name": obj["Key"].rstrip("/").rsplit("/", 1)[-1],
+        "size": obj.get("Size"),
+        "mode": _FILE_MODE,
+        "modTime": obj.get("LastModified"),
+        "isDir": False,
+        "uri": _key_to_uri(obj["Key"]),
+    }
+    if rel_path is not None:
+        entry["rel_path"] = rel_path
+    return entry
+
+
+def _dir_entry(key_prefix: str, *, rel_path: str | None = None) -> dict:
+    entry = {
+        "name": key_prefix.rstrip("/").rsplit("/", 1)[-1],
+        "size": 0,
+        "mode": _DIR_MODE,
+        "modTime": None,
+        "isDir": True,
+        "uri": _key_to_uri(key_prefix.rstrip("/")),
+    }
+    if rel_path is not None:
+        entry["rel_path"] = rel_path
+    return entry
+
+
+def berdl_ls(
+    config: ContextConfig, uri: str, *, simple: bool = False, recursive: bool = False
+) -> list:
+    """List archived resources under ``uri`` — one level, or recursively.
+
+    Matches OpenViking ``ls``: returns a JSON array of entries
+    (``{name, size, mode, modTime, isDir, uri}``). ``simple=True`` returns a flat
+    list of URI strings ("path list"). Object storage has no directory objects,
+    so immediate subdirectories are synthesized from shared key prefixes.
+    """
+    prefix = _uri_to_prefix(uri)
+    client = _s3_client()
+    objects = _list_objects(client, [prefix])
+
+    if recursive:
+        entries = [_file_entry(o) for o in objects]
+    else:
+        files: list[dict] = []
+        subdirs: dict[str, dict] = {}
+        for obj in objects:
+            rel = obj["Key"][len(prefix):]
+            if "/" not in rel:
+                files.append(_file_entry(obj))
+            else:
+                child = rel.split("/", 1)[0]
+                subdirs.setdefault(child, _dir_entry(prefix + child))
+        entries = files + list(subdirs.values())
+
+    entries.sort(key=lambda e: e["uri"] or "")
+    if simple:
+        return [e["uri"] for e in entries if e.get("uri")]
+    return entries
+
+
+def _glob_to_regex(pattern: str) -> "re.Pattern[str]":
+    """Translate a ``*``/``**`` glob into a regex matching a relative key.
+
+    ``**/`` matches any number of leading segments (including none); a bare
+    ``**`` matches across segments; a single ``*`` matches non-slash runs.
+    """
+    out = []
+    i = 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            out.append("(?:.*/)?")
+            i += 3
+        elif pattern.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif pattern[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        else:
+            out.append(re.escape(pattern[i]))
+            i += 1
+    return re.compile("".join(out))
+
+
+def berdl_glob(config: ContextConfig, pattern: str, uri: str) -> dict:
+    """Enumerate archived URIs under ``uri`` matching a glob ``pattern``.
+
+    Matches OpenViking ``glob``: ``{"matches": [...], "count": N}``. ``pattern``
+    is relative to ``uri``; ``*`` matches within a segment, ``**`` across
+    segments.
+    """
+    prefix = _uri_to_prefix(uri)
+    client = _s3_client()
+    regex = _glob_to_regex(pattern)
+    matches = []
+    for obj in _list_objects(client, [prefix]):
+        rel = obj["Key"][len(prefix):]
+        if regex.fullmatch(rel):
+            resource_uri = _key_to_uri(obj["Key"])
+            if resource_uri:
+                matches.append(resource_uri)
+    matches.sort()
+    return {"matches": matches, "count": len(matches)}
+
+
+def berdl_tree(config: ContextConfig, uri: str, node_limit: int = 1000) -> list:
+    """Return the archived resource hierarchy under ``uri``.
+
+    Matches OpenViking ``tree``: a **flat**, pre-order JSON array of entries,
+    each with a ``rel_path`` (relative to ``uri``) plus the standard entry
+    fields. Synthesized directory entries appear before their contents; capped
+    at ``node_limit`` entries.
+    """
+    prefix = _uri_to_prefix(uri)
+    client = _s3_client()
+    objects = sorted(_list_objects(client, [prefix]), key=lambda o: o["Key"])
+
+    entries: list[dict] = []
+    seen_dirs: set[str] = set()
+    for obj in objects:
+        rel = obj["Key"][len(prefix):]
+        if not rel:
+            continue
+        # Emit any not-yet-seen ancestor directories in order, then the file.
+        segments = rel.split("/")
+        for depth in range(1, len(segments)):
+            dir_rel = "/".join(segments[:depth])
+            if dir_rel not in seen_dirs:
+                seen_dirs.add(dir_rel)
+                if len(entries) >= node_limit:
+                    return entries
+                entries.append(_dir_entry(prefix + dir_rel, rel_path=dir_rel))
+        if len(entries) >= node_limit:
+            return entries
+        entries.append(_file_entry(obj, rel_path=rel))
+    return entries
+
+
+def berdl_stat(config: ContextConfig, uri: str) -> dict:
+    """Return metadata for a single archived resource.
+
+    Matches OpenViking ``stat``: ``{name, size, mode, modTime, isDir, count?}``.
+    A file URI resolves via ``head_object``; a directory URI (trailing slash, or
+    a prefix with no exact object) aggregates ``count`` and the latest
+    ``modTime`` under it. Raises :class:`BerdlUnavailable` if nothing is
+    archived at the URI.
+    """
+    try:
+        from botocore.exceptions import BotoCoreError, ClientError
+    except ImportError as exc:  # pragma: no cover - dependency guard
+        raise BerdlUnavailable("botocore is not installed") from exc
+
+    client = _s3_client()
+    name = uri.rstrip("/").rsplit("/", 1)[-1]
+
+    # Try an exact object first (file form), unless the URI is clearly a dir.
+    if not uri.endswith("/"):
+        _, key = uri_to_bucket_key(uri)
+        try:
+            head = client.head_object(Bucket=LAKEHOUSE_BUCKET, Key=key)
+            return {
+                "name": name,
+                "size": head.get("ContentLength"),
+                "mode": _FILE_MODE,
+                "modTime": head.get("LastModified"),
+                "isDir": False,
+                "uri": uri,
+            }
+        except ClientError as exc:
+            code = str(exc.response.get("Error", {}).get("Code", ""))
+            if code not in ("404", "NoSuchKey", "NotFound"):
+                raise BerdlUnavailable(f"lakehouse {code} for {key}") from exc
+            # fall through: treat as a directory prefix
+        except BotoCoreError as exc:
+            raise BerdlUnavailable(f"lakehouse unreachable: {exc}") from exc
+
+    prefix = _uri_to_prefix(uri)
+    objects = _list_objects(client, [prefix])
+    if not objects:
+        raise BerdlUnavailable(f"no archived resource at {uri}")
+    latest = max((o.get("LastModified") for o in objects if o.get("LastModified")), default=None)
+    return {
+        "name": name,
+        "size": sum(o.get("Size", 0) for o in objects),
+        "mode": _DIR_MODE,
+        "modTime": latest,
+        "isDir": True,
+        "uri": uri.rstrip("/"),
+        "count": len(objects),
+    }

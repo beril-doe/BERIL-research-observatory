@@ -94,13 +94,24 @@ $QUERY grep "kbase.ke_pangenome" --uri viking://resources/projects/ -i   # memor
 
 ### Degraded mode (knowledge layer unreachable)
 
-If OpenViking is down, `find` / `grep` / `read` / `overview` automatically fall
-back to **local keyword search** over the same project/doc/memory corpus, and
-print a banner: `⚠ knowledge layer unavailable … used local keyword search`.
-When you see it: local search is keyword-only (no semantics), so **prefer exact
-tokens**, treat recall as **partial**, and still read the source. `relations`,
-`glob`, `ls`, `tree`, `stat` have no local equivalent and report unavailable —
-start the server for those.
+If OpenViking is down, commands fall back automatically, in two tiers, and print
+a banner naming the tier that answered:
+
+- `find` / `grep` / `read` / `overview` → **BERDL lakehouse** (the submitted
+  project archive) first, then **local** project files. Banner
+  `⚠ … served from the BERDL lakehouse archive` means the submitted copy
+  answered; `⚠ … used local keyword search` means it fell through to your
+  working tree. Local/BERDL search is keyword-only (no semantics), so **prefer
+  exact tokens**, treat recall as **partial**, and still read the source.
+- `ls` / `tree` / `stat` / `glob` → **BERDL lakehouse** only (structural queries
+  over the archived object layout). If the lakehouse is unreachable/unauthorized
+  they report unavailable — there is no local equivalent.
+- `relations` / `link` / `unlink` have **no** degraded path — start the server.
+
+BERDL-served results reflect the **submitted** archive, which may differ from
+your local working tree, and cover only projects (not central `docs/`). BERDL
+`glob`/`tree`/`ls` walk the raw archived file layout, so their structure can
+differ from OpenViking's semantically-decomposed resource tree.
 
 To tell **server-down apart from an auth problem**, run the diagnostic:
 
