@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from tools.dashboard import (  # noqa: E402
+    jupyter_python,
     _approval_chip,
     count_deviations,
     main,
@@ -851,3 +852,100 @@ def test_every_markdown_link_opens_the_overlay_not_a_new_tab(tmp_path):
         assert "doc-trigger" in anchor, f"markdown link is not a trigger: {anchor}"
         assert "data-doc=" in anchor, f"trigger has no path to fetch: {anchor}"
         assert "_blank" not in anchor, f"markdown link still leaves the page: {anchor}"
+
+
+def test_an_interrupted_write_leaves_the_previous_snapshot_intact(tmp_path, monkeypatch):
+    """The snapshot is rewritten every turn, and its own banner tells the reader to
+    reload — so a reload landing mid-write is the expected interleaving, not a rare
+    one. Writing in place truncates first, which serves half a page.
+
+    Stands in for that window by interrupting the write itself, not the render: a
+    raising `render` proves nothing, because it is evaluated before `write_text`
+    truncates anything.
+    """
+    import tools.dashboard as dash
+
+    project = _project(tmp_path, {"WORKLOG.md": WORKLOG})
+    snapshot = dash._write_snapshot(project, "")
+    original = snapshot.read_text()
+    assert "</html>" in original
+
+    real_write = Path.write_text
+
+    def half_a_write(self, data, *args, **kwargs):
+        real_write(self, data[: len(data) // 2], *args, **kwargs)
+        raise OSError("disk full, halfway through")
+
+    monkeypatch.setattr(Path, "write_text", half_a_write)
+    with pytest.raises(OSError):
+        dash._write_snapshot(project, "")
+    monkeypatch.undo()
+
+    assert snapshot.read_text() == original, "a half-written page replaced a good one"
+
+
+class _Ok:
+    returncode = 0
+
+
+def _fake_jupyter(tmp_path, monkeypatch, shebang: str):
+    """A `jupyter` launcher on PATH, and nothing else on it."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir(exist_ok=True)
+    launcher = bindir / "jupyter"
+    launcher.write_text(f"{shebang}\nprint('jupyter')\n")
+    launcher.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bindir))
+    return bindir
+
+
+def test_setup_targets_the_interpreter_jupyter_runs_on(tmp_path, monkeypatch):
+    """`sys.executable` is the wrong target and can fail *silently*.
+
+    Inside a venv built with system site-packages, `pip install --user` is
+    permitted: the module lands in `~/.local/lib/python3.<venv-version>/`, which
+    the server's interpreter never reads, while the enable step still writes the
+    drop-in that makes `proxy_enabled()` return True. Live mode then starts and
+    every URL 404s — the state the probe exists to prevent.
+    """
+    conda = tmp_path / "opt" / "conda" / "bin"
+    conda.mkdir(parents=True)
+    (conda / "python3").write_text("")
+    (conda / "python3").chmod(0o755)
+
+    import tools.dashboard as dash
+
+    _fake_jupyter(tmp_path, monkeypatch, f"#!{conda / 'python3'}")
+    assert jupyter_python() == str(conda / "python3")
+    assert jupyter_python() != sys.executable
+
+    # ...and that is the interpreter the install actually runs against.
+    monkeypatch.setattr(dash, "proxy_enabled", lambda: False)
+    argvs = []
+    monkeypatch.setattr(dash.subprocess, "run",
+                        lambda argv, **k: argvs.append(argv) or _Ok())
+    dash.run_setup(assume_yes=True)
+    pip = next(a for a in argvs if "pip" in a)
+    assert pip[0] == str(conda / "python3"), f"installed against {pip[0]}"
+    assert pip[0] != sys.executable
+
+    # `#!/usr/bin/env python3` — the interpreter is the *second* token.
+    _fake_jupyter(tmp_path, monkeypatch, "#!/usr/bin/env python3")
+    monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}:{conda}")
+    assert jupyter_python() == str(conda / "python3")
+
+
+def test_setup_refuses_rather_than_installing_against_the_wrong_python(tmp_path, monkeypatch, capsys):
+    """No `jupyter` on PATH means no way to know which interpreter matters, and
+    guessing installs into an environment the server never reads. Refuse instead —
+    a bare `pip` failure is what this replaces."""
+    import tools.dashboard as dash
+
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    monkeypatch.setattr(dash, "proxy_enabled", lambda: False)
+    ran = []
+    monkeypatch.setattr(dash.subprocess, "run", lambda *a, **k: ran.append(a))
+
+    assert dash.run_setup(assume_yes=True) == 1
+    assert not ran, "ran an install with no idea which interpreter to target"
+    assert "jupyter" in capsys.readouterr().err.lower()

@@ -55,6 +55,7 @@ import html as _html
 import json
 import os
 import re
+import shutil
 import site
 import subprocess
 import sys
@@ -1737,8 +1738,51 @@ def serve(project: Path, port: int, css: str) -> None:
 
 def _write_snapshot(project: Path, css: str, live: bool = False) -> Path:
     snapshot = project / "dashboard.html"
-    snapshot.write_text(render(scan(project), css, live=live), encoding="utf-8")
+    # Rendered to a sibling and renamed, because the banner tells the reader to
+    # reload and the status line rewrites this file every turn — so a reload
+    # landing mid-write is the *expected* interleaving, not a rare one. write_text
+    # truncates first, which would serve half a page. os.replace is atomic on
+    # POSIX, so a reader sees either the old snapshot or the new one. Two sessions
+    # on one project resolve the same way: last writer wins, whole file.
+    staging = snapshot.with_name("dashboard.html.tmp")
+    staging.write_text(render(scan(project), css, live=live), encoding="utf-8")
+    os.replace(staging, snapshot)
     return snapshot
+
+
+def jupyter_python() -> "str | None":
+    """The interpreter the Jupyter server runs on, or ``None`` if it can't be found.
+
+    **Not `sys.executable`.** The extension has to be importable by the process
+    serving `/proxy/<port>/`, which on this image is `/opt/conda/bin/python3`. Any
+    other interpreter installs it somewhere that server never reads, and the
+    failure is not always loud: inside a venv built with system site-packages,
+    `pip install --user` is *permitted* and drops the module into
+    `~/.local/lib/python3.<venv-version>/`, while `jupyter server extension enable
+    --user` still writes the drop-in into `~/.local/etc/jupyter/`. `proxy_enabled()`
+    then reads True, the dashboard goes live, and every URL 404s — the exact state
+    the probe exists to prevent.
+
+    Derived from the `jupyter` on PATH, since that is the same resolution the user
+    performs when they start their server. Reading its shebang beats guessing:
+    `sys.base_prefix` is wrong under uv, whose base is a managed CPython rather
+    than the conda prefix.
+    """
+    launcher = shutil.which("jupyter")
+    if launcher is None:
+        return None
+    try:
+        first = Path(launcher).read_text(errors="replace").split("\n", 1)[0]
+    except OSError:
+        return None
+    if not first.startswith("#!"):
+        return None  # a binary or wrapper, not a script we can read an interpreter from
+    for token in first[2:].split():
+        name = Path(token).name
+        if not name.startswith("python"):
+            continue  # skips /usr/bin/env in `#!/usr/bin/env python3`
+        return token if Path(token).exists() else shutil.which(name)
+    return None
 
 
 def run_setup(assume_yes: bool = False) -> int:
@@ -1760,12 +1804,23 @@ def run_setup(assume_yes: bool = False) -> int:
             print(f"  - {step}")
         return 0
 
+    python = jupyter_python()
+    if python is None:
+        print(
+            "Could not find the interpreter your Jupyter server runs on: no "
+            "`jupyter` on PATH.\nRun this from a terminal inside JupyterHub, where "
+            "it resolves to the server's own environment.",
+            file=sys.stderr,
+        )
+        return 1
+
     steps = [
-        [sys.executable, "-m", "pip", "install", "--user", "jupyter-server-proxy"],
+        [python, "-m", "pip", "install", "--user", "jupyter-server-proxy"],
         # Usually redundant: the pip install drops its own enable file into
         # <userbase>/etc/jupyter/jupyter_server_config.d/. Kept because it is
         # cheap and it covers the case where that drop-in did not land.
-        ["jupyter", "server", "extension", "enable", "--user", "jupyter_server_proxy"],
+        [shutil.which("jupyter") or "jupyter", "server", "extension", "enable",
+         "--user", "jupyter_server_proxy"],
     ]
 
     print("This will run, as your user:\n")
