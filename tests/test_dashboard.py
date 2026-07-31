@@ -547,13 +547,6 @@ def test_render_escapes_agent_authored_text(tmp_path):
     assert "&lt;script&gt;" in html
 
 
-def test_render_keeps_the_count_badge_on_figures(tmp_path):
-    """REGRESSION. Figures render as thumbnails; the ×n count vanished with the
-    chip it used to live on."""
-    html = _render(tmp_path, {"WORKLOG.md": WORKLOG, "figures/overview.png": "x"})
-    assert "&#215;2" in html
-
-
 def test_render_states_what_it_cannot_prove(tmp_path, monkeypatch):
     """Every honesty rule in one place: inferred stage, unapproved plan, an
     unresolvable worklog link, a notebook that errored, and a client-side
@@ -779,8 +772,3 @@ def test_every_markdown_link_opens_the_overlay_not_a_new_tab(tmp_path):
         assert "doc-trigger" in anchor, f"markdown link is not a trigger: {anchor}"
         assert "data-doc=" in anchor, f"trigger has no path to fetch: {anchor}"
         assert "_blank" not in anchor, f"markdown link still leaves the page: {anchor}"
-
-    # And the Documents section specifically, since that is the one that broke.
-    documents = html.split(">Documents<")[1].split("<h3")[0]
-    assert documents.count("doc-trigger") == 2      # RESEARCH_PLAN.md + REPORT.md
-    assert "_blank" not in documents

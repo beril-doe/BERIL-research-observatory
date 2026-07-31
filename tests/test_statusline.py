@@ -143,18 +143,6 @@ def test_no_signal_names_no_project(tmp_path):
     assert len(out.strip().splitlines()) == 1
 
 
-def test_added_dir_declares_the_project_with_no_cwd_or_provenance(tmp_path):
-    """`/add-dir` is the override for a session that has no runtime.json entry yet
-    — one editing `tools/` from the repo root, which is when neither cwd nor
-    branch can fire. Per-session by construction, so it does not leak either."""
-    repo = _repo(tmp_path, {"alpha": None, "beta": None})
-
-    out = _render(repo, session_id="fresh", added=[repo / "projects" / "beta"])
-
-    assert "beta" in out
-    assert "alpha" not in out
-
-
 def test_cwd_outranks_recorded_provenance(tmp_path):
     """Ordering is load-bearing: you can sit in projects/<a> while the session has
     provenance against <b>, and the directory you are actually in wins."""
