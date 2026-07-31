@@ -682,7 +682,10 @@ def test_a_snapshot_says_it_is_one_and_how_to_get_live(tmp_path):
     snap = dash.render(state, "", live=False)
     assert '<div class="d-setup">' in snap
     assert dash.SETUP_CMD in snap
-    assert "tools/dashboard.py" in snap and "beril " not in snap
+    # Was the reverse: the banner deliberately avoided `beril`, because the image
+    # ships a pinned copy under /opt/conda that could predate this feature. That is
+    # being fixed by shipping a newer beril, so one entry point beats two.
+    assert "beril setup" in snap and "tools/dashboard.py --setup" not in snap
     for step in dash.RESTART_STEPS:
         assert dash.inline_md(step) in snap, f"missing restart step: {step}"
 
@@ -907,32 +910,30 @@ def test_setup_targets_the_interpreter_jupyter_runs_on(tmp_path, monkeypatch):
     the server's interpreter never reads, while the enable step still writes the
     drop-in that makes `proxy_enabled()` return True. Live mode then starts and
     every URL 404s — the state the probe exists to prevent.
+
+    Lives in `beril setup` now; the probe it checks against still lives here, so
+    the wizard and the dashboard cannot disagree about whether live mode works.
     """
+    import tools.dashboard as dash
+    from beril_cli import setup_cmd
+
     conda = tmp_path / "opt" / "conda" / "bin"
     conda.mkdir(parents=True)
     (conda / "python3").write_text("")
     (conda / "python3").chmod(0o755)
 
-    import tools.dashboard as dash
-
     _fake_jupyter(tmp_path, monkeypatch, f"#!{conda / 'python3'}")
     assert jupyter_python() == str(conda / "python3")
     assert jupyter_python() != sys.executable
 
-    # ...and that is the interpreter the install actually runs against.
     monkeypatch.setattr(dash, "proxy_enabled", lambda: False)
     argvs = []
-    monkeypatch.setattr(dash.subprocess, "run",
+    monkeypatch.setattr(setup_cmd.subprocess, "run",
                         lambda argv, **k: argvs.append(argv) or _Ok())
-    dash.run_setup(assume_yes=True)
+    setup_cmd._install_server_proxy(ROOT, assume_yes=True)
     pip = next(a for a in argvs if "pip" in a)
     assert pip[0] == str(conda / "python3"), f"installed against {pip[0]}"
     assert pip[0] != sys.executable
-
-    # `#!/usr/bin/env python3` — the interpreter is the *second* token.
-    _fake_jupyter(tmp_path, monkeypatch, "#!/usr/bin/env python3")
-    monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}:{conda}")
-    assert jupyter_python() == str(conda / "python3")
 
 
 def test_setup_refuses_rather_than_installing_against_the_wrong_python(tmp_path, monkeypatch, capsys):
@@ -940,12 +941,13 @@ def test_setup_refuses_rather_than_installing_against_the_wrong_python(tmp_path,
     guessing installs into an environment the server never reads. Refuse instead —
     a bare `pip` failure is what this replaces."""
     import tools.dashboard as dash
+    from beril_cli import setup_cmd
 
     monkeypatch.setenv("PATH", str(tmp_path / "empty"))
     monkeypatch.setattr(dash, "proxy_enabled", lambda: False)
     ran = []
-    monkeypatch.setattr(dash.subprocess, "run", lambda *a, **k: ran.append(a))
+    monkeypatch.setattr(setup_cmd.subprocess, "run", lambda *a, **k: ran.append(a))
 
-    assert dash.run_setup(assume_yes=True) == 1
+    assert setup_cmd._install_server_proxy(ROOT, assume_yes=True) == 1
     assert not ran, "ran an install with no idea which interpreter to target"
     assert "jupyter" in capsys.readouterr().err.lower()

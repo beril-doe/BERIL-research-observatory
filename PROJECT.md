@@ -58,7 +58,7 @@ To switch to a live dashboard, once per user (`$HOME` persists, so it survives e
 later pod restart):
 
 ```bash
-python3 tools/dashboard.py --setup     # installs + enables, into ~/.local
+beril setup     # answer yes at the "Live dashboard" step; installs into ~/.local
 # then: Hub Control Panel → Stop My Server, then Start
 # then: reopen a terminal and run `claude --resume`
 ```

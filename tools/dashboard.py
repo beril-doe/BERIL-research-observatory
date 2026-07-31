@@ -57,7 +57,6 @@ import os
 import re
 import shutil
 import site
-import subprocess
 import sys
 import zlib
 from dataclasses import dataclass, field
@@ -82,16 +81,17 @@ STAGE_LABELS = {
 
 # Live mode needs jupyter-server-proxy, which the BERDL image does not ship, so
 # every new user meets this text once. It lives here as one constant because it
-# has three audiences — the snapshot banner, the console fallback and `--setup`
-# itself — and three hand-maintained copies of the same three steps is how the
-# instructions end up disagreeing with each other.
+# has two audiences — the snapshot banner and the status line — and two
+# hand-maintained copies of the same instruction is how they end up disagreeing.
 #
-# `python3 tools/dashboard.py`, never `beril <something>`: the image's `beril` is
-# a pinned copy under `/opt/conda` (an *overlay* mount, so it reverts on every pod
-# restart and cannot be updated by a user), and which `beril_cli` wins depends on
-# the working directory. The checkout is the only copy guaranteed to match this
-# branch. `.claude/hooks/dash_stop.py` handles the same problem the same way.
-SETUP_CMD = "python3 tools/dashboard.py --setup"
+# `beril setup` rather than a flag on this file: the wizard is where a user already
+# goes to get their environment working, and one entry point is one thing to
+# remember. This used to read `python3 tools/dashboard.py --setup`, because the
+# image's `beril` is a pinned copy under `/opt/conda` (an *overlay* mount, so it
+# reverts on every pod restart and cannot be updated by a user) and could predate
+# this feature. That is being handled by shipping a newer `beril` in the image
+# instead, which is the right place to fix it.
+SETUP_CMD = "beril setup"
 # Step 2 is unavoidable: jupyter_server builds its handler table at startup, so a
 # newly enabled extension is invisible until the server restarts. Step 3 exists
 # because that restart kills the terminal Claude Code is running in, and people
@@ -100,7 +100,7 @@ RESTART_STEPS = (
     "Hub Control Panel → Stop My Server, then Start.",
     "Reopen a terminal and run `claude --resume` to pick this session back up.",
 )
-SETUP_STEPS = (f"Run `{SETUP_CMD}` from the repo root.",) + RESTART_STEPS
+SETUP_STEPS = (f"Run `{SETUP_CMD}` and answer yes to the live dashboard step.",) + RESTART_STEPS
 
 FIGURE_EXT = {".png", ".jpg", ".jpeg", ".svg"}
 DATA_EXT = {".csv", ".tsv", ".json", ".parquet"}
@@ -1785,88 +1785,6 @@ def jupyter_python() -> "str | None":
     return None
 
 
-def run_setup(assume_yes: bool = False) -> int:
-    """Install and enable jupyter-server-proxy for this user, then say what next.
-
-    Targets ``--user`` (``~/.local``) deliberately. On this image ``/opt/conda``
-    is an *overlay* mount — writable, and reverted on every pod restart — while
-    ``$HOME`` is a persistent volume. So ``--user`` is both the only target that
-    survives and the only one a non-admin should be writing to. It also means
-    this is a once-per-*user* cost, not once per pod.
-
-    Never run implicitly. It mutates the user's environment and its last step
-    restarts their server, so it only ever happens because someone typed it.
-    """
-    if proxy_enabled():
-        print("jupyter-server-proxy is already enabled — nothing to do.")
-        print("If live mode still is not working, restart your server:")
-        for step in RESTART_STEPS:
-            print(f"  - {step}")
-        return 0
-
-    python = jupyter_python()
-    if python is None:
-        print(
-            "Could not find the interpreter your Jupyter server runs on: no "
-            "`jupyter` on PATH.\nRun this from a terminal inside JupyterHub, where "
-            "it resolves to the server's own environment.",
-            file=sys.stderr,
-        )
-        return 1
-
-    steps = [
-        [python, "-m", "pip", "install", "--user", "jupyter-server-proxy"],
-        # Usually redundant: the pip install drops its own enable file into
-        # <userbase>/etc/jupyter/jupyter_server_config.d/. Kept because it is
-        # cheap and it covers the case where that drop-in did not land.
-        [shutil.which("jupyter") or "jupyter", "server", "extension", "enable",
-         "--user", "jupyter_server_proxy"],
-    ]
-
-    print("This will run, as your user:\n")
-    for step in steps:
-        print(f"  {' '.join(step)}")
-    print("\nThen you will need to:\n")
-    for item in RESTART_STEPS:
-        print(f"  - {item}")
-
-    if not assume_yes:
-        if not sys.stdin.isatty():
-            print("\nNot a terminal — re-run with --yes to proceed non-interactively.")
-            return 1
-        if input("\nProceed? [y/N] ").strip().lower() not in ("y", "yes"):
-            print("Nothing was changed.")
-            return 1
-
-    for step in steps:
-        print(f"\n$ {' '.join(step)}")
-        try:
-            result = subprocess.run(step, check=False)
-        except OSError as exc:
-            print(f"could not run {step[0]}: {exc}", file=sys.stderr)
-            return 1
-        if result.returncode != 0:
-            print(f"\nFailed: {' '.join(step)}", file=sys.stderr)
-            return result.returncode
-
-    # Verified through the same probe the dashboard gates on, so "setup worked"
-    # and "the dashboard will start" cannot disagree.
-    if not proxy_enabled():
-        print(
-            "\nInstalled, but the extension still does not read as enabled.\n"
-            "Report this with the output above — it is not a case we have seen.",
-            file=sys.stderr,
-        )
-        return 1
-
-    print("\n" + "=" * 64)
-    print("Installed and enabled. Two steps left, and this is the only time:")
-    for item in RESTART_STEPS:
-        print(f"  - {item}")
-    print("=" * 64)
-    return 0
-
-
 def _print_snapshot_fallback(project: Path) -> None:
     """The console half of the snapshot banner, for whoever ran this by hand."""
     print("Snapshot written — this page does not update itself; reload to refresh.")
@@ -1885,18 +1803,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--static", action="store_true", help="Write dashboard.html and exit"
     )
-    parser.add_argument(
-        "--setup",
-        action="store_true",
-        help="Install and enable jupyter-server-proxy for live mode, then exit",
-    )
-    parser.add_argument(
-        "--yes", action="store_true", help="Skip the confirmation prompt in --setup"
-    )
     args = parser.parse_args(argv)
-
-    if args.setup:
-        return run_setup(assume_yes=args.yes)
 
     if not args.project:
         parser.error("the following arguments are required: project")

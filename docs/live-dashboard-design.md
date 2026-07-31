@@ -215,7 +215,7 @@ drop-ins under `/opt/conda/etc/jupyter/jupyter_server_config.d/` is it. The copy
 that made this work during development came from an unrelated `pip install --user`
 months earlier, which is why it worked for its author and for nobody else.
 
-`python3 tools/dashboard.py --setup` installs and enables it, verifies through the
+`beril setup` installs and enables it at its "Live dashboard" step, verifies through the
 same `proxy_enabled()` probe the dashboard gates on, and then states the two steps
 it cannot do itself. It never runs implicitly: it mutates the user's environment and
 ends in a server restart, so it only ever happens because someone typed it.
@@ -241,7 +241,7 @@ runs in, and people reasonably assume it kills the session too. It does not.
 
 | Failure | Symptom | Fallback |
 |---|---|---|
-| `jupyter-server-proxy` absent | no live URL — the common case on a fresh pod | probe; `--static` launcher; snapshot + `--setup` named in the status line *and* on the page |
+| `jupyter-server-proxy` absent | no live URL — the common case on a fresh pod | probe; `--static` launcher; snapshot + `beril setup` named in the status line *and* on the page |
 | snapshot double-clicked | opens in JupyterLab's HTMLViewer; JS off until "Trust HTML" | page is fully readable as pure HTML+CSS; launcher says "right-click → Open in New Browser Tab" |
 | snapshot left open for hours | it does not update, and looks like it might | banner says so; `relTimes` measures age against the reader's clock, so it visibly ages green → amber → grey rather than freezing |
 | pod culled | page stops updating; `fetch` throws, loop keeps retrying | the agent died too, so there is nothing to serve; next session's launcher restores it from disk |

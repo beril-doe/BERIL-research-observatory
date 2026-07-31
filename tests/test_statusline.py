@@ -329,7 +329,7 @@ def test_without_the_proxy_it_snapshots_instead_of_respawning_forever(tmp_path, 
     # ...and the user got something instead of nothing.
     assert (pdir / "dashboard.html").is_file(), "no snapshot written"
     assert "files/projects/noproxy/dashboard.html" in out, "no way to find the snapshot"
-    assert "tools/dashboard.py --setup" in out, "no way out of snapshot mode"
+    assert "beril setup" in out, "no way out of snapshot mode"
 
     # The instructions must not go back to the log nobody reads.
     log = pdir / ".dash.log"
