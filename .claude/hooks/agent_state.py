@@ -48,6 +48,11 @@ STATE_FILE = ".agent-state.json"
 # "leave the file exactly as it is", which None cannot mean — None clears it.
 UNCHANGED = object()
 
+# The only events that may write a state. Everything else — every tool call, and
+# every event Claude Code adds after this was written — means the agent moved on,
+# which it does only once a human has unblocked it, so it clears. See `main`.
+SETS_STATE = {"PermissionRequest", "Notification", "Stop", "UserPromptSubmit"}
+
 # Long enough for a real `Bash` command line, short enough that the amber strip
 # stays one line in the header. The renderer escapes it; it does not trim it.
 MAX_DETAIL = 200
@@ -218,14 +223,21 @@ def record_for(payload: dict, project: Path):
         argument = find_detail(payload.get("tool_input"))
         detail = f"{tool}: {argument}" if argument else tool
     elif event == "Notification":
-        # `PermissionRequest` fires ~6s earlier and knows the tool; this event
-        # does not. Restating `waiting` here would blank that detail out and
-        # reset `since`, which is the key the browser debounces notifications on
-        # — so the reader would be told twice about one prompt.
-        if read_state(project).get("state") == "waiting":
-            return UNCHANGED
+        # A `Notification` only ever *adds* information, never replaces it.
+        #
+        # Its two common messages are fixed strings that say nothing a `state`
+        # does not already say, and acting on them is actively wrong in both
+        # directions. `permission_prompt` arrives ~6s after `PermissionRequest`
+        # already recorded the tool, so writing would blank that detail and
+        # reset `since` — the browser's debounce key — and announce one prompt
+        # twice. `idle_prompt` arrives 60s after *every* `Stop`, so writing
+        # turned a finished turn into a detail-less "waiting for you" a minute
+        # later, every single turn, notification and all. That is precisely how
+        # this feature would have got itself muted.
         message = str(payload.get("message") or "")
-        detail = "" if message in GENERIC else message
+        if message in GENERIC or read_state(project).get("state") == "waiting":
+            return UNCHANGED
+        detail = message
     elif event == "Stop":
         detail = str(payload.get("last_assistant_message") or "")
     else:
@@ -243,9 +255,23 @@ def record_for(payload: dict, project: Path):
 
 def main() -> None:
     payload = json.load(sys.stdin)
-    # Before `resolve`, because this is the one event that fires on every single
-    # tool call and it does not need a project to do its job.
-    if payload.get("hook_event_name") == "PostToolUse":
+
+    # **Anything that is not one of the four above means the agent moved on, and
+    # the agent only moves on because a human unblocked it.** So the default is
+    # to clear rather than to ignore: it needs no list of which events count as
+    # progress, it covers the ones Claude Code has not shipped yet, and it
+    # cannot be wrong in the dangerous direction — the failure mode of clearing
+    # early is a strip that vanishes, and of clearing late is a strip that lies.
+    #
+    # `Notification` has to stay out of it despite looking like progress, and
+    # this is the whole reason the rule is "not a setter" rather than "anything
+    # fired": it arrives ~6s *into* an unanswered prompt, so treating it as
+    # movement would blank the strip six seconds after it appeared, every time.
+    #
+    # Cheap on purpose. This branch takes `PostToolUse`, which fires on every
+    # tool call, so it resolves no project at all — the state file already
+    # records whose it is.
+    if payload.get("hook_event_name") not in SETS_STATE:
         return clear_waiting(payload.get("session_id"))
 
     project = resolve(payload)

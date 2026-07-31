@@ -260,6 +260,54 @@ def test_the_posttooluse_guard_still_lets_the_clear_through(repo):
     assert fire(POST_TOOL) is None, "the guard swallowed a prompt that needed clearing"
 
 
+IDLE = {
+    "session_id": SESSION,
+    "cwd": "/repo",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt",
+}
+
+
+def test_idle_prompt_does_not_resurrect_a_finished_turn(repo):
+    """REGRESSION. `idle_prompt` fires 60s after **every** `Stop`, and its
+    message is the fixed string "Claude is waiting for your input".
+
+    Treating that as a state turned every completed turn into a detail-less
+    "The agent is waiting for you" one minute later — strip, title marker and a
+    system notification, once per turn, forever. That is exactly how a
+    notification feature gets muted, on a timer.
+
+    It is also information-free: `turn_ended` already says the turn ended, and
+    the reader can see when. A fixed string that restates the state it is
+    attached to earns nothing.
+    """
+    ended = _run(repo, STOP)
+
+    assert _run(repo, IDLE) == ended, "a finished turn came back as a blocked one"
+
+
+def test_anything_that_is_not_a_setter_clears(repo):
+    """The general rule, and why it is "not a setter" rather than "any event".
+
+    Every event other than the four that write means the agent moved on, and it
+    only moves on once a human unblocked it — so clearing by default needs no
+    list of which events count as progress and covers events Claude Code has not
+    shipped yet.
+
+    `Notification` is the exception that forces the rule to be stated this way:
+    it arrives ~6s *into* an unanswered prompt, so "anything fired" would blank
+    the strip six seconds after it appeared, every single time.
+    """
+    for event in ("PostToolUse", "PreCompact", "SubagentStop", "SomeFutureEvent"):
+        _run(repo, PERMISSION)
+        assert _run(repo, {**POST_TOOL, "hook_event_name": event}) is None, event
+
+    # ...and the one that must not, however much it looks like movement.
+    waiting = _run(repo, PERMISSION)
+    assert _run(repo, NOTIFICATION) == waiting
+
+
 def test_a_tool_call_does_not_retire_a_finished_turn(repo):
     """`turn_ended` describes the past; only the next `UserPromptSubmit` retires
     it. Clearing on any tool call would erase the closing line the moment a new

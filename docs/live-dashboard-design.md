@@ -158,6 +158,23 @@ a `Skill` and watching the agent work for ten minutes under "the agent is waitin
 for you" was the reported symptom. A banner that is wrong for minutes is worse
 than no banner; the reader learns to ignore it.
 
+The rule is therefore **"anything that is not one of the four writers clears"**,
+not a list of events that count as progress: the agent only moves on once a
+human unblocked it, so clearing by default also covers whatever Claude Code
+ships next. `Notification` is the exception that forces it to be phrased that
+way rather than as "any event fired" — it arrives ~6s *into* an unanswered
+prompt, so treating it as movement would blank the strip six seconds after it
+appeared, every time.
+
+`Notification` never replaces information for the same reason its two common
+messages are dropped. Both are fixed strings that restate the state they are
+attached to, and acting on either is wrong in a different direction:
+`permission_prompt` would blank the tool `PermissionRequest` already recorded
+and reset the debounce key, announcing one prompt twice; `idle_prompt`, which
+fires 60s after *every* `Stop`, turned each finished turn into a detail-less
+"waiting for you" a minute later, notification included — this feature muting
+itself, on a timer.
+
 That clear needs no project resolution: the state file records which session
 wrote it, which is the whole question, and keeps one session from clearing
 another's. It still costs 59ms against the resolving path's 78ms, of which 36ms
