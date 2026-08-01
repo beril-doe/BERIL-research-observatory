@@ -46,6 +46,54 @@
             "command": "bash .claude/hooks/beril-runtime.sh"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'cd \"${CLAUDE_PROJECT_DIR:-.}\" 2>/dev/null; if ls projects/*/.agent-state.json >/dev/null 2>&1; then python3 .claude/hooks/agent_state.py; else cat >/dev/null; fi; exit 0'"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/agent_state.py"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/agent_state.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/agent_state.py"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/agent_state.py"
+          }
+        ]
       }
     ],
     "SessionEnd": [

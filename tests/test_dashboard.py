@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -688,6 +690,275 @@ def test_a_snapshot_says_it_is_one_and_how_to_get_live(tmp_path):
     assert "beril setup" in snap and "tools/dashboard.py --setup" not in snap
     for step in dash.RESTART_STEPS:
         assert dash.inline_md(step) in snap, f"missing restart step: {step}"
+
+
+def _waiting(project: Path, **over) -> Path:
+    """Drop an `.agent-state.json` shaped like the hook's own output."""
+    import time as _time
+
+    record = {
+        "state": "waiting",
+        "detail": "Bash: sw_vers",
+        "since": _time.time(),
+        "session_id": "sess-1",
+    }
+    record.update(over)
+    (project / ".agent-state.json").write_text(json.dumps(record), encoding="utf-8")
+    return project
+
+
+def test_the_waiting_detail_is_escaped_like_every_other_agent_string(tmp_path):
+    """Same trust boundary as the worklog, and it moved: this string is a tool
+    argument the agent chose, or a question it wrote, and it lands in HTML.
+
+    It goes through `inline_md` for the same reason the worklog prose does —
+    agents write backticks — and `inline_md` escapes *first*, so the only tags
+    that can survive are the three it emits itself.
+    """
+    import tools.dashboard as dash
+
+    project = _waiting(
+        _project(tmp_path), detail="Bash: rm <img src=x onerror=alert(1)> `db.sql`"
+    )
+
+    page = dash.render(dash.scan(project), "")
+
+    assert "<img src=x" not in page, "agent text reached the page as live markup"
+    assert "&lt;img src=x onerror=alert(1)&gt;" in page
+    assert "<code>db.sql</code>" in page, "escaped, but no longer readable as markdown"
+
+
+def test_a_waiting_claim_expires_rather_than_outliving_the_agent(tmp_path):
+    """"A human is blocked on this **right now**" is the one present-tense claim
+    the page makes, and nothing on disk ever retracts it: a culled pod or a
+    SIGKILL mid-prompt leaves `waiting` behind with nobody left to answer.
+
+    Two independent ways to stop believing it, because they catch different
+    deaths — a session that hung around too long, and one `runtime.json` has
+    never heard of. `turn_ended` is exempt on purpose: it describes the past, so
+    it cannot become false.
+    """
+    import time
+
+    import tools.dashboard as dash
+
+    fresh = _waiting(_project(tmp_path, name="fresh"))
+    assert dash.read_agent_state(fresh)["state"] == "waiting"
+
+    old = _waiting(_project(tmp_path, name="old"), since=time.time() - dash.WAIT_TTL - 1)
+    assert dash.read_agent_state(old)["state"] == "unknown"
+
+    orphan = _waiting(_project(tmp_path, name="orphan"), session_id="ghost")
+    (orphan / "runtime.json").write_text(
+        json.dumps({"project": "orphan", "sessions": [{"session_id": "someone-else"}]})
+    )
+    assert dash.read_agent_state(orphan)["state"] == "unknown"
+
+    past = _waiting(
+        _project(tmp_path, name="past"), state="turn_ended", since=time.time() - 90000
+    )
+    assert dash.read_agent_state(past)["state"] == "turn_ended", "a fact about the past"
+
+
+def test_the_expiry_reaches_a_polling_page(tmp_path, monkeypatch):
+    """REGRESSION-in-waiting, and the subtle half of expiring at all.
+
+    Nothing on disk changes when a `waiting` ages out, so an etag built only
+    from file mtimes keeps answering 304 — and 304 means the browser keeps
+    showing the page it already has. The stale "waiting for you" would survive
+    the very expiry meant to remove it, which is exactly the failure the design
+    doc records for server-rendered timestamps.
+
+    Folding the *resolved* state into the fingerprint is what fixes it: the
+    expiry invalidates its own cache entry.
+
+    Only the clock moves here. Rewriting the file to age it would change its
+    mtime and pass on the strength of that alone — which is the version of this
+    test that was written first, and it agreed with a build that had no expiry
+    in the etag at all.
+    """
+    import time
+
+    import tools.dashboard as dash
+
+    born = time.time()
+    project = _waiting(_project(tmp_path), since=born)
+    before = dash.scan(project)
+    assert before.agent["state"] == "waiting"
+
+    fingerprint = sorted((project / ".agent-state.json").stat().st_mtime_ns for _ in "x")
+    monkeypatch.setattr(dash.time, "time", lambda: born + dash.WAIT_TTL + 1)
+    after = dash.scan(project)
+
+    assert after.agent["state"] == "unknown"
+    assert after.etag != before.etag, "a polling browser would be served a 304 forever"
+    assert fingerprint == [(project / ".agent-state.json").stat().st_mtime_ns], (
+        "the file changed, so this proved nothing about the clock"
+    )
+
+
+def test_the_alert_strip_and_button_are_anchored_outside_root(tmp_path):
+    """Both would work inside #root. Both would also be destroyed and rebuilt
+    every 4s, and that is the bug:
+
+    - the strip's 600ms pulse would restart on every poll, so a banner that is
+      supposed to flash once on a transition would flash forever — WCAG 2.3.1,
+      and intolerable to sit beside;
+    - the button's click handler would need re-binding after each swap, and
+      `Notification.requestPermission` only works from a real user gesture.
+    """
+    import tools.dashboard as dash
+
+    page = dash.render(dash.scan(_waiting(_project(tmp_path))), "")
+    before_root, _, after_root = page.partition('<div id="root">')
+
+    assert 'id="d-wait"' in before_root, "the pulse would restart every 4s"
+    assert 'id="d-alert"' in before_root, "the permission gesture would lose its handler"
+    assert 'id="d-state"' in after_root, "the state itself must come from the poll"
+
+
+def test_the_title_marker_and_favicon_are_client_side(tmp_path):
+    """The same rule as relative times, for the same reason: a 304 freezes
+    anything the server wrote, and these two are the only channels that reach a
+    reader whose tab is in the background. A `<title>` baked with a marker would
+    keep claiming the agent needs you long after it stopped."""
+    import tools.dashboard as dash
+
+    page = dash.render(dash.scan(_waiting(_project(tmp_path))), "")
+
+    assert "<title>demo</title>" in page, "the marker was baked into the response"
+    assert "document.title=(MARK[s]||'')+BASE" in page
+    assert 'id="d-favicon"' in page and "F.href=ICON[s]" in page
+
+
+def test_a_snapshot_gets_the_state_but_never_the_alert_button(tmp_path):
+    """A snapshot is a point-in-time render, so it is honest about a prompt that
+    was open when it was written. It cannot poll, though, so it can never see a
+    *transition* — and a permission prompt for notifications that could never
+    fire one is a button that only costs trust."""
+    import tools.dashboard as dash
+
+    snap = dash.render(dash.scan(_waiting(_project(tmp_path))), "", live=False)
+
+    assert 'data-state="waiting"' in snap
+    assert 'id="d-alert"' not in snap
+    assert "function mark" in snap, "the title and favicon still work on a snapshot"
+
+
+# Enough DOM for STATE_JS and not one property more. Stubbed rather than mocked
+# through a real browser because the whole point is to drive the clock and the
+# visibility flag by hand — the two inputs a headless page will not let you set.
+NOTIFY_HARNESS = """
+const fired = [];
+let now = 1000000, hidden = false;
+const listeners = {};
+const nodes = {
+  'd-wait': {innerHTML:'', hidden:true, offsetWidth:1,
+             classList:{_s:new Set(), add(c){this._s.add(c)}, remove(c){this._s.delete(c)},
+                        has(c){return this._s.has(c)}}},
+  'd-alert': {hidden:true, addEventListener(){}},
+  'd-favicon': {href:''}, 'd-state': null, 'd-detail': null,
+};
+globalThis.document = {
+  title: 'demo',
+  get hidden(){ return hidden; },
+  getElementById: id => nodes[id] || null,
+  addEventListener: (k,f) => (listeners[k] ||= []).push(f),
+};
+globalThis.window = globalThis;
+globalThis.Notification = function(t,o){ fired.push(o.body); };
+Notification.permission = 'granted';
+globalThis.Date = {now: () => now};
+
+await import('./state.mjs');
+
+const set = (state, since, detail) => {
+  nodes['d-state'] = state ? {dataset:{state, since:String(since)}} : null;
+  nodes['d-detail'] = detail ? {innerHTML: detail, textContent: detail} : null;
+  dashMark();
+};
+const out = {};
+const go = (label, fn) => { fired.length = 0; fn(); out[label] = fired.slice(); };
+
+go('waiting_visible', () => set('waiting', 1, 'Bash: sw_vers'));
+go('waiting_rerendered', () => set('waiting', 1, 'Bash: sw_vers'));
+go('ended_visible', () => set('turn_ended', 2, 'all done'));
+hidden = true; (listeners.visibilitychange || []).forEach(f => f());
+go('ended_hidden_10s', () => { now += 10000; set('turn_ended', 3, 'done'); });
+go('ended_hidden_70s', () => { now += 70000; set('turn_ended', 4, 'done'); });
+go('waiting_hidden', () => set('waiting', 5, 'AskUserQuestion: which?'));
+set('waiting', 9, 'x');
+out.pulsed = nodes['d-wait'].classList.has('pulse');
+out.strip_shown = !nodes['d-wait'].hidden;
+set('', 0, '');
+out.strip_cleared = nodes['d-wait'].hidden;
+out.title_restored = document.title;
+console.log(JSON.stringify(out));
+"""
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node to execute STATE_JS")
+def test_when_a_system_notification_actually_fires(tmp_path):
+    """The one piece of real logic on the client, so it is run rather than read.
+
+    `Stop` fires at the end of **every** turn. Notifying on each one is how a
+    feature gets muted inside a day, so `turn_ended` only speaks when the reader
+    has genuinely been away — the case where they cannot already see it happen.
+    `waiting` always speaks, because being blocked is the whole point.
+
+    And nothing fires twice for one event: a re-render is not a transition, so
+    the `(state, since)` pair gates it. Without that gate the 4s poll would
+    notify fifteen times a minute about a single permission prompt.
+
+    Node stands in for a browser because the two inputs that matter — the clock
+    and the visibility flag — are exactly what a real headless page will not let
+    a test set.
+    """
+    import tools.dashboard as dash
+
+    (tmp_path / "state.mjs").write_text(dash.STATE_JS, encoding="utf-8")
+    (tmp_path / "harness.mjs").write_text(NOTIFY_HARNESS, encoding="utf-8")
+    done = subprocess.run(
+        ["node", "harness.mjs"], cwd=tmp_path, capture_output=True, text=True, timeout=60
+    )
+    assert done.returncode == 0, done.stderr
+    result = json.loads(done.stdout)
+
+    assert result["waiting_visible"] == ["Bash: sw_vers"]
+    assert result["waiting_hidden"] == ["AskUserQuestion: which?"]
+    assert result["waiting_rerendered"] == [], "a re-render is not a transition"
+    assert result["ended_visible"] == [], "you are looking straight at it"
+    assert result["ended_hidden_10s"] == [], "briefly away is not away"
+    assert result["ended_hidden_70s"] == ["done"]
+
+    assert result["pulsed"] and result["strip_shown"]
+    assert result["strip_cleared"] and result["title_restored"] == "demo"
+
+
+def test_a_hidden_tab_still_polls_only_slower():
+    """The poll used to wrap its `fetch` in `visibilityState==='visible'`, so a
+    backgrounded tab fetched nothing at all — and a backgrounded tab is exactly
+    the one that needs to find out the agent is blocked. Nothing that reaches an
+    unattended reader (the title marker, the favicon dot, a notification) can
+    work on top of a transport that stops when nobody is looking.
+
+    The two assertions are the two halves of that fix, and each fails on the
+    obvious way to undo it:
+
+    - the cadence is chosen by visibility rather than the fetch being skipped;
+    - the only `visibilityState` left is the listener's, i.e. nothing guards the
+      fetch any more.
+
+    The shared `timer` handle is the third: `tick` schedules the next tick *and*
+    the listener calls `tick` directly, so without a `clearTimeout` every return
+    to the tab left another chain running forever. Free when hidden ticks did
+    nothing; a compounding multiplier on real requests now.
+    """
+    import tools.dashboard as dash
+
+    assert "document.hidden?15000:4000" in dash.POLL_JS
+    assert dash.POLL_JS.count("visibilityState") == 1, "something still gates the fetch"
+    assert "clearTimeout(timer)" in dash.POLL_JS, "tab returns would stack poll chains"
 
 
 def _dropin(cfg_dir: Path, name: str, enabled: bool) -> None:

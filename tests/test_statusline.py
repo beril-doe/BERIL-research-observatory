@@ -90,7 +90,8 @@ def _repo(tmp_path: Path, projects: dict) -> Path:
     return tmp_path
 
 
-def _render(repo: Path, session_id: str = "no-such-session", cwd=None, added=()) -> str:
+def _render(repo: Path, session_id: str = "no-such-session", cwd=None, added=(),
+            model=None) -> str:
     payload = {
         "session_id": session_id,
         "workspace": {
@@ -99,6 +100,8 @@ def _render(repo: Path, session_id: str = "no-such-session", cwd=None, added=())
         },
         "context_window": {"used_percentage": 20},
     }
+    if model is not None:
+        payload["model"] = model
     done = subprocess.run(
         ["bash", str(STATUSLINE)],
         input=json.dumps(payload),
@@ -125,6 +128,38 @@ def test_simultaneous_sessions_on_one_clone_resolve_to_their_own_project(tmp_pat
 
     assert "alpha" in first and "beta" not in first
     assert "beta" in second and "alpha" not in second
+
+
+def test_the_model_shares_the_gauge_cell(tmp_path):
+    """Which model is answering is what you check before trusting a surprising
+    result, so it earns a place — sharing the context gauge's cell rather than
+    taking one of its own, because the two are read in the same glance and a `|`
+    between them would claim they are separate readouts.
+
+    Never truncated: "Opus 5 (1M context)", not "Opus 5". The parenthetical is
+    the half you would act on — it is why a long run has not compacted yet.
+    `display_name`, never `id`, which is what you would paste into an API call.
+
+    The absent case is the one that breaks silently. The status line renders
+    every turn in whatever harness drives it, and a missing `model` must leave
+    the gauge alone rather than prefix it with a stray space.
+    """
+    repo = _repo(tmp_path, {"alpha": ["sid-a"]})
+
+    first = _render(
+        repo, model={"display_name": "Opus 5 (1M context)", "id": "claude-opus-5[1m]"}
+    ).splitlines()[0]
+
+    assert "Opus 5 (1M context)" in first, "the model name was truncated"
+    assert "claude-opus-5" not in first, "that is the API id, not a label"
+    assert "20%" in first, "the context gauge has to stay"
+    # The point of the change: a space between them, not a separator.
+    assert re.search(r"Opus 5 \(1M context\) [▓░]", first), "separator still there"
+
+    for missing in (None, {}, {"display_name": ""}, {"display_name": None}):
+        bare = _render(repo, model=missing).splitlines()[0]
+        assert "Opus 5" not in bare
+        assert "|  " not in bare, f"stray space before the gauge for {missing!r}"
 
 
 def test_no_signal_names_no_project(tmp_path):
@@ -570,11 +605,21 @@ def test_using_another_projects_data_does_not_switch_projects():
     That is one edit away from breaking — broadening the matcher is a tempting fix
     for "the status line did not notice my project", and it would silently make
     every cross-project read a switch.
+
+    Scoped to the *binding* hook by name, not to everything on `PostToolUse`.
+    Other hooks legitimately want every tool call — `agent_state.py` clears an
+    answered permission prompt there — and they bind nothing, so a matcher-less
+    entry of theirs is not this failure.
     """
     import re
 
     settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
-    matchers = [entry["matcher"] for entry in settings["hooks"]["PostToolUse"]]
+    matchers = [
+        entry.get("matcher", ".*")
+        for entry in settings["hooks"]["PostToolUse"]
+        if any("beril-runtime" in hook["command"] for hook in entry["hooks"])
+    ]
+    assert matchers, "the binding hook is no longer on PostToolUse at all"
     for readonly in ("Read", "Bash", "Grep", "Glob"):
         assert not any(re.fullmatch(m, readonly) for m in matchers), (
             f"{readonly} now reaches the binding hook: reading another project's "

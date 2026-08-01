@@ -2,9 +2,18 @@
 # Built for a BERIL session, not as a copy of the global statusline.
 #
 # Kept, because you act on them mid-research: which project, what stage it is
-# at, where to watch it, and how close context is to running out.
-# Dropped: model, cost, elapsed, directory. All true, none of them change what
-# you do next while a project is running.
+# at, where to watch it, how close context is to running out, and which model is
+# answering.
+# Dropped: cost, elapsed, directory. All true, none of them change what you do
+# next while a project is running.
+#
+# Model was on that dropped list and came back. The reasoning that put it there
+# was that it does not change what you do next, and that is wrong in one
+# direction: which model is answering is exactly what you check before deciding
+# whether to trust a surprising result, or before switching and re-running it.
+# It shares the context gauge's cell rather than taking one of its own — the two
+# are read in the same glance, and a `|` between them would claim they are
+# separate readouts.
 #
 # python3 rather than jq: jq is not guaranteed on the BERDL singleuser image and
 # python3 always is, and this has to work in the pod where the dashboard runs.
@@ -15,6 +24,10 @@ from pathlib import Path
 d = json.load(sys.stdin)
 cwd = d.get("workspace", {}).get("current_dir", "") or os.getcwd()
 pct = int(float(d.get("context_window", {}).get("used_percentage") or 0))
+# `display_name`, not `id`, and never truncated: "Opus 5 (1M context)" rather
+# than "claude-opus-5[1m]". The parenthetical is the half you would actually act
+# on — it is why a long run has not compacted yet.
+model = str((d.get("model") or {}).get("display_name") or "")
 
 C, G, Y, R, DIM, X = "\033[36m", "\033[32m", "\033[33m", "\033[31m", "\033[2m", "\033[0m"
 
@@ -103,7 +116,11 @@ line = [f"{C}BERIL{X}", f"{DIM}{where}{X}"]
 # — displayed no branch at all, which reads as "detached" rather than "same name".
 if branch:
     line.append(branch)
-line.append(f"{heat}{bar}{X} {pct}%")
+# One cell, model first, separated by a space rather than a `|`. Dropped
+# entirely when the harness sends no model, so the gauge is never preceded by a
+# stray space.
+gauge = f"{heat}{bar}{X} {pct}%"
+line.append(f"{DIM}{model}{X} {gauge}" if model else gauge)
 print(" | ".join(line))
 
 if not pdir:
