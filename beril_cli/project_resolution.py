@@ -13,6 +13,7 @@ _PROJECT_PATH = re.compile(
     r"(?:^|[\s/])projects/([A-Za-z0-9][A-Za-z0-9._-]*)(?=$|[\s/])"
 )
 _SIMPLE_PROJECT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*$")
+_DEFAULT_BRANCHES = frozenset({"main", "master"})
 
 
 def _iter_strings(value: Any):
@@ -92,6 +93,16 @@ def _branch_project(repo_root: Path, branch: str | None) -> str | None:
     conventional = re.fullmatch(r"projects/([A-Za-z0-9][A-Za-z0-9._-]*)", branch)
     if conventional:
         return _existing_project(repo_root, conventional.group(1))
+    # The manifest scan below binds a session by an *exact* `branch:` match, which
+    # is meaningful for a working branch (`feat/p2-analysis`) and meaningless for
+    # the default branch: a lone manifest recording `branch: main` captures every
+    # repo-root session on `main`, including sessions doing unrelated work. One
+    # such value is indistinguishable from a correct one — the len(matches) == 1
+    # ambiguity guard only fires when a *second* project collides. Excluded here
+    # rather than validated at write time so an already-committed manifest cannot
+    # reintroduce it. The conventional `projects/<id>` form above is unaffected.
+    if branch in _DEFAULT_BRANCHES:
+        return None
     projects_root = repo_root / "projects"
     matches = (
         [

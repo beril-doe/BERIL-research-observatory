@@ -11,7 +11,12 @@ from pathlib import Path
 import pytest
 
 from observatory_context import config as ovcfg
-from observatory_context.config import DEFAULT_OPENVIKING_URL, ContextConfig
+from observatory_context.config import (
+    DEFAULT_OPENVIKING_URL,
+    DEFAULT_S3_ENDPOINT_URL,
+    ContextConfig,
+    s3_settings,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -19,6 +24,20 @@ def clear_ov_env(monkeypatch):
     """Start each test from a known state — no OV env vars set."""
     monkeypatch.delenv("OPENVIKING_URL", raising=False)
     monkeypatch.delenv("OPENVIKING_API_KEY", raising=False)
+
+
+@pytest.fixture
+def clear_s3_env(monkeypatch):
+    """Drop every S3/MinIO env var so each test defines its own state."""
+    for name in (
+        "S3_ENDPOINT_URL",
+        "MINIO_ENDPOINT_URL",
+        "S3_ACCESS_KEY",
+        "MINIO_ACCESS_KEY",
+        "S3_SECRET_KEY",
+        "MINIO_SECRET_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
 
 
 def _patch_cache(monkeypatch, value):
@@ -91,3 +110,60 @@ class TestCachedCredentialImportGuard:
             auth_store, "load_ov", lambda: ("https://srv/ov", "k")
         )
         assert ovcfg._cached_ov_credential() == ("https://srv/ov", "k")
+
+
+class TestS3Settings:
+    """`S3_*` env vars take precedence over legacy `MINIO_*`, symmetrically for
+    endpoint and both keys. This is what makes the Ceph cutover an env change
+    rather than a code edit — regression on any leg would silently break that."""
+
+    def test_defaults_when_no_env(self, clear_s3_env):
+        result = s3_settings()
+        assert result == {
+            "endpoint_url": DEFAULT_S3_ENDPOINT_URL,
+            "access_key": None,
+            "secret_key": None,
+        }
+
+    def test_minio_legacy_env_still_works(self, clear_s3_env, monkeypatch):
+        monkeypatch.setenv("MINIO_ENDPOINT_URL", "https://minio.example/")
+        monkeypatch.setenv("MINIO_ACCESS_KEY", "minio-ak")
+        monkeypatch.setenv("MINIO_SECRET_KEY", "minio-sk")
+
+        result = s3_settings()
+        assert result == {
+            "endpoint_url": "https://minio.example/",
+            "access_key": "minio-ak",
+            "secret_key": "minio-sk",
+        }
+
+    def test_s3_env_wins_over_minio(self, clear_s3_env, monkeypatch):
+        monkeypatch.setenv("S3_ENDPOINT_URL", "https://ceph.example/")
+        monkeypatch.setenv("MINIO_ENDPOINT_URL", "https://minio.example/")
+        monkeypatch.setenv("S3_ACCESS_KEY", "s3-ak")
+        monkeypatch.setenv("MINIO_ACCESS_KEY", "minio-ak")
+        monkeypatch.setenv("S3_SECRET_KEY", "s3-sk")
+        monkeypatch.setenv("MINIO_SECRET_KEY", "minio-sk")
+
+        result = s3_settings()
+        assert result == {
+            "endpoint_url": "https://ceph.example/",
+            "access_key": "s3-ak",
+            "secret_key": "s3-sk",
+        }
+
+    def test_mixed_precedence_per_field(self, clear_s3_env, monkeypatch):
+        # Each of endpoint/access/secret independently prefers S3_ over MINIO_,
+        # so a partial rollout (S3_ACCESS_KEY set but not yet S3_SECRET_KEY)
+        # still resolves cleanly instead of silently going all-legacy.
+        monkeypatch.setenv("S3_ACCESS_KEY", "s3-ak")
+        monkeypatch.setenv("MINIO_ACCESS_KEY", "minio-ak")
+        monkeypatch.setenv("MINIO_SECRET_KEY", "minio-sk")
+        monkeypatch.setenv("MINIO_ENDPOINT_URL", "https://minio.example/")
+
+        result = s3_settings()
+        assert result == {
+            "endpoint_url": "https://minio.example/",
+            "access_key": "s3-ak",
+            "secret_key": "minio-sk",
+        }

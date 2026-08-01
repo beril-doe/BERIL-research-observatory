@@ -106,8 +106,15 @@ def test_central_docs_uris_config_defaults_and_project_dirs(
     beta.mkdir()
     (projects_dir / "README.md").write_text("not a project dir")
 
+    # Isolate from the ambient environment: no OpenViking env vars, and no
+    # ~/.beril cached credential from a real `beril login`. Both would
+    # otherwise override the defaults this test is asserting.
     monkeypatch.delenv("OPENVIKING_API_KEY", raising=False)
-
+    monkeypatch.delenv("OPENVIKING_URL", raising=False)
+    monkeypatch.setattr(
+        "observatory_context.config._cached_ov_credential",
+        lambda: (None, None),
+    )
     config = ContextConfig.from_env(repo_root=tmp_path)
 
     assert config.openviking_url == DEFAULT_OPENVIKING_URL
