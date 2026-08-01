@@ -1084,6 +1084,8 @@ def test_the_page_inlines_its_scripts_instead_of_linking_them(tmp_path):
     `test_render_has_no_absolute_urls` does not cover this — a *relative* src
     passes it cleanly.
 
+    `dash.css` is the same bargain in the other tag, so it is checked here too.
+
     Inlining is also what makes the moved prose dangerous in a way it was not
     inside a Python string: a `</script` or a `<!--` in a comment ends the tag
     early and silently truncates the page, so the file bodies are checked for
@@ -1095,10 +1097,15 @@ def test_the_page_inlines_its_scripts_instead_of_linking_them(tmp_path):
     live = dash.render(state, "", live=True)
     snap = dash.render(state, "", live=False)
 
+    css = (ASSET_DIR / "dash.css").read_text(encoding="utf-8")
+    assert "</style" not in css, "dash.css would truncate the page"
     for page in (live, snap):
         # A literal `"<script src="` misses `<script defer src=`; a bare
         # `" src="` would hit the lightbox's real <img>.
         assert not re.search(r"<script[^>]*\ssrc=", page)
+        # The favicon <link> is real and stays; a stylesheet one never is.
+        assert not re.search(r"<link[^>]*stylesheet", page)
+        assert css in page, "dash.css is not inlined verbatim"
     for name in JS_FILES:
         body = (ASSET_DIR / name).read_text(encoding="utf-8")
         assert "</script" not in body and "<!--" not in body, f"{name} would truncate the page"

@@ -808,200 +808,31 @@ def scan(project: Path) -> State:
 # Render
 # ---------------------------------------------------------------------------
 
-DASH_CSS = """
-:root{--d-bg:#12141a;--d-panel:#171a21;--d-card:#1b1f28;--d-line:#262a35;
---d-fg:#e6e8ee;--d-mut:#8b93a7;--d-dim:#5c6478;--d-accent:#58a6ff;--d-ok:#3fb950;
---d-warn:#d29922;--d-bad:#ff7b72;}
-body{background:var(--d-bg);color:var(--d-fg);margin:0;
-font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
-#root{max-width:1100px;margin:0 auto;padding:0 20px 60px;}
-/* Sticky, so it must stay short — everything inside is either one line or
-   clamped. A shadow rather than a hairline: content genuinely passes beneath
-   it, and the border alone read as a seam cutting through the text. */
-.d-hd{position:sticky;top:0;z-index:9;background:var(--d-panel);
-border-bottom:1px solid var(--d-line);margin:0 -20px 24px;padding:12px 20px 14px;
-box-shadow:0 8px 20px -12px #000c;}
-/* Anchors and scrolled-to elements must clear the sticky region. */
-#root [id]{scroll-margin-top:180px;}
-.d-id{font-family:ui-monospace,SFMono-Regular,monospace;font-weight:650;}
-.d-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.d-chip{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;
-font-weight:600;border:1px solid var(--d-line);background:var(--d-card);color:var(--d-mut);}
-.d-chip.ok{color:#7ee787;border-color:#238636aa;background:#23863626;}
-.d-chip.bad{color:var(--d-bad);border-color:#ff7b7255;background:#ff7b7218;}
-.d-chip.warn{color:#e3b341;border-color:#d2992255;background:#d2992218;}
-.d-chip.now{color:#79b8ff;border-color:#1f6feb66;background:#1f6feb26;}
-.live{color:var(--d-ok);}.idle{color:var(--d-warn);}.cold{color:var(--d-dim);}
-.d-rail{display:flex;list-style:none;margin:12px 0 4px;padding:0;}
-.d-rail li{flex:1;text-align:center;font-size:11px;position:relative;color:var(--d-dim);}
-.d-rail li i{display:block;width:10px;height:10px;border-radius:50%;
-margin:0 auto 6px;background:#2b3040;}
-.d-rail li[data-state=done]{color:#7ee787;}.d-rail li[data-state=done] i{background:var(--d-ok);}
-.d-rail li[data-state=current]{color:#79b8ff;font-weight:700;}
-.d-rail li[data-state=current] i{background:var(--d-accent);box-shadow:0 0 0 4px #58a6ff2e;}
-.d-rail li[data-state=future]{opacity:.32;}
-.d-rail li:not(:last-child):after{content:'';position:absolute;top:4px;
-left:calc(50% + 11px);right:calc(-50% + 11px);height:1px;background:#2b3040;}
-/* Inline readouts. Tabular figures matter here: the page repaints every 4s and
-   proportional digits make the elapsed clock jitter sideways as they change. */
-.d-read{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;}
-.d-read.push{margin-left:auto;}
-/* No `color` here on purpose: relTimes() sets .live/.idle/.cold on this element
-   and a `.d-read b` rule would outrank them, silencing the liveness signal. */
-.d-read b{font:600 13px/1.15 ui-monospace,SFMono-Regular,monospace;
-font-variant-numeric:tabular-nums;}
-.d-read i{font-style:normal;font-size:9px;text-transform:uppercase;
-letter-spacing:.08em;color:var(--d-dim);}
-/* The dot inherits currentColor, so it turns amber then grey with the number —
-   one glance answers "is the agent alive". Only on the activity readout. */
-.d-read.push b::before{content:'';display:inline-block;width:6px;height:6px;
-border-radius:50%;background:currentColor;margin-right:6px;vertical-align:.1em;}
-.d-eyebrow{display:block;font-size:9px;text-transform:uppercase;
-letter-spacing:.1em;color:var(--d-dim);margin-bottom:3px;}
-.d-now{border-left:2px solid var(--d-accent);background:#161b24;padding:8px 14px;
-margin-top:12px;border-radius:0 6px 6px 0;}
-.d-now b{font-size:14px;}
-/* Snapshot mode only, and loud on purpose: it is the one thing on this page the
-   reader has to act on, and the instructions it replaces were five lines in a
-   gitignored log file nobody had a reason to open. Above #root's header rather
-   than inside it — the header is sticky and must stay short. */
-.d-setup{border-left:2px solid var(--d-warn);background:#221c10;padding:10px 14px;
-margin:0 0 18px;border-radius:0 6px 6px 0;font-size:13.5px;color:#c4cad8;}
-.d-setup b{color:#e3b341;}
-.d-setup ol{margin:8px 0 0;padding-left:20px;}
-.d-setup li{margin:4px 0;}
-.d-setup code{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;
-background:#0d1017;border:1px solid var(--d-line);border-radius:4px;padding:1px 6px;}
-/* "The agent is blocked on you." Same anchoring as .d-setup and for the same
-   reason — a sibling of #root, so the 4s poll cannot wipe it — but with a
-   second reason on top: an element inside #root is destroyed and rebuilt every
-   4s, which would restart the pulse below on every poll. A 0.6s highlight every
-   4s, forever, is a flashing banner: WCAG 2.3.1, and unbearable to sit next to.
-   Out here it animates once, on the transition that earned it.
-   Filled by STATE_JS, which is why it starts empty and hidden. */
-.d-wait{border-left:2px solid var(--d-warn);background:#2a1f0c;padding:9px 14px;
-margin:0 0 14px;border-radius:0 6px 6px 0;font-size:13.5px;color:#e8dcc0;}
-.d-wait b{color:#e3b341;}
-.d-wait code{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;
-background:#0d1017;border:1px solid var(--d-line);border-radius:4px;padding:1px 6px;}
-.d-wait.pulse{animation:d-pulse .6s ease-out 1;}
-@keyframes d-pulse{from{background:#5a3f10;}to{background:#2a1f0c;}}
-/* No sustained flashing anywhere, and none at all for a reader who has asked
-   the OS not to move things. The strip still appears; it just appears. */
-@media (prefers-reduced-motion:reduce){.d-wait.pulse{animation:none;}}
-/* Hidden until the browser can actually act on it: requestPermission needs a
-   user gesture, so there has to be something to click, but once the reader has
-   answered — either way — the button is noise and STATE_JS removes it. */
-.d-alert{background:var(--d-card);color:var(--d-mut);border:1px solid var(--d-line);
-border-radius:10px;font:600 11px/1.6 inherit;padding:1px 10px;margin:0 0 14px;
-cursor:pointer;}
-.d-alert:hover{color:var(--d-fg);border-color:var(--d-accent);}
-/* Two lines, then fade. The full text is the first timeline entry. */
-.d-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-overflow:hidden;margin:3px 0 0;color:#c4cad8;font-size:13.5px;max-width:none;}
-/* The contract the worklog below is measured against, so it gets the accent
-   rather than the neutral card outline every other block uses — it is not just
-   another card. */
-.d-plan{border-left:2px solid var(--d-accent);background:linear-gradient(
-90deg,#58a6ff0d,transparent 60%);padding:10px 0 12px 16px;margin:26px 0 4px;
-border-radius:0 6px 6px 0;}
-.d-plan .d-eyebrow{margin-top:12px;color:var(--d-mut);}
-.d-plan .d-eyebrow:first-child{margin-top:0;}
-.d-clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-overflow:hidden;margin:2px 0 0;max-width:78ch;color:#c9cfdd;}
-.d-clamp3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
-overflow:hidden;margin:2px 0 0;max-width:78ch;color:#c9cfdd;}
-.d-sec{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--d-mut);
-margin:30px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--d-line);}
-.d-tl{position:relative;padding-left:22px;}
-.d-tl:before{content:'';position:absolute;left:4px;top:6px;bottom:4px;width:1px;
-background:#2b3040;}
-.d-ev{position:relative;margin-bottom:18px;}
-.d-ev:before{content:'';position:absolute;left:-22px;top:6px;width:8px;height:8px;
-border-radius:50%;border:1.5px solid #4a5265;background:var(--d-bg);}
-.d-ev.big:before{left:-24px;top:4px;width:12px;height:12px;border:none;
-background:var(--d-accent);}
-/* Corrections: amber ring and an amber rule down the entry, so a scan of the
-   timeline finds the moments the project changed direction. */
-.d-ev.fix:before{background:var(--d-warn);border-color:var(--d-warn);}
-.d-ev.fix{border-left:2px solid #d2992255;margin-left:-14px;padding-left:12px;}
-.d-ev p{max-width:68ch;margin:4px 0;color:#c4cad8;}
-.d-links{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:6px;}
-/* The gallery earns real size; the 104px inline thumbs in the timeline do not.
-   Same white plate, since matplotlib output is white and should read as
-   intentional rather than as a hole punched in a dark page. */
-.d-figs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
-gap:12px;margin-top:0;}
-.d-figs img{width:100%;padding:6px;box-sizing:border-box;
-transition:border-color .15s ease,transform .15s ease;}
-.d-figs img:hover{border-color:var(--d-accent);transform:translateY(-2px);}
-.d-links img{width:104px;height:auto;background:#ffffffeb;border-radius:4px;
-border:1px solid var(--d-line);display:block;}
-.d-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));}
-.d-card{background:var(--d-card);border:1px solid var(--d-line);border-radius:6px;
-padding:9px 12px;font-size:13px;}
-.d-empty{color:var(--d-dim);font-style:italic;}
-a{color:#79b8ff;}
-table{border-collapse:collapse;font-size:13px;width:100%;}
-td,th{border-bottom:1px solid var(--d-line);padding:5px 8px;text-align:left;}
-.doc-trigger{cursor:pointer;}
-/* Document mode for the shared overlay. main.css centres a bare <img>; a report
-   instead needs a bounded, scrollable panel, so the two modes are switched by a
-   class on the overlay rather than given separate overlays — one close path. */
-.lightbox-doc{display:none;}
-/* Child combinator, not descendant. The overlay's own figure <img> is a direct
-   child of #lightbox; every image inside a rendered document is nested in
-   .lightbox-doc. A descendant selector here hid the figures embedded in
-   REPORT.md — which are the whole point of inlining them next to each finding. */
-.lightbox-overlay.mode-doc>img{display:none;}
-.lightbox-overlay.mode-doc .lightbox-doc{display:block;text-align:left;
-background:var(--d-panel);border:1px solid var(--d-line);border-radius:8px;
-width:min(880px,calc(100vw - 56px));max-height:calc(100vh - 96px);
-overflow-y:auto;overscroll-behavior:contain;padding:24px 32px;}
-.lightbox-doc>:first-child{margin-top:0;}
-.lightbox-doc h1{font-size:1.5rem;}.lightbox-doc h2{font-size:1.22rem;}
-.lightbox-doc h3{font-size:1.05rem;}.lightbox-doc h4{font-size:.95rem;}
-.lightbox-doc h1,.lightbox-doc h2{border-bottom:1px solid var(--d-line);
-padding-bottom:6px;}
-.lightbox-doc h1,.lightbox-doc h2,.lightbox-doc h3,.lightbox-doc h4{
-margin:26px 0 10px;line-height:1.3;}
-.lightbox-doc p,.lightbox-doc li{color:#c9cfdd;}
-.lightbox-doc li{margin:3px 0;}
-.lightbox-doc code{background:#0f1117;border:1px solid var(--d-line);
-border-radius:4px;padding:1px 5px;font-size:.88em;
-font-family:ui-monospace,SFMono-Regular,monospace;}
-.lightbox-doc pre{background:#0f1117;border:1px solid var(--d-line);
-border-radius:6px;padding:12px 14px;overflow-x:auto;}
-.lightbox-doc pre code{background:none;border:none;padding:0;}
-.lightbox-doc blockquote{margin:12px 0;padding:2px 14px;color:var(--d-mut);
-border-left:3px solid var(--d-line);}
-.lightbox-doc table{display:block;overflow-x:auto;white-space:nowrap;}
-.lightbox-doc th{color:var(--d-fg);font-weight:650;}
-.lightbox-doc img{max-width:100%;height:auto;}
-.lightbox-doc hr{border:none;border-top:1px solid var(--d-line);margin:20px 0;}
-.lightbox-doc .doc-error{color:var(--d-bad);}
-"""
-
 _ASSET_DIR = Path(__file__).resolve().parent / "dashboard_assets"
 
 
 def _asset(name: str) -> str:
-    """Read one of the sibling scripts in ``tools/dashboard_assets/``.
+    """Read one of the sibling assets in ``tools/dashboard_assets/``.
 
     Same trick as ``load_css``: the page is one self-contained HTML file, so
     every asset is inlined rather than linked. A ``<script src=>`` would
     resolve against the *project* directory in live mode and against whatever
     directory the snapshot was written into otherwise — a 404 in both.
 
-    Unlike ``load_css`` this does **not** swallow the error. A missing
-    stylesheet is an unstyled but readable page; a missing script is a dead
-    one — rel.js alone leaves every ``[data-epoch]`` blank and lets a stale
-    page keep looking fresh. And unlike ``ui/app/static/``, which this module
-    is only a guest in, this directory is part of the module, so a missing
-    file means a broken checkout and should say so at import.
+    Unlike ``load_css`` this does **not** swallow the error — including for
+    dash.css, whose absence really would leave the page unstyled but readable.
+    The realistic failure is the whole directory not shipping, and that is not
+    survivable: a missing rel.js leaves every ``[data-epoch]`` blank and lets a
+    stale page keep looking fresh, with no error anyone will see. And unlike
+    ``ui/app/static/``, which this module is only a guest in, this directory is
+    part of the module — a missing file means a broken checkout, so say so.
     """
     return (_ASSET_DIR / name).read_text(encoding="utf-8")
 
+
+# Emitted after ``load_css``'s main.css inside the one <style>; dash.css's own
+# header says why that order matters.
+DASH_CSS = _asset("dash.css")
 
 # Rationale for each of these lives in the file itself, next to the code it
 # explains. All four are inlined verbatim by ``render``; rel.js, state.js and
