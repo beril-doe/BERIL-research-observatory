@@ -309,22 +309,6 @@ def test_plan_approval_states(tmp_path, monkeypatch):
     assert "relayed" in _approval_chip(plan_approval(project, "active"))
 
 
-def test_review_freshness_and_deviation_count(tmp_path):
-    """A review whose footer no longer matches REPORT.md must read `stale` — the
-    single most misleading thing a lifecycle page could get wrong."""
-    project = _project(tmp_path, {"REPORT.md": "# Report\n\nFindings.\n"})
-    digest = hashlib.sha256((project / "REPORT.md").read_bytes()).hexdigest()
-    (project / "REVIEW_1.md").write_text(f"<!-- report_hash: sha256:{digest} -->\n")
-    (project / "REVIEW_2.md").write_text("<!-- report_hash: sha256:dead -->\n")
-
-    chips = {doc.name: doc.chip for doc in review_docs(project)}
-    assert chips == {"REVIEW_1.md": "current", "REVIEW_2.md": "stale"}
-
-    assert count_deviations(project) == 0
-    (project / "plan_deviations.jsonl").write_text('{"path":"a"}\n{"path":"b"}\n\n')
-    assert count_deviations(project) == 2
-
-
 def test_plan_reviews_are_listed_and_chipped_against_the_plan(tmp_path):
     """`glob("REVIEW*.md")` is anchored, so it never matched `PLAN_REVIEW_1.md` —
     the file `/berdl_start`'s plan-review checkpoint option (b) tells the operator
@@ -358,6 +342,13 @@ def test_plan_reviews_are_listed_and_chipped_against_the_plan(tmp_path):
     after = {doc.name: doc.chip for doc in review_docs(project)}
     assert after["PLAN_REVIEW_1.md"] == "current"
     assert after["REVIEW_1.md"] == "stale"
+
+    # The deviation count rides along here: it is the other number § Documents
+    # prints, and no other test in this file is sensitive to it. A blank
+    # trailing line is not a deviation.
+    assert count_deviations(project) == 0
+    (project / "plan_deviations.jsonl").write_text('{"path":"a"}\n{"path":"b"}\n\n')
+    assert count_deviations(project) == 2
 
 
 def test_plan_review_chip_matches_review_sh_not_plan_digest(tmp_path):
@@ -976,32 +967,6 @@ def test_when_a_system_notification_actually_fires(tmp_path):
     )
 
 
-def test_a_hidden_tab_still_polls_only_slower():
-    """The poll used to wrap its `fetch` in `visibilityState==='visible'`, so a
-    backgrounded tab fetched nothing at all — and a backgrounded tab is exactly
-    the one that needs to find out the agent is blocked. Nothing that reaches an
-    unattended reader (the title marker, the favicon dot, a notification) can
-    work on top of a transport that stops when nobody is looking.
-
-    The two assertions are the two halves of that fix, and each fails on the
-    obvious way to undo it:
-
-    - the cadence is chosen by visibility rather than the fetch being skipped;
-    - the only `visibilityState` left is the listener's, i.e. nothing guards the
-      fetch any more.
-
-    The shared `timer` handle is the third: `tick` schedules the next tick *and*
-    the listener calls `tick` directly, so without a `clearTimeout` every return
-    to the tab left another chain running forever. Free when hidden ticks did
-    nothing; a compounding multiplier on real requests now.
-    """
-    import tools.dashboard as dash
-
-    assert "document.hidden ? 15000 : 4000" in dash.POLL_JS
-    assert dash.POLL_JS.count("visibilityState") == 1, "something still gates the fetch"
-    assert "clearTimeout(timer)" in dash.POLL_JS, "tab returns would stack poll chains"
-
-
 ASSET_DIR = ROOT / "tools" / "dashboard_assets"
 JS_FILES = ("rel.js", "state.js", "poll.js", "lightbox.js")
 
@@ -1013,7 +978,8 @@ import vm from 'node:vm';
 
 const DIR = process.argv[2];
 const src = {};
-const out = {parsed: {}, exported: {}, calls: [], threw: null, rescheduled: []};
+const out = {parsed: {}, exported: {}, calls: [], hidden_calls: [], threw: null,
+             rescheduled: [], cleared: 0};
 
 // `new vm.Script` is the parser a classic inline <script> uses. `node --check`
 // is not: on a .js file it falls back to the module goal, so `import`,
@@ -1041,13 +1007,15 @@ const el = () => ({
 const ctx = {
   console,
   document: {
+    // Derived, not a second flag: a guard that reads either one is then caught.
+    get visibilityState() { return this.hidden ? 'hidden' : 'visible'; },
     title: 'demo', hidden: false, getElementById: el,
     querySelectorAll: () => [], addEventListener() {},
   },
   location: {pathname: '/proxy/9000/', replace() {}},
   setInterval: () => 0,
   setTimeout: (f, ms) => { out.rescheduled.push(ms); return 1; },
-  clearTimeout() {},
+  clearTimeout() { out.cleared += 1; },
   CSS: {escape: (s) => s},
   DOMParser: class {
     parseFromString() { return {getElementById: () => ({innerHTML: 'swapped'})}; }
@@ -1066,11 +1034,21 @@ new vm.Script(src['rel.js'] + src['state.js'] + src['poll.js']).runInContext(ctx
 // Both are global bindings a *sibling file* created, so read them before
 // spying — a spy would paper over the binding having gone missing.
 out.exported = {relTimes: typeof ctx.relTimes, dashMark: typeof ctx.dashMark};
-ctx.relTimes = () => out.calls.push('relTimes');
-ctx.dashMark = () => out.calls.push('dashMark');
+let calls = [];
+ctx.relTimes = () => calls.push('relTimes');
+ctx.dashMark = () => calls.push('dashMark');
 out.rescheduled.length = 0;
 try { ctx.tick(); } catch (e) { out.threw = String(e); }
 await new Promise((r) => setTimeout(r, 20));
+out.calls = calls;
+
+// ...then the same tick with the tab backgrounded. It must still fetch and
+// repaint, only on the slower cadence.
+calls = [];
+ctx.document.hidden = true;
+try { ctx.tick(); } catch (e) { out.threw = String(e); }
+await new Promise((r) => setTimeout(r, 20));
+out.hidden_calls = calls;
 console.log(JSON.stringify(out));
 """
 
@@ -1093,6 +1071,19 @@ def test_the_live_scripts_parse_and_share_one_scope(tmp_path):
     Parsing is `vm.Script`, not `node --check`: `--check` on a `.js` file falls
     back to the module goal and accepts `import`, `export` and top-level
     `await`, all of which kill a classic inline `<script>` stone dead.
+
+    The tick is then driven a second time with the tab backgrounded, which pins
+    the poll's other three properties. `poll.js` used to wrap its `fetch` in
+    `visibilityState === 'visible'`, so a backgrounded tab fetched nothing at
+    all — and that is exactly the tab that needs to learn the agent is blocked:
+    the title marker, the favicon dot and any notification are all painted from
+    a response, so none of them can sit on a transport that stops when nobody
+    is looking. So a hidden tick must still repaint (`hidden_calls`), must
+    reschedule at 15s rather than 4s, and must `clearTimeout` first — `tick`
+    schedules the next tick *and* the visibilitychange listener calls `tick`
+    directly, so without that clear every return to the tab left another chain
+    running forever. Free when hidden ticks did nothing; a compounding
+    multiplier on real requests now.
     """
     (tmp_path / "harness.mjs").write_text(SCOPE_HARNESS, encoding="utf-8")
     done = subprocess.run(
@@ -1108,7 +1099,13 @@ def test_the_live_scripts_parse_and_share_one_scope(tmp_path):
     assert result["exported"] == {"relTimes": "function", "dashMark": "function"}
     assert result["threw"] is None, "poll.js lost a sibling's global"
     assert result["calls"] == ["relTimes", "dashMark"], "the swap repainted nothing"
-    assert result["rescheduled"] == [4000], "the poll did not schedule its next tick"
+    assert result["hidden_calls"] == ["relTimes", "dashMark"], (
+        "a backgrounded tab stopped fetching — the one tab that cannot see the page"
+    )
+    assert result["rescheduled"] == [4000, 15000], (
+        "the poll did not schedule its next tick at the visible, then hidden, cadence"
+    )
+    assert result["cleared"] == 2, "tab returns would stack poll chains"
 
 
 def test_the_page_inlines_its_scripts_instead_of_linking_them(tmp_path):

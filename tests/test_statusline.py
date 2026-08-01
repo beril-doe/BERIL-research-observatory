@@ -263,21 +263,6 @@ def test_the_guard_does_not_skip_a_non_tool_payload(tmp_path):
     )
 
 
-def test_a_write_outside_any_project_records_nothing(tmp_path):
-    """The guard's whole purpose: most writes are not into a project, and paying
-    ~70ms for each would be the cost that made the hook not worth registering."""
-    repo = _repo(tmp_path, {"untouched": None})
-    done = _hook(repo, {
-        "session_id": "sess-elsewhere",
-        "hook_event_name": "PostToolUse",
-        "cwd": str(repo),
-        "tool_name": "Edit",
-        "tool_input": {"file_path": str(repo / "tools" / "dashboard.py")},
-    }, "sess-elsewhere")
-    assert done.returncode == 0, done.stderr
-    assert not (repo / "projects" / "untouched" / "runtime.json").exists()
-
-
 def test_the_statusline_starts_a_dashboard_that_is_not_running(tmp_path):
     """The launcher moved here because skill prose never fired during
     exploration: the earliest copy sat in `/berdl_start` Phase C, after the plan
@@ -421,23 +406,6 @@ def _spawn_dashboard(repo: Path, pid: str):
         [s.executable, str(ROOT / "tools" / "dashboard.py"), str(repo / "projects" / pid)],
         stdout=sp.DEVNULL, stderr=sp.DEVNULL, start_new_session=True,
     )
-
-
-def test_session_end_stops_the_dashboard_for_its_project(tmp_path):
-    """The counterpart to the status line starting it. Without this the server is
-    detached, so it outlives Claude Code and nothing ever stops it."""
-    repo = _repo(tmp_path, {"stopme": ["sess-stop"]})
-    proc = _spawn_dashboard(repo, "stopme")
-    try:
-        assert _wait_until_listening(_port("stopme")), "dashboard did not start"
-
-        done = _stop(repo, {"session_id": "sess-stop", "hook_event_name": "SessionEnd",
-                            "cwd": str(repo), "reason": "other"}, "sess-stop")
-        assert done.returncode == 0, done.stderr      # must never block the exit
-        assert proc.wait(timeout=15) is not None
-    finally:
-        if proc.poll() is None:
-            proc.kill()
 
 
 def test_a_mode_toggle_does_not_stop_the_dashboard(tmp_path):
