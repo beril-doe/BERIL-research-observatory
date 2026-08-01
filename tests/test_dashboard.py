@@ -1376,3 +1376,27 @@ def test_setup_refuses_rather_than_installing_against_the_wrong_python(tmp_path,
     assert setup_cmd._install_server_proxy(ROOT, assume_yes=True) == 1
     assert not ran, "ran an install with no idea which interpreter to target"
     assert "jupyter" in capsys.readouterr().err.lower()
+
+
+def test_the_gallery_wins_the_thumbnail_width_tie():
+    """REGRESSION. The figure gallery is `class="d-links d-figs"`, so both
+    `.d-links img` and `.d-figs img` match its tiles at specificity (0,1,1) and
+    source order alone decides the width. `.d-figs img` was written *above*
+    `.d-links img`, so every gallery tile rendered at the timeline's 104px inside
+    a 230px-minimum grid — from the file's first commit (3b7e36ec) until this
+    one, silently, because nothing errors and the page still looks deliberate.
+
+    A comment in dash.css says the order is load-bearing; a comment does not
+    survive the next tidy-up of a stylesheet that has no other ordering
+    constraint. This is the only thing that fails if the two rules swap back.
+
+    Matched as `^selector{` rather than by substring: that same comment quotes
+    `.d-links img`, so a plain `.index()` compares the comment's position and
+    passes however the rules are ordered.
+    """
+    import tools.dashboard as dash
+
+    links = re.search(r"^\.d-links img\{", dash.DASH_CSS, re.M)
+    figs = re.search(r"^\.d-figs img\{", dash.DASH_CSS, re.M)
+    assert links and figs, "one of the two thumbnail width rules is gone"
+    assert links.start() < figs.start(), "gallery tiles are back to 104px"
