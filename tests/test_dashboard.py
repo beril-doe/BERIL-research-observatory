@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -827,8 +828,8 @@ def test_the_title_marker_and_favicon_are_client_side(tmp_path):
     page = dash.render(dash.scan(_waiting(_project(tmp_path))), "")
 
     assert "<title>demo</title>" in page, "the marker was baked into the response"
-    assert "document.title=(MARK[s]||'')+BASE" in page
-    assert 'id="d-favicon"' in page and "F.href=ICON[s]" in page
+    assert "document.title = (MARK[s] || '') + BASE;" in page
+    assert 'id="d-favicon"' in page and "F.href = ICON[s] || ICON[''];" in page
 
 
 def test_a_snapshot_gets_the_state_but_never_the_alert_button(tmp_path):
@@ -956,9 +957,155 @@ def test_a_hidden_tab_still_polls_only_slower():
     """
     import tools.dashboard as dash
 
-    assert "document.hidden?15000:4000" in dash.POLL_JS
+    assert "document.hidden ? 15000 : 4000" in dash.POLL_JS
     assert dash.POLL_JS.count("visibilityState") == 1, "something still gates the fetch"
     assert "clearTimeout(timer)" in dash.POLL_JS, "tab returns would stack poll chains"
+
+
+ASSET_DIR = ROOT / "tools" / "dashboard_assets"
+JS_FILES = ("rel.js", "state.js", "poll.js", "lightbox.js")
+
+
+SCOPE_HARNESS = """
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+
+const DIR = process.argv[2];
+const src = {};
+const out = {parsed: {}, exported: {}, calls: [], threw: null, rescheduled: []};
+
+// `new vm.Script` is the parser a classic inline <script> uses. `node --check`
+// is not: on a .js file it falls back to the module goal, so `import`,
+// `export`, top-level `await` and top-level `return` all pass there and are
+// hard SyntaxErrors in the page render() actually emits.
+for (const f of ['rel.js', 'state.js', 'poll.js', 'lightbox.js']) {
+  src[f] = fs.readFileSync(path.join(DIR, f), 'utf8');
+  try {
+    new vm.Script(src[f]);
+    out.parsed[f] = true;
+  } catch (e) {
+    out.parsed[f] = String(e);
+  }
+}
+if (Object.values(out.parsed).some((v) => v !== true)) {
+  console.log(JSON.stringify(out));
+  process.exit(0);
+}
+
+const el = () => ({
+  innerHTML: '', hidden: true, offsetWidth: 1, href: '', dataset: {},
+  classList: {add() {}, remove() {}},
+  querySelector: () => null, querySelectorAll: () => [], addEventListener() {},
+});
+const ctx = {
+  console,
+  document: {
+    title: 'demo', hidden: false, getElementById: el,
+    querySelectorAll: () => [], addEventListener() {},
+  },
+  location: {pathname: '/proxy/9000/', replace() {}},
+  setInterval: () => 0,
+  setTimeout: (f, ms) => { out.rescheduled.push(ms); return 1; },
+  clearTimeout() {},
+  CSS: {escape: (s) => s},
+  DOMParser: class {
+    parseFromString() { return {getElementById: () => ({innerHTML: 'swapped'})}; }
+  },
+  fetch: () => Promise.resolve({
+    status: 200, headers: {get: () => 'W/"etag"'},
+    text: () => Promise.resolve('<html></html>'),
+  }),
+};
+ctx.window = ctx;
+vm.createContext(ctx);
+
+// Exactly what render() emits in live mode: three files, one <script>.
+new vm.Script(src['rel.js'] + src['state.js'] + src['poll.js']).runInContext(ctx);
+
+// Both are global bindings a *sibling file* created, so read them before
+// spying — a spy would paper over the binding having gone missing.
+out.exported = {relTimes: typeof ctx.relTimes, dashMark: typeof ctx.dashMark};
+ctx.relTimes = () => out.calls.push('relTimes');
+ctx.dashMark = () => out.calls.push('dashMark');
+out.rescheduled.length = 0;
+try { ctx.tick(); } catch (e) { out.threw = String(e); }
+await new Promise((r) => setTimeout(r, 20));
+console.log(JSON.stringify(out));
+"""
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node to run the scripts")
+def test_the_live_scripts_parse_and_share_one_scope(tmp_path):
+    """The extracted scripts have no bundler, no eslint and no build step behind
+    them, deliberately, so this is the whole lint story — and reading each file
+    is not enough of one.
+
+    `rel.js`, `state.js` and `poll.js` are concatenated into a single
+    `<script>`, which is the only reason `poll.js` can see `R`, `tag`,
+    `relTimes` and `dashMark`. Nothing in the language records that. Splitting
+    one blob into four separately editable files is exactly what makes it easy
+    to sever — wrap `rel.js` in an IIFE and every file still parses, so a
+    per-file check stays green while the page renders once and then stops
+    updating. So the three are compiled together and driven through one `tick()`
+    against a stub browser.
+
+    Parsing is `vm.Script`, not `node --check`: `--check` on a `.js` file falls
+    back to the module goal and accepts `import`, `export` and top-level
+    `await`, all of which kill a classic inline `<script>` stone dead.
+    """
+    (tmp_path / "harness.mjs").write_text(SCOPE_HARNESS, encoding="utf-8")
+    done = subprocess.run(
+        ["node", str(tmp_path / "harness.mjs"), str(ASSET_DIR)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert done.returncode == 0, done.stderr
+    result = json.loads(done.stdout)
+
+    assert result["parsed"] == dict.fromkeys(JS_FILES, True)
+    assert result["exported"] == {"relTimes": "function", "dashMark": "function"}
+    assert result["threw"] is None, "poll.js lost a sibling's global"
+    assert result["calls"] == ["relTimes", "dashMark"], "the swap repainted nothing"
+    assert result["rescheduled"] == [4000], "the poll did not schedule its next tick"
+
+
+def test_the_page_inlines_its_scripts_instead_of_linking_them(tmp_path):
+    """The page is one file, in both transports, and that is what makes a
+    `<script src=>` wrong rather than merely different.
+
+    A snapshot is opened through Jupyter's `files/` route or double-clicked off
+    disk, so a relative src resolves next to the *project*, not next to
+    `tools/`. Live is no better: the server hands every unrecognised path to
+    `SimpleHTTPRequestHandler(directory=project)`. Both 404, and a 404 script
+    fails silently.
+
+    `test_render_has_no_absolute_urls` does not cover this — a *relative* src
+    passes it cleanly.
+
+    Inlining is also what makes the moved prose dangerous in a way it was not
+    inside a Python string: a `</script` or a `<!--` in a comment ends the tag
+    early and silently truncates the page, so the file bodies are checked for
+    both.
+    """
+    import tools.dashboard as dash
+
+    state = dash.scan(_project(tmp_path, {"WORKLOG.md": WORKLOG}))
+    live = dash.render(state, "", live=True)
+    snap = dash.render(state, "", live=False)
+
+    for page in (live, snap):
+        # A literal `"<script src="` misses `<script defer src=`; a bare
+        # `" src="` would hit the lightbox's real <img>.
+        assert not re.search(r"<script[^>]*\ssrc=", page)
+    for name in JS_FILES:
+        body = (ASSET_DIR / name).read_text(encoding="utf-8")
+        assert "</script" not in body and "<!--" not in body, f"{name} would truncate the page"
+        assert body.endswith("\n"), f"{name} would glue onto the next file"
+        assert body in live, f"{name} is not inlined verbatim"
+        if name != "poll.js":  # live only, by design
+            assert body in snap, f"{name} is not inlined verbatim in a snapshot"
 
 
 def _dropin(cfg_dir: Path, name: str, enabled: bool) -> None:

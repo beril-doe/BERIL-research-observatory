@@ -9,9 +9,20 @@ observatory (`ui/`), which is Postgres-backed, auth'd, and renders *finished* pr
 imported from GitHub. This renders the working directory as it is right now.
 
 **This document records decisions and the evidence behind them — mostly why things were
-*not* built.** How the code works is documented in `tools/dashboard.py` itself, next to
-the code, where it cannot drift. Nothing here should restate a docstring; if it does,
-delete it here.
+*not* built.** How the code works is documented in `tools/dashboard.py` and
+`tools/dashboard_assets/` themselves, next to the code, where it cannot drift. Nothing here
+should restate a docstring; if it does, delete it here.
+
+The client scripts live in `tools/dashboard_assets/` — `rel.js`, `state.js`, `poll.js`,
+`lightbox.js` — one file per constant, read at import and inlined by `render()`. Their
+rationale moved with them; `poll.js`'s header is where the cross-file coupling is written
+down. Two consequences worth knowing before rediscovering them. The comments now ride the
+wire — 5.2 KB became 13.9 KB on every uncached response — so if page weight ever becomes a
+budget, strip them in `_asset()`. It is not the one-liner it looks like: `state.js` has a
+`//` inside a string literal. And if the directory fails to ship, the loudest symptom is
+the quietest — `.claude/statusline.sh` and `beril setup` both catch the import error and
+drop the stage chip, the URL and the dashboard auto-start without a word. Run
+`python3 tools/dashboard.py --static <project>` to see the real one.
 
 ## Why a server, and why this one
 
@@ -399,6 +410,7 @@ runs in, and people reasonably assume it kills the session too. It does not.
 | a service worker, so a *closed* tab can be notified | never — it also needs a push service, and a stdlib server in an ephemeral pod cannot be one |
 | a modal, or anything that keeps flashing, for "agent needs you" | never — WCAG 2.3.1; one 600ms pulse on the transition is the ceiling |
 | fastapi, uvicorn, jinja2, nbconvert, PyYAML | never — see the two-launcher section |
+| a bundler, minifier, eslint or any build step for `tools/dashboard_assets/` | never — the pod has no egress, so a bundle would have to be committed, and a stale committed artifact is a failure no test can see |
 | `c.ServerProxy.servers` supervised registration | someone wants a permanent named URL and doesn't mind restarting Jupyter once |
 | pidfile / flock / stop command | two dashboards must be mutually exclusive on one port — not a requirement |
 | TOC, tabs, search, sortable tables, light mode | past ~6 sections, or >10 notebooks in a project |

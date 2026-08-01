@@ -148,7 +148,8 @@ PRUNE_DIRS = {".ipynb_checkpoints", "__pycache__", ".git"}
 MARKDOWN_EXT = {".md", ".markdown"}
 # Where the overlay fetches rendered markdown from. Kept off the project's own
 # namespace by the leading underscore, since every other path this server answers
-# is a real file. LIGHTBOX_JS hardcodes the same prefix without the leading slash.
+# is a real file. tools/dashboard_assets/lightbox.js hardcodes the same prefix
+# without the leading slash.
 DOC_ROUTE = "/_doc/"
 # Types with a real Lab viewer: Notebook, the DataGrid CSV/TSV viewers, and the
 # collapsible JSON tree. `.parquet` is deliberately absent — see open_url.
@@ -981,184 +982,34 @@ border-left:3px solid var(--d-line);}
 .lightbox-doc .doc-error{color:var(--d-bad);}
 """
 
-# The page ships in two halves because it has two transports and only one of
-# them can poll.
-#
-# REL_JS always runs. Every timestamp renders client-side from `data-epoch`
-# (see the design doc), so without it the readouts are empty elements — which
-# is why the snapshot gets this half rather than no script at all. It is also
-# what keeps a *stale* snapshot honest: `relTimes` measures age against the
-# reader's clock, not the render time, so an abandoned snapshot visibly ages
-# green -> amber -> grey instead of freezing on a green dot.
-REL_JS = """
-var R=document.getElementById('root'),tag=null;
-function rel(s){var d=Math.max(0,Date.now()/1000-s);
-if(d<60)return Math.floor(d)+'s ago';if(d<3600)return Math.floor(d/60)+'m ago';
-if(d<86400)return Math.floor(d/3600)+'h ago';return Math.floor(d/86400)+'d ago';}
-function since(s){var d=Math.max(0,Date.now()/1000-s);
-if(d<3600)return Math.floor(d/60)+'m';if(d<86400)return Math.floor(d/3600)+'h '+
-Math.floor((d%3600)/60)+'m';return Math.floor(d/86400)+'d';}
-function relTimes(){
-var n=document.querySelectorAll('[data-epoch]');
-for(var i=0;i<n.length;i++){var el=n[i],s=parseFloat(el.dataset.epoch);
-if(!s){el.textContent='--';continue;}
-var age=Date.now()/1000-s;
-el.textContent=(el.dataset.mode==='since')?since(s):rel(s);
-if(el.dataset.mode!=='since')
-el.className=age<600?'live':(age<3600?'idle':'cold');}}
-setInterval(relTimes,15000);relTimes();
-"""
+_ASSET_DIR = Path(__file__).resolve().parent / "dashboard_assets"
 
-# Everything about "the agent needs you" that cannot be server-rendered, for the
-# same reason relative times cannot be: a 304 freezes whatever the server wrote,
-# and this is the one readout whose whole job is to be current. The server emits
-# `#d-state` inside #root carrying `data-state` and `data-since`; `mark()` reads
-# them after every swap and drives four things off them.
-#
-# Two channels reach a reader who is not looking at the page — the title marker
-# and the favicon — and they are the only two a browser gives a foreground tab.
-# A closed tab gets nothing without a service worker and a push service, which a
-# stdlib server inside a pod cannot be.
-#
-# `#d-detail` is agent-authored text, so it is *not* interpolated here. The
-# server renders it through the same `inline_md` -> `e()` path as the worklog and
-# this copies the resulting node's HTML verbatim; the escaping decision stays in
-# one place, in Python, where it is tested. The notification body takes
-# `textContent` instead, since it is not markup at all.
-#
-# The `(state, since)` pair is the debounce key. Without it every 4s re-render is
-# a fresh transition: the strip would re-pulse and the OS notification would
-# re-fire for one permission prompt, which is how a notification gets muted.
-STATE_JS = """
-(function(){
-var W=document.getElementById('d-wait'),B=document.getElementById('d-alert'),
-F=document.getElementById('d-favicon'),BASE=document.title,last=null,
-hiddenAt=document.hidden?Date.now():0;
-var MARK={waiting:'\\u25cf ',turn_ended:'\\u2713 '};
-function icon(c){return 'data:image/svg+xml,'+encodeURIComponent(
-'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'+
-'<circle cx="8" cy="8" r="7" fill="'+c+'"/></svg>');}
-var ICON={waiting:icon('#d29922'),turn_ended:icon('#3fb950'),'':icon('#30363d')};
-document.addEventListener('visibilitychange',function(){
-hiddenAt=document.hidden?Date.now():0;});
-function alertable(s){
-// Stop fires at the end of *every* turn. Notifying on each one gets the whole
-// feature muted inside a day, so it only speaks when the reader has actually
-// been away — the case where they cannot already see it happen.
-if(s==='waiting')return true;
-return s==='turn_ended'&&hiddenAt>0&&Date.now()-hiddenAt>60000;}
-function notify(s,body){
-if(!('Notification' in window)||Notification.permission!=='granted')return;
-if(!alertable(s))return;
-try{new Notification(BASE,{body:body,tag:'beril-'+BASE});}catch(err){}}
-function mark(){
-var c=document.getElementById('d-state'),d=document.getElementById('d-detail'),
-s=c?(c.dataset.state||''):'',key=s+'|'+(c?c.dataset.since:'');
-document.title=(MARK[s]||'')+BASE;
-if(F)F.href=ICON[s]||ICON[''];
-if(B)B.hidden=!('Notification' in window)||Notification.permission!=='default';
-if(key===last)return;
-if(s==='waiting'&&W){
-W.innerHTML='<b>The agent is waiting for you.</b> '+(d?d.innerHTML:'');
-W.hidden=false;
-W.classList.remove('pulse');void W.offsetWidth;W.classList.add('pulse');}
-else if(W){W.hidden=true;W.innerHTML='';}
-if(last!==null)notify(s,d?d.textContent:'');
-last=key;}
-if(B)B.addEventListener('click',function(){
-Notification.requestPermission().then(function(){B.hidden=true;});});
-window.dashMark=mark;mark();})();
-"""
 
-# POLL_JS is emitted **only in live mode**, and both of its outer statements are
-# why: the trailing-slash redirect and the `fetch` are each actively wrong on a
-# snapshot.
-#
-# - The redirect exists so relative asset URLs resolve under `/proxy/<port>`.
-#   A snapshot is served at `<prefix>files/<rel>/dashboard.html`, which does not
-#   end in `/`, so this line would navigate the page to `dashboard.html/` — a
-#   Jupyter 404. The page would destroy itself on load.
-# - `files/` responses carry `Content-Security-Policy: sandbox allow-scripts`
-#   with no `allow-same-origin` (measured against the live server), so the
-#   document has an opaque origin and `fetch` cannot send the hub cookie. The
-#   poll could only ever fail, silently, forever.
-#
-# **A hidden tab still fetches**, at 15s instead of 4s. It used to skip the
-# fetch entirely, which is cheaper and wrong: a backgrounded tab is exactly the
-# tab that needs to learn the agent is blocked on a permission prompt, and one
-# that never fetches can never learn anything — it has only the title and the
-# favicon to speak through, and both are painted from the response. The cost is
-# small enough to check rather than argue about: a 304 still runs a full
-# `scan()` at 6.8ms measured, so 15s hidden is ~1.6s of CPU per hour per tab,
-# less than a *visible* tab costs today.
-#
-# The single `timer` handle is not decoration. `tick` schedules the next tick,
-# and the visibilitychange listener calls `tick` directly, so every return to
-# the tab used to start a second concurrent chain that never ended — harmless
-# while hidden ticks were free, a compounding multiplier on real requests now.
-POLL_JS = """
-if(!location.pathname.endsWith('/'))location.replace(location.pathname+'/');
-var timer=0;
-function tick(){
-var h=tag?{'If-None-Match':tag}:{};
-fetch('.',{headers:h}).then(function(r){
-if(r.status!==200)return null;tag=r.headers.get('ETag');return r.text();})
-.then(function(t){if(!t)return;
-var open=[],ds=R.querySelectorAll('details[open]');
-for(var i=0;i<ds.length;i++)if(ds[i].id)open.push(ds[i].id);
-var doc=new DOMParser().parseFromString(t,'text/html');
-var next=doc.getElementById('root');if(!next)return;
-R.innerHTML=next.innerHTML;
-for(var j=0;j<open.length;j++){var d=R.querySelector('#'+CSS.escape(open[j]));
-if(d)d.open=true;}
-relTimes();dashMark();}).catch(function(){});
-clearTimeout(timer);timer=setTimeout(tick,document.hidden?15000:4000);}
-document.addEventListener('visibilitychange',function(){
-if(document.visibilityState==='visible')tick();});
-timer=setTimeout(tick,4000);
-"""
+def _asset(name: str) -> str:
+    """Read one of the sibling scripts in ``tools/dashboard_assets/``.
 
-# The overlay is a sibling of #root, and every listener is delegated on document,
-# so a trigger stays clickable after the 4s poll swaps #root's innerHTML — the
-# trigger elements are replaced, but the handler and the overlay are not.
-#
-# Two modes share one overlay: an <img> for figures, and a scrollable panel for
-# markdown fetched from `/_doc/`. Sharing it means Esc, the backdrop and the ×
-# have exactly one implementation. An <iframe> was the obvious alternative for the
-# document mode and was rejected: keystrokes inside an iframe never reach the
-# parent document, so Esc would silently stop closing the popup.
-LIGHTBOX_JS = """
-(function(){var L=document.getElementById('lightbox');if(!L)return;
-var I=L.querySelector('img'),D=L.querySelector('.lightbox-doc'),seq=0;
-function close(){L.classList.remove('active','mode-doc');}
-function near(t,sel){return t&&t.closest?t.closest(sel):null;}
-function note(cls,msg){D.innerHTML='<p class="'+cls+'"></p>';
-D.firstChild.textContent=msg;}
-document.addEventListener('click',function(e){
-var fig=near(e.target,'.lightbox-trigger');
-if(fig){I.src=fig.getAttribute('src');I.alt=fig.getAttribute('alt')||'';
-L.classList.remove('mode-doc');L.classList.add('active');return;}
-var doc=near(e.target,'.doc-trigger');
-if(doc&&e.button===0&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey&&!e.altKey){
-e.preventDefault();
-var path=doc.getAttribute('data-doc'),n=++seq;
-note('d-empty','loading\\u2026');
-L.classList.add('active','mode-doc');D.scrollTop=0;
-fetch('_doc/'+path.split('/').map(encodeURIComponent).join('/'))
-.then(function(r){return r.ok?r.text():r.status;})
-.then(function(v){if(n!==seq)return;
-if(typeof v==='number'){note('doc-error','could not render '+path+' ('+v+')');return;}
-D.innerHTML=v;D.scrollTop=0;})
-.catch(function(){if(n!==seq)return;
-// fetch rejected outright: nothing is serving this page, which is what a
-// written-out dashboard.html opened from disk looks like. Follow the real
-// href instead of leaving an empty overlay open.
-close();location.href=doc.getAttribute('href');});
-return;}
-if(e.target===L||near(e.target,'.lightbox-close'))close();});
-document.addEventListener('keydown',function(e){
-if(e.key==='Escape'||e.key==='Esc')close();});})();
-"""
+    Same trick as ``load_css``: the page is one self-contained HTML file, so
+    every asset is inlined rather than linked. A ``<script src=>`` would
+    resolve against the *project* directory in live mode and against whatever
+    directory the snapshot was written into otherwise — a 404 in both.
+
+    Unlike ``load_css`` this does **not** swallow the error. A missing
+    stylesheet is an unstyled but readable page; a missing script is a dead
+    one — rel.js alone leaves every ``[data-epoch]`` blank and lets a stale
+    page keep looking fresh. And unlike ``ui/app/static/``, which this module
+    is only a guest in, this directory is part of the module, so a missing
+    file means a broken checkout and should say so at import.
+    """
+    return (_ASSET_DIR / name).read_text(encoding="utf-8")
+
+
+# Rationale for each of these lives in the file itself, next to the code it
+# explains. All four are inlined verbatim by ``render``; rel.js, state.js and
+# poll.js share one ``<script>`` and therefore one scope — see poll.js's header.
+REL_JS = _asset("rel.js")  # always emitted; defines R, tag, rel, since, relTimes
+STATE_JS = _asset("state.js")  # always emitted; exports window.dashMark
+POLL_JS = _asset("poll.js")  # live mode only; reads rel.js's and state.js's globals
+LIGHTBOX_JS = _asset("lightbox.js")  # always emitted; self-contained IIFE
 
 
 _MD_CODE_RE = re.compile(r"`([^`\n]+)`")
@@ -1701,8 +1552,13 @@ def render(state: State, css: str, live: bool = True) -> str:
         # favicon, and a snapshot written while a prompt was open should still
         # say so. Only its notification half is dead there, and it is dead by
         # construction — no button, so no permission, so nothing fires.
-        f"<script>{REL_JS}{STATE_JS}{POLL_JS if live else ''}</script>\n"
-        f"<script>{LIGHTBOX_JS}</script>\n</body>\n</html>\n"
+        # The newline after each `<script>` is cosmetic — it keeps the emitted
+        # source readable now that every file opens with a `//` comment. The
+        # trailing newline on each *file* is not: the three in the first tag are
+        # concatenated raw, so a file ending in a comment would swallow the next
+        # file's first line. Pinned by test_the_page_inlines_its_scripts_*.
+        f"<script>\n{REL_JS}{STATE_JS}{POLL_JS if live else ''}</script>\n"
+        f"<script>\n{LIGHTBOX_JS}</script>\n</body>\n</html>\n"
     )
 
 
