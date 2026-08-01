@@ -15,42 +15,40 @@
 // the parent document, so Esc would silently stop closing the popup.
 
 (function () {
-  const L = document.getElementById('lightbox');
-  if (!L) return;
-  const I = L.querySelector('img');
-  const D = L.querySelector('.lightbox-doc');
+  const overlay = document.getElementById('lightbox');
+  if (!overlay) return;
+  const img = overlay.querySelector('img');
+  const panel = overlay.querySelector('.lightbox-doc');
   let seq = 0;
 
   function close() {
-    L.classList.remove('active', 'mode-doc');
-  }
-
-  function near(t, sel) {
-    return t && t.closest ? t.closest(sel) : null;
+    overlay.classList.remove('active', 'mode-doc');
   }
 
   function note(cls, msg) {
-    D.innerHTML = '<p class="' + cls + '"></p>';
-    D.firstChild.textContent = msg;
+    panel.innerHTML = '<p class="' + cls + '"></p>';
+    panel.firstChild.textContent = msg;
   }
 
   document.addEventListener('click', function (e) {
-    const fig = near(e.target, '.lightbox-trigger');
+    const t = e.target;
+    if (!t || !t.closest) return;
+    const fig = t.closest('.lightbox-trigger');
     if (fig) {
-      I.src = fig.getAttribute('src');
-      I.alt = fig.getAttribute('alt') || '';
-      L.classList.remove('mode-doc');
-      L.classList.add('active');
+      img.src = fig.getAttribute('src');
+      img.alt = fig.getAttribute('alt') || '';
+      overlay.classList.remove('mode-doc');
+      overlay.classList.add('active');
       return;
     }
-    const doc = near(e.target, '.doc-trigger');
+    const doc = t.closest('.doc-trigger');
     if (doc && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
       e.preventDefault();
       const path = doc.getAttribute('data-doc');
       const n = ++seq;
       note('d-empty', 'loading\u2026');
-      L.classList.add('active', 'mode-doc');
-      D.scrollTop = 0;
+      overlay.classList.add('active', 'mode-doc');
+      panel.scrollTop = 0;
       fetch('_doc/' + path.split('/').map(encodeURIComponent).join('/'))
         .then(function (r) {
           return r.ok ? r.text() : r.status;
@@ -61,8 +59,8 @@
             note('doc-error', 'could not render ' + path + ' (' + v + ')');
             return;
           }
-          D.innerHTML = v;
-          D.scrollTop = 0;
+          panel.innerHTML = v;
+          panel.scrollTop = 0;
         })
         .catch(function () {
           if (n !== seq) return;
@@ -74,7 +72,7 @@
         });
       return;
     }
-    if (e.target === L || near(e.target, '.lightbox-close')) close();
+    if (t === overlay || t.closest('.lightbox-close')) close();
   });
 
   document.addEventListener('keydown', function (e) {

@@ -373,14 +373,29 @@ def test_without_the_proxy_it_snapshots_instead_of_respawning_forever(tmp_path, 
 
 def test_it_does_not_spawn_when_no_project_resolves(tmp_path):
     """A display component with a side effect has to stay bounded: no project,
-    no process."""
+    no process.
+
+    Two details, both found by mutating the launcher to spawn unconditionally and
+    watching this test pass anyway:
+
+    - `pgrep -fc <pat>` with no match exits 2 on Darwin 25.5.0 with empty stdout
+      and a usage message on stderr, so the earlier `.stdout.strip() or "0"`
+      compared `"0"` to `"0"` whatever happened. Count `pgrep -f` lines instead.
+    - The pattern has to name *this* tmp repo. A repo-wide one is masked in a
+      full-suite run: `port_for("unbound")` is the same port every time, so a
+      stray from an earlier test holds it, the spawn dies on EADDRINUSE, and the
+      count matches again. Same pattern the rest of this file pkills with.
+    """
     repo = _repo(tmp_path, {"unbound": None})
-    before = subprocess.run(["pgrep", "-fc", "tools/dashboard.py"],
-                            capture_output=True, text=True).stdout.strip() or "0"
+
+    def running() -> int:
+        found = subprocess.run(["pgrep", "-f", f"dashboard.py {repo}/projects"],
+                               capture_output=True, text=True)
+        return len(found.stdout.split())
+
+    before = running()
     assert "unbound" not in _render(repo, session_id="no-such-session")
-    after = subprocess.run(["pgrep", "-fc", "tools/dashboard.py"],
-                           capture_output=True, text=True).stdout.strip() or "0"
-    assert before == after, "spawned a dashboard with no project resolved"
+    assert running() == before, "spawned a dashboard with no project resolved"
 
 
 # --------------------------------------------------------------------------

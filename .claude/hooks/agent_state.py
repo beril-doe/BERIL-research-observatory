@@ -83,26 +83,26 @@ GENERIC = {"Claude needs your permission", "Claude is waiting for your input"}
 ROOT = Path(__file__).absolute().parent.parent.parent
 
 
-def find_detail(value, keys=DETAIL_KEYS) -> "str | None":
-    """The first non-empty string under any of `keys`, at any depth.
+def find_detail(value) -> "str | None":
+    """The first non-empty string under any of `DETAIL_KEYS`, at any depth.
 
     Keys are tried in priority order at each level before descending, so a
     `command` two levels down still loses to a `question` at the top.
     """
     if isinstance(value, dict):
-        for key in keys:
+        for key in DETAIL_KEYS:
             found = value.get(key)
             if isinstance(found, str) and found.strip():
                 return found.strip()
-        for child in value.values():
-            found = find_detail(child, keys)
-            if found:
-                return found
+        children = value.values()
     elif isinstance(value, list):
-        for child in value:
-            found = find_detail(child, keys)
-            if found:
-                return found
+        children = value
+    else:
+        return None
+    for child in children:
+        found = find_detail(child)
+        if found:
+            return found
     return None
 
 

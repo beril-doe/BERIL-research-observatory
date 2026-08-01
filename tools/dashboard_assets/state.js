@@ -2,16 +2,10 @@
 // notification. Inlined into the page by tools/dashboard.py as STATE_JS, in
 // both transports; poll.js calls the exported `window.dashMark` after a swap.
 //
-// Everything here is client-side for the same reason relative times are: a 304
-// freezes whatever the server wrote, and this is the one readout whose whole
-// job is to be current. The server emits `#d-state` inside #root carrying
-// `data-state` and `data-since`; `mark()` reads them after every swap and
-// drives four things off them.
-//
-// Two channels reach a reader who is not looking at the page — the title marker
-// and the favicon — and they are the only two a browser gives a foreground tab.
-// A closed tab gets nothing without a service worker and a push service, which
-// a stdlib server inside a pod cannot be.
+// Client-side for the reason rel.js gives about a 304. The server emits
+// `#d-state` inside #root carrying `data-state` and `data-since`, plus an
+// optional `#d-detail`; that pair is the whole contract, and `mark()` reads it
+// after every swap and drives four things off it.
 //
 // `#d-detail` is agent-authored text, so it is *not* interpolated here. The
 // server renders it through the same `inline_md` -> `e()` path as the worklog
@@ -30,19 +24,23 @@
 // locals below out of the one scope this file shares with rel.js and poll.js.
 
 (function () {
-  const W = document.getElementById('d-wait');
-  const B = document.getElementById('d-alert');
-  const F = document.getElementById('d-favicon');
+  const strip = document.getElementById('d-wait');
+  const alertBtn = document.getElementById('d-alert');
+  const favicon = document.getElementById('d-favicon');
   const BASE = document.title;
   let last = null;
   let hiddenAt = document.hidden ? Date.now() : 0;
 
+  // Long enough that the reader really has left — and the same 60s Claude
+  // Code's own `idle_prompt` notification waits after a Stop.
+  const AWAY_MS = 60000;
+
   const MARK = {waiting: '\u25cf ', turn_ended: '\u2713 '};
 
-  function icon(c) {
+  function icon(fill) {
     return 'data:image/svg+xml,' + encodeURIComponent(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">' +
-      '<circle cx="8" cy="8" r="7" fill="' + c + '"/></svg>');
+      '<circle cx="8" cy="8" r="7" fill="' + fill + '"/></svg>');
   }
 
   const ICON = {
@@ -55,49 +53,55 @@
     hiddenAt = document.hidden ? Date.now() : 0;
   });
 
-  function alertable(s) {
+  function alertable(state) {
     // Stop fires at the end of *every* turn. Notifying on each one gets the
     // whole feature muted inside a day, so it only speaks when the reader has
     // actually been away — the case where they cannot already see it happen.
-    if (s === 'waiting') return true;
-    return s === 'turn_ended' && hiddenAt > 0 && Date.now() - hiddenAt > 60000;
+    if (state === 'waiting') return true;
+    return state === 'turn_ended' && hiddenAt > 0 && Date.now() - hiddenAt > AWAY_MS;
   }
 
-  function notify(s, body) {
+  function notify(state, body) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    if (!alertable(s)) return;
+    if (!alertable(state)) return;
     try {
       new Notification(BASE, {body: body, tag: 'beril-' + BASE});
     } catch (err) {}
   }
 
   function mark() {
-    const c = document.getElementById('d-state');
-    const d = document.getElementById('d-detail');
-    const s = c ? (c.dataset.state || '') : '';
-    const key = s + '|' + (c ? c.dataset.since : '');
-    document.title = (MARK[s] || '') + BASE;
-    if (F) F.href = ICON[s] || ICON[''];
-    if (B) B.hidden = !('Notification' in window) || Notification.permission !== 'default';
-    if (key === last) return;
-    if (s === 'waiting' && W) {
-      W.innerHTML = '<b>The agent is waiting for you.</b> ' + (d ? d.innerHTML : '');
-      W.hidden = false;
-      W.classList.remove('pulse');
-      void W.offsetWidth;
-      W.classList.add('pulse');
-    } else if (W) {
-      W.hidden = true;
-      W.innerHTML = '';
+    const stateEl = document.getElementById('d-state');
+    const detailEl = document.getElementById('d-detail');
+    const state = stateEl ? (stateEl.dataset.state || '') : '';
+    const key = state + '|' + (stateEl ? stateEl.dataset.since : '');
+    document.title = (MARK[state] || '') + BASE;
+    if (favicon) favicon.href = ICON[state] || ICON[''];
+    if (alertBtn) {
+      alertBtn.hidden =
+        !('Notification' in window) || Notification.permission !== 'default';
     }
-    if (last !== null) notify(s, d ? d.textContent : '');
+    if (key === last) return;
+    if (state === 'waiting' && strip) {
+      strip.innerHTML = '<b>The agent is waiting for you.</b> ' +
+        (detailEl ? detailEl.innerHTML : '');
+      strip.hidden = false;
+      strip.classList.remove('pulse');
+      void strip.offsetWidth;  // forced reflow — the only way to restart the CSS animation
+      strip.classList.add('pulse');
+    } else if (strip) {
+      strip.hidden = true;
+      strip.innerHTML = '';
+    }
+    // Never on first paint: whatever state the page loaded with is not a
+    // transition, so announcing it would re-fire on every reload.
+    if (last !== null) notify(state, detailEl ? detailEl.textContent : '');
     last = key;
   }
 
-  if (B) {
-    B.addEventListener('click', function () {
+  if (alertBtn) {
+    alertBtn.addEventListener('click', function () {
       Notification.requestPermission().then(function () {
-        B.hidden = true;
+        alertBtn.hidden = true;
       });
     });
   }

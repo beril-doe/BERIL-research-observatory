@@ -201,8 +201,11 @@ file exists *only* while a prompt is pending, which is exactly when it must run.
 `if(document.visibilityState==='visible')` around the `fetch` — made every channel
 above impossible: the backgrounded tab is precisely the one that needs to learn the
 agent is blocked, and the title and the favicon are painted from a response. A 304
-still runs a full `scan()` at 6.8ms, so 15s hidden is ~1.6s of CPU per hour per tab,
-less than a visible tab costs today.
+used to run a full `scan()` at 6.8ms, so 15s hidden was ~1.6s of CPU per hour per
+tab — already less than a visible tab costs. It now runs only `fingerprint()`, the
+directory walk plus the resolved agent state, measured at 0.25-0.84ms across the
+three largest projects on disk, so the interval has an order of magnitude of slack
+it did not have when it was chosen.
 
 **Three things are anchored outside `#root`, and each for a different failure.**
 The strip, because inside `#root` it is destroyed and rebuilt every 4s and its

@@ -49,13 +49,12 @@ pidfile to go stale and no stop command to misfire on a recycled PID.
 
 from __future__ import annotations
 
-import argparse
+import errno
 import hashlib
 import html as _html
 import json
 import os
 import re
-import shutil
 import site
 import sys
 import time
@@ -65,6 +64,11 @@ from pathlib import Path
 from urllib.parse import quote
 
 HUB = "https://hub.berdl.kbase.us"
+
+# Resolved once. Three places used to re-derive one of these with a fresh
+# `Path(__file__).resolve()`, one of them on the per-request path.
+_HERE = Path(__file__).resolve().parent
+_REPO_ROOT = _HERE.parent
 
 STAGES = ["exploration", "proposed", "active", "analysis", "reviewed", "complete"]
 
@@ -183,7 +187,7 @@ _LINK_RE = re.compile(r"^→ \[([^\]]*)\]\(([^)]*)\)(?:\s*[×x](\d+))?\s*$")
 class Doc:
     name: str
     path: str
-    chip: "str | None" = None
+    chip: str | None = None
 
 
 @dataclass
@@ -198,7 +202,7 @@ class Link:
 class Entry:
     date: str
     title: str
-    new_status: "str | None"
+    new_status: str | None
     prose: str = ""
     links: list = field(default_factory=list)
     correction: bool = False
@@ -250,7 +254,7 @@ class JupyterRoutes:
         joined = f"{self.rel}/{path.lstrip('/')}" if self.rel else path.lstrip("/")
         return "/".join(quote(seg, safe="") for seg in joined.split("/"))
 
-    def open_url(self, path: str) -> "str | None":
+    def open_url(self, path: str) -> str | None:
         """The URL that opens ``path`` in a viewer that actually renders it, or
         ``None`` when Jupyter has no such viewer and the caller should keep the
         plain relative link.
@@ -299,7 +303,7 @@ class State:
     last_activity: float
     first_activity: float
     etag: str
-    routes: "JupyterRoutes | None"
+    routes: JupyterRoutes | None
     plan: dict = field(default_factory=dict)
     agent: dict = field(default_factory=dict)
 
@@ -309,7 +313,7 @@ class State:
 # ---------------------------------------------------------------------------
 
 
-def read_status(project: Path) -> tuple:
+def read_status(project: Path) -> tuple[str | None, bool]:
     """Return ``(status, has_approval_block)`` from ``beril.yaml``.
 
     One key is not a parsing problem, and PyYAML is not worth a runtime
@@ -408,7 +412,7 @@ def _infer_stage(project: Path) -> str:
     return "exploration"
 
 
-def resolve_stage(project: Path) -> tuple:
+def resolve_stage(project: Path) -> tuple[str, bool]:
     """Return ``(stage, inferred)``. ``inferred`` drives the honesty label."""
     status, has_approval = read_status(project)
     if has_approval:
@@ -510,8 +514,7 @@ def _planning_workflow_installed() -> bool:
     Without ``plan-gate.py`` there is no such thing as an unapproved plan, so
     accusing a project of missing an approval would be a false alarm.
     """
-    root = Path(__file__).resolve().parent.parent
-    return (root / ".claude" / "hooks" / "plan-gate.py").is_file()
+    return (_REPO_ROOT / ".claude" / "hooks" / "plan-gate.py").is_file()
 
 
 def _accusable(project: Path, stage: str) -> bool:
@@ -591,7 +594,7 @@ def count_deviations(project: Path) -> int:
     return sum(1 for line in text.splitlines() if line.strip())
 
 
-def review_docs(project: Path) -> list:
+def review_docs(project: Path) -> list[Doc]:
     """Every review file with a freshness chip against the thing it reviewed.
 
     Without this the page shows "reviewed" for a review that no longer applies —
@@ -650,7 +653,7 @@ def review_docs(project: Path) -> list:
 # ---------------------------------------------------------------------------
 
 
-def parse_worklog(text: str, project: Path) -> list:
+def parse_worklog(text: str, project: Path) -> list[Entry]:
     """Parse ``WORKLOG.md`` in file order (oldest first; the renderer reverses).
 
     Anything that is neither a heading nor a link line is prose.
@@ -694,7 +697,7 @@ def parse_worklog(text: str, project: Path) -> list:
 # ---------------------------------------------------------------------------
 
 
-def notebook_stats(path: Path) -> "Notebook | None":
+def notebook_stats(path: Path) -> Notebook | None:
     """Cell counts from raw JSON — no nbformat, no nbconvert.
 
     Returns ``None`` when unreadable. A partial read while the agent is writing
@@ -718,7 +721,7 @@ def notebook_stats(path: Path) -> "Notebook | None":
     )
 
 
-def _files(directory: Path, extensions: set, prefix: str) -> list:
+def _files(directory: Path, extensions: set[str], prefix: str) -> list[FileRef]:
     refs = []
     if not directory.is_dir():
         return refs
@@ -731,11 +734,45 @@ def _files(directory: Path, extensions: set, prefix: str) -> list:
     return refs
 
 
-def compute_etag(fingerprint: list) -> str:
+def compute_etag(items: list) -> str:
     digest = hashlib.sha1()
-    for item in sorted(fingerprint):
+    for item in sorted(items):
         digest.update(repr(item).encode("utf-8"))
     return digest.hexdigest()[:16]
+
+
+def fingerprint(project: Path) -> tuple[str, list[float], dict]:
+    """``(etag, mtimes, agent state)`` — everything the etag is derived from, and
+    nothing else.
+
+    Split out of ``scan`` because it is the *only* input to the etag, and the
+    etag is the only thing a 304 needs: the poll makes 304 the overwhelmingly
+    common response, and answering one used to cost a whole ``scan`` — every
+    notebook JSON parsed, the plan regexed, the review files hashed — all of it
+    discarded. Measured on the three largest projects on disk: 0.25-0.84ms here
+    against ``scan``'s 3.6-16.3ms.
+    """
+    stamps: list[float] = []
+    items: list = []
+    for root, dirs, names in os.walk(project):
+        dirs[:] = [d for d in dirs if d not in PRUNE_DIRS]
+        for name in names:
+            try:
+                stat = os.stat(os.path.join(root, name))
+            except OSError:
+                continue
+            stamps.append(stat.st_mtime)
+            items.append((os.path.join(root, name), stat.st_mtime_ns, stat.st_size))
+
+    # The agent state goes into the etag as its *resolved* value, as well as the
+    # file's own mtime — the two disagree exactly when it matters. Nothing on
+    # disk changes when a `waiting` ages past WAIT_TTL, so an mtime-only etag
+    # keeps answering 304 and the page holds "waiting for you" on screen forever
+    # while `read_agent_state` has long since stopped believing it. Folding the
+    # answer in means the expiry itself invalidates the cache.
+    agent = read_agent_state(project)
+    items.append(("\x00agent-state", agent.get("state", ""), agent.get("since", 0)))
+    return compute_etag(items), stamps, agent
 
 
 def scan(project: Path) -> State:
@@ -761,28 +798,7 @@ def scan(project: Path) -> State:
     except OSError:
         worklog = ""
 
-    stamps: list = []
-    fingerprint: list = []
-    for root, dirs, names in os.walk(project):
-        dirs[:] = [d for d in dirs if d not in PRUNE_DIRS]
-        for name in names:
-            try:
-                stat = os.stat(os.path.join(root, name))
-            except OSError:
-                continue
-            stamps.append(stat.st_mtime)
-            fingerprint.append(
-                (os.path.join(root, name), stat.st_mtime_ns, stat.st_size)
-            )
-
-    # The agent state goes into the fingerprint as its *resolved* value, not as
-    # the file's mtime — the two disagree exactly when it matters. Nothing on
-    # disk changes when a `waiting` ages past WAIT_TTL, so an mtime-only etag
-    # keeps answering 304 and the page holds "waiting for you" on screen forever
-    # while `read_agent_state` has long since stopped believing it. Folding the
-    # answer in means the expiry itself invalidates the cache.
-    agent = read_agent_state(project)
-    fingerprint.append(("\x00agent-state", agent.get("state", ""), agent.get("since", 0)))
+    etag, stamps, agent = fingerprint(project)
 
     return State(
         project_id=project.name,
@@ -797,7 +813,7 @@ def scan(project: Path) -> State:
         data=_files(project / "data", DATA_EXT, "data"),
         last_activity=max(stamps) if stamps else 0.0,
         first_activity=min(stamps) if stamps else 0.0,
-        etag=compute_etag(fingerprint),
+        etag=etag,
         routes=jupyter_routes(project),
         plan=plan_summary(project),
         agent=agent,
@@ -808,7 +824,7 @@ def scan(project: Path) -> State:
 # Render
 # ---------------------------------------------------------------------------
 
-_ASSET_DIR = Path(__file__).resolve().parent / "dashboard_assets"
+_ASSET_DIR = _HERE / "dashboard_assets"
 
 
 def _asset(name: str) -> str:
@@ -837,7 +853,7 @@ DASH_CSS = _asset("dash.css")
 # Rationale for each of these lives in the file itself, next to the code it
 # explains. All four are inlined verbatim by ``render``; rel.js, state.js and
 # poll.js share one ``<script>`` and therefore one scope — see poll.js's header.
-REL_JS = _asset("rel.js")  # always emitted; defines R, tag, rel, since, relTimes
+REL_JS = _asset("rel.js")  # always emitted; defines rootEl, tag, rel, since, relTimes
 STATE_JS = _asset("state.js")  # always emitted; exports window.dashMark
 POLL_JS = _asset("poll.js")  # live mode only; reads rel.js's and state.js's globals
 LIGHTBOX_JS = _asset("lightbox.js")  # always emitted; self-contained IIFE
@@ -871,7 +887,7 @@ def inline_md(value) -> str:
     text = e(value)
     codes: list = []
 
-    def stash(match: "re.Match") -> str:
+    def stash(match: re.Match) -> str:
         codes.append(match.group(1))
         return f"\x00{len(codes) - 1}\x00"
 
@@ -923,12 +939,12 @@ def render_markdown(text: str) -> str:
     return f"<pre>{e(text)}</pre>"
 
 
-def load_css(repo_root: Path) -> str:
+def load_css() -> str:
     """Inline the observatory stylesheet so the in-progress dashboard matches the
     site a project graduates into. It has zero ``url()`` references, so it is
     self-contained. Missing is survivable: unstyled but fully readable."""
     try:
-        return (repo_root / "ui" / "app" / "static" / "css" / "main.css").read_text(
+        return (_REPO_ROOT / "ui" / "app" / "static" / "css" / "main.css").read_text(
             encoding="utf-8"
         )
     except OSError:
@@ -936,11 +952,11 @@ def load_css(repo_root: Path) -> str:
 
 
 def _human(size: int) -> str:
-    for unit in ("B", "KB", "MB", "GB"):
-        if size < 1024 or unit == "GB":
-            return "%d %s" % (size, unit) if unit == "B" else "%.1f %s" % (size, unit)
+    for unit in ("B", "KB", "MB"):
+        if size < 1024:
+            return f"{size} {unit}" if unit == "B" else f"{size:.1f} {unit}"
         size /= 1024.0
-    return str(size)
+    return f"{size:.1f} GB"
 
 
 def _approval_chip(approval: dict) -> str:
@@ -991,7 +1007,7 @@ def _rail(stage: str) -> str:
     return '<ol class="d-rail" aria-live="polite">' + "".join(items) + "</ol>"
 
 
-def _open_href(routes: "JupyterRoutes | None", path: str) -> str:
+def _open_href(routes: JupyterRoutes | None, path: str) -> str:
     """Where a document link points: a Jupyter viewer that renders it when one
     exists and we can reach it, otherwise the relative file the dashboard serves
     itself — today's behaviour, and the only thing that works off-cluster."""
@@ -1025,7 +1041,7 @@ def _doc_trigger(path: str, label: str, css_class: str = "") -> str:
     return f'<a class="{cls}" href="{e(path)}" data-doc="{e(path)}">{label}</a>'
 
 
-def _link_html(link: Link, routes: "JupyterRoutes | None") -> str:
+def _link_html(link: Link, routes: JupyterRoutes | None) -> str:
     label = e(link.label)
     count = f" &#215;{link.count}" if link.count > 1 else ""
     if not link.exists:
@@ -1044,7 +1060,7 @@ def _link_html(link: Link, routes: "JupyterRoutes | None") -> str:
     return f'<a class="d-chip" href="{href}" target="_blank">{label}{count}</a>'
 
 
-def _entry_html(entry: Entry, routes: "JupyterRoutes | None") -> str:
+def _entry_html(entry: Entry, routes: JupyterRoutes | None) -> str:
     big = " big" if entry.new_status else ""
     # Corrections are the only record of why a project was not a straight line,
     # and they used to render identically to "ran notebook 3". Labelled as well
@@ -1070,7 +1086,7 @@ def _entry_html(entry: Entry, routes: "JupyterRoutes | None") -> str:
     )
 
 
-def _notebook_html(notebook: Notebook, routes: "JupyterRoutes | None") -> str:
+def _notebook_html(notebook: Notebook, routes: JupyterRoutes | None) -> str:
     if notebook.mtime == 0.0:
         detail = '<span class="d-empty">unreadable — being written?</span>'
     else:
@@ -1117,12 +1133,7 @@ def _plan_html(state: State) -> str:
         return ""
 
     doc = next((d for d in state.docs if d.name == "RESEARCH_PLAN.md"), None)
-    link = (
-        f'<a class="doc-trigger d-chip" data-doc="{e(doc.path)}" '
-        f'href="{e(doc.path)}">RESEARCH_PLAN.md</a>'
-        if doc
-        else ""
-    )
+    link = _doc_trigger(doc.path, e(doc.name), "d-chip") if doc else ""
 
     # Counts, never a mapping: plan section numbers do not correspond to
     # filenames on disk (measured — see plan_summary), so a per-notebook
@@ -1489,7 +1500,7 @@ def public_url(port: int) -> str:
     return f"{HUB}{prefix}proxy/{port}/" if prefix else f"http://127.0.0.1:{port}/"
 
 
-def jupyter_routes(project: Path) -> "JupyterRoutes | None":
+def jupyter_routes(project: Path) -> JupyterRoutes | None:
     """URL builder for opening this project's files in Jupyter, or ``None``.
 
     ``<rel>`` is the project directory relative to the running server's
@@ -1530,14 +1541,14 @@ def snapshot_url(project: Path) -> str:
 
     Reuses ``jupyter_routes`` rather than recomputing the relative path: it
     already handles the root-relative case and the outside-root case, and a
-    second implementation is a second thing to get wrong.
+    second implementation is a second thing to get wrong. That includes the
+    join and the escaping — ``_path`` is the same encoder every other Jupyter
+    URL on this page goes through.
     """
-    snapshot = project / "dashboard.html"
     routes = jupyter_routes(project)
     if routes is None:  # off-cluster, or outside root_dir — no URL can reach it
-        return str(snapshot)
-    rel = f"{routes.rel}/dashboard.html" if routes.rel else "dashboard.html"
-    return f"{routes.base}files/{quote(rel)}"
+        return str(project / "dashboard.html")
+    return f"{routes.base}files/{routes._path('dashboard.html')}"
 
 
 def in_jupyterhub() -> bool:
@@ -1570,7 +1581,7 @@ def _handler_factory(project: Path, css: str):
         def _is_index(self) -> bool:
             return self.path.split("?")[0] in ("/", "/index.html")
 
-        def _doc_target(self) -> "Path | None":
+        def _doc_target(self) -> Path | None:
             """The markdown file a ``/_doc/`` request names, or ``None``.
 
             ``translate_path`` is ``SimpleHTTPRequestHandler``'s own sanitiser —
@@ -1598,6 +1609,20 @@ def _handler_factory(project: Path, css: str):
                 return None
             return resolved
 
+        def _send_html(self, payload: bytes, body: bool, etag: str = ""):
+            """The one place this server states its caching contract. Both HTML
+            routes go through here so a future third one cannot quietly ship
+            without ``no-cache`` and let a browser serve a stale REPORT.md."""
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            if etag:
+                self.send_header("ETag", etag)
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            if body:
+                self.wfile.write(payload)
+
         def _doc(self, body: bool):
             target = self._doc_target()
             if target is None:
@@ -1606,14 +1631,7 @@ def _handler_factory(project: Path, css: str):
                 text = target.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 return self.send_error(404, "document could not be read")
-            payload = render_markdown(text).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(payload)))
-            self.send_header("Cache-Control", "no-cache")
-            self.end_headers()
-            if body:
-                self.wfile.write(payload)
+            self._send_html(render_markdown(text).encode("utf-8"), body)
 
         def do_GET(self):  # noqa: N802
             if self._is_index():
@@ -1630,26 +1648,21 @@ def _handler_factory(project: Path, css: str):
             return super().do_HEAD()
 
         def _page(self, body: bool):
-            state = scan(project)
-            if self.headers.get("If-None-Match") == state.etag:
+            # `fingerprint` before `scan`: a 304 needs the etag and nothing else,
+            # and the poll makes 304 the common answer. The miss path pays one
+            # extra directory walk, which is the cheap half of a scan.
+            if self.headers.get("If-None-Match") == fingerprint(project)[0]:
                 self.send_response(304)
                 self.end_headers()
                 return
-            payload = render(state, css).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(payload)))
-            self.send_header("ETag", state.etag)
-            self.send_header("Cache-Control", "no-cache")
-            self.end_headers()
-            if body:
-                self.wfile.write(payload)
+            state = scan(project)
+            self._send_html(render(state, css).encode("utf-8"), body, state.etag)
 
-    def _reject(self):
-        self.send_error(405, "read-only dashboard")
+        def _reject(self):
+            self.send_error(405, "read-only dashboard")
 
-    for verb in ("POST", "PUT", "DELETE", "PATCH", "OPTIONS"):
-        setattr(Handler, "do_" + verb, _reject)
+        do_POST = do_PUT = do_DELETE = do_PATCH = do_OPTIONS = _reject
+
     return Handler
 
 
@@ -1661,7 +1674,7 @@ def serve(project: Path, port: int, css: str) -> None:
     server.serve_forever()
 
 
-def _write_snapshot(project: Path, css: str, live: bool = False) -> Path:
+def _write_snapshot(project: Path, css: str) -> Path:
     snapshot = project / "dashboard.html"
     # Rendered to a sibling and renamed, because the banner tells the reader to
     # reload and the status line rewrites this file every turn — so a reload
@@ -1670,12 +1683,12 @@ def _write_snapshot(project: Path, css: str, live: bool = False) -> Path:
     # POSIX, so a reader sees either the old snapshot or the new one. Two sessions
     # on one project resolve the same way: last writer wins, whole file.
     staging = snapshot.with_name("dashboard.html.tmp")
-    staging.write_text(render(scan(project), css, live=live), encoding="utf-8")
+    staging.write_text(render(scan(project), css, live=False), encoding="utf-8")
     os.replace(staging, snapshot)
     return snapshot
 
 
-def jupyter_python() -> "str | None":
+def jupyter_python() -> str | None:
     """The interpreter the Jupyter server runs on, or ``None`` if it can't be found.
 
     **Not `sys.executable`.** The extension has to be importable by the process
@@ -1693,6 +1706,10 @@ def jupyter_python() -> "str | None":
     `sys.base_prefix` is wrong under uv, whose base is a managed CPython rather
     than the conda prefix.
     """
+    # Deferred like http.server (see _handler_factory) and for the same reason:
+    # 3.4ms measured, paid by every statusline render if it sits at module scope.
+    import shutil
+
     launcher = shutil.which("jupyter")
     if launcher is None:
         return None
@@ -1722,23 +1739,22 @@ def _print_snapshot_fallback(project: Path) -> None:
 
 
 def main(argv=None) -> int:
+    import argparse  # deferred like shutil above: 1.2ms, and only a CLI run needs it
+
     parser = argparse.ArgumentParser(description="Live dashboard for one BERIL project.")
-    parser.add_argument("project", nargs="?", help="Path to projects/<id>")
+    parser.add_argument("project", help="Path to projects/<id>")
     parser.add_argument("--port", type=int, help="Override the derived port")
     parser.add_argument(
         "--static", action="store_true", help="Write dashboard.html and exit"
     )
     args = parser.parse_args(argv)
 
-    if not args.project:
-        parser.error("the following arguments are required: project")
-
     project = Path(args.project).resolve()
     if not project.is_dir():
         print(f"no such project directory: {project}", file=sys.stderr)
         return 1
 
-    css = load_css(Path(__file__).resolve().parent.parent)
+    css = load_css()
     port = args.port or port_for(project.name)
 
     # Two callers, one branch. `--static` is someone asking for a snapshot;
@@ -1752,7 +1768,7 @@ def main(argv=None) -> int:
     try:
         serve(project, port, css)
     except OSError as exc:
-        if exc.errno in (48, 98):  # EADDRINUSE on macOS / Linux
+        if exc.errno == errno.EADDRINUSE:
             print(f"Dashboard already running: {public_url(port)}")
             return 0
         raise

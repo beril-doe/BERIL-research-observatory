@@ -793,6 +793,10 @@ def test_the_expiry_reaches_a_polling_page(tmp_path, monkeypatch):
 
     assert after.agent["state"] == "unknown"
     assert after.etag != before.etag, "a polling browser would be served a 304 forever"
+    # The 304 gate reads `fingerprint`, the 200 body carries `scan().etag`. They
+    # are one expression today only because `scan` calls `fingerprint`; if they
+    # ever drift the browser is handed a 304 for a page it does not have.
+    assert dash.fingerprint(project)[0] == after.etag, "the gate and the body disagree"
     assert fingerprint == [(project / ".agent-state.json").stat().st_mtime_ns], (
         "the file changed, so this proved nothing about the clock"
     )
@@ -822,14 +826,23 @@ def test_the_title_marker_and_favicon_are_client_side(tmp_path):
     """The same rule as relative times, for the same reason: a 304 freezes
     anything the server wrote, and these two are the only channels that reach a
     reader whose tab is in the background. A `<title>` baked with a marker would
-    keep claiming the agent needs you long after it stopped."""
+    keep claiming the agent needs you long after it stopped.
+
+    This is the server's half: an unmarked title, and a `<link>` for the client
+    to retarget (a browser will not adopt one that appears after it has painted).
+    The client half — that STATE_JS actually writes both — is asserted from the
+    node harness in `test_when_a_system_notification_actually_fires`, because the
+    source-string greps this used to carry broke on a variable rename and passed
+    on a behaviour-preserving one, which is backwards. That harness is
+    node-gated, so on a box without node this assertion is the only half of the
+    contract left standing — a green run there is not the whole story.
+    """
     import tools.dashboard as dash
 
     page = dash.render(dash.scan(_waiting(_project(tmp_path))), "")
 
     assert "<title>demo</title>" in page, "the marker was baked into the response"
-    assert "document.title = (MARK[s] || '') + BASE;" in page
-    assert 'id="d-favicon"' in page and "F.href = ICON[s] || ICON[''];" in page
+    assert '<link rel="icon" id="d-favicon"' in page, "nothing for STATE_JS to retarget"
 
 
 def test_a_snapshot_gets_the_state_but_never_the_alert_button(tmp_path):
@@ -891,6 +904,12 @@ go('waiting_hidden', () => set('waiting', 5, 'AskUserQuestion: which?'));
 set('waiting', 9, 'x');
 out.pulsed = nodes['d-wait'].classList.has('pulse');
 out.strip_shown = !nodes['d-wait'].hidden;
+// Read while the state is still `waiting`: the two channels a background tab has.
+out.title_marked = document.title;
+out.favicon_href = nodes['d-favicon'].href;
+// `unknown` has no ICON entry and is reached by every expired `waiting`.
+set('unknown', 7, '');
+out.favicon_unknown = nodes['d-favicon'].href;
 set('', 0, '');
 out.strip_cleared = nodes['d-wait'].hidden;
 out.title_restored = document.title;
@@ -910,6 +929,20 @@ def test_when_a_system_notification_actually_fires(tmp_path):
     And nothing fires twice for one event: a re-render is not a transition, so
     the `(state, since)` pair gates it. Without that gate the 4s poll would
     notify fifteen times a minute about a single permission prompt.
+
+    The title marker and the favicon dot are asserted here too, from the same
+    run: they are the only two channels that reach a reader whose tab is in the
+    background, and they used to be pinned by grepping the source for
+    `document.title = (MARK[s] || '') + BASE;`. That grep failed on a rename that
+    changed nothing and passed on a hoist that could have broken it. Reading the
+    values back out of the harness is the check that was actually meant.
+
+    `favicon_unknown` is the `|| ICON['']` fallback, and it is not hypothetical:
+    `ICON` maps `waiting` and `turn_ended` only, while `AGENT_LABELS` also emits
+    `unknown` — the resolved state of every `waiting` that aged past `WAIT_TTL`
+    and of every orphaned record. Without the fallback the href becomes the
+    literal string `undefined` and the browser 404s for a file of that name,
+    with nothing in the console to say so.
 
     Node stands in for a browser because the two inputs that matter — the clock
     and the visibility flag — are exactly what a real headless page will not let
@@ -934,6 +967,13 @@ def test_when_a_system_notification_actually_fires(tmp_path):
 
     assert result["pulsed"] and result["strip_shown"]
     assert result["strip_cleared"] and result["title_restored"] == "demo"
+
+    assert result["title_marked"] == "● demo", "no marker on a backgrounded tab"
+    assert result["favicon_href"].startswith("data:image/svg+xml,")
+    assert "d29922" in result["favicon_href"], "the favicon dot never turned amber"
+    assert result["favicon_unknown"].startswith("data:image/svg+xml,"), (
+        "an unmapped state left the favicon href as the string 'undefined'"
+    )
 
 
 def test_a_hidden_tab_still_polls_only_slower():
@@ -1042,7 +1082,7 @@ def test_the_live_scripts_parse_and_share_one_scope(tmp_path):
     is not enough of one.
 
     `rel.js`, `state.js` and `poll.js` are concatenated into a single
-    `<script>`, which is the only reason `poll.js` can see `R`, `tag`,
+    `<script>`, which is the only reason `poll.js` can see `rootEl`, `tag`,
     `relTimes` and `dashMark`. Nothing in the language records that. Splitting
     one blob into four separately editable files is exactly what makes it easy
     to sever — wrap `rel.js` in an IIFE and every file still parses, so a
@@ -1113,6 +1153,30 @@ def test_the_page_inlines_its_scripts_instead_of_linking_them(tmp_path):
         assert body in live, f"{name} is not inlined verbatim"
         if name != "poll.js":  # live only, by design
             assert body in snap, f"{name} is not inlined verbatim in a snapshot"
+
+
+def test_the_gallery_wins_the_thumbnail_width_tie():
+    """REGRESSION. The figure gallery is `class="d-links d-figs"`, so both
+    `.d-links img` and `.d-figs img` match its tiles at specificity (0,1,1) and
+    source order alone decides the width. `.d-figs img` was written *above*
+    `.d-links img`, so every gallery tile rendered at the timeline's 104px inside
+    a 230px-minimum grid — from the file's first commit (3b7e36ec) until this
+    one, silently, because nothing errors and the page still looks deliberate.
+
+    A comment in dash.css says the order is load-bearing; a comment does not
+    survive the next tidy-up of a stylesheet that has no other ordering
+    constraint. This is the only thing that fails if the two rules swap back.
+
+    Matched as `^selector{` rather than by substring: that same comment quotes
+    `.d-links img`, so a plain `.index()` compares the comment's position and
+    passes however the rules are ordered.
+    """
+    import tools.dashboard as dash
+
+    links = re.search(r"^\.d-links img\{", dash.DASH_CSS, re.M)
+    figs = re.search(r"^\.d-figs img\{", dash.DASH_CSS, re.M)
+    assert links and figs, "one of the two thumbnail width rules is gone"
+    assert links.start() < figs.start(), "gallery tiles are back to 104px"
 
 
 def _dropin(cfg_dir: Path, name: str, enabled: bool) -> None:
@@ -1259,14 +1323,18 @@ def test_every_markdown_link_opens_the_overlay_not_a_new_tab(tmp_path):
     page opened raw markdown source in a new tab, which is worse than what it
     replaced. The chips were verified and the cards were assumed.
 
-    So: assert over *every* anchor pointing at a `.md`, not one call site."""
+    So: assert over *every* anchor pointing at a `.md`, not one call site.
+
+    The plan needs a Research Question or `_plan_html` returns "" and the plan
+    card — the third emitter of a markdown anchor — never renders, which is how
+    this swept only the chips and the cards for its first year."""
     import re
 
     html = _render(
         tmp_path,
         {
             "WORKLOG.md": WORKLOG,
-            "RESEARCH_PLAN.md": PLAN,
+            "RESEARCH_PLAN.md": "# Plan\n\n## Research Question\nQ?\n\n" + PLAN,
             "REPORT.md": "# R\n",
             "figures/a.png": "x",
         },
@@ -1376,27 +1444,3 @@ def test_setup_refuses_rather_than_installing_against_the_wrong_python(tmp_path,
     assert setup_cmd._install_server_proxy(ROOT, assume_yes=True) == 1
     assert not ran, "ran an install with no idea which interpreter to target"
     assert "jupyter" in capsys.readouterr().err.lower()
-
-
-def test_the_gallery_wins_the_thumbnail_width_tie():
-    """REGRESSION. The figure gallery is `class="d-links d-figs"`, so both
-    `.d-links img` and `.d-figs img` match its tiles at specificity (0,1,1) and
-    source order alone decides the width. `.d-figs img` was written *above*
-    `.d-links img`, so every gallery tile rendered at the timeline's 104px inside
-    a 230px-minimum grid — from the file's first commit (3b7e36ec) until this
-    one, silently, because nothing errors and the page still looks deliberate.
-
-    A comment in dash.css says the order is load-bearing; a comment does not
-    survive the next tidy-up of a stylesheet that has no other ordering
-    constraint. This is the only thing that fails if the two rules swap back.
-
-    Matched as `^selector{` rather than by substring: that same comment quotes
-    `.d-links img`, so a plain `.index()` compares the comment's position and
-    passes however the rules are ordered.
-    """
-    import tools.dashboard as dash
-
-    links = re.search(r"^\.d-links img\{", dash.DASH_CSS, re.M)
-    figs = re.search(r"^\.d-figs img\{", dash.DASH_CSS, re.M)
-    assert links and figs, "one of the two thumbnail width rules is gone"
-    assert links.start() < figs.start(), "gallery tiles are back to 104px"
