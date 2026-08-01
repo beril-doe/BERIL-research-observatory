@@ -95,6 +95,12 @@ projects/*/dashboard.html
 # Session pin marker — see PROJECT.md "Telling the tools which project"
 projects/*/.beril-pin
 projects/*/.dash.log
+# Passive per-session runtime history. Non-authoritative (see
+# docs/provenance-and-trust.md) and machine-local in content: shell user, ORCID,
+# session id, model. Never committed on any branch in this repo's history, so
+# ignoring it preserves the de-facto behaviour and stops a fresh clone showing an
+# untracked file after the SessionStart hook writes one.
+projects/*/runtime.json
 
 # UI application
 ui/data/cache.json
