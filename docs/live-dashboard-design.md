@@ -357,8 +357,13 @@ Two things about that hook are easy to break and are pinned by tests:
   read by shelling out to git — so a blanket "skip unless the payload mentions `projects/`"
   would silently break the path that already worked.
 
-Unguarded the hook costs ~103 ms on every `Write`/`Edit`; guarded, a write outside any
-project costs ~16 ms (measured).
+Unguarded the hook costs ~65 ms on every `Write`/`Edit`; guarded, a write outside any
+project costs ~8 ms (medians of 21 runs, this checkout). Both figures were ~103 ms and
+~16 ms when first written; they are re-measured here because the guard is now pinned by
+`test_the_guard_does_not_start_the_interpreter_for_a_write_outside_a_project`, and a test
+that exists to defend a number should not sit next to a stale one. What the test asserts
+is the *boolean* — whether the interpreter starts at all — precisely so it cannot rot the
+way these figures did.
 
 Everything stays keyed to `session_id` on purpose. Several sessions can run in one clone on
 different projects, so any repo-wide signal — an env var, "whichever `beril.yaml` was
