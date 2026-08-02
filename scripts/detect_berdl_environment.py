@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+import ssl
 import subprocess
 import sys
 from pathlib import Path
@@ -17,11 +18,26 @@ from typing import Any
 
 
 def test_connectivity(host: str, port: int, timeout: float = 2.0) -> bool:
-    """Test if a host:port is reachable."""
+    """Test if a TLS endpoint at host:port actually answers.
+
+    A bare TCP connect is not enough: a TCP-terminating middlebox on the client's
+    path (VPN, corporate proxy, filtering agent) answers the SYN for port 443
+    itself, so connect() succeeds against hosts that are not actually reachable
+    and detection reported "on-cluster" from a laptop. A TLS handshake is
+    end-to-end and still fails when the service is genuinely unreachable.
+
+    Certificate verification is off on purpose — the endpoint's cert SAN does not
+    match every *.berdl.kbase.us name we probe, and we only care that a real
+    server answered. A TLS-intercepting proxy could still fool this.
+    """
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
     try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
-    except (socket.timeout, socket.error, OSError):
+        with socket.create_connection((host, port), timeout=timeout) as sock:
+            with ctx.wrap_socket(sock, server_hostname=host):
+                return True
+    except (OSError, ssl.SSLError):
         return False
 
 
