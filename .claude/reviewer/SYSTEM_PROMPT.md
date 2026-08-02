@@ -60,6 +60,8 @@ Actively hunt the silent failures that make a result look better than it is — 
 ### Findings Assessment
 - Are conclusions supported by the actual numbers in the cell outputs (not just the prose summary)?
 - Are limitations acknowledged?
+- Does `### Scope of the Claim` give the realized cohort as a fraction of the nominal source, and say what the result is *not* about? Check the Key Finding titles and the Summary against it — a careful scope paragraph under a heading that still generalizes to "bacteria" or "the pangenome" has not fixed the overclaim, since the heading is what gets quoted. This is the same failure as database ascertainment bias (`EVALUATION_INTEGRITY.md` item 6), caught on the author's side.
+- If the plan declared hypotheses, does `### What Would Have Changed Our Mind` give the pre-registered refuting result and the value actually observed, anything looked for and not found, and any finding that argues against the headline? A report with no negative results usually means they went unreported, not that none occurred — check the notebooks for nulls the report leaves out.
 - Is any analysis incomplete or left as "to be filled"?
 - Are visualizations clear and properly labeled?
 

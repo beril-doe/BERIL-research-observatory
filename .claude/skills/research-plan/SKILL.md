@@ -88,6 +88,33 @@ Run a **feasibility** check using `/berdl-query` (off-cluster) or `/berdl` (on-c
 - **Verdict**: `answerable | partial | not-answerable`.
 - **Limiting tables / coverage**: what you probed and what you found (e.g., "annotation table covers only ~30% of genomes").
 
+**Calibrate the verdict against the realized cohort, not against whether a query
+returns rows.** Compute the attrition before choosing the word: nominal source →
+after joins → after requiring the key fields → the rows the analysis will
+actually use. Then:
+
+- `answerable` — the realized cohort is most of the population the question
+  names, or is demonstrably representative of it.
+- `partial` — **the default whenever the cohort is a modest fraction of the
+  nominal source**, or whenever it is selected on something correlated with the
+  outcome (cultured strains, sequenced pathogens, samples that happen to carry
+  the annotation). The analysis is still worth doing; the verdict simply records
+  that the answer will be about that cohort.
+- `not-answerable` — the exposure, the outcome, or the link between them is
+  absent.
+
+A cross-database join that survives on a few percent of either side is
+`partial`, however clean the surviving rows look.
+
+Do this **now**, not at synthesis. Counting the cohort before you have results is
+more honest than counting it afterwards, once you have a finding you like. The
+report's `Scope of the Claim` gets checked against the numbers you record here,
+so a gap between the two is worth reporting.
+
+The verdict word on its own tells a reader very little — the attrition numbers
+are the useful part. `partial` with no numbers behind it is worth no more than
+`answerable` with none.
+
 A **`not-answerable`** verdict **stops** the plan: reshape the question (Phase B step 1) before anything is frozen. Do not write a `RESEARCH_PLAN.md` for a question the data cannot answer.
 
 ### 6. Per-notebook Analysis Plan

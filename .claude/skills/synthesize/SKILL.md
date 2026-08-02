@@ -170,10 +170,47 @@ Create or update `projects/{project_id}/REPORT.md` with the following sections:
 ### Novel Contribution
 {What BERDL data adds that wasn't known before}
 
+### Scope of the Claim
+
+**Required.** One short paragraph naming the population this result is about,
+and the population it is *not* about. Give the realized cohort as a fraction of
+the nominal source ("1,186 genera — about 5% of BacDive strains and 3% of
+pangenome genomes"), and name the selection that produced it (cultured,
+sequenced, clinically sampled, annotation-bearing). Then state plainly what does
+not follow: a result over cultured type strains is not a result about bacteria
+at large.
+
+This is separate from Limitations because it is not a caveat — it is what the
+finding *means*. A reader who takes one sentence from the report should not be
+able to take a broader one than the cohort supports. Check the Key Finding
+titles against it too. A careful scope paragraph under a heading that still says
+"bacteria" fixes nothing — the heading is the sentence people quote.
+
+The reviewer checks the same thing from its side, where it is called database
+ascertainment bias (item 6 in `.claude/reviewer/EVALUATION_INTEGRITY.md`).
+Write this section and you get there first.
+
 ### Limitations
 - {Data coverage limitations}
 - {Potential confounders}
 - {Methodological caveats}
+
+### What Would Have Changed Our Mind
+
+**Required when the plan declares hypotheses.** Two or three bullets:
+
+- the pre-registered result that would have refuted the main finding, and the
+  value actually observed;
+- anything looked for and **not** found — a predicted effect that failed to
+  appear, a subgroup where the pattern reverses, a control that came out flat.
+  A report with no negative results usually means they went unreported, not
+  that none occurred;
+- any finding of the analysis that argues *against* the headline, stated in the
+  body rather than left in a notebook.
+
+This section does not replace `/berdl-refute`. Checking your own work this way
+reduces overconfidence but does not remove it, so the independent pass still
+runs.
 
 ## Data
 
@@ -217,6 +254,7 @@ Create or update `projects/{project_id}/REPORT.md` with the following sections:
 - **README update**: Ensure the collection IDs appear somewhere in the README.md text so the UI can auto-detect and display Data Collections links on the project page.
 - **References**: Always include references, even for well-known data sources. At minimum cite the primary data sources (e.g., Price et al. 2018 for Fitness Browser, Arkin et al. 2018 for KBase).
 - **Discoveries / Performance Notes sections**: optional. Populate when there's something material to capture. **Do not write to per-project memory files directly** — these sections flow through `/berdl-review` (the reviewer evaluates them as part of the report), then `/submit` extracts the approved-and-reviewed content into `projects/{project_id}/memories/{discoveries,performance}.md` at approval time. Writing memories at synthesize time would propagate unvetted claims; the approval-gated path keeps OV-ingestible memories tied to content that survived review. If a section has no entries, omit it from REPORT.md entirely (don't write an empty `## Discoveries` heading); `/submit` treats absent + empty identically and won't write a memory file.
+- **Calibrate the language to the evidence.** On lakehouse data the analysis is almost always correlational: prefer "associated with", "tracks", "is enriched in" over "drives", "causes", "leads to", "is responsible for" unless an actual intervention or temporal design supports the stronger verb. Changing the verb is not enough on its own — readers still read "associated with" as causal, so the rest of the sentence has to agree with it. A hedged verb under a causal section title, or next to a confident "this suggests we should…", still reads as a causal claim. Claim novelty only against something checked — `references.md` or the knowledge layer — and say what was checked. "First" and "novel" are claims about the literature, not about this dataset, and they need the same evidentiary standard as any other claim.
 - **Claims ledger (`## Claims`)**: optional. Formalize each Key Finding as a falsifiable claim with typed evidence pointers (`notebook` / `query` / `figure` / `paper` / `web` / `docs`) and author-written confidence/status. Notebook locators are project-relative; `#cell-N` is one-based. Use `[stream: id]` only when artifacts genuinely represent a named dataset/method group. Without explicit stream metadata, multiple artifacts remain one default stream. Queries remain unresolved until a durable query registry exists. The CLI computes **resolved artifact support** and **confidence mismatch**; it does not prove status or scientific independence. `/berdl-review` and `/submit` read this ledger.
 
 #### Step 7c: Rebuild the claims ledger
