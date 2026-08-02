@@ -20,10 +20,18 @@ import subprocess
 import time
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 STATUSLINE = ROOT / ".claude" / "statusline.sh"
 
 ANSI = re.compile(r"\033\[[0-9;]*m")
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_dashboards(tmp_path):
+    yield
+    subprocess.run(["pkill", "-f", f"dashboard.py {tmp_path}"], capture_output=True)
 
 
 def _wait_until_listening(port: int, timeout: float = 10.0) -> bool:
