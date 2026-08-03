@@ -69,17 +69,29 @@ class TestFromEnvPrecedence:
         assert cfg.openviking_url == DEFAULT_OPENVIKING_URL
         assert cfg.openviking_api_key is None
 
-    def test_env_url_with_cached_key_do_not_mix_when_both_env_present(
-        self, monkeypatch
-    ):
-        # If only the URL is set in the env, the key is drawn from the cache —
-        # partial env config still gets completed from ~/.beril.
+    def test_partial_env_url_does_not_splice_cached_key(self, monkeypatch):
+        # A partial env override (URL only, no key) must NOT borrow the cached
+        # key: that would point a real cached key (e.g. prod) at whatever URL
+        # the env named (e.g. a local dev OV) — a mismatched pair. Instead the
+        # whole cached pair is taken as a unit, because it's complete.
         monkeypatch.setenv("OPENVIKING_URL", "https://env/ov")
         _patch_cache(monkeypatch, ("https://cached/ov", "cached_key"))
 
         cfg = ContextConfig.from_env(repo_root=Path("."))
-        assert cfg.openviking_url == "https://env/ov"
+        assert cfg.openviking_url == "https://cached/ov"
         assert cfg.openviking_api_key == "cached_key"
+
+    def test_partial_env_url_kept_when_no_cached_pair(self, monkeypatch):
+        # With only a URL in the env and nothing cached, keep the env URL and
+        # leave the key None — valid for an unauthenticated local/dev OpenViking.
+        # (Regression guard: the pair-resolution must not drop the env URL back
+        # to the default just because the key is absent.)
+        monkeypatch.setenv("OPENVIKING_URL", "https://dev/ov")
+        _patch_cache(monkeypatch, (None, None))
+
+        cfg = ContextConfig.from_env(repo_root=Path("."))
+        assert cfg.openviking_url == "https://dev/ov"
+        assert cfg.openviking_api_key is None
 
 
 class TestCachedCredentialImportGuard:
