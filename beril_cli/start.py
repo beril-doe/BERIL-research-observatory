@@ -149,6 +149,21 @@ def _checkout_release(repo_root: Path, requested_version: str | None) -> int:
     return 0
 
 
+def claude_defaults(agent: str, extra_args: list[str]) -> list[str]:
+    """Default flags for Claude: Opus with the 1M context window, auto permissions.
+
+    Returns nothing for other agents, and skips any flag the caller already set.
+    """
+    if agent != "claude":
+        return []
+    flags: list[str] = []
+    if "--model" not in extra_args:
+        flags += ["--model", "opus[1m]"]
+    if "--permission-mode" not in extra_args:
+        flags += ["--permission-mode", "auto"]
+    return flags
+
+
 def run_start(
     agent: str | None = None,
     extra_args: list[str] | None = None,
@@ -207,13 +222,7 @@ def run_start(
                     file=sys.stderr,
                 )
 
-    # Default to Opus with the 1M-token context window for Claude
-    if agent == "claude" and "--model" not in extra_args:
-        extra_args = ["--model", "opus[1m]", *extra_args]
-
-    # Default to auto permission mode for Claude
-    if agent == "claude" and "--permission-mode" not in extra_args:
-        extra_args = ["--permission-mode", "auto", *extra_args]
+    extra_args = [*claude_defaults(agent, extra_args), *extra_args]
 
     print(f"Launching {agent}...")
     print_jupyterhub_path_hint(repo_root)

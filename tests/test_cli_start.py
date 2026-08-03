@@ -362,3 +362,21 @@ def test_explicit_permission_mode_is_not_overridden(monkeypatch, tmp_path):
 def test_claude_defaults_to_opus_1m_context(monkeypatch, tmp_path):
     argv = _exec_argv(monkeypatch, tmp_path)
     assert argv[argv.index("--model") + 1] == "opus[1m]"
+
+
+def test_claude_defaults_only_apply_to_claude():
+    assert start.claude_defaults("codex", []) == []
+    assert start.claude_defaults("claude", []) == [
+        "--model",
+        "opus[1m]",
+        "--permission-mode",
+        "auto",
+    ]
+    assert start.claude_defaults("claude", ["--model", "sonnet"]) == [
+        "--permission-mode",
+        "auto",
+    ]
+    assert start.claude_defaults("claude", ["--permission-mode", "plan"]) == [
+        "--model",
+        "opus[1m]",
+    ]
