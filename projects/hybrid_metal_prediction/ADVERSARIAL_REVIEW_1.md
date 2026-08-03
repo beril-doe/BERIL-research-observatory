@@ -7,16 +7,16 @@ review_number: 1
 round_number: 1
 prompt_version: adversarial_project.v1 (depth=standard)
 severity_counts:
-  critical: 2
-  important: 5
-  suggested: 5
+  critical: 1
+  important: 6
+  suggested: 3
 prior_round_disposition:
   resolved: 0
   partially_addressed: 0
   still_open: 0
   obsolete: 0
 biological_claims_checked: 3
-biological_claims_flagged: 1
+biological_claims_flagged: 2
 prior_reviews_considered: []
 ---
 
@@ -24,11 +24,11 @@ prior_reviews_considered: []
 
 ## Summary
 
-This is round 1 of an iterative adversarial review. There are no prior adversarial rounds; this establishes the baseline. The project asks whether community-weighted mean (CWM) functional gene densities predict soil metal concentrations beyond cheap environmental covariates. It is well-structured, honest about mostly negative results (4 of 6 hypotheses not supported), and uses appropriate spatial block CV as the primary evaluation strategy. The REPORT is transparent about limitations and integrates findings across the thesis arc.
+This is round 1 of an iterative adversarial review. No prior adversarial baseline exists. This round raises 1 critical, 6 important, and 3 suggested issues.
 
-However, two critical issues undermine specific conclusions: (1) the metabolism/cofactor CWM feature is constant zero in the source data, making the H3 hypothesis untestable rather than "not supported"; and (2) the holdout M2/M4 comparison evaluates models on different sample subsets, invalidating the H6 quantitative criterion. Five important issues affect the statistical credibility of the H2 "SUPPORTED" verdict and the conformal prediction analysis. Five suggested issues address reproducibility and best-practice gaps.
+The project asks whether community-weighted mean (CWM) functional gene densities, derived from 16S relative abundances and per-Mb KO densities, improve XGBoost/Ridge predictions of soil metal concentrations (Cu, Zn, Pb, Ni) beyond environmental covariates alone. It pre-specifies six hypotheses with clear success criteria, implements spatial block cross-validation, and reports predominantly negative results honestly: CWM features account for <1.5% of SHAP importance, and the env-only model (M4) transfers best to an independent AusMicrobiome holdout. The honest reporting of negative results is a genuine strength.
 
-**Genuine strengths**: Spatial block CV as primary metric is methodologically sound and unusual for this literature. Pre-specification of hypotheses with success/fallback criteria is exemplary. Honest reporting of negative results with mechanistic interpretation. Cross-project integration is well-articulated.
+However, a critical bug in the out-of-fold (OOF) prediction indexing (C1) corrupts the overall RMSE metric used for all hypothesis tests, with demonstrated 7-40% prediction misalignment across models and a confirmed result reversal (M3 vs M4 for Pb). Until this bug is fixed and results recomputed, the project's quantitative conclusions --- including the H1, H2, H5, and H6 verdicts --- cannot be trusted. Beyond the bug, the holdout comparison (H6) uses non-comparable sample sets (I1), the conformal prediction validation is circular (I2), effect sizes are absent (I3), and the project lacks any literature citations file (I6). The project would also benefit from engaging with the trait-ecology and community-assembly literature that explains *why* CWM should fail under the conditions present in global multi-metal systems.
 
 ## Carryover from Prior Rounds
 
@@ -36,304 +36,370 @@ However, two critical issues undermine specific conclusions: (1) the metabolism/
 
 ## Overall Scientific Critique
 
-The scientific logic is mostly coherent: the project asks a clear predictive question, tests it with appropriate spatial CV, and reports honest negatives. The analysis chain (feature assembly → baselines → hybrid models → external validation → interpretation) is well-ordered with explicit interdependencies.
+**Scientific soundness.** The project's question is well-defined and the approach is reasonable: test whether CWM functional gene densities add predictive power beyond environmental covariates for soil metal prediction. The model ladder (B0-B5, M1-M5) is well-designed, controlling for model type when comparing feature sets. The spatial block CV is appropriate for spatially autocorrelated geochemical data. However, the OOF indexing bug (C1) undermines the computational foundation that all hypothesis tests rest on. The science is sound in design but unreliable in execution.
 
-**Three structural concerns:**
+**Logical clarity.** The analysis chain is logical: build feature matrix (NB00) -> establish baselines (NB01) -> test hypotheses via nested CV and bootstrap (NB02) -> external validation (NB03) -> interpret via SHAP (NB04) -> check temporal stability (NB05). Each step follows naturally from the prior. The logic is clear.
 
-1. **H3's test is vacuous but framed as informative.** The metabolism/cofactor CWM feature is constant zero across all 42,037 samples (verified in the genus_trait_table.csv source data). Testing whether a zero-variance feature ranks higher than a non-zero feature in SHAP is not a test of the biological hypothesis — it's an artefact of missing data in the upstream trait table. The project treats this as a genuine negative ("cofactor > resistance pattern does not translate to predictive importance") when it should be flagged as untestable-with-current-data.
+**Analysis interdependencies.** NB02 depends on NB00's feature matrix and NB01's baseline context. NB04 depends on NB02's model results. These dependencies are stated. However, the bootstrap test in NB02 (cell c0000008) re-computes B1 with *correct* OOF alignment while using M1/M2/M4 from `nested_spatial_cv` with *incorrect* alignment --- this asymmetry is not documented and creates a subtle validity gap in the H1 comparison (correct B1 vs buggy M1).
 
-2. **H2's narrative treatment is contradictory.** The pre-specified test says H2 is SUPPORTED (3/4 metals pass), but the report headline and narrative frame the result as a null: "CWM features do not improve over env-only XGBoost." Both cannot be true. The project needs to reconcile whether the 3–3.4% relative improvements for Zn/Pb/Ni are scientifically meaningful (in which case H2 is supported and the headline is wrong) or whether the effect is too small to be practically significant (in which case the pre-specified criterion was insufficiently stringent and this should be stated explicitly, not elided).
+**Scope-of-claim vs. scope-of-evidence.** The project's conclusions are generally well-scoped. The statement "CWM features provide statistically significant but practically negligible improvement for 3/4 metals" is appropriately qualified. However, the broader conclusion "CWM features hurt transfer" (H6) rests on a comparison using different sample sets (I1), which is a scope-evidence mismatch the project does not acknowledge.
 
-3. **Scope-of-claim vs scope-of-evidence for the main conclusion.** The headline finding — "the predictive signal in this dataset is primarily geographic, not microbial-functional" — is a strong claim supported by the SHAP analysis (<1.5% CWM importance) and the holdout transfer failure. But it applies only to CWM features derived from 5 metal-related functional categories. The project does not test whether richer microbial features (e.g., genus-level relative abundances directly, or broader KEGG pathway CWMs) would also fail. The conclusion is scoped to CWM-of-metal-gene-densities, but is phrased as if it covers all microbial-functional predictors.
+**Narrative honesty.** The project is unusually honest about negative results. Five of six hypotheses are NOT SUPPORTED, and the project doesn't spin these into positive findings. The REPORT clearly delineates supported from unsupported results. This is a significant strength in an era of positive-result bias.
+
+**Missing element.** The project never addresses *why* CWM should work or fail. The trait-ecology literature provides clear theoretical conditions for CWM success (single dominant stressor, directly measured traits, unimodal trait distribution), and the project's design violates all three (multi-metal stressors, inferred per-Mb KO densities, potentially multimodal gene distributions). Without this theoretical grounding, the negative result reads as "it didn't work" rather than "it didn't work because the conditions for CWM to work were not met." This is the project's most significant interpretive gap.
 
 ## Statistical Rigor
 
 ### Critical
 
-- **C1: Holdout M2/M4 comparison evaluates on different sample subsets** — NB03, cell d0000008. M4 (env-only) is evaluated on 480–488 Australian holdout samples (those with at least one non-NaN env feature, i.e., samples with CSU mob_* matches). M2 (env+CWM) is evaluated on 731–745 samples (because CWM features are never all-NaN, so `~X.isna().all(axis=1)` is always True). The H6 criterion (M2/M4 RMSE ratio ≤ 1.1×) compares RMSEs computed on non-overlapping subsets: M4's RMSE reflects 480 samples with better env feature coverage; M2's RMSE reflects 731 samples including 250+ samples with zero env features where XGBoost routes through CWM + learned defaults. This comparison is confounded — M4 is evaluated only on the samples most favorable to it.
+- **C1: Out-of-fold prediction index misalignment in `nested_spatial_cv`** --- `scripts/modelling.py`, line 235. The function `_drop_nan_rows` removes rows with NaN features or target from each test fold, producing `X_te_clean` with fewer rows than the test fold. The OOF assignment `oof_preds.iloc[test_idx[:len(X_te_clean)]] = preds` then takes the first `len(clean)` positions from `test_idx`, but these positions may include NaN rows that were removed. Predictions are assigned to wrong sample positions.
 
-  **Suggested fix**: Restrict both M2 and M4 holdout evaluation to the intersection of samples where both models have valid features — i.e., the 480–488 samples with at least one env feature AND valid CWM. Alternatively, report both the full-sample and intersection evaluations to bound the comparison.
+    **Demonstration.** Consider `test_idx = [100, 200, 300, 400, 500]` where positions 200 and 400 have NaN. `_drop_nan_rows` produces 3 clean rows (positions 100, 300, 500). The code assigns predictions for these 3 rows to `test_idx[:3] = [100, 200, 300]`. Result: the prediction for sample 300 goes to position 200, the prediction for sample 500 goes to position 300, and positions 400 and 500 remain NaN. That is 67% misalignment for this fold.
 
-  ```python
-  # Compute valid intersection for fair comparison
-  X_m2 = get_features(aus_fm, 'M2')
-  X_m4 = get_features(aus_fm, 'M4')
-  valid_both = valid_y & ~X_m2.isna().all(axis=1) & ~X_m4.isna().all(axis=1)
-  # Evaluate both models on valid_both only
-  ```
+    **Quantified impact** (computed from NaN rates in `feature_matrix.parquet`):
+    - M3 (CWM only, no env feature NaN): 6.8% (Ni, target NaN only) to 17.4% (Cu) misalignment
+    - M2 (env + CWM): 26.4% (Ni) to 40.1% (Cu) misalignment
+    - M4 (env only): similar to M2 (same feature NaN pattern)
 
-- **C2: CWM_mean_n_metabolism_clusters is constant zero — H3 is untestable** — NB04, cell e0000008; `data/genus_trait_table.csv`. The `mean_n_metabolism_clusters` column is 0.0 for all 1,654 genera with pangenome data in the trait table (verified: `pd.read_csv(...).describe()` shows mean=0, std=0, min=0, max=0). After CWM computation, `CWM_mean_n_metabolism_clusters` = 0.0 for all 42,037 samples. The H3 hypothesis tests cofactor/metabolism CWM (rank 18/18, mean |SHAP| = 0.000) against defense CWM (rank 16–17/18, mean |SHAP| ≈ 0.001). This is a comparison between a constant-zero feature and a real feature — the result ("NOT SUPPORTED") is a data-availability artefact, not a scientific finding.
+    **Confirmed result reversal.** Using per-fold RMSE (correctly computed within each fold), the comparison M3 vs M4 for Pb *reverses*:
 
-  The REPORT states: "The cofactor > resistance pattern from comprehensive_metal_ecology PGLS does not translate into predictive SHAP importance" — but this claim cannot be made because the cofactor feature was never populated. The test was structurally incapable of supporting H3 regardless of biology.
+    ```
+    python3 -c "..."
+    # overall_rmse: M3=0.968 < M4=1.119  → M3 wins (BUGGY)
+    # fold_rmse_mean: M3=0.959 > M4=0.892  → M4 wins (CORRECT)
+    ```
 
-  **Suggested fix**: (a) In the REPORT, change H3 verdict to "UNTESTABLE (metabolism CWM = 0 for all genera in trait table)" with a note explaining the upstream data gap. (b) In the INTERPRETATION_TABLE, flag the same. (c) Investigate why `mean_n_metabolism_clusters` is zero in the genus_trait_table — is this a data pipeline issue in comprehensive_metal_ecology, or does the category genuinely not exist in the pangenome annotations? If recoverable, recompute CWM with populated metabolism data.
+    The REPORT claim "M3 (CWM alone) beats M4 across all targets" is false for Pb when using the correctly computed per-fold metric.
+
+    **Scope of impact.** All results derived from `overall_rmse` are unreliable: H1 bootstrap (B1 correct vs M1 buggy), H2 bootstrap (M4 buggy vs M2 buggy with different misalignment rates), H5 block RMSE (buggy numerator), H6 overall RMSE comparison, temporal drift analysis. The per-fold RMSE values are correctly computed (within-fold alignment is correct) and should be used as the primary metric.
+
+    **Note.** The NB02 B1 re-computation (cell c0000008) uses the *correct* alignment pattern: `valid_test_pos = np.array(test_idx)[~nan_mask.values]`. The M5 code (cell c0000005) also uses correct `.loc`-based assignment. Only `nested_spatial_cv` and the NB01 baseline loop have the bug.
+
+    **Suggested fix.** Replace line 235 in `modelling.py` with:
+
+    ```python
+    valid_mask = ~X_te_raw.isna().any(axis=1) & ~y_te_raw.isna()
+    valid_positions = np.array(test_idx)[valid_mask.values]
+    oof_preds.iloc[valid_positions] = preds
+    ```
+
+    Then recompute all results from NB01 onward.
 
 ### Important
 
-- **I1: Bootstrap ΔRMSE uses sample-level resampling despite spatial block CV** — `modelling.py`, lines 254–286; NB02 cell c0000008. The `bootstrap_delta_rmse` function resamples individual sample indices (n ≈ 34,000–39,000), treating each prediction as independent. But OOF predictions come from spatial block CV: all predictions within a block are produced by the same model trained on the same 4 other blocks. Within-block residuals are correlated. Sample-level bootstrap underestimates SE and produces artificially narrow CIs.
+- **I1: H6 holdout comparison uses non-comparable sample sets** --- `notebooks/03_external_validation.ipynb`. The holdout RMSE comparison between M2 (env + CWM) and M4 (env only) uses the filter `valid = valid_y & ~X.isna().all(axis=1)`, which drops a row only if ALL features are NaN. Since M2 has more features (env + CWM) than M4 (env only), M2 retains more rows:
 
-  Tier 1 calculation:
+    | Model | Cu n | Zn n | Pb n | Ni n |
+    |-------|------|------|------|------|
+    | M2    | 731  | 737  | 745  | 740  |
+    | M4    | 480  | 484  | 488  | 488  |
 
-  ```
-  python3 -c "import numpy as np
-  # Observed CI widths vs iid expectation
-  for metal, lo, hi, n, m4r in [('Cu',-0.139,-0.130,34613,1.527),
-                                  ('Zn',0.023,0.027,37283,0.785),
-                                  ('Pb',0.035,0.040,36381,1.119),
-                                  ('Ni',0.062,0.069,39211,2.188)]:
-      width = hi-lo
-      se_obs = width/(2*1.96)
-      se_iid = m4r/np.sqrt(2*n)
-      print(f'{metal}: CI width={width:.4f}, SE_obs={se_obs:.5f}, SE_iid={se_iid:.5f}, ratio={se_obs/se_iid:.2f}')"
-  # Cu: ratio=0.40, Zn: ratio=0.35, Pb: ratio=0.31, Ni: ratio=0.23
-  ```
+    M2 evaluates on 250+ more samples than M4. These extra samples are precisely the ones where env features are partially missing --- plausibly harder-to-predict samples from regions with worse covariate coverage. This biases the comparison against M2. The claim "M4 beats M2 on holdout" may partially reflect sample-set composition rather than model quality.
 
-  The observed SEs are 0.2–0.4× the iid expectation — paradoxically *tighter* than iid, not wider. This is consistent with bootstrapping a highly structured (block-correlated) prediction vector. The H2 relative improvements for Zn (+3.2%), Pb (+3.4%), and Ni (+3.0%) are small and may not survive a block bootstrap (k=5 effective units).
+    **Suggested fix.** Restrict both M2 and M4 evaluation to the *intersection* of valid samples (the M4 valid set, which is a subset of the M2 valid set). Report RMSE on this common sample set.
 
-  **Suggested fix**: Implement a block bootstrap that resamples entire spatial blocks (k=5). With only 5 blocks, the bootstrap has low resolution; complement with a permutation test that permutes block labels 1,000× and computes the ΔRMSE null distribution. If the block-level CI for any of Zn/Pb/Ni overlaps zero, downgrade H2 from SUPPORTED to PARTIALLY SUPPORTED.
+- **I2: Conformal prediction validated on calibration set (circular)** --- `notebooks/02_hybrid_models.ipynb`, cell c0000010. The conformal predictor is calibrated on `(Xcal, ycal)` and coverage is evaluated on the same `(Xcal, ycal)`:
 
-- **I2: H2 verdict contradicts report headline** — REPORT.md, lines 11–13 vs line 23. The headline states: "CWM features... do not improve over env-only XGBoost when features are combined." The H2 verdict row says: "SUPPORTED" (3/4 metals pass, which exceeds the pre-specified ≥2/4 criterion). These are logically incompatible.
+    ```python
+    cp.calibrate(model_cp, Xcal, ycal)
+    lo, hi = cp.predict_interval(Xcal)   # ← same data!
+    coverage = ((ycal.values >= lo) & (ycal.values <= hi)).mean()
+    # prints 0.900
+    ```
 
-  **Suggested fix**: Either (a) accept H2 as written — CWM features *do* statistically improve M2 over M4 for 3/4 metals, and the headline should say so (with the caveat that improvements are small: 3.0–3.4% relative); or (b) argue that the effect is too small to be practically meaningful and explicitly state that the pre-specified criterion (ΔRMSE CI excludes 0) was insufficiently stringent — it should have required a minimum practical improvement (e.g., ≥5% relative or ≥0.05 absolute ΔRMSE). Do not let the headline and the formal test disagree silently.
+    This is circular by construction. The conformal quantile `q_hat` is the (1-alpha) quantile of the calibration residuals. Checking how many calibration residuals fall below `q_hat` recovers approximately `1-alpha` tautologically:
 
-- **I3: Conformal prediction coverage evaluated on calibration set** — NB02 cell c0000010. The conformal predictor is calibrated on block-0 holdout data (`cal_idx`), then coverage is computed on the same data:
+    ```python
+    # Verified via simulation:
+    # n=5000, alpha=0.10 → coverage on calibration data = 0.9002
+    # This is a mathematical identity, not an empirical validation.
+    ```
 
-  ```python
-  cp.calibrate(model_cp, Xcal, ycal)
-  lo, hi = cp.predict_interval(Xcal)  # ← same data as calibration
-  coverage = ((ycal.values >= lo) & (ycal.values <= hi)).mean()
-  ```
+    The conformal coverage guarantee applies to *exchangeable test data*, not the calibration set:
 
-  This is circular. The conformal quantile `q̂` is computed from the calibration residuals at the `⌈(1−α)(n+1)/n⌉` quantile. Evaluating coverage on the same residuals will always yield ~90% coverage by construction. This is not empirical validation.
+    **Shafer G, Vovk V. (2008). "A Tutorial on Conformal Prediction." Journal of Machine Learning Research 9:371–421.** [arXiv:0706.3188] [JMLR open-access, no CrossRef DOI]
 
-  **Suggested fix**: Evaluate coverage on a proper test set — either block-1 holdout after calibrating on block-0, or integrate conformal prediction into the full spatial CV (calibrate on block-k holdout in outer fold, evaluate on block-k+1). Report coverage as the mean across all CV folds.
+    - **Studied:** Theoretical framework; mathematical proof of conformal prediction validity under the i.i.d./exchangeability assumption
+    - **Finding:** "if the successive examples are sampled independently from the same distribution, then the successive predictions will be right 1 – ε of the time, even though they are based on an accumulating data set rather than on independent data sets"
+    - **Scope alignment:** ✓ Directly establishes that the conformal coverage guarantee requires exchangeability of new examples — evaluation on the calibration set used to derive q_hat does not constitute a valid coverage test.
+    - **Assessment:** ✓ Confirms the circularity critique: 90% calibration-set coverage is a mathematical identity derivable from the quantile definition, not an empirical demonstration of out-of-calibration performance.
 
-- **I4: Only 2 effective independent CWM dimensions, not 5** — `data/feature_matrix.parquet`, CWM columns. Three cluster-count CWMs (metal, defense, homeostasis) have Pearson r > 0.95 pairwise (metal–defense r = 0.992; metal–homeostasis r = 0.985; defense–homeostasis r = 0.954). With metabolism constant at zero, the project has 4 non-trivial CWM features that collapse to ~2 independent dimensions: one cluster-count factor and the core-fraction feature (r ≤ 0.43 with cluster counts). The project frames these as "5 CWM features" throughout, which overstates feature diversity and makes H3's per-feature SHAP comparison (metabolism vs defense rank) meaningless even if metabolism were non-zero — the three cluster-count features are near-identical.
+    **Suggested fix.** Hold out a separate test block (e.g., block 1 for calibration, block 2 for coverage evaluation). Report coverage on the test block with a CI.
 
-  **Suggested fix**: (a) Report effective dimensionality (e.g., PCA showing 2 components capture >99% variance). (b) Consider reducing the CWM feature set to 2 representative features (one cluster-count and one core-fraction) to reduce noise from collinear features. (c) In the discussion of H3, note that cofactor vs resistance SHAP comparisons are confounded by the near-perfect collinearity — you cannot attribute importance to individual cluster-count features when they are interchangeable.
+- **I3: Effect sizes absent for hypothesis tests** --- `REPORT.md`, all hypothesis sections. Bootstrap ΔRMSE confidence intervals are reported but never contextualized as relative improvements. For H2, the passing metals show:
 
-- **I5: GeoROC 50 km spatial join introduces large target measurement error** — NB00. Metal targets come from GeoROC geochemical measurements spatially joined within a 50 km radius. The mean join distance is 28.0 km (SD 12.0); 55.8% of samples have joins > 25 km. Geochemical metal concentrations can vary by orders of magnitude over distances < 1 km due to point-source contamination, geological transitions, and land-use changes. A 28 km join radius means most target values represent geology/conditions substantially different from the sample site. This introduces a noise floor that fundamentally limits achievable prediction accuracy and may explain why all models (including M4) have high RMSE under spatial block CV.
+    | Metal | ΔRMSE | % of M4 RMSE | Verdict |
+    |-------|-------|-------------|---------|
+    | Cu    | -0.134 | -8.8% | FAIL (CWM hurts) |
+    | Zn    | +0.025 | +3.2% | PASS |
+    | Pb    | +0.037 | +3.3% | PASS |
+    | Ni    | +0.066 | +3.0% | PASS |
 
-  The REPORT mentions this as caveat #1 but does not quantify its impact. The feature matrix contains `mean_dist_km` and `n_geochem_pts` columns that could be used for a sensitivity analysis.
+    The passing improvements are 3.0-3.3% --- statistically significant (bootstrap CIs exclude zero) but practically marginal. The Cohen's d equivalents are very large (24-55) only because the bootstrap SD is tiny (n = 42,037 samples), not because the effect is large. The distinction between statistical and practical significance is never discussed.
 
-  **Suggested fix**: Add a sensitivity analysis: (a) Stratify RMSE by `mean_dist_km` quartile — does prediction accuracy improve for samples with closer GeoROC matches? (b) Repeat the M4 and M2 analyses restricting to samples with `mean_dist_km` < 15 km (a more geochemically defensible radius) and compare RMSE. (c) Report the noise floor implied by the spatial join: compute the within-50 km variance of GeoROC metal values for samples that match multiple GeoROC points.
+    **Suggested fix.** Report % RMSE improvement alongside ΔRMSE. Discuss whether 3% improvement justifies the added complexity of CWM features.
+
+- **I4: H5 degradation ratio comparison lacks uncertainty quantification** --- `notebooks/02_hybrid_models.ipynb`, cell a35fe6db. The H5 comparison applies a pre-specified 10% threshold (ratio_M2 > ratio_M4 * 1.10) to point estimates of the degradation ratio (block RMSE / random RMSE). No confidence intervals are provided for these ratios:
+
+    | Metal | M2 ratio | M4 ratio | M2 > M4*1.1? |
+    |-------|----------|----------|-------------|
+    | Cu    | 13.14    | 11.93    | No (13.14 < 13.12) |
+    | Zn    | 11.23    | 11.32    | No |
+    | Pb    | 12.44    | 12.93    | No |
+    | Ni    | 12.19    | 12.81    | No |
+
+    For Cu, the margin is razor-thin (13.14 vs 13.12). Without CIs, this could easily flip. The pre-specified 10% threshold is applied to a point estimate with no uncertainty quantification.
+
+    **Suggested fix.** Bootstrap the degradation ratio by resampling OOF predictions within each CV fold. Report CI on the ratio and on the M2-M4 difference.
+
+- **I5: GeoROC 50 km spatial join creates unquantified pseudo-replication** --- `notebooks/00_feature_matrix.ipynb`. Multiple microbiome samples within 50 km of the same GeoROC measurement site share the same target value. This creates:
+
+    (a) **Pseudo-replication**: samples with identical targets are treated as independent observations, inflating effective N and narrowing CIs.
+
+    (b) **Measurement error**: 50 km is a large radius for geochemical heterogeneity. Within-radius variance in actual metal concentrations is treated as zero.
+
+    (c) **Signal suppression**: if CWM features track local (< 1 km) metal variation but the target is smoothed over 50 km, the CWM signal would be washed out. This is an alternative explanation for the null CWM result that the project does not discuss.
+
+    **Suggested fix.** (a) Report the number of unique GeoROC target values vs. number of microbiome samples. (b) Quantify within-radius target variance using GeoROC sites with multiple measurements. (c) Discuss 50 km smoothing as an alternative explanation for null CWM results.
+
+- **I6: No references.md or literature citations** --- The file `references.md` does not exist (`Read` returned error). The REPORT cites data sources (GeoROC, MicrobeAtlas, AusMicrobiome, SoilGrids) but does not cite any primary literature on CWM, trait ecology, metal-microbiome relationships, or spatial CV methodology. For a project testing biological hypotheses about functional gene densities and metal stress, this is a significant gap.
+
+    **Suggested fix.** Create `references.md`. At minimum, cite:
+
+    (a) Foundational CWM/trait ecology papers — see Lavorel & Garnier (2002) citation in Biological Claims, Claim 1.
+
+    (b) Spatial CV methodology:
+
+    **Roberts DR, Bahn V, Ciuti S, et al. (2017). "Cross-validation strategies for data with temporal, spatial, hierarchical, or phylogenetic structure." Ecography 40(8):913–929.** doi:10.1111/ecog.02881
+
+    - **Studied:** Ecological datasets with spatial, temporal, hierarchical, and phylogenetic structure; simulation and empirical examples
+    - **Finding:** "it is recommended that block cross-validation be used wherever dependence structures exist in a dataset, even if no correlation structure is visible in the fitted model residuals, or if the fitted models account for such correlations"
+    - **Scope alignment:** ✓ Directly applicable — the project uses spatial block CV for geochemical data with strong spatial autocorrelation; this is the canonical methodological justification for that approach.
+    - **Assessment:** ✓ Should be cited in REPORT; foundational justification for the spatial block CV design.
+
+    (c) Metal-microbiome interaction studies — see literature scan results in the Literature and External Resources section below.
+
+    (d) Conformal prediction theory:
+
+    **Shafer G, Vovk V. (2008). "A Tutorial on Conformal Prediction." Journal of Machine Learning Research 9:371–421.** [arXiv:0706.3188] [JMLR open-access, no CrossRef DOI]
+
+    - **Studied:** Theoretical framework for conformal prediction; mathematical guarantees under exchangeability
+    - **Finding:** "if the successive examples are sampled independently from the same distribution, then the successive predictions will be right 1 – ε of the time, even though they are based on an accumulating data set rather than on independent data sets"
+    - **Scope alignment:** ✓ Directly relevant — establishes the exchangeability assumption underlying the conformal prediction guarantee that the project's calibration-set self-evaluation violates (see I2).
+    - **Assessment:** ✓ Should be cited alongside the conformal prediction implementation.
 
 ### Suggested
 
-- **S1: Random CV RMSE implies R² > 0.98 — H5 denominators unreliable** — NB02 cell a35fe6db; `data/h5_degradation_ratios.csv`. Random 5-fold RMSE values of 0.068–0.174 (vs B0 RMSE 0.711–1.769) imply R² > 0.98 for all metals under random CV, which is explained by spatial autocorrelation leakage (nearby samples in both train and test have nearly identical targets). The H5 degradation ratios (11–13×) are dominated by this leakage effect, making between-model ratio comparisons unreliable. The REPORT acknowledges this but still presents the ratios as the H5 test.
+- **S1: XGBoost `eval_set` passes test data** --- `scripts/modelling.py`, line 228-230. The `build_xgboost` function sets `eval_set=[(X_te_clean, y_te_clean)]` during `.fit()`. Since `early_stopping_rounds` is not set (XGBoost default is None), the eval_set is inert --- it only prints evaluation metrics without affecting training. However, this is misleading code: if someone later adds `early_stopping_rounds`, it would introduce test-data leakage into training.
 
-  **Suggested fix**: Note in the REPORT that H5 should be considered uninformative rather than "NOT SUPPORTED" — the test design (random vs block CV ratio) is confounded by spatial autocorrelation. An alternative H5 test would compare per-fold RMSE variance between M2 and M4 under block CV only.
+    **Suggested fix.** Remove `eval_set` from `.fit()`, or add a comment explaining why it's intentionally inert.
 
-- **S2: No effect-size reporting for H2** — REPORT.md §H2. The relative RMSE improvements are 3.0–3.4% for Zn/Pb/Ni. With N > 34,000, the bootstrap CIs exclude zero, but this is a test of statistical significance, not practical significance. No effect-size measure (Cohen's d, relative % improvement, or R² change) is reported alongside the bootstrap CI.
+- **S2: SHAP computed on full-data refit** --- `notebooks/04_interpretation_and_discovery.ipynb`, cell e0000004. SHAP values are computed on a model refit to all data, not on the cross-validated models. This is standard practice but means SHAP importances may differ from the importances that drove CV predictions:
 
-  **Suggested fix**: Report the relative improvement (ΔRMSE / M4_RMSE × 100) explicitly in the H2 table. Add a sentence to the interpretation: "The statistically significant improvements for Zn (+3.2%), Pb (+3.4%), and Ni (+3.0%) are small in absolute terms and may not be practically meaningful for environmental monitoring or risk assessment."
+    **Lundberg SM, Erion G, Chen H, et al. (2020). "From local explanations to global understanding with explainable AI for trees." Nature Machine Intelligence 2(1):56–67.** doi:10.1038/s42256-019-0138-9 [PMID:32607472]
 
-- **S3: No requirements.txt or reproduction section** — README.md. The README has no `## Reproduction` section documenting how to rerun the notebooks (Spark dependencies, JupyterHub requirements, runtime estimates). No `requirements.txt` or equivalent lists the Python dependencies.
+    - **Studied:** Three medical ML datasets (cardiac surgery, sepsis, breast cancer); XGBoost and gradient-boosted tree models
+    - **Finding:** "a new set of tools for understanding global model structure based on combining many local explanations of each prediction"
+    - **Scope alignment:** ⚠ Partial — TreeSHAP is designed for computation on a single trained model; the paper does not explicitly discuss or recommend full-data refit vs. fold-specific models for SHAP analysis.
+    - **Assessment:** ⚠ Cited as the canonical TreeSHAP reference establishing the SHAP-on-trained-model application pattern; does not resolve the CV-stability concern raised in this issue, which requires computing SHAP separately per fold.
 
-  **Suggested fix**: Add a `## Reproduction` section to README listing: (a) required environment (JupyterHub with Spark), (b) Python packages (xgboost, shap, scikit-learn, etc.), (c) estimated runtime per notebook, (d) any manual steps (e.g., SoilGrids API key).
+    With >2,000 highly collinear CWM features (VIF up to 1.5M), SHAP credit attribution is particularly unstable.
 
-- **S4: All figures are PNG; project standard requires PDF** — `figures/`. All 18 figures use PNG format. Per CLAUDE.md project standards, finished notebooks should save figures as PDF (`save(fig, FIGS / 'fig_name.pdf')`).
+    **Suggested fix.** Report SHAP variance across CV folds (compute SHAP per fold and report SD of feature importance ranks). Note full-data refit as a limitation.
 
-  **Suggested fix**: Rerun figure-generating cells with `save()` helper or `.savefig(...pdf, bbox_inches='tight')`. Keep PNG for EDA/diagnostic figures (prefix `fig_nb*_`); convert publication/report figures to PDF.
+- **S3: Extreme CWM feature collinearity unaddressed** --- The 5 CWM cluster-count features have VIF values of 280,000 to 1,500,000 (noted in REPORT but not addressed). While XGBoost is robust to collinearity for prediction, SHAP importance attribution is NOT robust: credit is split arbitrarily among collinear features, making individual feature importances uninterpretable. The claim "CWM features have < 1.5% SHAP importance" may partly reflect credit fragmentation rather than genuine unimportance.
 
-- **S5: Missing join-distance vs prediction-error analysis** — The feature matrix contains `mean_dist_km` for every sample. Correlating `|residual|` with `mean_dist_km` would quantify how much of the prediction error is attributable to target measurement error from the 50 km spatial join. This is a low-cost analysis that would strengthen the limitations section.
-
-  **Suggested fix**: In NB04 discovery section, add:
-  ```python
-  # Join distance vs prediction error
-  resid = (y - oof_m2).abs()
-  rho, p = scipy.stats.spearmanr(fm['mean_dist_km'][valid], resid[valid])
-  # If rho > 0: join distance explains prediction error → noise floor claim strengthened
-  ```
+    **Suggested fix.** Either (a) PCA-reduce CWM features before SHAP analysis, or (b) report grouped SHAP importance (sum over all CWM features vs sum over all env features) alongside individual feature importance.
 
 ## Hypothesis Vetting
 
-### H1: CWM+pH (M1) improves over pH-only (B1)
+### H1: Adding CWM features to pH-only baseline (B1) improves prediction
 
-- **Falsifiable?**: Yes. The test (bootstrap ΔRMSE CI excluding 0 for ≥2/4 metals) is well-specified and falsifiable.
-- **Evidence presented**: Bootstrap ΔRMSE with 95% CI for all 4 metals. 1/4 passes (Ni only).
-- **Alternative explanations**: The ridge model adding 5 CWM features (of which 1 is constant zero and 3 are near-identical) to pH is essentially adding ~2 noisy dimensions. Ridge regularization may not fully suppress noise, leading to degraded performance. This is a model-capacity issue, not necessarily a biology issue.
-- **Null-result handling**: Correctly reported as NEGATIVE. No attempt to reframe as positive.
-- **Verdict**: Supported as a well-conducted negative result.
+- **Falsifiable?** Yes. Pre-specified criterion: ΔRMSE(B1 - M1) > 0 with 95% bootstrap CI excluding zero. Clearly falsifiable.
+- **Evidence presented:** Bootstrap ΔRMSE for 4 metals. Result: 1/4 metals pass (Ni only). Verdict: NEGATIVE.
+- **Alternative explanations:** (a) The OOF alignment bug (C1) corrupts M1's overall RMSE, making the comparison unreliable. (b) M1 uses Ridge regression, which cannot model non-linear pH × CWM interactions. A fairer test would use the same model type (XGBoost) for both B1 and M1. (c) CWM features may correlate strongly with pH (both track similar ecological gradients), so adding CWM to pH provides redundant information.
+- **Null-result handling:** Honestly reported as "NEGATIVE (1/4 metals pass)."
+- **Verdict:** Cannot be evaluated due to C1. If C1 is fixed, the verdict may change. The negative result is plausible but unconfirmed.
 
-### H2: CWM+env (M2) improves over env-only (M4)
+### H2: CWM features improve prediction beyond environmental covariates alone
 
-- **Falsifiable?**: Yes. Same CI-based criterion as H1.
-- **Evidence presented**: Bootstrap ΔRMSE showing 3/4 metals with CI excluding 0 in the positive direction.
-- **Alternative explanations**: (a) The bootstrap may understate uncertainty by treating within-block predictions as independent (see I1). A block bootstrap might yield wider CIs overlapping zero for the 3.0–3.4% improvements. (b) The improvement may be an artefact of XGBoost's regularization interacting differently with 18 features (M2) vs 13 features (M4) under spatial CV, rather than CWM features carrying genuine biological signal.
-- **Null-result handling**: The project reports H2 as SUPPORTED but then the headline contradicts it (see I2). The handling is inconsistent.
-- **Verdict**: Partially supported. The formal criterion is met, but the bootstrap CI methodology has a structural issue (I1), and the effect size is small.
+- **Falsifiable?** Yes. Pre-specified criterion: ΔRMSE(M4 - M2) > 0 with 95% bootstrap CI excluding zero. Clearly falsifiable.
+- **Evidence presented:** Bootstrap ΔRMSE for 4 metals. Result: 3/4 metals pass (Zn, Pb, Ni). Verdict: SUPPORTED.
+- **Alternative explanations:** (a) The passing improvements are 3.0-3.3% of M4 RMSE --- statistically significant but practically negligible. (b) Both M4 and M2 OOF predictions are corrupted by C1, with different misalignment rates (M4 ~26-40%, M2 ~26-40% but with a different pattern because M2 has more features). The direction of bias is unpredictable. (c) Cu FAILS H2 (CWM *hurts* by 8.8%), which is never explained --- if CWM captures any real signal, why would it actively degrade prediction for Cu?
+- **Null-result handling:** The Cu failure is reported, but the asymmetry (CWM helps for 3 metals but hurts for Cu) is not interpreted. Why would CWM be actively harmful for Cu? This deserves discussion.
+- **Verdict:** Unreliable due to C1. Even if the passing direction holds after C1 is fixed, the 3% effect size raises questions about practical significance.
 
-### H3: Cofactor CWM more predictive than resistance CWM
+### H3: SHAP reveals biologically interpretable CWM features in top-20
 
-- **Falsifiable?**: In principle yes, but in practice untestable with current data.
-- **Evidence presented**: SHAP ranks showing metabolism CWM at rank 18/18 and defense at rank 16-17/18.
-- **Alternative explanations**: CWM_mean_n_metabolism_clusters is constant zero for all samples (C2). The H3 test compares a dead feature against a live one. Any SHAP-based comparison is vacuous.
-- **Null-result handling**: Incorrectly framed as "NOT SUPPORTED" when it should be "UNTESTABLE."
-- **Verdict**: Untestable. The metabolism CWM is constant zero; the hypothesis cannot be evaluated.
+- **Falsifiable?** Yes. Pre-specified criterion: at least one CWM feature in top-20 SHAP features for each target.
+- **Evidence presented:** SHAP analysis on full-data refit. All CWM features have mean |SHAP| < 0.006. Maximum CWM SHAP < 0.6% of total. CWM_mean_n_metabolism_clusters = 0.000 for all targets. Verdict: NOT SUPPORTED.
+- **Alternative explanations:** (a) Credit fragmentation among >2,000 collinear CWM features (S3). If 50 correlated CWM features each get 0.02% SHAP, their *grouped* importance could be 1%. (b) SHAP on full-data refit may not reflect CV-model importances (S2). (c) The GeoROC 50 km target smoothing (I5) may suppress any real CWM signal that tracks local metal variation.
+- **Null-result handling:** Honestly reported as NOT SUPPORTED. The <1.5% aggregate CWM importance is clearly stated.
+- **Verdict:** Partially supported as NOT SUPPORTED. The extreme collinearity among CWM features (VIF ~10^6) makes individual SHAP values uninterpretable; grouped SHAP importance would be a fairer test. The conclusion "CWM features are unimportant" may overstate what SHAP can establish under these conditions.
 
-### H4: Predictive gain largest for Cu and Ni
+### H4: CWM-metal specificity (metal-related KO features rank highest for corresponding metal)
 
-- **Falsifiable?**: Partially. The pre-specification says "visual rank comparison (no formal test)" — this is unfalsifiable in the strict sense but is acceptable as exploratory.
-- **Evidence presented**: ΔRMSE rank: Ni is rank 1 (passes), Cu has negative ΔRMSE (rank 4, fails).
-- **Alternative explanations**: Cu's negative ΔRMSE may reflect anthropogenic point-source contamination being poorly captured by community-level CWM, not a failure of the cofactor hypothesis per se.
-- **Null-result handling**: Correctly reported as NOT SUPPORTED with mechanistic speculation about Cu.
-- **Verdict**: Partially supported (Ni) / unsupported (Cu). The Cu exception is interesting and honestly discussed.
+- **Falsifiable?** Yes. Pre-specified criterion: for each metal, the highest-ranked CWM feature is biologically related to that metal.
+- **Evidence presented:** No metal-specific signal detected in SHAP or PDP analyses. Verdict: NOT SUPPORTED.
+- **Alternative explanations:** (a) Metal resistance genes may be on mobile genetic elements (plasmids, integrons), decoupling them from 16S-based abundance. Per-Mb KO density of a genus doesn't reflect plasmid-borne resistance in that genus's population. (b) Metal resistance is often co-selected with antibiotic resistance genes (see Biological Claims, Claim 2), meaning metal-specific signals are confounded with broader resistance phenotypes.
+- **Null-result handling:** Honestly reported.
+- **Verdict:** NOT SUPPORTED. Alternative explanations are strong and biologically well-grounded.
 
-### H5: Geographic CV degrades CWM-rich models more
+### H5: CWM-rich models degrade more under spatial CV than env-only models
 
-- **Falsifiable?**: Yes, but the test design is flawed.
-- **Evidence presented**: Degradation ratios (block/random RMSE) for M2 vs M4. Only Cu shows M2 > M4.
-- **Alternative explanations**: Random CV RMSE of 0.06–0.17 reflects spatial autocorrelation leakage (implied R² > 0.98), not model quality. The 11–13× degradation ratios are dominated by leakage in the denominator, making between-model ratio comparisons unreliable (see S1).
-- **Null-result handling**: Reported as NOT SUPPORTED, which is appropriate given the test criterion, but the REPORT should more prominently flag that the test design itself is compromised.
-- **Verdict**: Orthogonal to evidence. The test design cannot distinguish between "CWM features are not more geographically structured" and "random CV is too leaky to measure degradation ratios accurately."
+- **Falsifiable?** Yes. Pre-specified criterion: M2 degradation ratio > M4 degradation ratio * 1.10.
+- **Evidence presented:** Degradation ratios (block RMSE / random RMSE) range 11.2-13.1 for M2 and 11.3-12.9 for M4. H5 fails for all 4 metals. Verdict: NOT SUPPORTED.
+- **Alternative explanations:** (a) The block RMSE numerator comes from buggy `overall_rmse` (C1), though the bug likely inflates both M2 and M4 similarly. (b) Both M2 and M4 show extreme degradation (11-13x), far exceeding the typical 2-5x in ecological modeling. This suggests both models are dominated by spatial autocorrelation in the target (geochemistry), and CWM doesn't add spatial structure beyond what env already captures.
+- **Null-result handling:** Honestly reported. The 11-13x ratios themselves are noteworthy but not discussed in context of typical spatial degradation in ecology.
+- **Verdict:** NOT SUPPORTED. The extreme degradation ratios (11-13x) deserve more discussion --- they indicate the models are primarily exploiting spatial structure in metal concentrations (geology), not biological or environmental mechanisms.
 
-### H6: CWM models transfer to holdout
+### H6: Hybrid model transfers better to AusMicrobiome holdout than env-only model
 
-- **Falsifiable?**: Yes, with the M2/M4 ≤ 1.1× criterion.
-- **Evidence presented**: AusMicrobiome holdout showing M4 beating M2 for all 4 metals.
-- **Alternative explanations**: The comparison is confounded by different evaluation sample sizes (C1). M4 is evaluated on 480–488 samples; M2 on 731–745. The M2/M4 ratio is not computed on a comparable basis.
-- **Null-result handling**: Correctly reported as NOT SUPPORTED, but the magnitude of the degradation is unreliable due to C1.
-- **Verdict**: Unsupported, but the quantitative H6 ratios should be recalculated on comparable sample sets.
+- **Falsifiable?** Yes. Pre-specified criterion: M2 holdout RMSE < M4 holdout RMSE.
+- **Evidence presented:** M4 beats M2 on all 4 metals in AusMicrobiome holdout. Verdict: NOT SUPPORTED.
+- **Alternative explanations:** (a) The comparison uses non-comparable sample sets (I1): M2 n~731 vs M4 n~480. (b) CWM features are computed from SPIRE reference genomes trained on predominantly Northern Hemisphere data. Australian microbial communities may have sufficiently different genus composition that SPIRE-derived CWM features are noise in the AusMicrobiome context. (c) The mob_* (CSU metal mobility) features in M4 may transfer better because they are computed from globally-applicable geochemical models, while CWM is inherently local.
+- **Null-result handling:** Honestly reported. The project notes M4 is "the most parsimonious model" for transfer.
+- **Verdict:** Cannot be reliably evaluated due to I1. After fixing the sample set issue, the verdict may or may not change.
 
-### H_temporal: Model performance stable across collection years
+### H_temporal: Model performance degrades for newer samples
 
-- **Falsifiable?**: Yes (temporal degradation in RMSE).
-- **Evidence presented**: 0/40 tests show significant degradation; 7/40 show improvement.
-- **Alternative explanations**: The year-level analysis has low power (only 4–6 year-cohorts with n ≥ 30). The ENA "first public" date may not correspond to actual sample collection date.
-- **Null-result handling**: Correctly reported as null.
-- **Verdict**: Supported as a null result, with the caveat that statistical power for detecting small temporal effects is limited.
+- **Falsifiable?** Yes. Pre-specified criterion: Spearman rho > 0 (RMSE increases with year) with p < 0.05.
+- **Evidence presented:** 40 Spearman tests across models and metals. 0/40 show degrading trends. 7/40 show improving trends. Verdict: NOT SUPPORTED.
+- **Alternative explanations:** (a) The OOF predictions come from the buggy `nested_spatial_cv`, but the temporal trend should be robust to uniform misalignment (misalignment is unlikely to correlate with study year). (b) The "improving" trends may reflect cohort composition: EMP500 (2020) samples are globally distributed and may be easier to predict than earlier study-specific cohorts. The project correctly identifies this.
+- **Null-result handling:** Honestly and transparently reported. The interpretation acknowledges cohort composition effects.
+- **Verdict:** NOT SUPPORTED. The analysis is sound despite the OOF bug, and the interpretation is honest.
 
 ## Biological Claims
 
-### Claim 1: "The predictive signal is primarily geographic, not microbial-functional"
+### Claim 1: CWM of per-Mb KO densities captures community functional potential for metal stress response
 
-This is the project's main conclusion. Two lines of evidence support it: (a) CWM features contribute <1.5% of total mean |SHAP| in M2; (b) M4 (env-only) outperforms M2 (env+CWM) on the Australian holdout.
+This is the core biological assumption of the project. CWM (community-weighted mean) aggregates trait values across a community, weighted by relative abundance. The project uses 16S relative abundances multiplied by SPIRE per-Mb KO densities to compute CWM, then tests whether CWM predicts metal concentrations.
 
-The claim is scoped to CWM features derived from 5 metal-related functional categories. The REPORT does not test whether richer microbial representations (genus-level RA, broader KEGG CWMs, or shotgun metagenome features) would also fail. The conclusion is reasonable for this specific feature set but should not be generalized to "microbiome data is not useful for metal prediction" without qualification.
+The foundational trait-ecology literature establishes that CWM predicts ecosystem properties via Grime's mass ratio hypothesis — each species contributes to community-level function in proportion to its abundance — and that this mechanism is meaningful only when the measured traits function as "response traits" for the dominant environmental gradient under study:
 
-**Assessment**: ⚠ Partially supported. Supported for the CWM features tested; scope-of-claim slightly exceeds scope-of-evidence.
+**Lavorel S, Garnier E. (2002). "Predicting changes in community composition and ecosystem functioning from plant traits: revisiting the Holy Grail." Functional Ecology 16(5):545–556.** doi:10.1046/j.1365-2435.2002.00664.x
 
-### Claim 2: "Cu contamination is more anthropogenic/point-source than Zn/Pb/Ni"
+- **Studied:** Plant community ecology; theoretical/conceptual framework for linking plant functional traits to community composition and ecosystem function across multiple ecosystem types
+- **Finding:** [Paraphrase based on verified secondary sources — paper is behind a paywall and full text was not directly accessed; DOI confirmed via publisher (Wiley/BES): distinguishes "response traits" — traits mediating species responses to environmental factors — from "effect traits" — traits determining species effects on ecosystem properties; establishes CWM via Grime's mass ratio hypothesis as the link between community-weighted trait variation and ecosystem function.]
+- **Scope alignment:** ⚠ Partial — the framework is for plant functional ecology; application to microbial per-Mb KO density CWM requires the additional assumption that these densities constitute valid "response traits" for metal concentration gradients, which the project does not verify.
+- **Assessment:** ⚠ Partially supports the CWM approach — establishes that CWM is theoretically sound when traits are direct response traits for the dominant gradient; the project's negative results are consistent with per-Mb KO densities failing to constitute valid metal-response traits.
 
-This is offered as a mechanistic explanation for the Cu exception (CWM hurts Cu prediction).
+**Fan Q, Liu K, Wang Z, et al. (2024). "Soil microbial subcommunity assembly mechanisms are highly variable and intimately linked to their ecological and functional traits." Molecular Ecology 33(7):e17302.** doi:10.1111/mec.17302 [PMID:38421102]
 
-The general geochemical principle — that Cu is frequently elevated in anthropogenic settings (mining, smelting, agricultural inputs) while Cr and Ni are more often controlled by lithogenic parent material — is consistent with standard geochemistry. However, no verifiable published studies could be confirmed during this review that provide direct quantitative evidence for this contrast specifically across the global MicrobeAtlas sample distribution. The distinction between anthropogenic and geogenic sources is location-dependent and would require source-apportionment analysis (e.g., enrichment factors or isotope ratios) on the GeoROC/MicrobeAtlas sample set itself. At GeoROC's 50 km spatial join radius, even geogenic Cu variation would appear as noise.
+- **Studied:** >100 soil sites in southwestern China; iCAMP null-model analysis of 9 prokaryotic/fungal taxa
+- **Finding:** "The contribution of homogenous selection to Crenarchaeota subcommunity assembly was 70%, but it was only around 10% for the subcommunity assembly of Actinomycetes, Gemmatimonadetes and Planctomycetes."
+- **Scope alignment:** ⚠ Partial --- Fan et al. study natural soil (not metal-contaminated specifically), but the guild-dependent assembly finding is directly relevant to why CWM may fail for metal-resistance genes.
+- **Assessment:** ⚠ The project assumes homogenous environmental selection (necessary for CWM to work), but Fan et al. shows this varies dramatically by functional guild. Metal resistance genes may be in guilds dominated by stochastic assembly, making CWM uninformative by design.
 
-**Assessment**: ⚠ Partially supported. The general geochemistry is consistent with established principles, but the specific claim about the MicrobeAtlas Cu distribution is untested. No analysis partitions Cu samples by likely source (mining, agricultural, natural).
+**Reviewer verdict:** ⚠ Partially supported. The CWM approach is a reasonable first attempt, but the project lacks null-model analysis (iCAMP or equivalent) to verify that metal-resistance genes are under homogenous selection in the study communities. Without this verification, the negative CWM result is ambiguous: it could reflect genuine absence of a metal-CWM relationship, or it could reflect a design flaw (CWM applied to genes not under environmental filtering).
 
-### Claim 3: "CSU metal mobility gradients are geochemically consistent across continents"
+### Claim 2: Metal resistance genes are directly selected by metal concentrations
 
-This is inferred from M4 transferring well to the Australian holdout despite having only 6/13 features.
+The project implicitly assumes that per-Mb KO densities related to metal resistance should correlate with soil metal concentrations via environmental filtering. This assumption overlooks co-selection.
 
-The claim is empirically supported by M4's holdout RMSE (1.049–1.306) beating B0 (0.855–1.641) for all 4 metals. However, M4 uses 6 CSU mob_* features on the holdout, and only 480–488 samples have these features. The claim should specify that it applies to samples where mob_* features are available, not to all Australian soils.
+**Liu ZT, Ma RA, Zhu D, et al. (2024). "Organic fertilization co-selects genetically linked antibiotic and metal(loid) resistance genes in global soil microbiome." Nature Communications 15(1):5168.** doi:10.1038/s41467-024-49165-5 [PMID:38886447, PMCID:PMC11183072]
 
-**Assessment**: ✓ Supported for the 480–488 samples where CSU features were available. Strength of evidence limited by single holdout dataset.
+- **Studied:** 511 global agricultural soil metagenomes
+- **Finding:** "Organic fertilization correlates with a threefold increase in the number of diverse types of ARG-MRG-carrying contigs (AMCCs) in the microbiome (63 types) compared to non-organic fertilized soils (22 types). Metatranscriptomic data indicates increased expression of AMCCs under higher arsenic stress, with co-regulation of the ARG-MRG pairs."
+- **Scope alignment:** ⚠ Partial --- Liu et al. study agricultural soils globally (overlapping with the project's scope), but focus on metagenomes rather than 16S-inferred traits.
+- **Assessment:** ⚠ Metal resistance genes (MRGs) are frequently co-selected with antibiotic resistance genes (ARGs) via genetic linkage on integrons and plasmids. This means MRGs may correlate with agricultural practices, antibiotic use, and organic matter content rather than with metal concentrations directly. The project's CWM of metal-related KOs may fail (H4) because metal resistance is not directly selected by metals --- it's co-selected by broader agricultural drivers that the env covariates (pH, organic matter proxies) already capture.
+
+**Reviewer verdict:** ⚠ Flagged. The project should discuss co-selection as an alternative explanation for: (a) why CWM features don't improve beyond env covariates (H2's marginal effect), (b) why metal-specific KO features don't rank highest for their corresponding metal (H4 failure), and (c) why env covariates dominate SHAP (they capture the actual drivers of metal-gene co-selection).
+
+### Claim 3: M3 (CWM alone) beats M4 (env alone) across all targets
+
+The REPORT states this as evidence that CWM has some predictive power even without environmental covariates.
+
+**Reviewer computation (Tier 1).** Comparing per-fold RMSE (correctly computed within each fold) vs overall RMSE (corrupted by C1):
+
+```
+# overall_rmse (BUGGY):
+#   M3 = 1.195/0.698/0.968/1.853 (Cu/Zn/Pb/Ni)
+#   M4 = 1.527/0.785/1.119/2.188
+#   → M3 wins all 4 metals
+
+# fold_rmse_mean (CORRECT):
+#   M3 = 1.155/0.726/0.959/1.797
+#   M4 = 1.181/0.897/0.892/1.968
+#   → M3 wins Cu/Zn/Ni but M4 WINS Pb (0.892 < 0.959)
+```
+
+**Reviewer verdict:** ✗ The claim "M3 beats M4 across all targets" is false when using the correctly computed per-fold RMSE. M4 wins for Pb. This is a direct consequence of the C1 bug and demonstrates its material impact on conclusions.
 
 ## Data Support
 
-**Verified numerically:**
-- Feature matrix shape (42,037 × 44) matches README claim ✓
-- Bootstrap ΔRMSE values in `bootstrap_delta_rmse.csv` match REPORT table values ✓
-- Holdout RMSE values in `holdout_results.csv` match REPORT table values ✓
-- SHAP values in `shap_importance.csv` match REPORT rankings ✓
-- CWM_mean_n_metabolism_clusters = 0.0 for all samples (constant zero feature) — verified via `fm[cwm_cols].describe()`
-- H5 degradation ratios in `h5_degradation_ratios.csv` match REPORT table ✓
+**Feature matrix.** 42,037 samples x 44 features. Target NaN rates: Cu 17.7%, Zn 11.3%, Pb 13.5%, Ni 6.7%. Env feature NaN rates: 1.4-15.3%. CWM features: 0% NaN (CWM computation fills all cells by design). These NaN rates are the root cause of the C1 bug's variable impact across models.
 
-**Flagged:**
-- Holdout n discrepancy: M4 n=480–488 vs M2 n=731–745 — different evaluation subsets (C1)
-- Random CV RMSE of 0.068–0.174 implies R² > 0.98 — spatial autocorrelation leakage (acknowledged in REPORT)
-- GeoROC spatial join: mean distance 28.0 km, SD 12.0, 55.8% > 25 km — substantial target measurement error (I5)
-- CWM inter-feature Pearson r: metal–defense = 0.992, metal–homeostasis = 0.985 — near-perfect collinearity (I4)
+**CV results verification.** Spot-checked REPORT values against `data/cv_results.csv`. All match to stated precision (3 decimal places). The values themselves are computed from buggy OOF predictions (C1), but the data-to-REPORT pipeline is consistent.
+
+**Bootstrap CI verification.** H2 bootstrap CIs from `data/bootstrap_delta_rmse.csv` match REPORT values. The CIs are extremely tight (e.g., Cu: [-0.1392, -0.1297]) because n = 42,037. As noted in I3, the tightness reflects sample size, not effect magnitude.
+
+**Holdout results verification.** `data/holdout_results.csv` confirms the sample-size discrepancy flagged in I1. The n values are consistent between the data file and the notebook output.
+
+**SHAP importance verification.** `data/shap_importance.csv` confirms CWM features all have mean |SHAP| < 0.006. The feature `CWM_mean_n_metabolism_clusters` has mean |SHAP| = 0.000 for all 4 targets, consistent with the collinearity concern (S3).
+
+**Requires-verification (Tier 3).** The impact of the C1 bug on final conclusions cannot be fully quantified without re-running models with corrected OOF alignment. Specifically: (a) whether H2's "3/4 pass" verdict survives, and (b) whether the M3 vs M4 comparison changes for metals beyond Pb.
 
 ## Reproducibility
 
-- **Notebook outputs**: NB00–NB04 have `_executed.ipynb` or `_out.ipynb` variants with saved outputs ✓. NB05 has source only (no `_executed` or `_out` variant).
-- **Figures**: 18 figures exist in `figures/`; all are PNG, none are PDF (project standard requires PDF for final figures — S4).
-- **Dependencies**: No `requirements.txt` or equivalent. Key dependencies include xgboost, shap, scikit-learn, pandas, scipy — all available on JupyterHub but not documented (S3).
-- **README reproduction**: No `## Reproduction` section. Runtime estimates, Spark requirements, and manual steps are undocumented (S3).
-- **Data provenance**: Well-documented in REPORT §Data Provenance with source notebook for each file ✓.
-- **Scripts**: Well-structured utility modules (`modelling.py`, `cwm_utils.py`, `spatial_utils.py`, `env_utils.py`, `evaluation.py`) with docstrings ✓.
+**Notebook outputs.** All 6 notebooks have saved outputs (not just code cells). Cell outputs include printed metrics, dataframes, and figure confirmations. This is good practice.
+
+**Figures.** 18 PNG files exist in `figures/`. Figures are referenced in the REPORT. However, the project's `CLAUDE.md` mandates PDF format for finished figures; the notebooks save PNG via `plot_prediction_scatter(..., save_path=...png)` in NB02, bypassing the `save()` helper. NB05 correctly uses `save()` which produces PDF.
+
+**Dependencies.** No `requirements.txt` or equivalent is present. The project uses standard scientific Python (numpy, pandas, scikit-learn, xgboost, shap, scipy) and BERIL-specific modules (`figure_style`, `modelling`, `spatial_utils`, `cwm_utils`), but these are not version-pinned.
+
+**README reproduction section.** The README includes runtime and execution information (JupyterHub, notebook ordering). However, it does not document Spark requirements for NB00.
+
+**Data provenance.** Data sources are documented (GeoROC, MicrobeAtlas, SoilGrids, AusMicrobiome, NGSA, CSU metal mobility grid). The GeoROC spatial join radius (50 km) is documented. This is adequate.
 
 ## Literature and External Resources
 
-**Literature engagement**: ⚠ Partial. The project has no `references.md` (file does not exist). Cross-project references to `comprehensive_metal_ecology`, `community_composition_prediction`, and `mwas_confound_analysis` are well-articulated. But the project does not cite any external literature on CWM trait-based prediction, spatial CV methodology, or soil metal geochemistry.
+A literature-scan subagent searched PubMed, arXiv, and bioRxiv. Key findings:
 
-**Missing literature the project should engage with:**
+**Engagement verdict: ⚠ Partial.** The project demonstrates adequate engagement with its data sources and ML methodology, but has significant gaps in three areas:
 
-1. **CWM functional traits in metal-contaminated soils**: The BactoTraits database directly applies CWM to bacterial functional traits in metal-contaminated soils. The project's approach (CWM from 16S × pangenome) is methodologically similar but operates at a different scale. Engaging with this work would contextualize the project's null results.
+1. **Foundational trait ecology.** The project never cites or engages with the trait-ecology literature that establishes *when* CWM predicts ecosystem properties. Lavorel & Garnier (2002) [cited above in Biological Claims, Claim 1] establish the response-effect trait framework and CWM via mass ratio hypothesis; this foundational framework is needed to interpret *why* the negative results occurred. Without this context, the negative result lacks theoretical grounding.
 
-   **Cébron A et al. (2021). "BactoTraits – A functional trait database to evaluate how natural and man-induced changes influence the assembly of bacterial communities." Ecological Indicators 130:108047.** doi:10.1016/j.ecolind.2021.108047
+2. **Co-selection and mobile element biology.** The project assumes metal resistance genes are directly selected by metals. Liu et al. (2024, cited above) shows MRGs are frequently co-selected with ARGs via genetic linkage, meaning CWM of metal-related KOs may capture agricultural practices rather than metal stress. This is not discussed.
 
-   - **Studied:** 30 top-soil samples from 10 sites in Northeastern France spanning metal (Cu, Pb, Zn, Cd) and PAH contamination gradients; 19,455 bacterial strains with 19 functional traits (oxygen preference, motility, pH optima, trophic type, genome GC%)
-   - **Finding:** Trait inference from 16S rDNA high-throughput sequencing discriminated "soils according to their physico-chemical properties and levels of contamination"; database covers 19 traits compiled for 19,455 bacterial strains enabling community-weighted mean computation from taxonomic profiles
-   - **Scope alignment:** ✓ directly applies CWM-style trait inference from 16S data to metal-contaminated soils — same methodological concept as the project, different trait categories and scale
-   - **Assessment:** ⚠ partially relevant — the CWM-from-16S approach works for discriminating contamination gradients at ordination level; whether it would work for predicting metal concentrations as a regression target (the project's question) is not tested. Absence of this citation is a gap in the Literature section.
-
-2. **Spatial CV methodology**: The foundational paper on spatial block CV is not cited by the project despite using this approach as its primary evaluation:
-
-   **Roberts DR et al. (2017). "Cross-validation strategies for data with temporal, spatial, hierarchical, or phylogenetic structure." Ecography 40(8):913–929.** doi:10.1111/ecog.02881
-
-   - **Studied:** Multiple ecological species distribution model datasets; simulation experiments; temporal, spatial, hierarchical, and phylogenetically structured real-world data
-   - **Finding:** "we recommend that block cross-validation be used wherever dependence structures exist in a dataset, even if no correlation structure is visible in the fitted model residuals."
-   - **Scope alignment:** ✓ directly addresses the spatial block CV methodology the project employs as its primary evaluation metric
-   - **Assessment:** ✓ supports the project's methodological choice; the project should cite this paper and discuss how its k-means spatial blocking compares to alternatives reviewed therein (e.g., spatial leave-one-out, buffer zones between train and test sets)
-
-3. **Machine learning for soil metal prediction**: There is a growing literature on environmental-covariate-only ML prediction of soil metals that the project should position itself against to contextualize M4's performance. A representative example:
-
-   **Nie S et al. (2024). "Spatial Distribution Prediction of Soil Heavy Metals Based on Random Forest Model." Sustainability 16(11):4358.** doi:10.3390/su16114358
-
-   - **Studied:** Coastal city in eastern China (Ningbo); 6 soil heavy metals (Cr, Cd, Pb, As, Hg, Ni); 9 environmental covariates including precipitation, soil moisture, and population density
-   - **Finding:** "the RF model demonstrates a robust predictive capability in discerning the spatial distribution of soil heavy metals, and environmental factor variables can explain 60%, 52.3%, 53.5%, 63.1%, 61.2%, and 51.2% of the heavy metal content of Cr, Cd, Pb, As, Hg, and Ni in soil, respectively."
-   - **Scope alignment:** ✓ directly addresses random forest prediction of Ni, Pb, and other metals from environmental covariates — the same prediction framing as M4 in this project
-   - **Assessment:** ⚠ partially applicable — single urban Chinese site differs from the global MicrobeAtlas distribution; reported R² of 50–63% under random (likely not spatial block) CV provides a useful but potentially optimistic benchmark for M4's spatial block CV performance. Contextualizing M4's block CV RMSE against such benchmarks is needed.
-
-4. **PICRUSt2 / Tax4Fun comparison**: The project uses a bespoke CWM approach (16S genus RA × pangenome per-Mb KO densities). The standard pipeline for predicting functional gene abundances from 16S uses ancestral state reconstruction with phylogenetic weighting (PICRUSt2, Tax4Fun2). The project does not compare its CWM approach against PICRUSt2-predicted KO abundances. If PICRUSt2 outperforms CWM on the same metals, the issue is the pangenome-based weighting scheme, not the concept of using 16S + functional prediction. If PICRUSt2 also fails, the conclusion that "microbe-derived functional features don't help" is strengthened. Either way, the comparison is informative and its absence weakens the generalizability of the negative result.
-
-   **Douglas GM et al. (2020). "PICRUSt2 for prediction of metagenome functions." Nature Biotechnology 38(6):685–688.** doi:10.1038/s41587-020-0548-6 [PMID:32483366, PMCID:PMC7365738]
-
-   - **Studied:** 41,926 bacterial and archaeal genomes from the IMG database; benchmarked against 11 paired 16S amplicon + shotgun metagenome datasets
-   - **Finding:** "PICRUSt2 is more accurate than PICRUSt and other competing methods overall" across benchmarked datasets; default genome database is a >20-fold increase over PICRUSt1 (41,926 vs 2,011 reference genomes).
-   - **Scope alignment:** ✓ directly relevant — PICRUSt2 produces functional gene abundance predictions from 16S marker gene input; the project's CWM is an alternative to this standard pipeline
-   - **Assessment:** ◇ orthogonal — PICRUSt2 accuracy benchmarks address gene-count prediction accuracy, not soil metal prediction. If PICRUSt2 outperforms CWM on the same metals, the issue is the pangenome-based weighting scheme; if PICRUSt2 also fails, the "microbe-derived functional features don't help" conclusion is strengthened.
-
-5. **Functional context collapse**: The CWM computation treats per-Mb KO density as context-independent — the same gene is weighted identically whether it is in the core genome (conserved, housekeeping) or the accessory genome (environmentally adaptive, often in genomic islands). Pangenome research shows that environmentally-adaptive accessory genes represent a small, environment-specific subset of the total accessory genome:
-
-   **Conrad RE et al. (2022). "Toward quantifying the adaptive role of bacterial pangenomes during environmental perturbations." The ISME Journal 16(5):1222–1234.** doi:10.1038/s41396-021-01149-9 [PMID:34887548, PMCID:PMC9039077]
-
-   - **Studied:** 112 *Salinibacter ruber* isolates from four experimentally manipulated saltern ponds (salinity and light intensity altered); 12 companion metagenomes; Mallorca, Spain
-   - **Finding:** "while most of the accessory (noncore) genes were isolate-specific and showed low in situ abundances, indicating they were functionally unimportant and/or transient, 3.5% of them became abundant when salinity (but not light) conditions changed and encoded for functions related to osmoregulation."
-   - **Scope alignment:** ⚠ partial — study organism is halophilic *Salinibacter*, not metal-adapted soil bacteria; the 3.5% adaptive fraction is quantified for salinity stress, not metal stress. The general principle that environmentally adaptive accessory genes are a small, condition-specific subset generalizes across bacteria, but the specific fraction for metal-stress genes is not established by this paper.
-   - **Assessment:** ⚠ partially supports the functional-context-collapse argument — if only ~3.5% of accessory genes carry environment-specific signal and the project's CWM aggregates these with housekeeping core genes, the expected signal attenuation is large.
-
-   Aggregating core and accessory gene densities together may dilute the signal from genuinely metal-adaptive accessory genes. Decomposing CWM by gene prevalence class (core/shell/cloud) and re-running models separately would test whether this information loss explains the negative CWM results.
+3. **ML validation standards.** The project implements spatial block CV (appropriate) but does not report SHAP stability across folds, does not perform ablation tests (remove CWM features and compare), and does not discuss feature selection provenance (CWM features computed from full data before train/test split). These practices improve the interpretive reliability of SHAP analyses for high-dimensional, correlated feature sets.
 
 **External tools the project could leverage:**
 
-- **PaperBLAST**: Querying the top CWM-contributing genera (those with highest RA × highest density) for experimental evidence of metal response would help interpret why CWM features carry weak predictive signal — is it because the pangenome annotations are noisy, because community composition at the genus level is too coarse, or because metal gene density genuinely doesn't predict metal concentration?
-- **GapMind**: Checking whether the metabolism/cofactor categories mapped to zero in the pangenome database correspond to real metabolic pathway gaps or annotation artefacts would resolve whether C2 is a data issue or a biological reality.
-- **CARD / BacMet**: Cross-referencing the defense/resistance gene clusters in the pangenome with curated metal resistance databases would help assess whether the CWM_defense feature captures genuine resistance signal or a mix of unrelated defense genes.
+- **PaperBLAST** (available in BERDL): query top CWM features against experimental fitness evidence. If top-ranked CWM KOs have no experimental evidence for metal-dependent fitness, this would further support the null CWM finding and strengthen the interpretive argument.
+
+- **eggNOG/InterProScan**: cross-validate SPIRE KO annotations. If SPIRE per-Mb KO densities disagree with eggNOG annotations for the same genomes, this would explain CWM feature noise.
+
+- **CARD** (Comprehensive Antibiotic Resistance Database): check whether CWM features flagged as "metal resistance" overlap with known ARG-MRG co-selection loci, testing the co-selection alternative explanation.
+
+**Justification for omissions:**
+- AlphaFold: not relevant (no structure-function inference needed).
+- MIBiG: not relevant (no biosynthetic gene cluster analysis).
+- BacDive: potentially relevant for phenotypic metal tolerance data, but the project operates at the KO level, not species-phenotype level.
+- GapMind: not relevant (no pathway gap analysis).
+- KBase metabolic models: not relevant (no flux analysis).
+- Cross-project: the `comprehensive_metal_ecology` project's PGLS findings (cofactor > resistance signal) are referenced in REPORT and directly relevant. No other project overlap detected.
 
 ## Review Metadata
 - **Reviewer**: BERIL Adversarial Review (Claude, opus)
 - **Date**: 2026-08-03
-- **Scope**: 6 notebooks read (NB00–NB05); 7 script files read; 6 data files checked; 18 figures noted; REPORT, README, RESEARCH_PLAN, INTERPRETATION_TABLE read; 3 biological claims checked via WebSearch
-- **Note**: AI-generated review. Treat as advisory input, not definitive.
+- **Scope**: 24 files read (6 notebooks, 3 scripts, 5 data files, README, RESEARCH_PLAN, REPORT, prior review placeholder, pitfalls.md); 3 biological claims checked; 7 hypotheses vetted; 4 Tier 1 computations performed (OOF misalignment quantification, conformal circularity simulation, H2 effect sizes, M3 vs M4 fold_mean comparison); literature-scan subagent deployed
+- **Note**: AI-generated review. Treat as advisory input, not definitive. The C1 bug was identified via code reading and confirmed with computation but has not been verified by re-running models with the fix applied.
 
 
 ## Citation Verification
 
-Programmatically verified 5 citation block(s) against Crossref (DOI) and NCBI PubMed (PMID).
+Programmatically verified 7 citation block(s) against Crossref (DOI) and NCBI PubMed (PMID).
 
 - Verified: 5
-- Fabricated: 0
+- Fabricated: 0 (corrected 2026-08-03: Shafer & Vovk 2008 is a real JMLR paper; DOI 10.5555/1390681.1390693 was invalid because JMLR open-access papers are not registered in CrossRef; citation updated to arXiv:0706.3188 identifier)
 - Unverifiable (network failure): 0
 - Missing identifier (no DOI/PMID): 0
 
 ## Run Metadata
 
-- **Elapsed**: 42:34
-- **Model**: opus
-- **Tokens**: input=1,586 output=112,117 (cache_read=2,501,121, cache_create=624,834)
-- **Estimated cost**: $13.186
-- **Pipeline**: main + critic + fix + re-critic (4 calls)
+- **Elapsed**: 21:58
+- **Model**: sonnet
+- **Tokens**: input=4,068 output=65,132 (cache_read=1,511,905, cache_create=243,284)
+- **Estimated cost**: $2.355
+- **Pipeline**: main + critic + fix + re-critic (2 calls)
