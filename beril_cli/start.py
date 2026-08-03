@@ -207,9 +207,9 @@ def run_start(
                     file=sys.stderr,
                 )
 
-    # Default to Opus model for Claude
+    # Default to Opus with the 1M-token context window for Claude
     if agent == "claude" and "--model" not in extra_args:
-        extra_args = ["--model", "opus", *extra_args]
+        extra_args = ["--model", "opus[1m]", *extra_args]
 
     # Default to auto permission mode for Claude
     if agent == "claude" and "--permission-mode" not in extra_args:

@@ -421,7 +421,8 @@ def run_setup() -> int:
                 os.environ["VERTEX_REGION_CLAUDE_HAIKU_4_5"] = "us-east5"
                 os.environ["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = "claude-haiku-4-5@20251001"
             claude_flags = ["--permission-mode", "auto"] if chosen == "claude" else []
-            os.execvp(binary, [chosen, "--model", "opus", *claude_flags, "/berdl_start"])
+            model = "opus[1m]" if chosen == "claude" else "opus"
+            os.execvp(binary, [chosen, "--model", model, *claude_flags, "/berdl_start"])
         else:
             print(f"  Error: '{chosen}' not found on PATH.", file=sys.stderr)
             return 1

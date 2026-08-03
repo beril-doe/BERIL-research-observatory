@@ -357,3 +357,8 @@ def test_explicit_permission_mode_is_not_overridden(monkeypatch, tmp_path):
     argv = _exec_argv(monkeypatch, tmp_path, extra_args=["--permission-mode", "plan"])
     assert argv.count("--permission-mode") == 1
     assert argv[argv.index("--permission-mode") + 1] == "plan"
+
+
+def test_claude_defaults_to_opus_1m_context(monkeypatch, tmp_path):
+    argv = _exec_argv(monkeypatch, tmp_path)
+    assert argv[argv.index("--model") + 1] == "opus[1m]"
