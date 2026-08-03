@@ -30,15 +30,19 @@ Binary classification of metal stress phenotypes fails due to extreme class imba
 
 **Mn caveat**: ρ=0.050 (p=0.009) is the weakest model. The test set is a single organism (DvH); this p-value reflects within-organism protein ranking, not cross-organism generalization. **With 11 simultaneous tests, Bonferroni-corrected α=0.0045; Mn (p=0.009) does not pass this threshold.** Mn predictions for the 56 untested organisms should be treated with high skepticism (see also Limitations #8).
 
+**aa-only replication (NB10, 2026-08-03)**: Regression models re-trained on `aa`-only (20 features; the correct feature set per Finding 2 corrected label evaluation) achieve mean AUC-from-ranking = 0.665, vs. 0.664 for `aa+kmer2` (mean ΔAUC ≈ +0.001). The regression signal is robust to feature set choice: 20 amino acid features carry essentially the same predictive information as 420 aa+kmer2 features for the continuous fitness task. Mn (ρ=0.003, p=0.873) is now clearly non-significant on the aa-only model, confirming the Bonferroni-failure caveat above. aa-only model files: `data/models/stressor_{name}_regression_aa.cbm`; metrics: `data/regression_model_metrics_aa.csv`.
+
 ![Regression AUC-from-ranking per metal](figures/nb05_regression_auc_per_metal.png)
 
-*(Notebook: 05_Model_Training.ipynb — regression cell; scripts/run_regression_only.py)*
+*(Notebook: 05_Model_Training.ipynb — regression cell; scripts/run_regression_only.py; aa-only replication: notebooks/10_Regression_aa_Only.ipynb)*
 
 ---
 
-### Finding 2: Amino Acid Composition + 2-mer Frequencies Outperform Learned Embeddings
+### Finding 2: Amino Acid Composition Alone Is the Optimal Feature Set (Corrected Labels)
 
-Cross-validated feature benchmarking across five representative stressors identifies **aa+kmer2** (20 amino acid frequency features + 400 dinucleotide frequencies = 420 features total) as the best combination, with mean AUC = 0.656 vs. 0.645 for aa alone and 0.646 for kmer2 alone. ESM-2 protein language model embeddings (320 dimensions; facebook/esm2_t6_8M_UR50D) were not evaluated in this cross-validation; genome DNA features performed below baseline (AUC=0.484).
+Cross-validated feature benchmarking across five representative stressors was run twice: once on the original contaminated labels (NB04), and once on org-filtered labels corrected for false-negative contamination (2026-07-30, `scripts/run_feature_eval_corrected.py`). **The winner reverses between the two runs.**
+
+**Original NB04 (contaminated labels — pre-org-filter, ~100K false negatives):**
 
 | Feature combination | Avg AUC (5 stressors) | Features |
 |--------------------|----------------------|---------|
@@ -50,13 +54,35 @@ Cross-validated feature benchmarking across five representative stressors identi
 | kmer3 | 0.597 | 500 |
 | genome_dna | 0.484 | 18 |
 
-The simplest competitive combination (aa alone, 20 features) nearly matches the best, suggesting that coarse amino acid composition — not fine-grained sequence context — drives the predictive signal. This is consistent with the nature of metal resistance proteins: metal-binding proteins tend to have characteristic amino acid biases (high cysteine/histidine for Cu/Hg binding, high charged residues for efflux transporters).
+**Corrected labels (org-filtered via `{stressor}_fit`, ≤400 proteins/org subsampling, 3-fold organism-level CV, LinearSVC, 2026-07-30):**
+
+| Feature combination | Avg AUC (5 stressors) | Features | Δ vs contaminated |
+|--------------------|----------------------|---------|-------------------|
+| **aa** | **0.658** | **20** | **+0.013** |
+| **aa+physicochemical** | **0.658** | **27** | **+0.014** |
+| physicochemical | 0.637 | 7 | +0.027 |
+| aa+kmer2 | 0.621 | 420 | **−0.035** |
+| kmer2 | 0.620 | 400 | **−0.026** |
+
+**Key finding**: The original `aa+kmer2` advantage (AUC=0.656) was a label contamination artifact. Proteins from untested organisms received false-negative labels (fitness=0 by default), artificially inflating the apparent predictive power of high-dimensional kmer2 features which could fit the spurious pattern. On corrected org-filtered labels, `aa` (20 amino acid frequency features) and `aa+physicochemical` (27 features) are tied winners at AUC=0.658, and adding kmer2 *hurts* performance (drops from 0.658 to 0.621, Δ=−0.035). ESM-2 protein language model embeddings were not evaluated in this cross-validation; genome DNA features performed below baseline (AUC=0.484) in the original run.
+
+Corrected stressor-level detail (org-filtered AUC):
+
+| Stressor | aa | aa+physicochemical | aa+kmer2 | kmer2 |
+|----------|----|--------------------|----------|-------|
+| Co | 0.668 | 0.668 | 0.604 | 0.604 |
+| UV | 0.681 | 0.681 | 0.640 | 0.640 |
+| Bacitracin | 0.671 | 0.671 | 0.634 | 0.634 |
+| Acid | 0.661 | 0.661 | 0.640 | 0.640 |
+| Nitric oxide | 0.609 | 0.609 | 0.586 | 0.583 |
+
+The pattern is strikingly consistent: `aa` and `aa+physicochemical` are virtually identical across all five stressors, and kmer2 never improves over `aa` on corrected labels. This confirms that **coarse amino acid composition (20 features) drives the entire predictive signal** — dinucleotide context adds no information over amino acid content when labels are clean, and in the contaminated setting kmer2 features fit spurious structure.
+
+The `aa+physicochemical` tie with `aa` is consistent with physicochemical properties (MW, charge, hydrophobicity, GRAVY) being close to linear transforms of amino acid composition. `aa` alone is preferred as the simpler model.
 
 ![Feature combination AUC comparison (NB04)](figures/nb04_feature_evaluation.png)
 
-> **⚠ Important caveat on this finding**: NB04 was run on pre-org-filter labels containing ~100K false-negative proteins from untested organisms. The AUC margin between aa+kmer2 (0.656) and the next-best combination (0.654) is **0.002** — well within the uncertainty introduced by label contamination. The conclusion that aa+kmer2 is optimal should be treated as provisional until NB04 is re-run on org-filtered data. The direction of the bias is unknown; aa+kmer2 may or may not remain the best choice on corrected labels.
-
-*(Notebook: 04_Feature_Evaluation.ipynb)*
+*(Notebook: 04_Feature_Evaluation.ipynb; corrected re-run: scripts/run_feature_eval_corrected.py → data/feature_evaluation_results_corrected.csv)*
 
 ---
 
@@ -148,7 +174,7 @@ This reinforces Finding 3: resistance to stressors that target widely conserved 
 ## Discoveries
 
 - Mercury resistance genes carry the strongest sequence-composition signature among the 11 metals tested (AUC-from-ranking=0.774), consistent with the high evolutionary conservation of the *mer* operon. This suggests sequence-composition ML is most useful for well-conserved resistance determinants. Note: the regression AUC-from-ranking (0.774) reflects within-test-organism protein ranking on a continuous fitness model; the LOGO binary classifier AUC for Hg is 0.543 (modest; n=2 genera, unreliable estimate), reflecting genus-level binary classification on held-out genera. These are not contradictory — the regression model ranks Hg-sensitive proteins effectively within organisms similar to its training set, while the binary classifier cannot predict presence/absence of Hg sensitivity in a phylogenetically distant genus.
-- Amino acid composition alone (20 features) nearly matches the best 420-feature combination (aa+kmer2) for predicting metal fitness across 5 tested stressors (AUC 0.646 vs 0.656), suggesting coarse compositional bias rather than sequence context drives the signal. Caveat: feature evaluation ran on pre-org-filter labels; the 0.002 margin is within potential bias range.
+- Amino acid composition alone (20 features) is the optimal feature set for predicting metal fitness across 5 tested stressors (corrected AUC=0.658, tied with aa+physicochemical). The original NB04 winner `aa+kmer2` (0.656) was a label-contamination artifact; on org-filtered labels, adding kmer2 hurts performance (drops AUC to 0.621, Δ=−0.035). Coarse compositional bias, not sequence context, drives the predictive signal.
 
 ---
 
@@ -212,7 +238,7 @@ This is the first application of a cross-organism ML framework to predict metal 
 1. **Class imbalance**: Even after org-filter, metal positive rates are 1–5%. Binary classification is unreliable; regression is preferred but also limited by sparse signal.
 2. **Sparse data for rare metals**: Cd (2 organisms), Mn (4), Hg (9) have limited training coverage. Cd predictions span organisms from very different ecological contexts than the training data.
 3. **As/Pb/Ag data gap**: Unresolvable computationally; requires new RB-TnSeq experiments.
-4. **Feature selection bias**: NB04 ran on contaminated labels (pre-org-filter); the optimal feature combination may differ on corrected labels.
+4. **Feature selection bias (fully resolved — NB10, 2026-08-03)**: NB04 ran on contaminated labels (pre-org-filter); the corrected re-run (2026-07-30) confirms the winner reverses from `aa+kmer2` to `aa`. NB10 re-trained regression models on `aa`-only (20 features) and confirmed mean ΔAUC ≈ 0 vs. `aa+kmer2` (regression task is insensitive to kmer2 addition, unlike the binary task). `aa`-only is now the preferred model for parsimony. The qualitative metal predictability ranking is unchanged.
 5. **Organism-specific failures**: PS/Ni ρ=−0.142 and Caulo/Zn ρ=−0.013 show the model fails for specific lineages with atypical resistance mechanisms — these predictions should be treated cautiously.
 6. **Novel candidate calibration**: Predicted fitness scores are not calibrated to absolute fitness values in untested organisms; only relative ranking within each organism is meaningful.
 7. **LOGO genus-level generalization**: Metal binary classifiers achieve modest LOGO AUC (0.53–0.62 across 11 metals), confirming that binary predictions do not transfer reliably to phylogenetically novel genera. Many metal stressors have ≤5 genera in the dataset (Hg, Cd, Se, Mn: n=2; Cr: n=3) making their LOGO estimates unreliable. Some LOGO folds yielded single-class fold warnings (no positives in a held-out genus); folds with only one class were skipped before AUC computation, but near-zero-positive stressors may be biased. Results are in `data/logo_auc_summary.csv`.
@@ -262,15 +288,21 @@ This is the first application of a cross-organism ML framework to predict metal 
 | `05_Model_Training.ipynb` | Train binary CatBoost classifiers + CatBoostRegressor for 11 metals |
 | `06_LOGO_Evaluation.ipynb` | Leave-One-Genus-Out binary classification across 49+ stressors; results in data/adaptive_metrics.csv |
 | `09_Isolate_Prediction.ipynb` | Apply regression models to all 215,051 proteins; rank novel candidates |
+| `10_Regression_aa_Only.ipynb` | Retrain regression models on aa-only (20) features; comparison vs aa+kmer2; confirms robust signal |
 
 ### Model Files
 
 - Binary classifiers: `data/models/stressor_{name}_final.cbm` (46 stressors)
-- Regression models: `data/models/stressor_{name}_regression.cbm` (11 metals)
-- Regression predictions (test set): `data/models/stressor_{name}_reg_predictions.parquet`
+- Regression models (`aa+kmer2`): `data/models/stressor_{name}_regression.cbm` (11 metals)
+- Regression predictions (`aa+kmer2`): `data/models/stressor_{name}_reg_predictions.parquet`
+- Regression models (`aa`-only): `data/models/stressor_{name}_regression_aa.cbm` (11 metals, NB10)
+- Regression predictions (`aa`-only): `data/models/stressor_{name}_reg_predictions_aa.parquet` (NB10)
+- Regression metrics (`aa+kmer2`): `data/regression_model_metrics.csv`
+- Regression metrics (`aa`-only): `data/regression_model_metrics_aa.csv` (NB10)
 - Platt calibrators: `data/models/stressor_{name}_platt.pkl`
 - Best thresholds: `data/best_thresholds.json`
-- Best features: `data/best_feature_combination.json` → `aa+kmer2`
+- Best features: `data/best_feature_combination.json` → `aa+kmer2` (original contaminated-label selection; corrected label re-run selects `aa` — see Finding 2)
+- Corrected feature evaluation: `data/feature_evaluation_results_corrected.csv`
 
 ---
 
@@ -282,7 +314,7 @@ This is the first application of a cross-organism ML framework to predict metal 
 
 3. **Experimental follow-up**: Use `novel_candidates.csv` to prioritize gene deletion experiments in untested ENIGMA organisms under metal stress. Priority metals: Hg (highest AUC=0.774) and Zn/Co/Ni (highest training coverage, confident test-set ρ).
 
-4. **Re-run feature selection on corrected labels**: NB04 used contaminated labels; the optimal feature combination on org-filtered data may differ. Candidate improvement: physicochemical features may contribute more signal when false negatives are removed.
+4. **Re-train downstream models on `aa`-only features** — **COMPLETE (NB10, 2026-08-03)**. Regression models re-trained on `aa`-only (20 features) achieve mean AUC-from-ranking=0.665, vs. 0.664 for `aa+kmer2` (Δ≈0). The metal predictability ranking is unchanged (Hg #1; Co/Zn near top). The aa-only model is now the preferred pipeline for parsimony. See `data/regression_model_metrics_aa.csv` and `notebooks/10_Regression_aa_Only.ipynb`.
 
 5. **Resistance mechanism stratification**: PS/Ni ρ=−0.142 failure suggests the model cannot handle organisms with atypical resistance architectures. Stratifying organisms by known resistance mechanism (RND efflux vs. P-type ATPase vs. metal-binding proteins) before training may improve predictions.
 
