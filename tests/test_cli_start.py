@@ -319,3 +319,41 @@ def test_non_dev_mode_does_check_out_release(monkeypatch, tmp_path):
         start.run_start(agent="claude", version="v0.0.1", dev_mode=False)
 
     assert checkout_calls == ["v0.0.1"]
+
+
+# ── permission mode ───────────────────────────────────────
+
+
+def _exec_argv(monkeypatch, tmp_path, **kwargs) -> list[str]:
+    """Run run_start up to the exec and return the argv it would have exec'd."""
+    _patch_run(monkeypatch, lambda argv: _completed())
+    monkeypatch.setattr(start.shutil, "which", lambda _agent: "/usr/bin/claude")
+    monkeypatch.setattr(start, "_find_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(start.os, "chdir", lambda _path: None)
+    monkeypatch.setattr(start, "print_jupyterhub_path_hint", lambda _root: None)
+    monkeypatch.setattr(start, "get_default_agent", lambda: "claude")
+    monkeypatch.setattr(start, "get_vertex_config", lambda: {"enabled": False})
+
+    captured: list[str] = []
+
+    def _boom(_binary, argv):
+        captured.extend(argv)
+        raise _ExecvpReached
+
+    monkeypatch.setattr(start.os, "execvp", _boom)
+
+    with pytest.raises(_ExecvpReached):
+        start.run_start(agent="claude", dev_mode=True, **kwargs)
+    return captured
+
+
+def test_claude_launches_in_auto_permission_mode(monkeypatch, tmp_path):
+    argv = _exec_argv(monkeypatch, tmp_path)
+    assert "--permission-mode" in argv
+    assert argv[argv.index("--permission-mode") + 1] == "auto"
+
+
+def test_explicit_permission_mode_is_not_overridden(monkeypatch, tmp_path):
+    argv = _exec_argv(monkeypatch, tmp_path, extra_args=["--permission-mode", "plan"])
+    assert argv.count("--permission-mode") == 1
+    assert argv[argv.index("--permission-mode") + 1] == "plan"

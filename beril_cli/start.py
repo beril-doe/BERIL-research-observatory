@@ -211,6 +211,10 @@ def run_start(
     if agent == "claude" and "--model" not in extra_args:
         extra_args = ["--model", "opus", *extra_args]
 
+    # Default to auto permission mode for Claude
+    if agent == "claude" and "--permission-mode" not in extra_args:
+        extra_args = ["--permission-mode", "auto", *extra_args]
+
     print(f"Launching {agent}...")
     print_jupyterhub_path_hint(repo_root)
     # Replace the current process with the agent
