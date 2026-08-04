@@ -10,6 +10,7 @@ from pathlib import Path
 
 from beril_cli import config
 from beril_cli.detect import detect_user_identity, print_jupyterhub_path_hint
+from beril_cli.start import claude_defaults
 
 
 def _find_repo_root() -> Path | None:
@@ -420,7 +421,8 @@ def run_setup() -> int:
                 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = vertex_cfg.get("credentials_file", "")
                 os.environ["VERTEX_REGION_CLAUDE_HAIKU_4_5"] = "us-east5"
                 os.environ["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = "claude-haiku-4-5@20251001"
-            os.execvp(binary, [chosen, "--model", "opus", "/berdl_start"])
+            flags = claude_defaults(chosen, []) or ["--model", "opus"]
+            os.execvp(binary, [chosen, *flags, "/berdl_start"])
         else:
             print(f"  Error: '{chosen}' not found on PATH.", file=sys.stderr)
             return 1
