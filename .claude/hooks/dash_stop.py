@@ -35,20 +35,19 @@ STAYING = {"bypass_permissions_disabled"}
 ROOT = Path(__file__).absolute().parent.parent.parent
 
 
-def projects_for(payload: dict) -> "list[str]":
+def projects_for(payload: dict, session_id: "str | None") -> "list[str]":
     """Every project whose dashboard this session may have started.
 
     Not one project. The status line starts a dashboard for whichever project the
     session is on, so a session that switched has one running per project it
     touched, each on its own port. Stopping only the current one left the rest
-    alive after Claude Code exited — the leak this hook exists to prevent.""" 
+    alive after Claude Code exited — the leak this hook exists to prevent."""
     sys.path.insert(0, str(ROOT))
     try:
         from beril_cli.project_resolution import projects_for_session, resolve_project
     except Exception:
         return []
 
-    session_id = payload.get("session_id") or os.environ.get("CLAUDE_CODE_SESSION_ID")
     found = list(projects_for_session(session_id, ROOT))
     try:
         # cwd/branch/`/add-dir` can name a project the runtime record never saw.
@@ -68,7 +67,11 @@ def main() -> None:
     if payload.get("reason") in STAYING:
         return
 
-    projects = projects_for(payload)
+    # One expression, two uses: which dashboards to stop and whose
+    # `.agent-state.json` to delete are the same question.
+    session_id = payload.get("session_id") or os.environ.get("CLAUDE_CODE_SESSION_ID")
+
+    projects = projects_for(payload, session_id)
     if not projects:
         return
 
@@ -82,7 +85,6 @@ def main() -> None:
     # Only this session's own record, though. Two sessions can share a project,
     # and one exiting used to delete the other's live "waiting for you" — the
     # departing session silencing the one that still needs a human.
-    session_id = payload.get("session_id") or os.environ.get("CLAUDE_CODE_SESSION_ID")
     for name in projects:
         state = ROOT / "projects" / name / ".agent-state.json"
         try:

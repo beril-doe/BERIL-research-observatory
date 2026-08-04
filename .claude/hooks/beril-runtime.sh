@@ -16,8 +16,13 @@
 # so the snapshot would then receive nothing.
 payload="$(cat)"
 
-# Cost guard. Unguarded this costs ~103ms on *every* Write/Edit (measured);
-# guarded, a write outside any project costs a few ms.
+# Cost guard. Unguarded this costs ~65ms on *every* Write/Edit; guarded, a write
+# outside any project costs ~8ms (medians of 21 runs on this checkout).
+#
+# Pinned by tests/test_statusline.py::test_the_guard_does_not_start_the_interpreter_
+# for_a_write_outside_a_project, which asserts the *boolean* — whether the
+# interpreter starts — not the milliseconds, so it cannot go stale the way the
+# earlier ~103ms/~16ms figures here did.
 #
 # It applies to tool events ONLY. A SessionStart payload for a session on branch
 # `projects/<id>` sitting at the repo root contains no `projects/` string at all

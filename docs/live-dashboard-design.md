@@ -9,9 +9,22 @@ observatory (`ui/`), which is Postgres-backed, auth'd, and renders *finished* pr
 imported from GitHub. This renders the working directory as it is right now.
 
 **This document records decisions and the evidence behind them — mostly why things were
-*not* built.** How the code works is documented in `tools/dashboard.py` itself, next to
-the code, where it cannot drift. Nothing here should restate a docstring; if it does,
-delete it here.
+*not* built.** How the code works is documented in `tools/dashboard.py` and
+`tools/dashboard_assets/` themselves, next to the code, where it cannot drift. Nothing here
+should restate a docstring; if it does, delete it here.
+
+The client assets live in `tools/dashboard_assets/` — `dash.css` plus `rel.js`,
+`state.js`, `poll.js`, `lightbox.js` — one file per constant, read at import and inlined
+by `render()`. Their rationale moved with them; `poll.js`'s header is where the cross-file
+coupling is written down, and `dash.css`'s is where its ordering against `main.css` is.
+Two consequences worth knowing before rediscovering them. The comments now
+ride the wire — 5.2 KB of JS became 13.9 KB, plus 0.4 KB of header on `dash.css`, on every
+uncached response — so if page weight ever becomes a budget, strip them in `_asset()`. It
+is not the one-liner it looks like: `state.js` has a `//` inside a string literal, and CSS
+has no line comments at all. And if the directory fails to ship, the loudest symptom is
+the quietest — `.claude/statusline.sh` and `beril setup` both catch the import error and
+drop the stage chip, the URL and the dashboard auto-start without a word. Run
+`python3 tools/dashboard.py --static <project>` to see the real one.
 
 ## Why a server, and why this one
 
@@ -188,8 +201,11 @@ file exists *only* while a prompt is pending, which is exactly when it must run.
 `if(document.visibilityState==='visible')` around the `fetch` — made every channel
 above impossible: the backgrounded tab is precisely the one that needs to learn the
 agent is blocked, and the title and the favicon are painted from a response. A 304
-still runs a full `scan()` at 6.8ms, so 15s hidden is ~1.6s of CPU per hour per tab,
-less than a visible tab costs today.
+used to run a full `scan()` at 6.8ms, so 15s hidden was ~1.6s of CPU per hour per
+tab — already less than a visible tab costs. It now runs only `fingerprint()`, the
+directory walk plus the resolved agent state, measured at 0.25-0.84ms across the
+three largest projects on disk, so the interval has an order of magnitude of slack
+it did not have when it was chosen.
 
 **Three things are anchored outside `#root`, and each for a different failure.**
 The strip, because inside `#root` it is destroyed and rebuilt every 4s and its
@@ -341,8 +357,13 @@ Two things about that hook are easy to break and are pinned by tests:
   read by shelling out to git — so a blanket "skip unless the payload mentions `projects/`"
   would silently break the path that already worked.
 
-Unguarded the hook costs ~103 ms on every `Write`/`Edit`; guarded, a write outside any
-project costs ~16 ms (measured).
+Unguarded the hook costs ~65 ms on every `Write`/`Edit`; guarded, a write outside any
+project costs ~8 ms (medians of 21 runs, this checkout). Both figures were ~103 ms and
+~16 ms when first written; they are re-measured here because the guard is now pinned by
+`test_the_guard_does_not_start_the_interpreter_for_a_write_outside_a_project`, and a test
+that exists to defend a number should not sit next to a stale one. What the test asserts
+is the *boolean* — whether the interpreter starts at all — precisely so it cannot rot the
+way these figures did.
 
 Everything stays keyed to `session_id` on purpose. Several sessions can run in one clone on
 different projects, so any repo-wide signal — an env var, "whichever `beril.yaml` was
@@ -399,6 +420,7 @@ runs in, and people reasonably assume it kills the session too. It does not.
 | a service worker, so a *closed* tab can be notified | never — it also needs a push service, and a stdlib server in an ephemeral pod cannot be one |
 | a modal, or anything that keeps flashing, for "agent needs you" | never — WCAG 2.3.1; one 600ms pulse on the transition is the ceiling |
 | fastapi, uvicorn, jinja2, nbconvert, PyYAML | never — see the two-launcher section |
+| a bundler, minifier, eslint, stylelint or any build step for `tools/dashboard_assets/` | never — the pod has no egress, so a bundle would have to be committed, and a stale committed artifact is a failure no test can see |
 | `c.ServerProxy.servers` supervised registration | someone wants a permanent named URL and doesn't mind restarting Jupyter once |
 | pidfile / flock / stop command | two dashboards must be mutually exclusive on one port — not a requirement |
 | TOC, tabs, search, sortable tables, light mode | past ~6 sections, or >10 notebooks in a project |

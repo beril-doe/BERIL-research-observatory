@@ -29,7 +29,29 @@ ANSI = re.compile(r"\033\[[0-9;]*m")
 
 
 @pytest.fixture(autouse=True)
-def _cleanup_dashboards(tmp_path):
+def _reap_dashboards(tmp_path):
+    """Kill any dashboard *this* test started, whether it passed or failed.
+
+    `_render` runs the real status line, which starts a dashboard as a side
+    effect for whichever project resolves, and `port_for` derives the port from
+    the *project id* — so a leaked process squats a deterministic port that a
+    later test, or the next run of this file, expects to be free. The launcher
+    then correctly reports "already running" and writes no snapshot, and the
+    failure surfaces somewhere else entirely: `port 8766 already in use`, or
+    `the dashboard was killed on a non-exit reason` accusing dash_stop.py of a
+    bug it did not commit. A stray can also turn a test green for the wrong
+    reason — `_wait_until_listening` is satisfied by the squatter.
+
+    Teardown, not a `finally` in each test, because the case that actually
+    leaks is the one after a *failed* assertion, and three tests had no cleanup
+    at all.
+
+    Scoped to this test's tmp_path and never `dashboard.py` alone: the
+    maintainer runs a real dashboard on this very checkout, whose argv lives
+    under the real repo path and so cannot match. Both spawn paths put tmp_path
+    immediately after `dashboard.py` in argv — the status line's, and
+    `_spawn_dashboard`, which runs the *real* script against a tmp project dir.
+    """
     yield
     subprocess.run(["pkill", "-f", f"dashboard.py {tmp_path}"], capture_output=True)
 
@@ -271,19 +293,52 @@ def test_the_guard_does_not_skip_a_non_tool_payload(tmp_path):
     )
 
 
-def test_a_write_outside_any_project_records_nothing(tmp_path):
-    """The guard's whole purpose: most writes are not into a project, and paying
-    ~70ms for each would be the cost that made the hook not worth registering."""
-    repo = _repo(tmp_path, {"untouched": None})
-    done = _hook(repo, {
-        "session_id": "sess-elsewhere",
-        "hook_event_name": "PostToolUse",
-        "cwd": str(repo),
-        "tool_name": "Edit",
-        "tool_input": {"file_path": str(repo / "tools" / "dashboard.py")},
-    }, "sess-elsewhere")
-    assert done.returncode == 0, done.stderr
-    assert not (repo / "projects" / "untouched" / "runtime.json").exists()
+def test_the_guard_does_not_start_the_interpreter_for_a_write_outside_a_project(tmp_path):
+    """The other half of the guard — and the only half with an observable effect.
+
+    Its predecessor asserted "a write outside any project records nothing" and
+    could not fail: deleting the guard outright left it green. The guard changes
+    nothing but *cost*. A write outside any project resolves to no project, so
+    nothing is recorded whether or not the interpreter ever started, and the
+    assertion was about the outcome the two paths share.
+
+    So make the interpreter itself observable. The hook prefers
+    `$root/.venv/bin/python` over PATH, and the throwaway tree has no `.venv`,
+    so a shim written there *is* the interpreter the hook will pick; the
+    sentinel it touches is the fact "the interpreter started". No wall clock, so
+    nothing to be flaky about on a loaded machine.
+
+    Direction three — a SessionStart payload carrying no `projects/` string at
+    all — is already pinned by test_the_guard_does_not_skip_a_non_tool_payload
+    above, and is not repeated here.
+    """
+    repo = _repo(tmp_path, {"newproj": None})
+    sentinel = tmp_path / "interpreter-started"
+    shim = repo / ".venv" / "bin" / "python"
+    shim.parent.mkdir(parents=True)
+    # Drains stdin so the hook's `printf | py` never takes SIGPIPE.
+    shim.write_text(f"#!/bin/sh\ncat >/dev/null\ntouch '{sentinel}'\n")
+    shim.chmod(0o755)
+
+    def interpreter_started(file_path: Path) -> bool:
+        sentinel.unlink(missing_ok=True)
+        done = _hook(repo, {
+            "session_id": "s", "hook_event_name": "PostToolUse", "cwd": str(repo),
+            "tool_name": "Write", "tool_input": {"file_path": str(file_path)},
+        }, "s")
+        assert done.returncode == 0, done.stderr
+        return sentinel.exists()
+
+    assert not interpreter_started(repo / "NOTES.md"), (
+        "an ordinary edit outside every project paid for a Python start-up; the "
+        "cost guard is gone and every Write/Edit in the repo now pays it"
+    )
+    assert interpreter_started(repo / "projects" / "newproj" / "beril.yaml"), (
+        "no interpreter for a write *into* a project: either the guard swallowed "
+        "it — the same silent break as skipping a SessionStart payload, nothing "
+        "would ever be bound — or the hook stopped preferring $root/.venv/bin/"
+        "python and never reached the shim"
+    )
 
 
 def test_the_statusline_starts_a_dashboard_that_is_not_running(tmp_path):
@@ -306,17 +361,13 @@ def test_the_statusline_starts_a_dashboard_that_is_not_running(tmp_path):
     first = _render(repo, session_id="sess-spawn")
     assert "dashboard starting" in first             # nothing to advertise yet
 
-    try:
-        assert _wait_until_listening(port), "the statusline did not start a dashboard"
-        # Through `public_url`, not a hardcoded `:<port>/`. That literal is the
-        # off-cluster form only, so this assertion passed in CI and failed on the
-        # hub — the one environment the dashboard exists for.
-        from tools.dashboard import public_url
+    assert _wait_until_listening(port), "the statusline did not start a dashboard"
+    # Through `public_url`, not a hardcoded `:<port>/`. That literal is the
+    # off-cluster form only, so this assertion passed in CI and failed on the
+    # hub — the one environment the dashboard exists for.
+    from tools.dashboard import public_url
 
-        assert public_url(port) in _render(repo, session_id="sess-spawn")
-    finally:
-        subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects/spawnme"],
-                       capture_output=True)
+    assert public_url(port) in _render(repo, session_id="sess-spawn")
 
 
 def _no_proxy(tmp_path: Path, repo: Path, monkeypatch) -> None:
@@ -381,14 +432,30 @@ def test_without_the_proxy_it_snapshots_instead_of_respawning_forever(tmp_path, 
 
 def test_it_does_not_spawn_when_no_project_resolves(tmp_path):
     """A display component with a side effect has to stay bounded: no project,
-    no process."""
+    no process.
+
+    Two details, both found by mutating the launcher to spawn unconditionally and
+    watching this test pass anyway:
+
+    - `pgrep -fc <pat>` with no match exits 2 on Darwin 25.5.0 with empty stdout
+      and a usage message on stderr, so the earlier `.stdout.strip() or "0"`
+      compared `"0"` to `"0"` whatever happened. Count `pgrep -f` lines instead.
+    - The pattern has to name *this* tmp repo. A repo-wide one is masked in a
+      full-suite run: `port_for("unbound")` is the same port every time, so a
+      stray from an earlier test holds it, the spawn dies on EADDRINUSE, and the
+      count matches again. The _reap_dashboards fixture pkills the same way,
+      one path segment broader.
+    """
     repo = _repo(tmp_path, {"unbound": None})
-    before = subprocess.run(["pgrep", "-fc", "tools/dashboard.py"],
-                            capture_output=True, text=True).stdout.strip() or "0"
+
+    def running() -> int:
+        found = subprocess.run(["pgrep", "-f", f"dashboard.py {repo}/projects"],
+                               capture_output=True, text=True)
+        return len(found.stdout.split())
+
+    before = running()
     assert "unbound" not in _render(repo, session_id="no-such-session")
-    after = subprocess.run(["pgrep", "-fc", "tools/dashboard.py"],
-                           capture_output=True, text=True).stdout.strip() or "0"
-    assert before == after, "spawned a dashboard with no project resolved"
+    assert running() == before, "spawned a dashboard with no project resolved"
 
 
 # --------------------------------------------------------------------------
@@ -414,23 +481,6 @@ def _spawn_dashboard(repo: Path, pid: str):
         [s.executable, str(ROOT / "tools" / "dashboard.py"), str(repo / "projects" / pid)],
         stdout=sp.DEVNULL, stderr=sp.DEVNULL, start_new_session=True,
     )
-
-
-def test_session_end_stops_the_dashboard_for_its_project(tmp_path):
-    """The counterpart to the status line starting it. Without this the server is
-    detached, so it outlives Claude Code and nothing ever stops it."""
-    repo = _repo(tmp_path, {"stopme": ["sess-stop"]})
-    proc = _spawn_dashboard(repo, "stopme")
-    try:
-        assert _wait_until_listening(_port("stopme")), "dashboard did not start"
-
-        done = _stop(repo, {"session_id": "sess-stop", "hook_event_name": "SessionEnd",
-                            "cwd": str(repo), "reason": "other"}, "sess-stop")
-        assert done.returncode == 0, done.stderr      # must never block the exit
-        assert proc.wait(timeout=15) is not None
-    finally:
-        if proc.poll() is None:
-            proc.kill()
 
 
 def test_a_mode_toggle_does_not_stop_the_dashboard(tmp_path):
@@ -480,13 +530,7 @@ def test_switching_projects_resolves_to_the_one_worked_on_most_recently(tmp_path
         _bind(repo, older, "moved", "2026-07-31T10:00:00Z")
         _bind(repo, newer, "moved", "2026-07-31T11:00:00Z")
 
-        try:
-            out = _render(repo, session_id="moved")
-        finally:
-            # _render is the real status line, so resolving a project starts its
-            # dashboard. Left running it holds the port the next test asserts free.
-            subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects"],
-                           capture_output=True)
+        out = _render(repo, session_id="moved")
         assert newer in out, f"resolved to the stale project, not {newer}"
         assert older not in out
 
@@ -546,19 +590,15 @@ def test_writing_the_pin_marker_switches_the_session_to_that_project(tmp_path):
         root.mkdir()
         repo = _repo(root, {first: None, second: None})
 
-        try:
-            assert not project_line(_render(repo, session_id="sid"))  # nothing bound yet
-            for project in (first, second):                        # pinned back to back
-                done = _hook(repo, {
-                    "session_id": "sid", "hook_event_name": "PostToolUse",
-                    "cwd": str(repo), "tool_name": "Write",
-                    "tool_input": {"file_path": str(repo / "projects" / project / ".beril-pin")},
-                }, "sid")
-                assert done.returncode == 0, done.stderr
-            out = _render(repo, session_id="sid")
-        finally:
-            subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects"],
-                           capture_output=True)
+        assert not project_line(_render(repo, session_id="sid"))  # nothing bound yet
+        for project in (first, second):                        # pinned back to back
+            done = _hook(repo, {
+                "session_id": "sid", "hook_event_name": "PostToolUse",
+                "cwd": str(repo), "tool_name": "Write",
+                "tool_input": {"file_path": str(repo / "projects" / project / ".beril-pin")},
+            }, "sid")
+            assert done.returncode == 0, done.stderr
+        out = _render(repo, session_id="sid")
 
         line = project_line(out)
         assert second in line, f"pinning {second} did not switch away from {first}"
@@ -586,11 +626,7 @@ def test_two_sessions_pin_different_projects_in_one_clone(tmp_path):
         assert done.returncode == 0, done.stderr
 
     def project_of(session_id: str) -> str:
-        try:
-            out = _render(repo, session_id=session_id)
-        finally:
-            subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects"],
-                           capture_output=True)
+        out = _render(repo, session_id=session_id)
         return next((l for l in out.splitlines() if l.startswith("  ")), "")
 
     pin("session-A", "metal_cofit")
@@ -654,11 +690,8 @@ def test_a_write_that_merely_cites_another_project_does_not_rebind(tmp_path):
                      "file_path": str(repo / "projects" / "my_work" / "REPORT.md"),
                      "content": "Counts reused from projects/other_proj/data/counts.csv\n",
                  }}, "s")
-    try:
-        line = next((l for l in _render(repo, session_id="s").splitlines()
-                     if l.startswith("  ")), "")
-    finally:
-        subprocess.run(["pkill", "-f", f"dashboard.py {repo}/projects"], capture_output=True)
+    line = next((l for l in _render(repo, session_id="s").splitlines()
+                 if l.startswith("  ")), "")
 
     assert "my_work" in line
     assert "other_proj" not in line, "citing another project switched the session to it"

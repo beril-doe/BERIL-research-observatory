@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -308,22 +309,6 @@ def test_plan_approval_states(tmp_path, monkeypatch):
     assert "relayed" in _approval_chip(plan_approval(project, "active"))
 
 
-def test_review_freshness_and_deviation_count(tmp_path):
-    """A review whose footer no longer matches REPORT.md must read `stale` — the
-    single most misleading thing a lifecycle page could get wrong."""
-    project = _project(tmp_path, {"REPORT.md": "# Report\n\nFindings.\n"})
-    digest = hashlib.sha256((project / "REPORT.md").read_bytes()).hexdigest()
-    (project / "REVIEW_1.md").write_text(f"<!-- report_hash: sha256:{digest} -->\n")
-    (project / "REVIEW_2.md").write_text("<!-- report_hash: sha256:dead -->\n")
-
-    chips = {doc.name: doc.chip for doc in review_docs(project)}
-    assert chips == {"REVIEW_1.md": "current", "REVIEW_2.md": "stale"}
-
-    assert count_deviations(project) == 0
-    (project / "plan_deviations.jsonl").write_text('{"path":"a"}\n{"path":"b"}\n\n')
-    assert count_deviations(project) == 2
-
-
 def test_plan_reviews_are_listed_and_chipped_against_the_plan(tmp_path):
     """`glob("REVIEW*.md")` is anchored, so it never matched `PLAN_REVIEW_1.md` —
     the file `/berdl_start`'s plan-review checkpoint option (b) tells the operator
@@ -357,6 +342,13 @@ def test_plan_reviews_are_listed_and_chipped_against_the_plan(tmp_path):
     after = {doc.name: doc.chip for doc in review_docs(project)}
     assert after["PLAN_REVIEW_1.md"] == "current"
     assert after["REVIEW_1.md"] == "stale"
+
+    # The deviation count rides along here: it is the other number § Documents
+    # prints, and no other test in this file is sensitive to it. A blank
+    # trailing line is not a deviation.
+    assert count_deviations(project) == 0
+    (project / "plan_deviations.jsonl").write_text('{"path":"a"}\n{"path":"b"}\n\n')
+    assert count_deviations(project) == 2
 
 
 def test_plan_review_chip_matches_review_sh_not_plan_digest(tmp_path):
@@ -792,6 +784,10 @@ def test_the_expiry_reaches_a_polling_page(tmp_path, monkeypatch):
 
     assert after.agent["state"] == "unknown"
     assert after.etag != before.etag, "a polling browser would be served a 304 forever"
+    # The 304 gate reads `fingerprint`, the 200 body carries `scan().etag`. They
+    # are one expression today only because `scan` calls `fingerprint`; if they
+    # ever drift the browser is handed a 304 for a page it does not have.
+    assert dash.fingerprint(project)[0] == after.etag, "the gate and the body disagree"
     assert fingerprint == [(project / ".agent-state.json").stat().st_mtime_ns], (
         "the file changed, so this proved nothing about the clock"
     )
@@ -821,14 +817,23 @@ def test_the_title_marker_and_favicon_are_client_side(tmp_path):
     """The same rule as relative times, for the same reason: a 304 freezes
     anything the server wrote, and these two are the only channels that reach a
     reader whose tab is in the background. A `<title>` baked with a marker would
-    keep claiming the agent needs you long after it stopped."""
+    keep claiming the agent needs you long after it stopped.
+
+    This is the server's half: an unmarked title, and a `<link>` for the client
+    to retarget (a browser will not adopt one that appears after it has painted).
+    The client half — that STATE_JS actually writes both — is asserted from the
+    node harness in `test_when_a_system_notification_actually_fires`, because the
+    source-string greps this used to carry broke on a variable rename and passed
+    on a behaviour-preserving one, which is backwards. That harness is
+    node-gated, so on a box without node this assertion is the only half of the
+    contract left standing — a green run there is not the whole story.
+    """
     import tools.dashboard as dash
 
     page = dash.render(dash.scan(_waiting(_project(tmp_path))), "")
 
     assert "<title>demo</title>" in page, "the marker was baked into the response"
-    assert "document.title=(MARK[s]||'')+BASE" in page
-    assert 'id="d-favicon"' in page and "F.href=ICON[s]" in page
+    assert '<link rel="icon" id="d-favicon"' in page, "nothing for STATE_JS to retarget"
 
 
 def test_a_snapshot_gets_the_state_but_never_the_alert_button(tmp_path):
@@ -890,6 +895,12 @@ go('waiting_hidden', () => set('waiting', 5, 'AskUserQuestion: which?'));
 set('waiting', 9, 'x');
 out.pulsed = nodes['d-wait'].classList.has('pulse');
 out.strip_shown = !nodes['d-wait'].hidden;
+// Read while the state is still `waiting`: the two channels a background tab has.
+out.title_marked = document.title;
+out.favicon_href = nodes['d-favicon'].href;
+// `unknown` has no ICON entry and is reached by every expired `waiting`.
+set('unknown', 7, '');
+out.favicon_unknown = nodes['d-favicon'].href;
 set('', 0, '');
 out.strip_cleared = nodes['d-wait'].hidden;
 out.title_restored = document.title;
@@ -909,6 +920,20 @@ def test_when_a_system_notification_actually_fires(tmp_path):
     And nothing fires twice for one event: a re-render is not a transition, so
     the `(state, since)` pair gates it. Without that gate the 4s poll would
     notify fifteen times a minute about a single permission prompt.
+
+    The title marker and the favicon dot are asserted here too, from the same
+    run: they are the only two channels that reach a reader whose tab is in the
+    background, and they used to be pinned by grepping the source for
+    `document.title = (MARK[s] || '') + BASE;`. That grep failed on a rename that
+    changed nothing and passed on a hoist that could have broken it. Reading the
+    values back out of the harness is the check that was actually meant.
+
+    `favicon_unknown` is the `|| ICON['']` fallback, and it is not hypothetical:
+    `ICON` maps `waiting` and `turn_ended` only, while `AGENT_LABELS` also emits
+    `unknown` — the resolved state of every `waiting` that aged past `WAIT_TTL`
+    and of every orphaned record. Without the fallback the href becomes the
+    literal string `undefined` and the browser 404s for a file of that name,
+    with nothing in the console to say so.
 
     Node stands in for a browser because the two inputs that matter — the clock
     and the visibility flag — are exactly what a real headless page will not let
@@ -934,31 +959,221 @@ def test_when_a_system_notification_actually_fires(tmp_path):
     assert result["pulsed"] and result["strip_shown"]
     assert result["strip_cleared"] and result["title_restored"] == "demo"
 
+    assert result["title_marked"] == "● demo", "no marker on a backgrounded tab"
+    assert result["favicon_href"].startswith("data:image/svg+xml,")
+    assert "d29922" in result["favicon_href"], "the favicon dot never turned amber"
+    assert result["favicon_unknown"].startswith("data:image/svg+xml,"), (
+        "an unmapped state left the favicon href as the string 'undefined'"
+    )
 
-def test_a_hidden_tab_still_polls_only_slower():
-    """The poll used to wrap its `fetch` in `visibilityState==='visible'`, so a
-    backgrounded tab fetched nothing at all — and a backgrounded tab is exactly
-    the one that needs to find out the agent is blocked. Nothing that reaches an
-    unattended reader (the title marker, the favicon dot, a notification) can
-    work on top of a transport that stops when nobody is looking.
 
-    The two assertions are the two halves of that fix, and each fails on the
-    obvious way to undo it:
+ASSET_DIR = ROOT / "tools" / "dashboard_assets"
+JS_FILES = ("rel.js", "state.js", "poll.js", "lightbox.js")
 
-    - the cadence is chosen by visibility rather than the fetch being skipped;
-    - the only `visibilityState` left is the listener's, i.e. nothing guards the
-      fetch any more.
 
-    The shared `timer` handle is the third: `tick` schedules the next tick *and*
-    the listener calls `tick` directly, so without a `clearTimeout` every return
-    to the tab left another chain running forever. Free when hidden ticks did
-    nothing; a compounding multiplier on real requests now.
+SCOPE_HARNESS = """
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+
+const DIR = process.argv[2];
+const src = {};
+const out = {parsed: {}, exported: {}, calls: [], hidden_calls: [], threw: null,
+             rescheduled: [], cleared: 0};
+
+// `new vm.Script` is the parser a classic inline <script> uses. `node --check`
+// is not: on a .js file it falls back to the module goal, so `import`,
+// `export`, top-level `await` and top-level `return` all pass there and are
+// hard SyntaxErrors in the page render() actually emits.
+for (const f of ['rel.js', 'state.js', 'poll.js', 'lightbox.js']) {
+  src[f] = fs.readFileSync(path.join(DIR, f), 'utf8');
+  try {
+    new vm.Script(src[f]);
+    out.parsed[f] = true;
+  } catch (e) {
+    out.parsed[f] = String(e);
+  }
+}
+if (Object.values(out.parsed).some((v) => v !== true)) {
+  console.log(JSON.stringify(out));
+  process.exit(0);
+}
+
+const el = () => ({
+  innerHTML: '', hidden: true, offsetWidth: 1, href: '', dataset: {},
+  classList: {add() {}, remove() {}},
+  querySelector: () => null, querySelectorAll: () => [], addEventListener() {},
+});
+const ctx = {
+  console,
+  document: {
+    // Derived, not a second flag: a guard that reads either one is then caught.
+    get visibilityState() { return this.hidden ? 'hidden' : 'visible'; },
+    title: 'demo', hidden: false, getElementById: el,
+    querySelectorAll: () => [], addEventListener() {},
+  },
+  location: {pathname: '/proxy/9000/', replace() {}},
+  setInterval: () => 0,
+  setTimeout: (f, ms) => { out.rescheduled.push(ms); return 1; },
+  clearTimeout() { out.cleared += 1; },
+  CSS: {escape: (s) => s},
+  DOMParser: class {
+    parseFromString() { return {getElementById: () => ({innerHTML: 'swapped'})}; }
+  },
+  fetch: () => Promise.resolve({
+    status: 200, headers: {get: () => 'W/"etag"'},
+    text: () => Promise.resolve('<html></html>'),
+  }),
+};
+ctx.window = ctx;
+vm.createContext(ctx);
+
+// Exactly what render() emits in live mode: three files, one <script>.
+new vm.Script(src['rel.js'] + src['state.js'] + src['poll.js']).runInContext(ctx);
+
+// Both are global bindings a *sibling file* created, so read them before
+// spying — a spy would paper over the binding having gone missing.
+out.exported = {relTimes: typeof ctx.relTimes, dashMark: typeof ctx.dashMark};
+let calls = [];
+ctx.relTimes = () => calls.push('relTimes');
+ctx.dashMark = () => calls.push('dashMark');
+out.rescheduled.length = 0;
+try { ctx.tick(); } catch (e) { out.threw = String(e); }
+await new Promise((r) => setTimeout(r, 20));
+out.calls = calls;
+
+// ...then the same tick with the tab backgrounded. It must still fetch and
+// repaint, only on the slower cadence.
+calls = [];
+ctx.document.hidden = true;
+try { ctx.tick(); } catch (e) { out.threw = String(e); }
+await new Promise((r) => setTimeout(r, 20));
+out.hidden_calls = calls;
+console.log(JSON.stringify(out));
+"""
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node to run the scripts")
+def test_the_live_scripts_parse_and_share_one_scope(tmp_path):
+    """The extracted scripts have no bundler, no eslint and no build step behind
+    them, deliberately, so this is the whole lint story — and reading each file
+    is not enough of one.
+
+    `rel.js`, `state.js` and `poll.js` are concatenated into a single
+    `<script>`, which is the only reason `poll.js` can see `rootEl`, `tag`,
+    `relTimes` and `dashMark`. Nothing in the language records that. Splitting
+    one blob into four separately editable files is exactly what makes it easy
+    to sever — wrap `rel.js` in an IIFE and every file still parses, so a
+    per-file check stays green while the page renders once and then stops
+    updating. So the three are compiled together and driven through one `tick()`
+    against a stub browser.
+
+    Parsing is `vm.Script`, not `node --check`: `--check` on a `.js` file falls
+    back to the module goal and accepts `import`, `export` and top-level
+    `await`, all of which kill a classic inline `<script>` stone dead.
+
+    The tick is then driven a second time with the tab backgrounded, which pins
+    the poll's other three properties. `poll.js` used to wrap its `fetch` in
+    `visibilityState === 'visible'`, so a backgrounded tab fetched nothing at
+    all — and that is exactly the tab that needs to learn the agent is blocked:
+    the title marker, the favicon dot and any notification are all painted from
+    a response, so none of them can sit on a transport that stops when nobody
+    is looking. So a hidden tick must still repaint (`hidden_calls`), must
+    reschedule at 15s rather than 4s, and must `clearTimeout` first — `tick`
+    schedules the next tick *and* the visibilitychange listener calls `tick`
+    directly, so without that clear every return to the tab left another chain
+    running forever. Free when hidden ticks did nothing; a compounding
+    multiplier on real requests now.
+    """
+    (tmp_path / "harness.mjs").write_text(SCOPE_HARNESS, encoding="utf-8")
+    done = subprocess.run(
+        ["node", str(tmp_path / "harness.mjs"), str(ASSET_DIR)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert done.returncode == 0, done.stderr
+    result = json.loads(done.stdout)
+
+    assert result["parsed"] == dict.fromkeys(JS_FILES, True)
+    assert result["exported"] == {"relTimes": "function", "dashMark": "function"}
+    assert result["threw"] is None, "poll.js lost a sibling's global"
+    assert result["calls"] == ["relTimes", "dashMark"], "the swap repainted nothing"
+    assert result["hidden_calls"] == ["relTimes", "dashMark"], (
+        "a backgrounded tab stopped fetching — the one tab that cannot see the page"
+    )
+    assert result["rescheduled"] == [4000, 15000], (
+        "the poll did not schedule its next tick at the visible, then hidden, cadence"
+    )
+    assert result["cleared"] == 2, "tab returns would stack poll chains"
+
+
+def test_the_page_inlines_its_scripts_instead_of_linking_them(tmp_path):
+    """The page is one file, in both transports, and that is what makes a
+    `<script src=>` wrong rather than merely different.
+
+    A snapshot is opened through Jupyter's `files/` route or double-clicked off
+    disk, so a relative src resolves next to the *project*, not next to
+    `tools/`. Live is no better: the server hands every unrecognised path to
+    `SimpleHTTPRequestHandler(directory=project)`. Both 404, and a 404 script
+    fails silently.
+
+    `test_render_has_no_absolute_urls` does not cover this — a *relative* src
+    passes it cleanly.
+
+    `dash.css` is the same bargain in the other tag, so it is checked here too.
+
+    Inlining is also what makes the moved prose dangerous in a way it was not
+    inside a Python string: a `</script` or a `<!--` in a comment ends the tag
+    early and silently truncates the page, so the file bodies are checked for
+    both.
     """
     import tools.dashboard as dash
 
-    assert "document.hidden?15000:4000" in dash.POLL_JS
-    assert dash.POLL_JS.count("visibilityState") == 1, "something still gates the fetch"
-    assert "clearTimeout(timer)" in dash.POLL_JS, "tab returns would stack poll chains"
+    state = dash.scan(_project(tmp_path, {"WORKLOG.md": WORKLOG}))
+    live = dash.render(state, "", live=True)
+    snap = dash.render(state, "", live=False)
+
+    css = (ASSET_DIR / "dash.css").read_text(encoding="utf-8")
+    assert "</style" not in css, "dash.css would truncate the page"
+    for page in (live, snap):
+        # A literal `"<script src="` misses `<script defer src=`; a bare
+        # `" src="` would hit the lightbox's real <img>.
+        assert not re.search(r"<script[^>]*\ssrc=", page)
+        # The favicon <link> is real and stays; a stylesheet one never is.
+        assert not re.search(r"<link[^>]*stylesheet", page)
+        assert css in page, "dash.css is not inlined verbatim"
+    for name in JS_FILES:
+        body = (ASSET_DIR / name).read_text(encoding="utf-8")
+        assert "</script" not in body and "<!--" not in body, f"{name} would truncate the page"
+        assert body.endswith("\n"), f"{name} would glue onto the next file"
+        assert body in live, f"{name} is not inlined verbatim"
+        if name != "poll.js":  # live only, by design
+            assert body in snap, f"{name} is not inlined verbatim in a snapshot"
+
+
+def test_the_gallery_wins_the_thumbnail_width_tie():
+    """REGRESSION. The figure gallery is `class="d-links d-figs"`, so both
+    `.d-links img` and `.d-figs img` match its tiles at specificity (0,1,1) and
+    source order alone decides the width. `.d-figs img` was written *above*
+    `.d-links img`, so every gallery tile rendered at the timeline's 104px inside
+    a 230px-minimum grid — from the file's first commit (3b7e36ec) until this
+    one, silently, because nothing errors and the page still looks deliberate.
+
+    A comment in dash.css says the order is load-bearing; a comment does not
+    survive the next tidy-up of a stylesheet that has no other ordering
+    constraint. This is the only thing that fails if the two rules swap back.
+
+    Matched as `^selector{` rather than by substring: that same comment quotes
+    `.d-links img`, so a plain `.index()` compares the comment's position and
+    passes however the rules are ordered.
+    """
+    import tools.dashboard as dash
+
+    links = re.search(r"^\.d-links img\{", dash.DASH_CSS, re.M)
+    figs = re.search(r"^\.d-figs img\{", dash.DASH_CSS, re.M)
+    assert links and figs, "one of the two thumbnail width rules is gone"
+    assert links.start() < figs.start(), "gallery tiles are back to 104px"
 
 
 def _dropin(cfg_dir: Path, name: str, enabled: bool) -> None:
@@ -1105,14 +1320,18 @@ def test_every_markdown_link_opens_the_overlay_not_a_new_tab(tmp_path):
     page opened raw markdown source in a new tab, which is worse than what it
     replaced. The chips were verified and the cards were assumed.
 
-    So: assert over *every* anchor pointing at a `.md`, not one call site."""
+    So: assert over *every* anchor pointing at a `.md`, not one call site.
+
+    The plan needs a Research Question or `_plan_html` returns "" and the plan
+    card — the third emitter of a markdown anchor — never renders, which is how
+    this swept only the chips and the cards for its first year."""
     import re
 
     html = _render(
         tmp_path,
         {
             "WORKLOG.md": WORKLOG,
-            "RESEARCH_PLAN.md": PLAN,
+            "RESEARCH_PLAN.md": "# Plan\n\n## Research Question\nQ?\n\n" + PLAN,
             "REPORT.md": "# R\n",
             "figures/a.png": "x",
         },

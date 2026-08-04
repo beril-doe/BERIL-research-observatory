@@ -49,13 +49,12 @@ pidfile to go stale and no stop command to misfire on a recycled PID.
 
 from __future__ import annotations
 
-import argparse
+import errno
 import hashlib
 import html as _html
 import json
 import os
 import re
-import shutil
 import site
 import sys
 import time
@@ -65,6 +64,11 @@ from pathlib import Path
 from urllib.parse import quote
 
 HUB = "https://hub.berdl.kbase.us"
+
+# Resolved once. Three places used to re-derive one of these with a fresh
+# `Path(__file__).resolve()`, one of them on the per-request path.
+_HERE = Path(__file__).resolve().parent
+_REPO_ROOT = _HERE.parent
 
 STAGES = ["exploration", "proposed", "active", "analysis", "reviewed", "complete"]
 
@@ -148,7 +152,8 @@ PRUNE_DIRS = {".ipynb_checkpoints", "__pycache__", ".git"}
 MARKDOWN_EXT = {".md", ".markdown"}
 # Where the overlay fetches rendered markdown from. Kept off the project's own
 # namespace by the leading underscore, since every other path this server answers
-# is a real file. LIGHTBOX_JS hardcodes the same prefix without the leading slash.
+# is a real file. tools/dashboard_assets/lightbox.js hardcodes the same prefix
+# without the leading slash.
 DOC_ROUTE = "/_doc/"
 # Types with a real Lab viewer: Notebook, the DataGrid CSV/TSV viewers, and the
 # collapsible JSON tree. `.parquet` is deliberately absent — see open_url.
@@ -182,7 +187,7 @@ _LINK_RE = re.compile(r"^→ \[([^\]]*)\]\(([^)]*)\)(?:\s*[×x](\d+))?\s*$")
 class Doc:
     name: str
     path: str
-    chip: "str | None" = None
+    chip: str | None = None
 
 
 @dataclass
@@ -197,7 +202,7 @@ class Link:
 class Entry:
     date: str
     title: str
-    new_status: "str | None"
+    new_status: str | None
     prose: str = ""
     links: list = field(default_factory=list)
     correction: bool = False
@@ -249,7 +254,7 @@ class JupyterRoutes:
         joined = f"{self.rel}/{path.lstrip('/')}" if self.rel else path.lstrip("/")
         return "/".join(quote(seg, safe="") for seg in joined.split("/"))
 
-    def open_url(self, path: str) -> "str | None":
+    def open_url(self, path: str) -> str | None:
         """The URL that opens ``path`` in a viewer that actually renders it, or
         ``None`` when Jupyter has no such viewer and the caller should keep the
         plain relative link.
@@ -298,7 +303,7 @@ class State:
     last_activity: float
     first_activity: float
     etag: str
-    routes: "JupyterRoutes | None"
+    routes: JupyterRoutes | None
     plan: dict = field(default_factory=dict)
     agent: dict = field(default_factory=dict)
 
@@ -308,7 +313,7 @@ class State:
 # ---------------------------------------------------------------------------
 
 
-def read_status(project: Path) -> tuple:
+def read_status(project: Path) -> tuple[str | None, bool]:
     """Return ``(status, has_approval_block)`` from ``beril.yaml``.
 
     One key is not a parsing problem, and PyYAML is not worth a runtime
@@ -407,7 +412,7 @@ def _infer_stage(project: Path) -> str:
     return "exploration"
 
 
-def resolve_stage(project: Path) -> tuple:
+def resolve_stage(project: Path) -> tuple[str, bool]:
     """Return ``(stage, inferred)``. ``inferred`` drives the honesty label."""
     status, has_approval = read_status(project)
     if has_approval:
@@ -509,8 +514,7 @@ def _planning_workflow_installed() -> bool:
     Without ``plan-gate.py`` there is no such thing as an unapproved plan, so
     accusing a project of missing an approval would be a false alarm.
     """
-    root = Path(__file__).resolve().parent.parent
-    return (root / ".claude" / "hooks" / "plan-gate.py").is_file()
+    return (_REPO_ROOT / ".claude" / "hooks" / "plan-gate.py").is_file()
 
 
 def _accusable(project: Path, stage: str) -> bool:
@@ -590,7 +594,7 @@ def count_deviations(project: Path) -> int:
     return sum(1 for line in text.splitlines() if line.strip())
 
 
-def review_docs(project: Path) -> list:
+def review_docs(project: Path) -> list[Doc]:
     """Every review file with a freshness chip against the thing it reviewed.
 
     Without this the page shows "reviewed" for a review that no longer applies —
@@ -649,7 +653,7 @@ def review_docs(project: Path) -> list:
 # ---------------------------------------------------------------------------
 
 
-def parse_worklog(text: str, project: Path) -> list:
+def parse_worklog(text: str, project: Path) -> list[Entry]:
     """Parse ``WORKLOG.md`` in file order (oldest first; the renderer reverses).
 
     Anything that is neither a heading nor a link line is prose.
@@ -693,7 +697,7 @@ def parse_worklog(text: str, project: Path) -> list:
 # ---------------------------------------------------------------------------
 
 
-def notebook_stats(path: Path) -> "Notebook | None":
+def notebook_stats(path: Path) -> Notebook | None:
     """Cell counts from raw JSON — no nbformat, no nbconvert.
 
     Returns ``None`` when unreadable. A partial read while the agent is writing
@@ -717,7 +721,7 @@ def notebook_stats(path: Path) -> "Notebook | None":
     )
 
 
-def _files(directory: Path, extensions: set, prefix: str) -> list:
+def _files(directory: Path, extensions: set[str], prefix: str) -> list[FileRef]:
     refs = []
     if not directory.is_dir():
         return refs
@@ -730,11 +734,45 @@ def _files(directory: Path, extensions: set, prefix: str) -> list:
     return refs
 
 
-def compute_etag(fingerprint: list) -> str:
+def compute_etag(items: list) -> str:
     digest = hashlib.sha1()
-    for item in sorted(fingerprint):
+    for item in sorted(items):
         digest.update(repr(item).encode("utf-8"))
     return digest.hexdigest()[:16]
+
+
+def fingerprint(project: Path) -> tuple[str, list[float], dict]:
+    """``(etag, mtimes, agent state)`` — everything the etag is derived from, and
+    nothing else.
+
+    Split out of ``scan`` because it is the *only* input to the etag, and the
+    etag is the only thing a 304 needs: the poll makes 304 the overwhelmingly
+    common response, and answering one used to cost a whole ``scan`` — every
+    notebook JSON parsed, the plan regexed, the review files hashed — all of it
+    discarded. Measured on the three largest projects on disk: 0.25-0.84ms here
+    against ``scan``'s 3.6-16.3ms.
+    """
+    stamps: list[float] = []
+    items: list = []
+    for root, dirs, names in os.walk(project):
+        dirs[:] = [d for d in dirs if d not in PRUNE_DIRS]
+        for name in names:
+            try:
+                stat = os.stat(os.path.join(root, name))
+            except OSError:
+                continue
+            stamps.append(stat.st_mtime)
+            items.append((os.path.join(root, name), stat.st_mtime_ns, stat.st_size))
+
+    # The agent state goes into the etag as its *resolved* value, as well as the
+    # file's own mtime — the two disagree exactly when it matters. Nothing on
+    # disk changes when a `waiting` ages past WAIT_TTL, so an mtime-only etag
+    # keeps answering 304 and the page holds "waiting for you" on screen forever
+    # while `read_agent_state` has long since stopped believing it. Folding the
+    # answer in means the expiry itself invalidates the cache.
+    agent = read_agent_state(project)
+    items.append(("\x00agent-state", agent.get("state", ""), agent.get("since", 0)))
+    return compute_etag(items), stamps, agent
 
 
 def scan(project: Path) -> State:
@@ -760,28 +798,7 @@ def scan(project: Path) -> State:
     except OSError:
         worklog = ""
 
-    stamps: list = []
-    fingerprint: list = []
-    for root, dirs, names in os.walk(project):
-        dirs[:] = [d for d in dirs if d not in PRUNE_DIRS]
-        for name in names:
-            try:
-                stat = os.stat(os.path.join(root, name))
-            except OSError:
-                continue
-            stamps.append(stat.st_mtime)
-            fingerprint.append(
-                (os.path.join(root, name), stat.st_mtime_ns, stat.st_size)
-            )
-
-    # The agent state goes into the fingerprint as its *resolved* value, not as
-    # the file's mtime — the two disagree exactly when it matters. Nothing on
-    # disk changes when a `waiting` ages past WAIT_TTL, so an mtime-only etag
-    # keeps answering 304 and the page holds "waiting for you" on screen forever
-    # while `read_agent_state` has long since stopped believing it. Folding the
-    # answer in means the expiry itself invalidates the cache.
-    agent = read_agent_state(project)
-    fingerprint.append(("\x00agent-state", agent.get("state", ""), agent.get("since", 0)))
+    etag, stamps, agent = fingerprint(project)
 
     return State(
         project_id=project.name,
@@ -796,7 +813,7 @@ def scan(project: Path) -> State:
         data=_files(project / "data", DATA_EXT, "data"),
         last_activity=max(stamps) if stamps else 0.0,
         first_activity=min(stamps) if stamps else 0.0,
-        etag=compute_etag(fingerprint),
+        etag=etag,
         routes=jupyter_routes(project),
         plan=plan_summary(project),
         agent=agent,
@@ -807,358 +824,39 @@ def scan(project: Path) -> State:
 # Render
 # ---------------------------------------------------------------------------
 
-DASH_CSS = """
-:root{--d-bg:#12141a;--d-panel:#171a21;--d-card:#1b1f28;--d-line:#262a35;
---d-fg:#e6e8ee;--d-mut:#8b93a7;--d-dim:#5c6478;--d-accent:#58a6ff;--d-ok:#3fb950;
---d-warn:#d29922;--d-bad:#ff7b72;}
-body{background:var(--d-bg);color:var(--d-fg);margin:0;
-font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
-#root{max-width:1100px;margin:0 auto;padding:0 20px 60px;}
-/* Sticky, so it must stay short — everything inside is either one line or
-   clamped. A shadow rather than a hairline: content genuinely passes beneath
-   it, and the border alone read as a seam cutting through the text. */
-.d-hd{position:sticky;top:0;z-index:9;background:var(--d-panel);
-border-bottom:1px solid var(--d-line);margin:0 -20px 24px;padding:12px 20px 14px;
-box-shadow:0 8px 20px -12px #000c;}
-/* Anchors and scrolled-to elements must clear the sticky region. */
-#root [id]{scroll-margin-top:180px;}
-.d-id{font-family:ui-monospace,SFMono-Regular,monospace;font-weight:650;}
-.d-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.d-chip{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;
-font-weight:600;border:1px solid var(--d-line);background:var(--d-card);color:var(--d-mut);}
-.d-chip.ok{color:#7ee787;border-color:#238636aa;background:#23863626;}
-.d-chip.bad{color:var(--d-bad);border-color:#ff7b7255;background:#ff7b7218;}
-.d-chip.warn{color:#e3b341;border-color:#d2992255;background:#d2992218;}
-.d-chip.now{color:#79b8ff;border-color:#1f6feb66;background:#1f6feb26;}
-.live{color:var(--d-ok);}.idle{color:var(--d-warn);}.cold{color:var(--d-dim);}
-.d-rail{display:flex;list-style:none;margin:12px 0 4px;padding:0;}
-.d-rail li{flex:1;text-align:center;font-size:11px;position:relative;color:var(--d-dim);}
-.d-rail li i{display:block;width:10px;height:10px;border-radius:50%;
-margin:0 auto 6px;background:#2b3040;}
-.d-rail li[data-state=done]{color:#7ee787;}.d-rail li[data-state=done] i{background:var(--d-ok);}
-.d-rail li[data-state=current]{color:#79b8ff;font-weight:700;}
-.d-rail li[data-state=current] i{background:var(--d-accent);box-shadow:0 0 0 4px #58a6ff2e;}
-.d-rail li[data-state=future]{opacity:.32;}
-.d-rail li:not(:last-child):after{content:'';position:absolute;top:4px;
-left:calc(50% + 11px);right:calc(-50% + 11px);height:1px;background:#2b3040;}
-/* Inline readouts. Tabular figures matter here: the page repaints every 4s and
-   proportional digits make the elapsed clock jitter sideways as they change. */
-.d-read{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;}
-.d-read.push{margin-left:auto;}
-/* No `color` here on purpose: relTimes() sets .live/.idle/.cold on this element
-   and a `.d-read b` rule would outrank them, silencing the liveness signal. */
-.d-read b{font:600 13px/1.15 ui-monospace,SFMono-Regular,monospace;
-font-variant-numeric:tabular-nums;}
-.d-read i{font-style:normal;font-size:9px;text-transform:uppercase;
-letter-spacing:.08em;color:var(--d-dim);}
-/* The dot inherits currentColor, so it turns amber then grey with the number —
-   one glance answers "is the agent alive". Only on the activity readout. */
-.d-read.push b::before{content:'';display:inline-block;width:6px;height:6px;
-border-radius:50%;background:currentColor;margin-right:6px;vertical-align:.1em;}
-.d-eyebrow{display:block;font-size:9px;text-transform:uppercase;
-letter-spacing:.1em;color:var(--d-dim);margin-bottom:3px;}
-.d-now{border-left:2px solid var(--d-accent);background:#161b24;padding:8px 14px;
-margin-top:12px;border-radius:0 6px 6px 0;}
-.d-now b{font-size:14px;}
-/* Snapshot mode only, and loud on purpose: it is the one thing on this page the
-   reader has to act on, and the instructions it replaces were five lines in a
-   gitignored log file nobody had a reason to open. Above #root's header rather
-   than inside it — the header is sticky and must stay short. */
-.d-setup{border-left:2px solid var(--d-warn);background:#221c10;padding:10px 14px;
-margin:0 0 18px;border-radius:0 6px 6px 0;font-size:13.5px;color:#c4cad8;}
-.d-setup b{color:#e3b341;}
-.d-setup ol{margin:8px 0 0;padding-left:20px;}
-.d-setup li{margin:4px 0;}
-.d-setup code{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;
-background:#0d1017;border:1px solid var(--d-line);border-radius:4px;padding:1px 6px;}
-/* "The agent is blocked on you." Same anchoring as .d-setup and for the same
-   reason — a sibling of #root, so the 4s poll cannot wipe it — but with a
-   second reason on top: an element inside #root is destroyed and rebuilt every
-   4s, which would restart the pulse below on every poll. A 0.6s highlight every
-   4s, forever, is a flashing banner: WCAG 2.3.1, and unbearable to sit next to.
-   Out here it animates once, on the transition that earned it.
-   Filled by STATE_JS, which is why it starts empty and hidden. */
-.d-wait{border-left:2px solid var(--d-warn);background:#2a1f0c;padding:9px 14px;
-margin:0 0 14px;border-radius:0 6px 6px 0;font-size:13.5px;color:#e8dcc0;}
-.d-wait b{color:#e3b341;}
-.d-wait code{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;
-background:#0d1017;border:1px solid var(--d-line);border-radius:4px;padding:1px 6px;}
-.d-wait.pulse{animation:d-pulse .6s ease-out 1;}
-@keyframes d-pulse{from{background:#5a3f10;}to{background:#2a1f0c;}}
-/* No sustained flashing anywhere, and none at all for a reader who has asked
-   the OS not to move things. The strip still appears; it just appears. */
-@media (prefers-reduced-motion:reduce){.d-wait.pulse{animation:none;}}
-/* Hidden until the browser can actually act on it: requestPermission needs a
-   user gesture, so there has to be something to click, but once the reader has
-   answered — either way — the button is noise and STATE_JS removes it. */
-.d-alert{background:var(--d-card);color:var(--d-mut);border:1px solid var(--d-line);
-border-radius:10px;font:600 11px/1.6 inherit;padding:1px 10px;margin:0 0 14px;
-cursor:pointer;}
-.d-alert:hover{color:var(--d-fg);border-color:var(--d-accent);}
-/* Two lines, then fade. The full text is the first timeline entry. */
-.d-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-overflow:hidden;margin:3px 0 0;color:#c4cad8;font-size:13.5px;max-width:none;}
-/* The contract the worklog below is measured against, so it gets the accent
-   rather than the neutral card outline every other block uses — it is not just
-   another card. */
-.d-plan{border-left:2px solid var(--d-accent);background:linear-gradient(
-90deg,#58a6ff0d,transparent 60%);padding:10px 0 12px 16px;margin:26px 0 4px;
-border-radius:0 6px 6px 0;}
-.d-plan .d-eyebrow{margin-top:12px;color:var(--d-mut);}
-.d-plan .d-eyebrow:first-child{margin-top:0;}
-.d-clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-overflow:hidden;margin:2px 0 0;max-width:78ch;color:#c9cfdd;}
-.d-clamp3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
-overflow:hidden;margin:2px 0 0;max-width:78ch;color:#c9cfdd;}
-.d-sec{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--d-mut);
-margin:30px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--d-line);}
-.d-tl{position:relative;padding-left:22px;}
-.d-tl:before{content:'';position:absolute;left:4px;top:6px;bottom:4px;width:1px;
-background:#2b3040;}
-.d-ev{position:relative;margin-bottom:18px;}
-.d-ev:before{content:'';position:absolute;left:-22px;top:6px;width:8px;height:8px;
-border-radius:50%;border:1.5px solid #4a5265;background:var(--d-bg);}
-.d-ev.big:before{left:-24px;top:4px;width:12px;height:12px;border:none;
-background:var(--d-accent);}
-/* Corrections: amber ring and an amber rule down the entry, so a scan of the
-   timeline finds the moments the project changed direction. */
-.d-ev.fix:before{background:var(--d-warn);border-color:var(--d-warn);}
-.d-ev.fix{border-left:2px solid #d2992255;margin-left:-14px;padding-left:12px;}
-.d-ev p{max-width:68ch;margin:4px 0;color:#c4cad8;}
-.d-links{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:6px;}
-/* The gallery earns real size; the 104px inline thumbs in the timeline do not.
-   Same white plate, since matplotlib output is white and should read as
-   intentional rather than as a hole punched in a dark page. */
-.d-figs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
-gap:12px;margin-top:0;}
-.d-figs img{width:100%;padding:6px;box-sizing:border-box;
-transition:border-color .15s ease,transform .15s ease;}
-.d-figs img:hover{border-color:var(--d-accent);transform:translateY(-2px);}
-.d-links img{width:104px;height:auto;background:#ffffffeb;border-radius:4px;
-border:1px solid var(--d-line);display:block;}
-.d-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));}
-.d-card{background:var(--d-card);border:1px solid var(--d-line);border-radius:6px;
-padding:9px 12px;font-size:13px;}
-.d-empty{color:var(--d-dim);font-style:italic;}
-a{color:#79b8ff;}
-table{border-collapse:collapse;font-size:13px;width:100%;}
-td,th{border-bottom:1px solid var(--d-line);padding:5px 8px;text-align:left;}
-.doc-trigger{cursor:pointer;}
-/* Document mode for the shared overlay. main.css centres a bare <img>; a report
-   instead needs a bounded, scrollable panel, so the two modes are switched by a
-   class on the overlay rather than given separate overlays — one close path. */
-.lightbox-doc{display:none;}
-/* Child combinator, not descendant. The overlay's own figure <img> is a direct
-   child of #lightbox; every image inside a rendered document is nested in
-   .lightbox-doc. A descendant selector here hid the figures embedded in
-   REPORT.md — which are the whole point of inlining them next to each finding. */
-.lightbox-overlay.mode-doc>img{display:none;}
-.lightbox-overlay.mode-doc .lightbox-doc{display:block;text-align:left;
-background:var(--d-panel);border:1px solid var(--d-line);border-radius:8px;
-width:min(880px,calc(100vw - 56px));max-height:calc(100vh - 96px);
-overflow-y:auto;overscroll-behavior:contain;padding:24px 32px;}
-.lightbox-doc>:first-child{margin-top:0;}
-.lightbox-doc h1{font-size:1.5rem;}.lightbox-doc h2{font-size:1.22rem;}
-.lightbox-doc h3{font-size:1.05rem;}.lightbox-doc h4{font-size:.95rem;}
-.lightbox-doc h1,.lightbox-doc h2{border-bottom:1px solid var(--d-line);
-padding-bottom:6px;}
-.lightbox-doc h1,.lightbox-doc h2,.lightbox-doc h3,.lightbox-doc h4{
-margin:26px 0 10px;line-height:1.3;}
-.lightbox-doc p,.lightbox-doc li{color:#c9cfdd;}
-.lightbox-doc li{margin:3px 0;}
-.lightbox-doc code{background:#0f1117;border:1px solid var(--d-line);
-border-radius:4px;padding:1px 5px;font-size:.88em;
-font-family:ui-monospace,SFMono-Regular,monospace;}
-.lightbox-doc pre{background:#0f1117;border:1px solid var(--d-line);
-border-radius:6px;padding:12px 14px;overflow-x:auto;}
-.lightbox-doc pre code{background:none;border:none;padding:0;}
-.lightbox-doc blockquote{margin:12px 0;padding:2px 14px;color:var(--d-mut);
-border-left:3px solid var(--d-line);}
-.lightbox-doc table{display:block;overflow-x:auto;white-space:nowrap;}
-.lightbox-doc th{color:var(--d-fg);font-weight:650;}
-.lightbox-doc img{max-width:100%;height:auto;}
-.lightbox-doc hr{border:none;border-top:1px solid var(--d-line);margin:20px 0;}
-.lightbox-doc .doc-error{color:var(--d-bad);}
-"""
+_ASSET_DIR = _HERE / "dashboard_assets"
 
-# The page ships in two halves because it has two transports and only one of
-# them can poll.
-#
-# REL_JS always runs. Every timestamp renders client-side from `data-epoch`
-# (see the design doc), so without it the readouts are empty elements — which
-# is why the snapshot gets this half rather than no script at all. It is also
-# what keeps a *stale* snapshot honest: `relTimes` measures age against the
-# reader's clock, not the render time, so an abandoned snapshot visibly ages
-# green -> amber -> grey instead of freezing on a green dot.
-REL_JS = """
-var R=document.getElementById('root'),tag=null;
-function rel(s){var d=Math.max(0,Date.now()/1000-s);
-if(d<60)return Math.floor(d)+'s ago';if(d<3600)return Math.floor(d/60)+'m ago';
-if(d<86400)return Math.floor(d/3600)+'h ago';return Math.floor(d/86400)+'d ago';}
-function since(s){var d=Math.max(0,Date.now()/1000-s);
-if(d<3600)return Math.floor(d/60)+'m';if(d<86400)return Math.floor(d/3600)+'h '+
-Math.floor((d%3600)/60)+'m';return Math.floor(d/86400)+'d';}
-function relTimes(){
-var n=document.querySelectorAll('[data-epoch]');
-for(var i=0;i<n.length;i++){var el=n[i],s=parseFloat(el.dataset.epoch);
-if(!s){el.textContent='--';continue;}
-var age=Date.now()/1000-s;
-el.textContent=(el.dataset.mode==='since')?since(s):rel(s);
-if(el.dataset.mode!=='since')
-el.className=age<600?'live':(age<3600?'idle':'cold');}}
-setInterval(relTimes,15000);relTimes();
-"""
 
-# Everything about "the agent needs you" that cannot be server-rendered, for the
-# same reason relative times cannot be: a 304 freezes whatever the server wrote,
-# and this is the one readout whose whole job is to be current. The server emits
-# `#d-state` inside #root carrying `data-state` and `data-since`; `mark()` reads
-# them after every swap and drives four things off them.
-#
-# Two channels reach a reader who is not looking at the page — the title marker
-# and the favicon — and they are the only two a browser gives a foreground tab.
-# A closed tab gets nothing without a service worker and a push service, which a
-# stdlib server inside a pod cannot be.
-#
-# `#d-detail` is agent-authored text, so it is *not* interpolated here. The
-# server renders it through the same `inline_md` -> `e()` path as the worklog and
-# this copies the resulting node's HTML verbatim; the escaping decision stays in
-# one place, in Python, where it is tested. The notification body takes
-# `textContent` instead, since it is not markup at all.
-#
-# The `(state, since)` pair is the debounce key. Without it every 4s re-render is
-# a fresh transition: the strip would re-pulse and the OS notification would
-# re-fire for one permission prompt, which is how a notification gets muted.
-STATE_JS = """
-(function(){
-var W=document.getElementById('d-wait'),B=document.getElementById('d-alert'),
-F=document.getElementById('d-favicon'),BASE=document.title,last=null,
-hiddenAt=document.hidden?Date.now():0;
-var MARK={waiting:'\\u25cf ',turn_ended:'\\u2713 '};
-function icon(c){return 'data:image/svg+xml,'+encodeURIComponent(
-'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'+
-'<circle cx="8" cy="8" r="7" fill="'+c+'"/></svg>');}
-var ICON={waiting:icon('#d29922'),turn_ended:icon('#3fb950'),'':icon('#30363d')};
-document.addEventListener('visibilitychange',function(){
-hiddenAt=document.hidden?Date.now():0;});
-function alertable(s){
-// Stop fires at the end of *every* turn. Notifying on each one gets the whole
-// feature muted inside a day, so it only speaks when the reader has actually
-// been away — the case where they cannot already see it happen.
-if(s==='waiting')return true;
-return s==='turn_ended'&&hiddenAt>0&&Date.now()-hiddenAt>60000;}
-function notify(s,body){
-if(!('Notification' in window)||Notification.permission!=='granted')return;
-if(!alertable(s))return;
-try{new Notification(BASE,{body:body,tag:'beril-'+BASE});}catch(err){}}
-function mark(){
-var c=document.getElementById('d-state'),d=document.getElementById('d-detail'),
-s=c?(c.dataset.state||''):'',key=s+'|'+(c?c.dataset.since:'');
-document.title=(MARK[s]||'')+BASE;
-if(F)F.href=ICON[s]||ICON[''];
-if(B)B.hidden=!('Notification' in window)||Notification.permission!=='default';
-if(key===last)return;
-if(s==='waiting'&&W){
-W.innerHTML='<b>The agent is waiting for you.</b> '+(d?d.innerHTML:'');
-W.hidden=false;
-W.classList.remove('pulse');void W.offsetWidth;W.classList.add('pulse');}
-else if(W){W.hidden=true;W.innerHTML='';}
-if(last!==null)notify(s,d?d.textContent:'');
-last=key;}
-if(B)B.addEventListener('click',function(){
-Notification.requestPermission().then(function(){B.hidden=true;});});
-window.dashMark=mark;mark();})();
-"""
+def _asset(name: str) -> str:
+    """Read one of the sibling assets in ``tools/dashboard_assets/``.
 
-# POLL_JS is emitted **only in live mode**, and both of its outer statements are
-# why: the trailing-slash redirect and the `fetch` are each actively wrong on a
-# snapshot.
-#
-# - The redirect exists so relative asset URLs resolve under `/proxy/<port>`.
-#   A snapshot is served at `<prefix>files/<rel>/dashboard.html`, which does not
-#   end in `/`, so this line would navigate the page to `dashboard.html/` — a
-#   Jupyter 404. The page would destroy itself on load.
-# - `files/` responses carry `Content-Security-Policy: sandbox allow-scripts`
-#   with no `allow-same-origin` (measured against the live server), so the
-#   document has an opaque origin and `fetch` cannot send the hub cookie. The
-#   poll could only ever fail, silently, forever.
-#
-# **A hidden tab still fetches**, at 15s instead of 4s. It used to skip the
-# fetch entirely, which is cheaper and wrong: a backgrounded tab is exactly the
-# tab that needs to learn the agent is blocked on a permission prompt, and one
-# that never fetches can never learn anything — it has only the title and the
-# favicon to speak through, and both are painted from the response. The cost is
-# small enough to check rather than argue about: a 304 still runs a full
-# `scan()` at 6.8ms measured, so 15s hidden is ~1.6s of CPU per hour per tab,
-# less than a *visible* tab costs today.
-#
-# The single `timer` handle is not decoration. `tick` schedules the next tick,
-# and the visibilitychange listener calls `tick` directly, so every return to
-# the tab used to start a second concurrent chain that never ended — harmless
-# while hidden ticks were free, a compounding multiplier on real requests now.
-POLL_JS = """
-if(!location.pathname.endsWith('/'))location.replace(location.pathname+'/');
-var timer=0;
-function tick(){
-var h=tag?{'If-None-Match':tag}:{};
-fetch('.',{headers:h}).then(function(r){
-if(r.status!==200)return null;tag=r.headers.get('ETag');return r.text();})
-.then(function(t){if(!t)return;
-var open=[],ds=R.querySelectorAll('details[open]');
-for(var i=0;i<ds.length;i++)if(ds[i].id)open.push(ds[i].id);
-var doc=new DOMParser().parseFromString(t,'text/html');
-var next=doc.getElementById('root');if(!next)return;
-R.innerHTML=next.innerHTML;
-for(var j=0;j<open.length;j++){var d=R.querySelector('#'+CSS.escape(open[j]));
-if(d)d.open=true;}
-relTimes();dashMark();}).catch(function(){});
-clearTimeout(timer);timer=setTimeout(tick,document.hidden?15000:4000);}
-document.addEventListener('visibilitychange',function(){
-if(document.visibilityState==='visible')tick();});
-timer=setTimeout(tick,4000);
-"""
+    Same trick as ``load_css``: the page is one self-contained HTML file, so
+    every asset is inlined rather than linked. A ``<script src=>`` would
+    resolve against the *project* directory in live mode and against whatever
+    directory the snapshot was written into otherwise — a 404 in both.
 
-# The overlay is a sibling of #root, and every listener is delegated on document,
-# so a trigger stays clickable after the 4s poll swaps #root's innerHTML — the
-# trigger elements are replaced, but the handler and the overlay are not.
-#
-# Two modes share one overlay: an <img> for figures, and a scrollable panel for
-# markdown fetched from `/_doc/`. Sharing it means Esc, the backdrop and the ×
-# have exactly one implementation. An <iframe> was the obvious alternative for the
-# document mode and was rejected: keystrokes inside an iframe never reach the
-# parent document, so Esc would silently stop closing the popup.
-LIGHTBOX_JS = """
-(function(){var L=document.getElementById('lightbox');if(!L)return;
-var I=L.querySelector('img'),D=L.querySelector('.lightbox-doc'),seq=0;
-function close(){L.classList.remove('active','mode-doc');}
-function near(t,sel){return t&&t.closest?t.closest(sel):null;}
-function note(cls,msg){D.innerHTML='<p class="'+cls+'"></p>';
-D.firstChild.textContent=msg;}
-document.addEventListener('click',function(e){
-var fig=near(e.target,'.lightbox-trigger');
-if(fig){I.src=fig.getAttribute('src');I.alt=fig.getAttribute('alt')||'';
-L.classList.remove('mode-doc');L.classList.add('active');return;}
-var doc=near(e.target,'.doc-trigger');
-if(doc&&e.button===0&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey&&!e.altKey){
-e.preventDefault();
-var path=doc.getAttribute('data-doc'),n=++seq;
-note('d-empty','loading\\u2026');
-L.classList.add('active','mode-doc');D.scrollTop=0;
-fetch('_doc/'+path.split('/').map(encodeURIComponent).join('/'))
-.then(function(r){return r.ok?r.text():r.status;})
-.then(function(v){if(n!==seq)return;
-if(typeof v==='number'){note('doc-error','could not render '+path+' ('+v+')');return;}
-D.innerHTML=v;D.scrollTop=0;})
-.catch(function(){if(n!==seq)return;
-// fetch rejected outright: nothing is serving this page, which is what a
-// written-out dashboard.html opened from disk looks like. Follow the real
-// href instead of leaving an empty overlay open.
-close();location.href=doc.getAttribute('href');});
-return;}
-if(e.target===L||near(e.target,'.lightbox-close'))close();});
-document.addEventListener('keydown',function(e){
-if(e.key==='Escape'||e.key==='Esc')close();});})();
-"""
+    Unlike ``load_css`` this does **not** swallow the error — including for
+    dash.css, whose absence really would leave the page unstyled but readable.
+    The realistic failure is the whole directory not shipping, and that is not
+    survivable: a missing rel.js leaves every ``[data-epoch]`` blank and lets a
+    stale page keep looking fresh, with no error anyone will see. And unlike
+    ``ui/app/static/``, which this module is only a guest in, this directory is
+    part of the module — a missing file means a broken checkout, so say so.
+    """
+    return (_ASSET_DIR / name).read_text(encoding="utf-8")
+
+
+# Emitted after ``load_css``'s main.css inside the one <style>; dash.css's own
+# header says why that order matters.
+DASH_CSS = _asset("dash.css")
+
+# Rationale for each of these lives in the file itself, next to the code it
+# explains. All four are inlined verbatim by ``render``; rel.js, state.js and
+# poll.js share one ``<script>`` and therefore one scope — see poll.js's header.
+REL_JS = _asset("rel.js")  # always emitted; defines rootEl, tag, rel, since, relTimes
+STATE_JS = _asset("state.js")  # always emitted; exports window.dashMark
+POLL_JS = _asset("poll.js")  # live mode only; reads rel.js's and state.js's globals
+LIGHTBOX_JS = _asset("lightbox.js")  # always emitted; self-contained IIFE
 
 
 _MD_CODE_RE = re.compile(r"`([^`\n]+)`")
@@ -1189,7 +887,7 @@ def inline_md(value) -> str:
     text = e(value)
     codes: list = []
 
-    def stash(match: "re.Match") -> str:
+    def stash(match: re.Match) -> str:
         codes.append(match.group(1))
         return f"\x00{len(codes) - 1}\x00"
 
@@ -1241,12 +939,12 @@ def render_markdown(text: str) -> str:
     return f"<pre>{e(text)}</pre>"
 
 
-def load_css(repo_root: Path) -> str:
+def load_css() -> str:
     """Inline the observatory stylesheet so the in-progress dashboard matches the
     site a project graduates into. It has zero ``url()`` references, so it is
     self-contained. Missing is survivable: unstyled but fully readable."""
     try:
-        return (repo_root / "ui" / "app" / "static" / "css" / "main.css").read_text(
+        return (_REPO_ROOT / "ui" / "app" / "static" / "css" / "main.css").read_text(
             encoding="utf-8"
         )
     except OSError:
@@ -1254,11 +952,11 @@ def load_css(repo_root: Path) -> str:
 
 
 def _human(size: int) -> str:
-    for unit in ("B", "KB", "MB", "GB"):
-        if size < 1024 or unit == "GB":
-            return "%d %s" % (size, unit) if unit == "B" else "%.1f %s" % (size, unit)
+    for unit in ("B", "KB", "MB"):
+        if size < 1024:
+            return f"{size} {unit}" if unit == "B" else f"{size:.1f} {unit}"
         size /= 1024.0
-    return str(size)
+    return f"{size:.1f} GB"
 
 
 def _approval_chip(approval: dict) -> str:
@@ -1309,7 +1007,7 @@ def _rail(stage: str) -> str:
     return '<ol class="d-rail" aria-live="polite">' + "".join(items) + "</ol>"
 
 
-def _open_href(routes: "JupyterRoutes | None", path: str) -> str:
+def _open_href(routes: JupyterRoutes | None, path: str) -> str:
     """Where a document link points: a Jupyter viewer that renders it when one
     exists and we can reach it, otherwise the relative file the dashboard serves
     itself — today's behaviour, and the only thing that works off-cluster."""
@@ -1343,7 +1041,7 @@ def _doc_trigger(path: str, label: str, css_class: str = "") -> str:
     return f'<a class="{cls}" href="{e(path)}" data-doc="{e(path)}">{label}</a>'
 
 
-def _link_html(link: Link, routes: "JupyterRoutes | None") -> str:
+def _link_html(link: Link, routes: JupyterRoutes | None) -> str:
     label = e(link.label)
     count = f" &#215;{link.count}" if link.count > 1 else ""
     if not link.exists:
@@ -1362,7 +1060,7 @@ def _link_html(link: Link, routes: "JupyterRoutes | None") -> str:
     return f'<a class="d-chip" href="{href}" target="_blank">{label}{count}</a>'
 
 
-def _entry_html(entry: Entry, routes: "JupyterRoutes | None") -> str:
+def _entry_html(entry: Entry, routes: JupyterRoutes | None) -> str:
     big = " big" if entry.new_status else ""
     # Corrections are the only record of why a project was not a straight line,
     # and they used to render identically to "ran notebook 3". Labelled as well
@@ -1388,7 +1086,7 @@ def _entry_html(entry: Entry, routes: "JupyterRoutes | None") -> str:
     )
 
 
-def _notebook_html(notebook: Notebook, routes: "JupyterRoutes | None") -> str:
+def _notebook_html(notebook: Notebook, routes: JupyterRoutes | None) -> str:
     if notebook.mtime == 0.0:
         detail = '<span class="d-empty">unreadable — being written?</span>'
     else:
@@ -1435,12 +1133,7 @@ def _plan_html(state: State) -> str:
         return ""
 
     doc = next((d for d in state.docs if d.name == "RESEARCH_PLAN.md"), None)
-    link = (
-        f'<a class="doc-trigger d-chip" data-doc="{e(doc.path)}" '
-        f'href="{e(doc.path)}">RESEARCH_PLAN.md</a>'
-        if doc
-        else ""
-    )
+    link = _doc_trigger(doc.path, e(doc.name), "d-chip") if doc else ""
 
     # Counts, never a mapping: plan section numbers do not correspond to
     # filenames on disk (measured — see plan_summary), so a per-notebook
@@ -1701,8 +1394,13 @@ def render(state: State, css: str, live: bool = True) -> str:
         # favicon, and a snapshot written while a prompt was open should still
         # say so. Only its notification half is dead there, and it is dead by
         # construction — no button, so no permission, so nothing fires.
-        f"<script>{REL_JS}{STATE_JS}{POLL_JS if live else ''}</script>\n"
-        f"<script>{LIGHTBOX_JS}</script>\n</body>\n</html>\n"
+        # The newline after each `<script>` is cosmetic — it keeps the emitted
+        # source readable now that every file opens with a `//` comment. The
+        # trailing newline on each *file* is not: the three in the first tag are
+        # concatenated raw, so a file ending in a comment would swallow the next
+        # file's first line. Pinned by test_the_page_inlines_its_scripts_*.
+        f"<script>\n{REL_JS}{STATE_JS}{POLL_JS if live else ''}</script>\n"
+        f"<script>\n{LIGHTBOX_JS}</script>\n</body>\n</html>\n"
     )
 
 
@@ -1802,7 +1500,7 @@ def public_url(port: int) -> str:
     return f"{HUB}{prefix}proxy/{port}/" if prefix else f"http://127.0.0.1:{port}/"
 
 
-def jupyter_routes(project: Path) -> "JupyterRoutes | None":
+def jupyter_routes(project: Path) -> JupyterRoutes | None:
     """URL builder for opening this project's files in Jupyter, or ``None``.
 
     ``<rel>`` is the project directory relative to the running server's
@@ -1843,14 +1541,14 @@ def snapshot_url(project: Path) -> str:
 
     Reuses ``jupyter_routes`` rather than recomputing the relative path: it
     already handles the root-relative case and the outside-root case, and a
-    second implementation is a second thing to get wrong.
+    second implementation is a second thing to get wrong. That includes the
+    join and the escaping — ``_path`` is the same encoder every other Jupyter
+    URL on this page goes through.
     """
-    snapshot = project / "dashboard.html"
     routes = jupyter_routes(project)
     if routes is None:  # off-cluster, or outside root_dir — no URL can reach it
-        return str(snapshot)
-    rel = f"{routes.rel}/dashboard.html" if routes.rel else "dashboard.html"
-    return f"{routes.base}files/{quote(rel)}"
+        return str(project / "dashboard.html")
+    return f"{routes.base}files/{routes._path('dashboard.html')}"
 
 
 def in_jupyterhub() -> bool:
@@ -1883,7 +1581,7 @@ def _handler_factory(project: Path, css: str):
         def _is_index(self) -> bool:
             return self.path.split("?")[0] in ("/", "/index.html")
 
-        def _doc_target(self) -> "Path | None":
+        def _doc_target(self) -> Path | None:
             """The markdown file a ``/_doc/`` request names, or ``None``.
 
             ``translate_path`` is ``SimpleHTTPRequestHandler``'s own sanitiser —
@@ -1911,6 +1609,20 @@ def _handler_factory(project: Path, css: str):
                 return None
             return resolved
 
+        def _send_html(self, payload: bytes, body: bool, etag: str = ""):
+            """The one place this server states its caching contract. Both HTML
+            routes go through here so a future third one cannot quietly ship
+            without ``no-cache`` and let a browser serve a stale REPORT.md."""
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            if etag:
+                self.send_header("ETag", etag)
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            if body:
+                self.wfile.write(payload)
+
         def _doc(self, body: bool):
             target = self._doc_target()
             if target is None:
@@ -1919,14 +1631,7 @@ def _handler_factory(project: Path, css: str):
                 text = target.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 return self.send_error(404, "document could not be read")
-            payload = render_markdown(text).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(payload)))
-            self.send_header("Cache-Control", "no-cache")
-            self.end_headers()
-            if body:
-                self.wfile.write(payload)
+            self._send_html(render_markdown(text).encode("utf-8"), body)
 
         def do_GET(self):  # noqa: N802
             if self._is_index():
@@ -1943,26 +1648,21 @@ def _handler_factory(project: Path, css: str):
             return super().do_HEAD()
 
         def _page(self, body: bool):
-            state = scan(project)
-            if self.headers.get("If-None-Match") == state.etag:
+            # `fingerprint` before `scan`: a 304 needs the etag and nothing else,
+            # and the poll makes 304 the common answer. The miss path pays one
+            # extra directory walk, which is the cheap half of a scan.
+            if self.headers.get("If-None-Match") == fingerprint(project)[0]:
                 self.send_response(304)
                 self.end_headers()
                 return
-            payload = render(state, css).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(payload)))
-            self.send_header("ETag", state.etag)
-            self.send_header("Cache-Control", "no-cache")
-            self.end_headers()
-            if body:
-                self.wfile.write(payload)
+            state = scan(project)
+            self._send_html(render(state, css).encode("utf-8"), body, state.etag)
 
-    def _reject(self):
-        self.send_error(405, "read-only dashboard")
+        def _reject(self):
+            self.send_error(405, "read-only dashboard")
 
-    for verb in ("POST", "PUT", "DELETE", "PATCH", "OPTIONS"):
-        setattr(Handler, "do_" + verb, _reject)
+        do_POST = do_PUT = do_DELETE = do_PATCH = do_OPTIONS = _reject
+
     return Handler
 
 
@@ -1974,7 +1674,7 @@ def serve(project: Path, port: int, css: str) -> None:
     server.serve_forever()
 
 
-def _write_snapshot(project: Path, css: str, live: bool = False) -> Path:
+def _write_snapshot(project: Path, css: str) -> Path:
     snapshot = project / "dashboard.html"
     # Rendered to a sibling and renamed, because the banner tells the reader to
     # reload and the status line rewrites this file every turn — so a reload
@@ -1983,12 +1683,12 @@ def _write_snapshot(project: Path, css: str, live: bool = False) -> Path:
     # POSIX, so a reader sees either the old snapshot or the new one. Two sessions
     # on one project resolve the same way: last writer wins, whole file.
     staging = snapshot.with_name("dashboard.html.tmp")
-    staging.write_text(render(scan(project), css, live=live), encoding="utf-8")
+    staging.write_text(render(scan(project), css, live=False), encoding="utf-8")
     os.replace(staging, snapshot)
     return snapshot
 
 
-def jupyter_python() -> "str | None":
+def jupyter_python() -> str | None:
     """The interpreter the Jupyter server runs on, or ``None`` if it can't be found.
 
     **Not `sys.executable`.** The extension has to be importable by the process
@@ -2006,6 +1706,10 @@ def jupyter_python() -> "str | None":
     `sys.base_prefix` is wrong under uv, whose base is a managed CPython rather
     than the conda prefix.
     """
+    # Deferred like http.server (see _handler_factory) and for the same reason:
+    # 3.4ms measured, paid by every statusline render if it sits at module scope.
+    import shutil
+
     launcher = shutil.which("jupyter")
     if launcher is None:
         return None
@@ -2035,23 +1739,22 @@ def _print_snapshot_fallback(project: Path) -> None:
 
 
 def main(argv=None) -> int:
+    import argparse  # deferred like shutil above: 1.2ms, and only a CLI run needs it
+
     parser = argparse.ArgumentParser(description="Live dashboard for one BERIL project.")
-    parser.add_argument("project", nargs="?", help="Path to projects/<id>")
+    parser.add_argument("project", help="Path to projects/<id>")
     parser.add_argument("--port", type=int, help="Override the derived port")
     parser.add_argument(
         "--static", action="store_true", help="Write dashboard.html and exit"
     )
     args = parser.parse_args(argv)
 
-    if not args.project:
-        parser.error("the following arguments are required: project")
-
     project = Path(args.project).resolve()
     if not project.is_dir():
         print(f"no such project directory: {project}", file=sys.stderr)
         return 1
 
-    css = load_css(Path(__file__).resolve().parent.parent)
+    css = load_css()
     port = args.port or port_for(project.name)
 
     # Two callers, one branch. `--static` is someone asking for a snapshot;
@@ -2065,7 +1768,7 @@ def main(argv=None) -> int:
     try:
         serve(project, port, css)
     except OSError as exc:
-        if exc.errno in (48, 98):  # EADDRINUSE on macOS / Linux
+        if exc.errno == errno.EADDRINUSE:
             print(f"Dashboard already running: {public_url(port)}")
             return 0
         raise
