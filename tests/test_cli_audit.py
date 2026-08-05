@@ -11,7 +11,11 @@ import re
 
 import pytest
 
-from beril_cli.audit_cmd import resolve_project, run_runtime_snapshot
+from beril_cli.audit_cmd import (
+    record_session_cost,
+    resolve_project,
+    run_runtime_snapshot,
+)
 
 
 @pytest.fixture()
@@ -333,9 +337,6 @@ def test_non_v2_runtime_file_is_replaced_with_fresh_v2_state(repo, monkeypatch):
 # PostToolUse and Stop), so `record_session_cost` is what the status line calls,
 # and everything downstream reads what it wrote.
 
-from beril_cli.audit_cmd import record_session_cost  # noqa: E402
-
-
 def _runtime(repo, project="p1"):
     return json.loads((repo / "projects" / project / "runtime.json").read_text())
 
@@ -441,7 +442,11 @@ def _set_status(repo, status, project="p1"):
         # performing a transition does, and this test file asserts elsewhere
         # that the ledger writer leaves such comments alone.
         text = re.sub(
-            r"^status:(\s*)[^\s#]+", rf"status:\g<1>{status}", text, count=1, flags=re.M
+            r"^status:(\s*)[^\s#]+",
+            rf"status:\g<1>{status}",
+            text,
+            count=1,
+            flags=re.MULTILINE,
         )
     else:
         text += f"status: {status}\n"

@@ -474,9 +474,7 @@ def _append_stage(manifest: Path, entry: dict) -> bool:
     return True
 
 
-def _stamp_stage_boundary(
-    project_dir: Path, state: dict, sessions: list[dict]
-) -> bool:
+def _stamp_stage_boundary(project_dir: Path, state: dict, sessions: list[dict]) -> bool:
     """Close the stage that just ended when beril.yaml's status has changed.
 
     The boundary is detected here rather than by the skills that perform it
@@ -508,7 +506,9 @@ def _stamp_stage_boundary(
         # fresh worktree does on its first snapshot — spend earned in another
         # clone was either already stamped there or was never observed here.
         return True
-    if not _append_stage(project_dir / "beril.yaml", _stage_entry(sessions, last, _now_iso())):
+    if not _append_stage(
+        project_dir / "beril.yaml", _stage_entry(sessions, last, _now_iso())
+    ):
         state["last_status"] = last  # nothing recorded — retry on the next write
         return False
     for session in sessions:
