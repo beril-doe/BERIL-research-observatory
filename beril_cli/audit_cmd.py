@@ -306,6 +306,54 @@ def _build_runtime(session_id: str, payload: dict, project_dir: Path) -> dict:
     return snapshot
 
 
+def block_span(manifest_text: str, key: str) -> tuple[int, int] | None:
+    """Character span of a top-level ``<key>:`` block, or None if it is absent.
+
+    A span rather than a rewrite, because `beril.yaml` has two writers that want
+    opposite things from the same boundary: `approve_cmd._drop_plan_approval`
+    deletes the block, and `_append_stage` below inserts a new list entry at its
+    end. Shared so the two can never disagree about where a block stops.
+
+    A hand-rolled scanner rather than a YAML round-trip because `pyyaml` is not
+    a core dependency (httpx and certifi are the only two) and `beril.yaml`
+    carries inline comments a dumper would eat.
+
+    It lives in THIS module, not next to the approve-time caller, because the
+    runtime hook falls back to a bare `python3` when there is no venv — the
+    BERDL pod — and `approve_cmd` reaches `tomllib` through its config import,
+    which needs 3.11+. Importing it from there made `_append_stage` raise
+    ModuleNotFoundError straight into this module's blanket `except`, so every
+    stage silently went unstamped on exactly the image the fallback exists for.
+    Pinned by `test_audit_cmd_does_not_import_the_cli_modules`.
+
+    Blank and comment lines carry no indentation meaning in YAML, so they cannot
+    end the block on their own: absorbed when more block lines follow, excluded
+    when the next real line is top-level (they belong to whatever comes after).
+    """
+    if not key.endswith(":"):
+        key += ":"
+    offset = 0
+    start = end = None
+    for line in manifest_text.splitlines(keepends=True):
+        if start is not None:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                offset += len(line)  # undecided; `end` stays put unless absorbed
+                continue
+            if line.startswith((" ", "\t")):
+                offset += len(line)
+                end = offset  # absorbs any undecided lines passed over above
+                continue
+            break  # a top-level line — the block ended
+        if line.startswith(key):
+            start = offset
+            offset += len(line)
+            end = offset
+            continue
+        offset += len(line)
+    return None if start is None else (start, end)
+
+
 def _read_runtime(path: Path) -> dict | None:
     """The runtime state at ``path``, or None if it is missing or unreadable."""
     try:
@@ -443,8 +491,6 @@ def _append_stage(manifest: Path, entry: dict) -> bool:
     rebuilding it would need to read YAML back. ``block_span`` is shared with
     ``beril approve``, the only other writer of this file.
     """
-    from beril_cli.approve_cmd import block_span
-
     try:
         text = manifest.read_text(encoding="utf-8")
     except OSError:

@@ -295,13 +295,13 @@ def test_hashes_the_plan_after_the_answer(repo, monkeypatch):
 
 
 def test_block_span_is_none_when_the_block_is_absent():
-    from beril_cli.approve_cmd import block_span
+    from beril_cli.audit_cmd import block_span
 
     assert block_span("project_id: p1\nstatus: active\n", "agent_cost:") is None
 
 
 def test_block_span_covers_the_key_and_its_indented_lines():
-    from beril_cli.approve_cmd import block_span
+    from beril_cli.audit_cmd import block_span
 
     text = "project_id: p1\nagent_cost:\n  usd: 1.00\nstatus: active\n"
     start, end = block_span(text, "agent_cost:")
@@ -311,7 +311,7 @@ def test_block_span_covers_the_key_and_its_indented_lines():
 def test_block_span_absorbs_a_blank_line_between_block_lines():
     """Blank and comment lines carry no indentation meaning in YAML, so they
     cannot end a block on their own — only a following top-level line can."""
-    from beril_cli.approve_cmd import block_span
+    from beril_cli.audit_cmd import block_span
 
     text = "agent_cost:\n  a: 1\n\n  # note\n  b: 2\nstatus: active\n"
     start, end = block_span(text, "agent_cost:")
@@ -319,7 +319,7 @@ def test_block_span_absorbs_a_blank_line_between_block_lines():
 
 
 def test_block_span_excludes_trailing_blanks_that_belong_to_what_follows():
-    from beril_cli.approve_cmd import block_span
+    from beril_cli.audit_cmd import block_span
 
     text = "agent_cost:\n  a: 1\n\n# about status\nstatus: active\n"
     start, end = block_span(text, "agent_cost:")

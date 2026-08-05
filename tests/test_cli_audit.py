@@ -8,9 +8,11 @@ import io
 import json
 import os
 import re
+from pathlib import Path
 
 import pytest
 
+from beril_cli import audit_cmd
 from beril_cli.audit_cmd import (
     record_session_cost,
     resolve_project,
@@ -593,3 +595,32 @@ def test_a_project_with_no_status_stamps_nothing(repo, monkeypatch):
     data = _snap(repo, monkeypatch)
     assert "last_status" not in data
     assert "agent_cost" not in _yaml(repo)
+
+
+def test_audit_cmd_does_not_import_the_cli_modules():
+    """The hook falls back to a bare `python3` when there is no venv — the BERDL
+    pod — so everything this module reaches has to import on the system
+    interpreter. `approve_cmd` reaches `tomllib` (3.11+) through its config
+    import, and pulling `block_span` from there made every `_append_stage` raise
+    ModuleNotFoundError into the blanket `except`: no error, no stamp, on
+    exactly the image the fallback exists for. Caught by an end-to-end run, not
+    by the unit tests above, which import this module directly.
+    """
+    import ast
+
+    source = (Path(audit_cmd.__file__)).read_text()
+    imported = {
+        node.module
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.ImportFrom) and node.module
+    } | {
+        alias.name
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    heavy = {name for name in imported if name.startswith("beril_cli.")}
+    assert heavy == {"beril_cli.project_resolution"}, (
+        f"audit_cmd runs under the hook's bare-python3 fallback; {heavy} may drag"
+        " in tomllib/httpx and silently disable stage stamping"
+    )
