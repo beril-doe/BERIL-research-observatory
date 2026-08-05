@@ -1,0 +1,38 @@
+project_id: phage_defense_arsenal
+status: complete
+created_at: "2026-07-15T20:27:21Z"
+last_session_at: "2026-07-16T10:32:22Z"
+branch: projects/phage_defense_arsenal
+engine:
+  name: claude
+authors:
+  - name: "Justin Reese"
+    affiliation: "LBL"
+    orcid: "0000-0002-2170-2250"
+artifacts:
+  readme: true
+  research_plan: true
+  report: true
+  review: true
+approval:
+  by: "0000-0002-2170-2250"
+  at: "2026-07-16T10:32:22Z"
+  report_hash: "sha256:9d450a848b83b2462d07d216ef01827f8a08f8e1c4fcddcdf74cfdb7dbcbe601"
+  review: "REVIEW_3.md"
+  review_hash: "sha256:840dbe5b76282bfe6eb800f36b9890907fb7506495355e1a9ac76951cce6720c"
+  notebook_hashes:
+    "notebooks/00_exploration.ipynb": "sha256:0483487805bd1e6ff91ad1532df319cdfb4d7f4903a0c80d2b5afcaf0a7992d1"
+    "notebooks/01_extract_defense_clusters.ipynb": "sha256:0fa00aa4fa90b3781b9403cbf5804453ca1cc570baa8b2a99e417d7224b40e32"
+    "notebooks/02_species_system_matrix.ipynb": "sha256:db48834dd11164c04c22fcbe48869d6d50944b415d2d07e837b54ebbc7d8a75c"
+    "notebooks/03_prophage_burden.ipynb": "sha256:87439ba535a95e1d70cf0e78800a2ae232a0910db66c8147dd6aed93ce47f365"
+    "notebooks/04_arms_race.ipynb": "sha256:9e40983cd31cc4f02d769d71ad3d5973c83e8acf26afe65dd0a7f92bbbce1abe"
+    "notebooks/05_defense_syndromes.ipynb": "sha256:8d5623966839e539718d303e875ccb6105a523329ba3bf2a525be7dfdeeeec98"
+    "notebooks/06_accessory_enrichment.ipynb": "sha256:ef996b0d4c26c2eacdacbd116f2acba91a57dcf37e6142e2a497c275cd0e67ec"
+submissions:
+  - status: success
+    attempted_at: "2026-07-16T10:33:43Z"
+    archive_key: "s3a://cdm-lake/tenant-general-warehouse/microbialdiscoveryforge/projects/phage_defense_arsenal/"
+    file_count: 46
+    byte_total: 17439796
+    duration_seconds: 8.83
+    approved_at: "2026-07-16T10:32:22Z"

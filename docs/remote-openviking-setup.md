@@ -1,106 +1,81 @@
 # Remote OpenViking — New User Setup
 
 The BERIL knowledge context layer (project reports + central docs, searchable
-with `knowledge_query.py`) runs on a shared **remote OpenViking server**. This
-is a one-time setup: you exchange your BERIL login for an OpenViking API key,
-put it in `.env`, and then query freely — you don't need to run a local server.
+with `knowledge_query.py`) runs on a shared **remote OpenViking server**. Setup
+is a single command: `beril login` validates your BERIL token and, in the same
+step, provisions and caches your OpenViking credential — after that you can
+query freely without running a local server.
 
 > ⚠️ **The server currently runs on the dev host `https://beril-dev.kbase.us`.**
 > This is temporary. When OpenViking moves to production, substitute the new
-> base URL everywhere below (or pass `--server <url>` to the helper). Every
-> example uses a single `SERVER=` line so there's exactly one place to change.
-
-```bash
-SERVER=https://beril-dev.kbase.us     # ← the only host-specific value
-```
+> base URL (or pass `--base-url <url>` to `beril login`).
 
 ## Prerequisites
 
-- The repo cloned, with `uv` installed.
-- A `.env` file: `cp .env.example .env` if you don't have one.
-- An ORCiD you can log in with.
+- The repo cloned, with `uv` installed, and the `beril` CLI available.
+- An ORCiD you can log in with, and a BERIL personal access token (create one at
+  `https://beril-dev.kbase.us/account/tokens`).
 
 ## Step 1 — Log in
 
-Open **`https://beril-dev.kbase.us`** in your browser and log in with your
-ORCiD. Logging in sets a session cookie named **`beril_session`**.
-
-## Step 2 — Copy your `beril_session` cookie
-
-The server identifies you by that cookie. It's `HttpOnly` (not readable from
-JavaScript), but you can copy it from your browser's dev tools:
-
-- **Chrome/Edge:** DevTools (`F12` / `Cmd-Opt-I`) → **Application** tab →
-  **Storage → Cookies → `https://beril-dev.kbase.us`** → click `beril_session`
-  → copy its **Value**.
-- **Firefox:** DevTools → **Storage** tab → **Cookies** → select the site →
-  copy the `beril_session` value.
-
-The value is a long opaque string — copy the whole thing.
-
-## Step 3 — Get your API key
-
-### Option A — helper script (recommended)
-
 ```bash
-uv run knowledge/scripts/setup_remote_ov.py --cookie '<paste beril_session value>'
+beril login --base-url https://beril-dev.kbase.us
 ```
 
-It creates your OpenViking account (idempotent), fetches your key, writes
-`OPENVIKING_URL` and `OPENVIKING_API_KEY` into `.env`, and verifies the
-connection. Useful flags:
+Paste your personal access token when prompted (input doesn't echo), or pass it
+with `--token`. `beril login` then:
 
-- `--server "$SERVER"` — point at a different host (default is beril-dev).
-- `--regenerate` — mint a fresh key, invalidating the old one (rotation, or the
-  recovery path if you hit the 409 case below).
-- `--print-only` — print the two env lines instead of writing `.env`.
-- The cookie can also come from `$BERIL_SESSION` or an interactive prompt.
+1. validates the token against BERIL, and
+2. provisions your OpenViking account (idempotent) and **caches the OpenViking
+   URL + key in `~/.beril`** alongside your BERIL login.
 
-### Option B — manual (curl)
+That cached credential is what the query CLI reads — no browser cookie, no
+manual `.env` editing.
 
-The key comes from **two** calls: create the account, then read the credential.
-
-```bash
-COOKIE='<paste beril_session value>'
-
-# 1. Create your OpenViking account (idempotent — safe to re-run).
-curl -X POST "$SERVER/api/ov/user" -H "Cookie: beril_session=$COOKIE"
-
-# 2. Read your key (note: GET, not POST).
-curl "$SERVER/api/ov/credentials" -H "Cookie: beril_session=$COOKIE" \
-  | jq -r .user_key
-```
-
-> The key is **not** returned by `POST /api/ov/user` (that returns
-> `{"created": true}`). You always retrieve it with **`GET /api/ov/credentials`**.
-
-Then put both values in `.env` (note the `/ov` suffix on the URL):
-
-```bash
-OPENVIKING_URL=https://beril-dev.kbase.us/ov
-OPENVIKING_API_KEY=<the user_key from step 2>
-```
-
-## Step 4 — Verify
+## Step 2 — Verify
 
 ```bash
 # Reachability + auth check — tells server-down apart from a bad key.
-uv run --env-file .env knowledge/scripts/knowledge_query.py doctor
+uv run knowledge/scripts/knowledge_query.py doctor
 
 # A real query.
-uv run --env-file .env knowledge/scripts/knowledge_query.py find "metal resistance"
+uv run knowledge/scripts/knowledge_query.py find "metal resistance"
 ```
 
-A healthy `doctor` prints `OpenViking: OK`. After this, you never need the cookie
-again — queries talk directly to the server with your API key, which is
-long-lived until you regenerate it.
+A healthy `doctor` prints `OpenViking: OK`. No `--env-file` is required — the
+query CLI resolves the credential from `~/.beril`.
+
+## If OpenViking wasn't linked at login
+
+`beril login` links OpenViking best-effort: if the server was briefly
+unreachable (or you logged in before this was wired up), the login still
+succeeds but OpenViking is left unlinked. Link it separately against your stored
+token:
+
+```bash
+beril ov setup              # link now (idempotent)
+beril ov status             # show the cached credential + server health
+```
 
 ## Recovery & rotation
 
-- **Lost your key?** Re-run the helper (or `GET /api/ov/credentials`) — it
-  returns the same stored key; nothing is invalidated.
-- **Rotate / force a fresh key?** `setup_remote_ov.py --cookie '...' --regenerate`
-  (this invalidates the old key everywhere it's in use).
+- **Check what's cached:** `beril ov status`.
+- **Rotate / force a fresh key:** `beril ov setup --regenerate` (this
+  invalidates the old key everywhere it's in use). This is also the recovery
+  path for the 409 case below.
+- **Populate `.env` instead** (CI, or a tool that reads env vars):
+  `eval "$(beril ov print-env)"`, or paste the `beril ov print-env` output into
+  `.env`.
+
+## Configuration precedence
+
+`ContextConfig.from_env` resolves the OpenViking credential in this order:
+
+1. **Explicit env vars** — `OPENVIKING_URL` / `OPENVIKING_API_KEY` (from the
+   shell or an `--env-file`). These always win, so CI and "point at a different
+   server" keep working.
+2. **The `~/.beril` cached credential** from `beril login` / `beril ov setup`.
+3. **The local default URL** (`http://127.0.0.1:1933`) with no key.
 
 ## Troubleshooting
 
@@ -109,27 +84,29 @@ Run `knowledge_query.py doctor` first — its verdict tells you what's wrong:
 | Verdict | Meaning | Fix |
 |---|---|---|
 | `OK` | Reachable, key valid | — |
-| `UNREACHABLE` | Server down or wrong URL | Check `OPENVIKING_URL` ends in `/ov`; confirm `$SERVER/ov/health` responds in a browser; check network/VPN |
-| `NO API KEY` | Reachable, but `OPENVIKING_API_KEY` unset | Run the setup helper (Step 3) |
-| `AUTH FAILED` | Reachable, but your key was rejected | Key expired/invalid → `setup_remote_ov.py --regenerate` |
+| `UNREACHABLE` | Server down or wrong URL | Confirm `$SERVER/ov/health` responds in a browser; check network/VPN |
+| `NO API KEY` | Reachable, but no key resolved | Run `beril ov setup` (or `beril login`) |
+| `AUTH FAILED` | Reachable, but your key was rejected | Key expired/invalid → `beril ov setup --regenerate` |
 | `UNHEALTHY` | Reachable, but the server reports itself unhealthy | Server-side — flag a maintainer / check the OV deployment |
 | `ERROR` | Reachable, but an authenticated call failed unexpectedly | Retry; if it persists, check the OV server logs |
 
 Other cases:
 
-- **`HTTP 401` from a curl/helper call** — your `beril_session` cookie is
-  missing or expired. Log in again (Step 1) and re-copy it (Step 2).
-- **`HTTP 409` on `POST /api/ov/user`** — OpenViking already has a user for your
-  ORCiD but BERIL holds no key for it. Run `setup_remote_ov.py --regenerate` (or
-  `POST /api/ov/user/regenerate` then `GET /api/ov/credentials`).
+- **`Not logged in`** — run `beril login` first.
+- **OpenViking not linked after login** — the server was unreachable during
+  login; run `beril ov setup`.
+- **`HTTP 409` / "key exists but BERIL holds none"** — OpenViking already has a
+  user for your ORCiD but BERIL holds no key for it. Run
+  `beril ov setup --regenerate` to mint and store a fresh key.
 - **Quick server liveness, no auth needed:** `curl "$SERVER/ov/health"` should
   return `{"status":"ok","healthy":true,...}`.
 
 ## Security
 
-`OPENVIKING_API_KEY` is a secret. `.env` and `*.env` are gitignored — keep the
-key there, never commit it, and **never paste it into a chat**. If it leaks,
-rotate it with `--regenerate`.
+`OPENVIKING_API_KEY` is a secret. The cached copy in `~/.beril/auth.json` is
+written mode `0600`. If you populate `.env`, note that `.env` and `*.env` are
+gitignored — never commit the key, and **never paste it into a chat**. If it
+leaks, rotate it with `beril ov setup --regenerate`.
 
 ## See also
 

@@ -248,3 +248,135 @@ def test_checkout_release_warns_on_fetch_failure_but_continues(monkeypatch, tmp_
     assert rc == 0
     err = capsys.readouterr().err
     assert "git fetch --tags failed" in err
+
+
+# ── run_start dev mode ────────────────────────────────────
+
+
+class _ExecvpReached(Exception):
+    """Sentinel raised in place of os.execvp so run_start stops before replacing the process."""
+
+
+def test_dev_mode_performs_no_git_checkout_or_fetch(monkeypatch, tmp_path):
+    """`beril start --dev` must not fetch, check out, or otherwise mutate the working tree.
+
+    In dev mode the running code is the code under development, so touching git would be
+    both surprising and destructive to uncommitted work. We record every subprocess.run
+    argv and assert none of them are git commands.
+    """
+    calls = _patch_run(monkeypatch, lambda argv: _completed())
+
+    # Keep run_start on the happy path up to the point it would exec the agent.
+    monkeypatch.setattr(start.shutil, "which", lambda _agent: "/usr/bin/claude")
+    monkeypatch.setattr(start, "_find_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(start.os, "chdir", lambda _path: None)
+    monkeypatch.setattr(start, "print_jupyterhub_path_hint", lambda _root: None)
+    monkeypatch.setattr(start, "get_default_agent", lambda: "claude")
+    monkeypatch.setattr(start, "get_vertex_config", lambda: {"enabled": False})
+    # If _checkout_release ever runs in dev mode, fail loudly rather than silently.
+    monkeypatch.setattr(
+        start,
+        "_checkout_release",
+        lambda *_a, **_kw: pytest.fail("_checkout_release must not run in dev mode"),
+    )
+
+    def _boom(*_a, **_kw):
+        raise _ExecvpReached
+
+    monkeypatch.setattr(start.os, "execvp", _boom)
+
+    with pytest.raises(_ExecvpReached):
+        start.run_start(agent="claude", dev_mode=True)
+
+    git_calls = [argv for argv in calls if argv and argv[0] == "git"]
+    assert git_calls == [], f"dev mode ran git commands: {git_calls}"
+
+
+def test_non_dev_mode_does_check_out_release(monkeypatch, tmp_path):
+    """Guard against the inverse: without --dev, run_start must still check out a release."""
+    _patch_run(monkeypatch, lambda argv: _completed())
+    monkeypatch.setattr(start.shutil, "which", lambda _agent: "/usr/bin/claude")
+    monkeypatch.setattr(start, "_find_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(start.os, "chdir", lambda _path: None)
+    monkeypatch.setattr(start, "print_jupyterhub_path_hint", lambda _root: None)
+    monkeypatch.setattr(start, "get_default_agent", lambda: "claude")
+    monkeypatch.setattr(start, "get_vertex_config", lambda: {"enabled": False})
+
+    checkout_calls: list[str | None] = []
+
+    def _fake_checkout(_root, version):
+        checkout_calls.append(version)
+        return 0
+
+    monkeypatch.setattr(start, "_checkout_release", _fake_checkout)
+
+    def _boom(*_a, **_kw):
+        raise _ExecvpReached
+
+    monkeypatch.setattr(start.os, "execvp", _boom)
+
+    with pytest.raises(_ExecvpReached):
+        start.run_start(agent="claude", version="v0.0.1", dev_mode=False)
+
+    assert checkout_calls == ["v0.0.1"]
+
+
+# ── permission mode ───────────────────────────────────────
+
+
+def _exec_argv(monkeypatch, tmp_path, **kwargs) -> list[str]:
+    """Run run_start up to the exec and return the argv it would have exec'd."""
+    _patch_run(monkeypatch, lambda argv: _completed())
+    monkeypatch.setattr(start.shutil, "which", lambda _agent: "/usr/bin/claude")
+    monkeypatch.setattr(start, "_find_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(start.os, "chdir", lambda _path: None)
+    monkeypatch.setattr(start, "print_jupyterhub_path_hint", lambda _root: None)
+    monkeypatch.setattr(start, "get_default_agent", lambda: "claude")
+    monkeypatch.setattr(start, "get_vertex_config", lambda: {"enabled": False})
+
+    captured: list[str] = []
+
+    def _boom(_binary, argv):
+        captured.extend(argv)
+        raise _ExecvpReached
+
+    monkeypatch.setattr(start.os, "execvp", _boom)
+
+    with pytest.raises(_ExecvpReached):
+        start.run_start(agent="claude", dev_mode=True, **kwargs)
+    return captured
+
+
+def test_claude_launches_in_auto_permission_mode(monkeypatch, tmp_path):
+    argv = _exec_argv(monkeypatch, tmp_path)
+    assert "--permission-mode" in argv
+    assert argv[argv.index("--permission-mode") + 1] == "auto"
+
+
+def test_explicit_permission_mode_is_not_overridden(monkeypatch, tmp_path):
+    argv = _exec_argv(monkeypatch, tmp_path, extra_args=["--permission-mode", "plan"])
+    assert argv.count("--permission-mode") == 1
+    assert argv[argv.index("--permission-mode") + 1] == "plan"
+
+
+def test_claude_defaults_to_opus_1m_context(monkeypatch, tmp_path):
+    argv = _exec_argv(monkeypatch, tmp_path)
+    assert argv[argv.index("--model") + 1] == "opus[1m]"
+
+
+def test_claude_defaults_only_apply_to_claude():
+    assert start.claude_defaults("codex", []) == []
+    assert start.claude_defaults("claude", []) == [
+        "--model",
+        "opus[1m]",
+        "--permission-mode",
+        "auto",
+    ]
+    assert start.claude_defaults("claude", ["--model", "sonnet"]) == [
+        "--permission-mode",
+        "auto",
+    ]
+    assert start.claude_defaults("claude", ["--permission-mode", "plan"]) == [
+        "--model",
+        "opus[1m]",
+    ]

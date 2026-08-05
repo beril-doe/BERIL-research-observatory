@@ -7,6 +7,8 @@ from typing import Any
 
 import yaml
 
+from .selection import select_project_refutations
+
 
 @dataclass(frozen=True)
 class ProjectMetadata:
@@ -25,7 +27,8 @@ def build_project_metadata(project_dir: str | Path) -> ProjectMetadata:
     project_id = _string_field(beril.get("project_id")) or project_path.name
     title = _readme_title(readme) or project_id
     status = _string_field(beril.get("status")) or _readme_status(readme)
-    engine = beril.get("engine") if isinstance(beril.get("engine"), dict) else {}
+    engine_value = beril.get("engine")
+    engine: dict[str, Any] = engine_value if isinstance(engine_value, dict) else {}
     authors = _authors(beril.get("authors"))
     author_names = [author["name"] for author in authors if author["name"]]
 
@@ -124,7 +127,7 @@ def _metadata_markdown(
         f"| Last Session At | {last_session_at} |",
         f"| Branch | {branch} |",
         f"| Engine | {engine_name} |",
-        f"| Source metadata files | {', '.join(source_files)} |",
+        f"| Context source files | {', '.join(source_files)} |",
         "",
         "## Authors",
         "",
@@ -144,6 +147,9 @@ def _source_metadata_files(project_path: Path) -> list[str]:
         names.append("beril.yaml")
     if (project_path / "README.md").is_file():
         names.append("README.md")
+    if (project_path / "claims.json").is_file():
+        names.append("claims.json")
+    names.extend(path.name for path in select_project_refutations(project_path))
     return names
 
 

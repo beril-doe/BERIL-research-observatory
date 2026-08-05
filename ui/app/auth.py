@@ -43,24 +43,32 @@ def get_beril_user_id(request: Request) -> str | None:
 async def get_current_user_session_or_token(
     request: Request, db: AsyncSession
 ) -> "BerilUser | None":
-    """Authenticate via session cookie or Authorization: Bearer token.
+    """Authenticate via Authorization: Bearer token or session cookie.
 
-    Tries the session first (cheaper, no DB hit). Falls back to the Bearer
-    token in the Authorization header, which requires a DB lookup.
+    Bearer wins when both are present. An explicit Bearer header signals
+    programmatic intent — a stale session cookie shouldn't silently shadow
+    the token the caller actually meant to use. If the Bearer is missing OR
+    invalid (unknown, expired, or revoked), we fall through to the session
+    cookie rather than short-circuiting to 401: that keeps a browser tab
+    working even if some other tool on the same machine holds a bad token.
+
     Returns the BerilUser ORM object, or None if neither method succeeds.
     """
+    # Bearer token path — scheme is case-insensitive per HTTP spec
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        raw_token = auth_header[len("bearer "):]
+        user = await get_user_by_api_token(db, raw_token)
+        if user is not None:
+            return user
+        # Invalid Bearer — fall through to session rather than failing hard.
+
     # Session path — only trust it if the orcid_id still resolves in the DB
     orcid_id = request.session.get("orcid_id")
     if orcid_id:
         user = await get_user_by_orcid(db, orcid_id)
         if user is not None:
             return user
-
-    # Bearer token path — scheme is case-insensitive per HTTP spec
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.lower().startswith("bearer "):
-        raw_token = auth_header[len("bearer "):]
-        return await get_user_by_api_token(db, raw_token)
 
     return None
 

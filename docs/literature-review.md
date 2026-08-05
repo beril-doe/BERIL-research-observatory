@@ -41,8 +41,8 @@ Both MCP servers are configured in `.mcp.json` and available to all collaborator
 
 **Preprint search** — `paper-search` MCP server (runs locally via `uvx`):
 - Tools prefixed `mcp__paper-search__*`
-- bioRxiv, arXiv, medRxiv keyword search
-- Google Scholar broad fallback
+- arXiv keyword search; bioRxiv/medRxiv **category browsing only** (last 30 days — not topic search)
+- Google Scholar broad fallback; EuropePMC keyword search over PubMed/PMC
 - Full-text PDF extraction via `read_arxiv_paper`, `read_biorxiv_paper`, `read_medrxiv_paper`
 - Requires Python 3.10+ and [uv](https://docs.astral.sh/uv/)
 
@@ -61,7 +61,7 @@ The PubMed MCP covers published biomedical literature with rich search, citation
 | PubMed search (rich, MeSH, pagination) | Yes | Basic only |
 | PMC full text | Yes | Not supported |
 | Citation snowballing | Yes | No |
-| bioRxiv keyword search | No | **Yes** |
+| bioRxiv keyword search | Indirect (indexes bioRxiv) | No — category browsing only |
 | arXiv search | No | **Yes** |
 | Google Scholar | No | **Yes** |
 | Preprint PDF full-text reading | No | **Yes** |
@@ -195,9 +195,9 @@ Quick scan on horizontal gene transfer in thermophilic archaea.
 ```
 
 **What to verify:**
-- If `pubmed` MCP is down, discovery subagent falls back to `mcp__paper-search__search_pubmed`
+- If `pubmed` MCP is down, discovery subagent falls back to `mcp__paper-search__search_europepmc` (not `search_pubmed`, which shares NCBI's 3 req/s limit and fails with a cryptic XML parse error)
 - Notes in output that results may be less comprehensive
-- Still searches bioRxiv and arXiv via paper-search-mcp
+- Still searches arXiv and Google Scholar via paper-search-mcp
 - If discovery subagent crashes entirely, main agent runs search directly (degraded mode)
 
 ### Test 5: Deep Review (comprehensive)

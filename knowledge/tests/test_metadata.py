@@ -30,6 +30,8 @@ authors:
         "# OpenViking Alpha\n\n## Status\nIgnored fallback\n",
         encoding="utf-8",
     )
+    (project_dir / "claims.json").write_text("{}\n", encoding="utf-8")
+    (project_dir / "REFUTATION_2.md").write_text("# Refutation\n", encoding="utf-8")
 
     metadata = build_project_metadata(project_dir)
 
@@ -42,8 +44,13 @@ authors:
     )
     assert "| Project ID | openviking-alpha |" in metadata.markdown
     assert "| Engine | gpt-5 |" in metadata.markdown
-    assert "| Ada Lovelace | Analytical Society | 0000-0001-2345-6789 |" in metadata.markdown
+    assert (
+        "| Ada Lovelace | Analytical Society | 0000-0001-2345-6789 |"
+        in metadata.markdown
+    )
     assert "| Grace Hopper |  |  |" in metadata.markdown
+    assert "claims.json" in metadata.markdown
+    assert "REFUTATION_2.md" in metadata.markdown
 
 
 def test_readme_fallback_metadata(tmp_path: Path) -> None:

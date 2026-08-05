@@ -14,17 +14,6 @@ from openviking_cli.exceptions import (
     UnavailableError,
     VLMFailedError,
 )
-
-TRANSIENT_OV_ERRORS: tuple[type[Exception], ...] = (
-    DeadlineExceededError,
-    EmbeddingFailedError,
-    InternalError,
-    ProcessingError,
-    ResourceExhaustedError,
-    UnavailableError,
-    VLMFailedError,
-)
-
 from .config import DOCS_TARGET_URI, PROJECTS_TARGET_URI, ContextConfig
 from .manifest import (
     Manifest,
@@ -41,11 +30,20 @@ from .selection import (
     iter_project_dirs,
     project_target_uri,
     select_central_docs,
-    select_project_files,
-    select_project_memories,
+    select_project_context_sources,
 )
 from .staging import stage_doc, stage_project
 
+
+TRANSIENT_OV_ERRORS: tuple[type[Exception], ...] = (
+    DeadlineExceededError,
+    EmbeddingFailedError,
+    InternalError,
+    ProcessingError,
+    ResourceExhaustedError,
+    UnavailableError,
+    VLMFailedError,
+)
 
 MANIFEST_FILENAME = "context_manifest.json"
 
@@ -133,7 +131,9 @@ def ingest_changed(
     targets = changed_targets(old_manifest, new_manifest)
     removed = removed_targets(old_manifest, new_manifest)
     project_dirs = {path.name: path for path in iter_project_dirs(config.projects_dir)}
-    docs = {docs_target_uri(path): path for path in select_central_docs(config.repo_root)}
+    docs = {
+        docs_target_uri(path): path for path in select_central_docs(config.repo_root)
+    }
 
     if limit:
         # Limit caps project ingests; skip docs and removals so a partial run
@@ -200,7 +200,9 @@ def ingest_projects(
     observer: IngestObserver | None = None,
 ) -> None:
     obs = observer or NullObserver()
-    project_dirs = [resolve_project_dir(config, project_id) for project_id in project_ids]
+    project_dirs = [
+        resolve_project_dir(config, project_id) for project_id in project_ids
+    ]
     obs.start(total=len(project_dirs))
     for project_dir in project_dirs:
         _ingest_project_dir(config, client, project_dir)
@@ -287,9 +289,9 @@ def _partial_manifest(old: Manifest, new: Manifest, touched: set[str]) -> Manife
 def _current_manifest(config: ContextConfig) -> dict[str, dict[str, str]]:
     target_sources: dict[str, list[Path]] = {}
     for project_dir in iter_project_dirs(config.projects_dir):
-        target_sources[project_target_uri(project_dir.name)] = select_project_files(
-            project_dir
-        ) + select_project_memories(project_dir)
+        target_sources[project_target_uri(project_dir.name)] = (
+            select_project_context_sources(project_dir)
+        )
     for doc_path in select_central_docs(config.repo_root):
         target_sources[docs_target_uri(doc_path)] = [doc_path]
     return build_manifest(target_sources, config.repo_root)
@@ -297,19 +299,28 @@ def _current_manifest(config: ContextConfig) -> dict[str, dict[str, str]]:
 
 def _ingest_project_dir(config: ContextConfig, client: Any, project_dir: Path) -> None:
     staged = stage_project(project_dir, config.staging_dir)
-    _add_resource(client, staged, project_target_uri(project_dir.name), f"BERIL project {project_dir.name}")
+    _add_resource(
+        client,
+        staged,
+        project_target_uri(project_dir.name),
+        f"BERIL project {project_dir.name}",
+    )
     apply_project_relations(client, project_dir, config.projects_dir)
 
 
 def _ingest_doc(config: ContextConfig, client: Any, doc_path: Path) -> None:
     staged = stage_doc(doc_path, config.staging_dir)
-    _add_resource(client, staged, docs_target_uri(doc_path), f"BERIL doc {doc_path.name}")
+    _add_resource(
+        client, staged, docs_target_uri(doc_path), f"BERIL doc {doc_path.name}"
+    )
 
 
 def _add_resource(client: Any, path: Path, target_uri: str, reason: str) -> None:
     for attempt in range(1, ADD_RESOURCE_RETRIES + 1):
         try:
-            client.add_resource(path=str(path), to=target_uri, reason=reason, wait=False)
+            client.add_resource(
+                path=str(path), to=target_uri, reason=reason, wait=False
+            )
             return
         except TRANSIENT_OV_ERRORS:
             if attempt == ADD_RESOURCE_RETRIES:
@@ -323,7 +334,9 @@ def _checkpoint_manifest(
     if not touched:
         return
     current = load_manifest(_manifest_path(config))
-    save_manifest(_manifest_path(config), _partial_manifest(current, new_manifest, touched))
+    save_manifest(
+        _manifest_path(config), _partial_manifest(current, new_manifest, touched)
+    )
 
 
 def _remove_resource(client: Any, target_uri: str) -> None:

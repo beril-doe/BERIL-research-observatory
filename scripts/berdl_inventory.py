@@ -62,7 +62,6 @@ import hashlib
 import json
 import logging
 import os
-import socket
 import sys
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
@@ -89,6 +88,11 @@ _WATCHED_LOGGERS = ("berdl_notebook_utils", "berdl_inventory.structure")
 # (the parent of the scripts/ directory) so the path is stable regardless of
 # the user's CWD when invoking the script.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
+# Run as `python scripts/berdl_inventory.py`, sys.path[0] is scripts/, not the
+# repo root, so `import scripts.*` fails. Same guard berdl_env.py uses.
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 _DEFAULT_OUTPUT = _REPO_ROOT / "data" / "berdl_inventory.md"
 
 _DEFAULT_CACHE = _REPO_ROOT / "data" / "berdl_inventory_cache.json"
@@ -347,11 +351,9 @@ def _iceberg_only(structure: dict[str, list[str]]) -> dict[str, list[str]]:
 
 def _is_on_cluster(host: str = "spark.berdl.kbase.us", port: int = 443, timeout: float = 2.0) -> bool:
     """Same connectivity probe scripts/detect_berdl_environment.py uses."""
-    try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
-    except (socket.timeout, OSError):
-        return False
+    from scripts.detect_berdl_environment import test_connectivity
+
+    return test_connectivity(host, port, timeout=timeout)
 
 
 def fetch_structure_on_cluster() -> dict[str, list[str]]:

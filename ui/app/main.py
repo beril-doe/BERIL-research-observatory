@@ -45,6 +45,7 @@ from .auth_providers import get_kbase_token, load_providers
 from .routes.admin import ROUTER_ADMIN
 from .routes.chat import ROUTER_CHAT, ROUTER_CHAT_PAGES
 from .routes.data import ROUTER_USER_DATA
+from .routes.account import ROUTER_USER_ACCOUNT
 from .routes.user import ROUTER_USER
 from .config import get_settings
 from .db.crud import get_project_by_id, user_project_to_model
@@ -129,6 +130,7 @@ def create_app() -> FastAPI:
     app.include_router(ROUTER_COLLECTIONS)
     app.include_router(ROUTER_USER)
     app.include_router(ROUTER_USER_DATA)
+    app.include_router(ROUTER_USER_ACCOUNT)
     app.include_router(ROUTER_COMMUNITY)
     app.include_router(ROUTER_COSCIENTIST)
     app.include_router(ROUTER_DATA)

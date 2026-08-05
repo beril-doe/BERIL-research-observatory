@@ -1,0 +1,38 @@
+project_id: euk_in_prok_correlates
+status: complete          # exploration | proposed | active | analysis | reviewed | complete
+created_at: "2026-07-10T14:03:19Z"
+last_session_at: "2026-07-10T16:07:02Z"
+branch: projects/euk_in_prok_correlates
+engine:
+  name: claude
+authors:
+  - name: "Mark Andrew Miller"
+    affiliation: "LBL"
+    orcid: "0000-0001-9076-6066"
+artifacts:
+  readme: true
+  research_plan: true
+  report: true
+  review: true
+
+approval:
+  by: "0000-0001-9076-6066"
+  at: "2026-07-10T16:07:02Z"
+  report_hash: "sha256:345875dfe9abb66eeb33126277f33a3a655e7e7feed29ff12ebd79787207c86a"
+  review: "REVIEW_3.md"
+  review_hash: "sha256:cd2c485487dfe3964a741722cabef90dd6e54323864a36ac593f07c26297082d"
+  notebook_hashes:
+    "notebooks/01_data_assembly.ipynb": "sha256:0153e6fa14b77db2e4271bde0ad858c859b060a705a1a9b26c85ee7e09084112"
+    "notebooks/02_univariate_tests.ipynb": "sha256:ced7559aa520f1c65a2a8b00c0037fc3701f60d3d9d26f5a7dcf506d9acebf5d"
+    "notebooks/03_model_variance.ipynb": "sha256:1e7bdc85a4d0689372c05ed7db8f27db92758970752433ca21b7a509906f9e9e"
+    "notebooks/04_within_study.ipynb": "sha256:8aeac729821d949f57fb2fc6755bbe9b4708d0518530f310d991e6dd607d6f85"
+
+submissions:
+  - status: failed
+    attempted_at: "2026-07-10T16:10:41Z"
+    error: "MinIO upload failed: mc 'signature does not match' on all 55 files (stale berdl-minio alias credentials). Credential refresh via scripts/get_minio_creds.py (local, --bootstrap-remote) could not resolve fresh keys from KBASE_AUTH_TOKEN/berdl-remote. Fix: obtain valid MINIO_ACCESS_KEY/MINIO_SECRET_KEY, run bash scripts/configure_mc.sh, then re-run /submit (retries upload only)."
+    approved_at: "2026-07-10T16:07:02Z"
+  - status: failed
+    attempted_at: "2026-07-10T16:23:52Z"
+    error: "Lakehouse upload blocked by authorization (not credentials): user mamillerpa has read_only access to the microbialdiscoveryforge MinIO tenant; writes denied ('Insufficient permissions'), reads succeed. A tenant steward (psdehal) must grant read_write on microbialdiscoveryforge, then re-run /submit to retry the upload."
+    approved_at: "2026-07-10T16:07:02Z"

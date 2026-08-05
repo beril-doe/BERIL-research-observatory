@@ -1,6 +1,7 @@
 """Tests for scripts/berdl_env.py."""
 from __future__ import annotations
 
+import contextlib
 import json
 import subprocess
 import sys
@@ -144,3 +145,39 @@ def test_require_environment_returns_env_when_ready(monkeypatch):
         env = require_environment()
         assert env.location == "on-cluster"
         assert env.checks["spark_direct"] is True
+
+
+def test_connectivity_rejects_tcp_only_endpoint():
+    """A host that accepts TCP but never speaks TLS is not "reachable".
+
+    Models a TCP-terminating middlebox (VPN, proxy, filtering agent) on the
+    client's path: it answers the SYN itself, so a bare connect() probe reported
+    the Spark endpoint as reachable — and detection as "on-cluster" — from any
+    laptop sitting behind one.
+    """
+    import socket
+    import threading
+
+    from scripts.detect_berdl_environment import test_connectivity
+
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+
+    stop = threading.Event()
+
+    def accept_and_stall():
+        with contextlib.suppress(OSError):
+            conn, _ = listener.accept()
+            stop.wait(2.0)
+            conn.close()
+
+    thread = threading.Thread(target=accept_and_stall, daemon=True)
+    thread.start()
+    try:
+        assert test_connectivity("127.0.0.1", port, timeout=0.5) is False
+    finally:
+        stop.set()
+        listener.close()
+        thread.join(timeout=2.0)

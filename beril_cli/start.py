@@ -149,11 +149,27 @@ def _checkout_release(repo_root: Path, requested_version: str | None) -> int:
     return 0
 
 
+def claude_defaults(agent: str, extra_args: list[str]) -> list[str]:
+    """Default flags for Claude: Opus with the 1M context window, auto permissions.
+
+    Returns nothing for other agents, and skips any flag the caller already set.
+    """
+    if agent != "claude":
+        return []
+    flags: list[str] = []
+    if "--model" not in extra_args:
+        flags += ["--model", "opus[1m]"]
+    if "--permission-mode" not in extra_args:
+        flags += ["--permission-mode", "auto"]
+    return flags
+
+
 def run_start(
     agent: str | None = None,
     extra_args: list[str] | None = None,
     skip_onboard: bool = False,
     version: str | None = None,
+    dev_mode: bool = False
 ) -> int:
     """Launch the selected coding agent from the repo root."""
     agent = agent or get_default_agent()
@@ -174,9 +190,10 @@ def run_start(
         return 1
 
     # Check out the requested release (or the latest published tag by default).
-    rc = _checkout_release(repo_root, version)
-    if rc != 0:
-        return rc
+    if not dev_mode:
+        rc = _checkout_release(repo_root, version)
+        if rc != 0:
+            return rc
 
     # Refresh KBASE_AUTH_TOKEN in .env from live environment (tokens expire)
     _sync_auth_token(repo_root / ".env")
@@ -205,9 +222,7 @@ def run_start(
                     file=sys.stderr,
                 )
 
-    # Default to Opus model for Claude
-    if agent == "claude" and "--model" not in extra_args:
-        extra_args = ["--model", "opus", *extra_args]
+    extra_args = [*claude_defaults(agent, extra_args), *extra_args]
 
     print(f"Launching {agent}...")
     print_jupyterhub_path_hint(repo_root)

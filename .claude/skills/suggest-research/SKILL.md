@@ -1,7 +1,7 @@
 ---
 name: suggest-research
 description: Review completed projects and their findings, then suggest a new high-impact research topic grounded in available BERDL data and scientific gaps. Use when the user wants to identify the next best research direction based on what has already been done.
-allowed-tools: Bash, Read, Write, Edit, WebSearch, AskUserQuestion
+allowed-tools: Bash, Read, Write, Edit, WebSearch, AskUserQuestion, Skill
 user-invocable: true
 ---
 

@@ -4,6 +4,7 @@
 # dependencies = [
 #     "openviking",
 #     "pyyaml",
+#     "boto3",
 # ]
 # ///
 from __future__ import annotations
@@ -15,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from observatory_context import fallback
+from observatory_context import berdl_fallback, fallback
 from observatory_context.config import ContextConfig
 from observatory_context.openviking_client import (
     create_client,
@@ -105,34 +106,128 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _berdl_then_local(config, uri, berdl_fn, local_fn):
+    """Try the BERDL lakehouse archive first, then the local working tree.
+
+    ``find``/``read``/``overview`` each fetch specific resources, so they can be
+    served from the submitted lakehouse copy when OpenViking is down. If that
+    tier is unavailable — no credentials, unreachable, unauthorized, or the
+    resource/scope isn't archived — fall through to local. A per-tier banner
+    tells the user which source actually answered. Returns whatever the tier
+    function returns (str for read/overview, result dict for find).
+    """
+    try:
+        result = berdl_fn(config, uri)
+        print(berdl_fallback.BANNER, file=sys.stderr)
+        return result
+    except berdl_fallback.BerdlUnavailable as exc:
+        print(
+            f"⚠ BERDL lakehouse unavailable ({exc}) — using local working tree.",
+            file=sys.stderr,
+        )
+        print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)
+        return local_fn(config, uri)
+
+
+def _berdl_or_notice(config, args, berdl_fn):
+    """Serve a structural command from BERDL, or print the degraded notice.
+
+    ``ls``/``tree``/``stat``/``glob`` have no local equivalent, so — unlike
+    read/find/grep — an unavailable lakehouse degrades to the same "unavailable"
+    notice the fully-offline path prints, not to a local search. Returns True if
+    BERDL answered (output already printed), False if it degraded to the notice.
+    """
+    try:
+        result = berdl_fn(config)
+    except berdl_fallback.BerdlUnavailable as exc:
+        print(
+            f"⚠ BERDL lakehouse unavailable ({exc}); {args.command} has no local "
+            "fallback — start OpenViking for this command.",
+            file=sys.stderr,
+        )
+        return False
+    print(berdl_fallback.BANNER, file=sys.stderr)
+    print(json.dumps(result, indent=2, default=str))
+    return True
+
+
 def _run_fallback(args, config: ContextConfig) -> None:
-    print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)
+    # find/grep/read/overview all try BERDL first, then fall through to local.
+    # find/grep search only the curated corpus (the files local search covers),
+    # so the per-query download stays bounded. link/unlink and structural
+    # queries (ls/tree/stat/...) have no degraded path and hit the else branch.
+    # Each branch prints its own banner so the user sees which tier answered.
     if args.command == "find":
         target_uri = target_uri_for_find(
             project=args.project, docs=args.docs, target_uri=args.target_uri
         )
-        result = fallback.local_find(config, args.query, target_uri, args.limit)
+        result = _berdl_then_local(
+            config,
+            target_uri,
+            lambda cfg, uri: berdl_fallback.berdl_find(cfg, args.query, uri, args.limit),
+            lambda cfg, uri: fallback.local_find(cfg, args.query, uri, args.limit),
+        )
         print(json.dumps(result, default=str) if args.json else format_find_text(result))
     elif args.command == "grep":
+        result = _berdl_then_local(
+            config,
+            args.uri,
+            lambda cfg, uri: berdl_fallback.berdl_grep(
+                cfg,
+                args.pattern,
+                uri,
+                case_insensitive=args.case_insensitive,
+                exclude_uri=args.exclude_uri,
+                node_limit=args.node_limit,
+            ),
+            lambda cfg, uri: fallback.local_grep(
+                cfg,
+                args.pattern,
+                uri,
+                case_insensitive=args.case_insensitive,
+                exclude_uri=args.exclude_uri,
+                node_limit=args.node_limit,
+            ),
+        )
+        print(json.dumps(result, indent=2, default=str))
+    elif args.command == "read":
+        print(_berdl_then_local(config, args.uri, berdl_fallback.berdl_read, fallback.local_read))
+    elif args.command == "overview":
         print(
-            json.dumps(
-                fallback.local_grep(
-                    config,
-                    args.pattern,
-                    args.uri,
-                    case_insensitive=args.case_insensitive,
-                    exclude_uri=args.exclude_uri,
-                    node_limit=args.node_limit,
-                ),
-                indent=2,
-                default=str,
+            _berdl_then_local(
+                config, args.uri, berdl_fallback.berdl_overview, fallback.local_overview
             )
         )
-    elif args.command == "read":
-        print(fallback.local_read(config, args.uri))
-    elif args.command == "overview":
-        print(fallback.local_overview(config, args.uri))
+    elif args.command == "ls":
+        if not _berdl_or_notice(
+            config,
+            args,
+            lambda cfg: berdl_fallback.berdl_ls(
+                cfg, args.uri, simple=args.simple, recursive=args.recursive
+            ),
+        ):
+            print(fallback.DEGRADED_NOTICE.format(command=args.command), file=sys.stderr)
+    elif args.command == "tree":
+        if not _berdl_or_notice(
+            config,
+            args,
+            lambda cfg: berdl_fallback.berdl_tree(cfg, args.uri, node_limit=args.node_limit),
+        ):
+            print(fallback.DEGRADED_NOTICE.format(command=args.command), file=sys.stderr)
+    elif args.command == "stat":
+        if not _berdl_or_notice(
+            config, args, lambda cfg: berdl_fallback.berdl_stat(cfg, args.uri)
+        ):
+            print(fallback.DEGRADED_NOTICE.format(command=args.command), file=sys.stderr)
+    elif args.command == "glob":
+        if not _berdl_or_notice(
+            config, args, lambda cfg: berdl_fallback.berdl_glob(cfg, args.pattern, args.uri)
+        ):
+            print(fallback.DEGRADED_NOTICE.format(command=args.command), file=sys.stderr)
     else:
+        # relations/link/unlink and any other command have no BERDL or local
+        # equivalent in degraded mode.
+        print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)
         print(fallback.DEGRADED_NOTICE.format(command=args.command), file=sys.stderr)
 
 
