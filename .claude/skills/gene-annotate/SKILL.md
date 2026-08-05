@@ -164,9 +164,19 @@ Normal invocation on the lakehouse:
 
 ```bash
 conda activate gene-annotation-predictor      # aws (+ diamond) on PATH
-cd /global_share/gene-annotation-predictor
+cd $REPO                                       # NOT the package dir — see token note below
 /global_share/gene-annotation-predictor/.venv/bin/gene-annotate --input …
 ```
+
+> **⚠ Run from `$REPO`, not the package dir.** The CLI's `load_berdl_token()` reads
+> `KBASE_AUTH_TOKEN` from **`.env` in the current working directory** and ignores the
+> environment variable. The package dir (`/global_share/gene-annotation-predictor/.env`)
+> often carries a **stale token** that will `401` every CTS job (InterProScan and DIAMOND),
+> while `$REPO/.env` is where the valid token is kept. Since lakehouse runs use full CTS
+> and absolute paths for every input, CWD does not need to be the package dir — always
+> `cd $REPO` so the CLI reads the valid `$REPO/.env`. (For rare local off-cluster mode,
+> either `cd $REPO` and pass an **absolute** `--interproscan` path, or symlink
+> `ln -sf $REPO/.env /global_share/gene-annotation-predictor/.env` before running there.)
 
 InterProScan is a separate install (`./bin/my_interproscan/interproscan-5.76-107.0/`) and is passed via `--interproscan` for local off-cluster mode, or offloaded via `--cts-interproscan` on the lakehouse (the default — see Step 3).
 
@@ -514,7 +524,7 @@ When to skip this prompt: if the user has already specified tiers in their reque
 
 ```bash
 conda activate gene-annotation-predictor
-cd /global_share/gene-annotation-predictor
+cd $REPO                                       # run from the BERIL repo — see token note below
 
 set -a && source $REPO/.env 2>/dev/null; set +a
 
@@ -532,10 +542,10 @@ set -a && source $REPO/.env 2>/dev/null; set +a
   <OPTIONAL_FLAGS>
 ```
 
-Off-cluster / laptop use (no CTS available) — swap the three CTS flags for `--interproscan <local path>`:
+Off-cluster / laptop use (no CTS available) — swap the three CTS flags for `--interproscan <local path>`. Since the run is launched from `$REPO` (not the package dir), pass an **absolute** path:
 
 ```bash
-  --interproscan ./bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh
+  --interproscan /global_share/gene-annotation-predictor/bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh
 ```
 
 **API key**: No flag needed — the CLI auto-detects `CBORG_API_KEY` (CBORG gateway) or `ANTHROPIC_API_KEY` from the environment. Pass `--api-key KEY` only to override with an explicit value. CBORG routing is auto-enabled whenever `CBORG_API_KEY` is present.
@@ -857,7 +867,9 @@ DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`
 | `InterProScan failed (exit 231)` — tool continues without IPR | A sequence contains `*` (stop-codon marker from ORF predictors like Prodigal). InterProScan rejects the entire batch, not just the offending sequence. | Strip `*` from all sequences during FASTA preparation (Step 1) |
 | Summaries parquet not found | File missing from data_sources | Verify `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet` exists |
 | BERDL auth error | `KBASE_AUTH_TOKEN` missing or expired | Set or refresh `KBASE_AUTH_TOKEN` in `$REPO/.env` — **not** in the gene-annotation-predictor package directory |
-| DIAMOND not found | `./bin/` not on PATH | Ensure the `PATH=./bin:$PATH` prefix is included and command is run after `cd /global_share/gene-annotation-predictor` |
+| `CTS job submission failed (401) … Invalid token` (InterProScan and/or `FATAL: paperblast_uniq batch fetch failed`) | The CLI's `load_berdl_token()` reads `.env` from the **current working directory**, ignoring the env var. Running from `/global_share/gene-annotation-predictor` picks up that dir's **stale** `.env` token even when `$REPO/.env` is valid. | `cd $REPO` before invoking (all lakehouse paths are absolute, so CWD need not be the package dir). Verify with `curl -s -o /dev/null -w '%{http_code}' -H "Authorization: $KBASE_AUTH_TOKEN" https://kbase.us/services/auth/api/V2/token` → expect `200`. |
+| `ERROR: … 400 … code: bio_policy` ("flagged for possible biological risk") on a row | The CBORG/OpenAI gateway applies a **content filter** to some pathogen / select-agent-adjacent sequences (observed on *Vibrio cholerae*). It is newly deployed / intermittent — the same genes annotated fine in earlier runs, and a plain retry with the same model does **not** clear it. Any `gpt-5.4` re-run touching such organisms will systematically lose those rows. | Re-annotate the flagged genes with an **Anthropic model** (`--model claude-opus-4.5` or `claude-sonnet-4.6`), whose filter differs; or retain their prior annotations. Those rows will carry a different `model` tag than the rest of the run. |
+| DIAMOND not found (local off-cluster mode) | `diamond` binary not on PATH — it ships in the conda env, not the package `./bin/` | `conda activate gene-annotation-predictor` so DIAMOND (≥ 2.2.3) is on PATH; on the lakehouse prefer `--cts-diamond` and this never applies |
 | Spark session error | Spark not available in environment | Check that Spark dependencies are installed in the conda + Poetry environment |
 
 ## Integration with Other Skills
@@ -875,7 +887,7 @@ DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`
 1. **Accept any protein input format** — the user should not need to prepare FASTA themselves. Detect the input format, extract sequences + IDs + organism names, and write a well-formed FASTA file. Always include organism names in record descriptions when available.
 2. **Use `--description-is-organism`** only when organism information was available and included in the FASTA descriptions during input preparation. Do not include it when the FASTA headers contain only sequence IDs.
 3. **Do not pass any API key flag** — the CLI auto-detects `CBORG_API_KEY` then `ANTHROPIC_API_KEY` from the environment. Only use `--api-key` if the user provides a literal key to override. Do not ask the user unless no key is found in the environment.
-4. **Activate the conda env before running** (`conda activate gene-annotation-predictor`) so the `aws` CLI (used by the CTS uploader) and DIAMOND (off-cluster fallback) are on PATH. Then `cd /global_share/gene-annotation-predictor` and invoke the CLI via its `.venv` path: `/global_share/gene-annotation-predictor/.venv/bin/gene-annotate …`. The repo `.venv` is Python 3.13 and holds all Python deps (including `berdl_notebook_utils`); the conda env is Python 3.12 and holds shell binaries only. Do not rely on `gene-annotate` resolving via the conda env — the conda env's Poetry install has been observed to drift out of sync with the source tree.
+4. **Activate the conda env before running** (`conda activate gene-annotation-predictor`) so the `aws` CLI (used by the CTS uploader) and DIAMOND (off-cluster fallback) are on PATH. Then `cd $REPO` (the BERIL repo — **not** the package dir) and invoke the CLI via its `.venv` path: `/global_share/gene-annotation-predictor/.venv/bin/gene-annotate …`. Running from `$REPO` is required because the CLI reads `KBASE_AUTH_TOKEN` from `.env` in the CWD; the package dir's `.env` frequently holds a stale token that `401`s every CTS job (see the token note under "Package Location" and the Error Handling row). The repo `.venv` is Python 3.13 and holds all Python deps (including `berdl_notebook_utils`); the conda env is Python 3.12 and holds shell binaries only. Do not rely on `gene-annotate` resolving via the conda env — the conda env's Poetry install has been observed to drift out of sync with the source tree.
 5. **On the lakehouse, dispatch InterProScan and DIAMOND to CTS by default** — include `--cts-interproscan --cts-diamond --cts-username "$USER"` in every lakehouse invocation unless the user explicitly asks for local mode. The JupyterHub node's CPU/memory is shared and limited; CTS offload is the standard operating configuration.
 6. **Always include `--summaries-parquet`** pointing to `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet`.
 7. **After completion**, always read and summarize the output TSV — don't just report success.
