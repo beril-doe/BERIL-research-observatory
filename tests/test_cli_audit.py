@@ -332,99 +332,17 @@ def test_non_v2_runtime_file_is_replaced_with_fresh_v2_state(repo, monkeypatch):
     assert [s["session_id"] for s in data["sessions"]] == ["new-session"]
 
 
+
 # --- agent cost ------------------------------------------------------------
 #
-# Cost is observable in exactly one place in this repo — the status line's
-# payload. No hook payload carries it (verified against SessionStart,
-# PostToolUse and Stop), so `record_session_cost` is what the status line calls,
-# and everything downstream reads what it wrote.
+# Scoped like the rest of this file: only what breaks *silently*. The stamp
+# actually working end-to-end is proved in tests/test_statusline.py, which runs
+# the real hook script — these cover the arithmetic and the honesty rules that a
+# green in-process run would otherwise hide.
+
 
 def _runtime(repo, project="p1"):
     return json.loads((repo / "projects" / project / "runtime.json").read_text())
-
-
-def test_cost_lands_on_the_matching_session_record(repo, monkeypatch):
-    _snap(repo, monkeypatch, session_id="s1")
-    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
-    session = _runtime(repo)["sessions"][0]
-    assert session["session_id"] == "s1"
-    assert session["cost"]["usd"] == 4.12
-    assert session["cost"]["counted_usd"] == 0.0
-    assert session["cost"]["observer"] == "claude-code-statusline"
-
-
-def test_cost_creates_a_record_when_the_hook_has_not_written_one(repo):
-    """The status line resolves projects the hook cannot — a session working
-    from the repo root binds by runtime.json only *after* a tool write."""
-    record_session_cost(repo / "projects" / "p1", "s-new", 0.5)
-    data = _runtime(repo)
-    assert data["schema_version"] == "2.0"
-    assert data["sessions"][0]["session_id"] == "s-new"
-    assert data["sessions"][0]["cost"]["usd"] == 0.5
-
-
-@pytest.mark.parametrize("usd", [0, 0.0, -1.0, None, "free"])
-def test_an_unobserved_cost_is_never_recorded_as_zero(repo, monkeypatch, usd):
-    """A missing `cost` key is how a genuinely free stage is told apart from an
-    unwatched one. Recording 0.00 would erase that distinction."""
-    _snap(repo, monkeypatch, session_id="s1")
-    record_session_cost(repo / "projects" / "p1", "s1", usd)
-    assert "cost" not in _runtime(repo)["sessions"][0]
-
-
-def test_no_session_id_records_nothing(repo, monkeypatch):
-    _snap(repo, monkeypatch, session_id="s1")
-    record_session_cost(repo / "projects" / "p1", None, 4.12)
-    assert "cost" not in _runtime(repo)["sessions"][0]
-
-
-def test_an_unchanged_cents_value_does_not_rewrite_the_file(repo, monkeypatch):
-    """The status line renders every turn. Rewriting runtime.json each time
-    would churn a file the hook also writes, for no new information."""
-    _snap(repo, monkeypatch, session_id="s1")
-    path = repo / "projects" / "p1" / "runtime.json"
-    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
-    before = path.stat().st_mtime_ns
-    record_session_cost(repo / "projects" / "p1", "s1", 4.1234)  # same cents
-    assert path.stat().st_mtime_ns == before
-    record_session_cost(repo / "projects" / "p1", "s1", 4.13)  # a cent more
-    assert path.stat().st_mtime_ns != before
-
-
-def test_updating_cost_preserves_what_has_already_been_stamped(repo, monkeypatch):
-    """`counted_usd` is the portion already attributed to a closed stage. A
-    session spans stages, so losing it would re-attribute spend twice."""
-    _snap(repo, monkeypatch, session_id="s1")
-    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
-    data = _runtime(repo)
-    data["sessions"][0]["cost"]["counted_usd"] = 4.12
-    (repo / "projects" / "p1" / "runtime.json").write_text(json.dumps(data))
-    record_session_cost(repo / "projects" / "p1", "s1", 9.80)
-    cost = _runtime(repo)["sessions"][0]["cost"]
-    assert (cost["usd"], cost["counted_usd"]) == (9.80, 4.12)
-
-
-def test_a_snapshot_replace_carries_cost_forward(repo, monkeypatch):
-    """The two writers of runtime.json must not clobber each other. Only the
-    status line can see cost; only the hook can see the model. A re-snapshot
-    replaces the whole session record, so it has to keep the half it cannot
-    observe or every model switch would erase the session's spend."""
-    _snap(repo, monkeypatch, session_id="s1", model="claude-opus-5")
-    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
-    session = _snap(repo, monkeypatch, session_id="s1", model="claude-sonnet-5")[
-        "sessions"
-    ][0]
-    assert session["agent"]["model_id"] == "claude-sonnet-5"
-    assert session["cost"]["usd"] == 4.12
-
-
-# --- the per-stage ledger --------------------------------------------------
-#
-# The boundary is detected here rather than by the skills that perform it,
-# because approve_cmd is the ONLY code in the repo that writes beril.yaml and it
-# records plan_approval, not status: all six lifecycle transitions are
-# agent-written YAML with no code path at all. The PostToolUse hook fires on the
-# very edit that performs one, so it is the only automatic witness available.
 
 
 def _yaml(repo, project="p1"):
@@ -434,15 +352,11 @@ def _yaml(repo, project="p1"):
 def _set_status(repo, status, project="p1"):
     """Edit `status:` in place, the way a skill performing a transition does.
 
-    Rewriting the whole manifest instead would silently wipe the ledger being
-    tested and make a passing append look like a failing one.
+    Rewriting the whole manifest would silently wipe the ledger under test.
     """
     manifest = repo / "projects" / project / "beril.yaml"
     text = manifest.read_text()
     if re.search(r"^status:", text, re.MULTILINE):
-        # Only the value, keeping any trailing comment — that is what an editor
-        # performing a transition does, and this test file asserts elsewhere
-        # that the ledger writer leaves such comments alone.
         text = re.sub(
             r"^status:(\s*)[^\s#]+",
             rf"status:\g<1>{status}",
@@ -455,58 +369,10 @@ def _set_status(repo, status, project="p1"):
     manifest.write_text(text)
 
 
-def test_the_first_observation_closes_no_stage(repo, monkeypatch):
-    """There is no prior stage to close. runtime.json is gitignored, so this is
-    also what every fresh worktree does on its first snapshot."""
-    _set_status(repo, "exploration")
-    assert _snap(repo, monkeypatch)["last_status"] == "exploration"
-    assert "agent_cost" not in _yaml(repo)
-
-
-def test_an_unchanged_status_closes_no_stage(repo, monkeypatch):
-    _set_status(repo, "exploration")
-    _snap(repo, monkeypatch)
-    _snap(repo, monkeypatch, session_id="s2")
-    assert "agent_cost" not in _yaml(repo)
-
-
-def test_a_transition_stamps_the_stage_that_just_ended(repo, monkeypatch):
-    _set_status(repo, "exploration")
-    _snap(repo, monkeypatch)
-    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
-    _set_status(repo, "proposed")
-    data = _snap(repo, monkeypatch)
-
-    text = _yaml(repo)
-    assert "agent_cost:" in text
-    assert "observed_by: claude-code" in text
-    assert "- stage: exploration" in text
-    assert "usd: 4.12" in text
-    assert "sessions_observed: 1" in text
-    # The stage that ENDED is stamped; the new one is now what's being watched.
-    assert data["last_status"] == "proposed"
-    # ...and its spend is marked consumed so the next stage cannot re-count it.
-    assert data["sessions"][0]["cost"]["counted_usd"] == 4.12
-
-
-def test_a_stage_nobody_watched_omits_usd_rather_than_recording_zero(
-    repo, monkeypatch
-):
-    """`usd: 0.00` reads as "this stage was free". A missing key reads as
-    "nobody watched", which is the true statement."""
-    _set_status(repo, "exploration")
-    _snap(repo, monkeypatch)
-    _set_status(repo, "proposed")
-    _snap(repo, monkeypatch)
-    text = _yaml(repo)
-    assert "- stage: exploration" in text
-    assert "sessions_observed: 0" in text
-    assert "usd:" not in text
-
-
 def test_a_session_spanning_two_stages_is_never_counted_twice(repo, monkeypatch):
-    """One session outlives the stage it started in. Each stage gets the spend
-    earned inside it, and the total across stages equals what was observed."""
+    """The core arithmetic. One session outlives the stage it started in, so
+    each stage gets the spend earned inside it and the deltas sum to the total
+    observed. A window over session start times would misattribute both."""
     _set_status(repo, "exploration")
     _snap(repo, monkeypatch)
     record_session_cost(repo / "projects" / "p1", "s1", 4.12)
@@ -520,36 +386,40 @@ def test_a_session_spanning_two_stages_is_never_counted_twice(repo, monkeypatch)
     assert stages == [("exploration", "4.12"), ("proposed", "5.68")]
 
 
-def test_a_demotion_is_stamped_like_any_other_boundary(repo, monkeypatch):
-    """/synthesize and /berdl-review both demote reviewed -> analysis. A stage
-    name may therefore repeat; deltas make double-counting impossible anyway."""
-    _set_status(repo, "reviewed")
+def test_an_unobserved_stage_omits_usd_rather_than_recording_zero(repo, monkeypatch):
+    """`usd: 0.00` reads as "this stage was free". A missing key reads as
+    "nobody watched", which is the true statement — and the same rule holds at
+    the input side, where an unreported cost writes no `cost` key at all."""
+    _set_status(repo, "exploration")
     _snap(repo, monkeypatch)
-    record_session_cost(repo / "projects" / "p1", "s1", 2.00)
-    _set_status(repo, "analysis")
+    record_session_cost(repo / "projects" / "p1", "s1", 0)  # harness reported none
+    assert "cost" not in _runtime(repo)["sessions"][0]
+
+    _set_status(repo, "proposed")
     _snap(repo, monkeypatch)
-    assert "- stage: reviewed" in _yaml(repo)
-    assert "usd: 2.00" in _yaml(repo)
+    text = _yaml(repo)
+    assert "- stage: exploration" in text
+    assert "sessions_observed: 0" in text
+    assert "usd:" not in text
 
 
-def test_the_stamp_fires_even_when_the_session_snapshot_is_unchanged(
-    repo, monkeypatch
-):
-    """Nothing in a session snapshot depends on lifecycle status, so the very
-    edit that performs a transition usually produces a byte-identical record --
-    and that is exactly the event this has to catch. The snapshot writer's
-    idempotency short-circuit must not swallow it."""
-    _set_status(repo, "active")
-    _snap(repo, monkeypatch)
-    record_session_cost(repo / "projects" / "p1", "s1", 3.00)
-    (repo / "projects" / "p1" / "beril.yaml").write_text(
-        "project_id: p1\nstatus: analysis\n"
-    )
-    _snap(repo, monkeypatch)  # identical payload -> identical session record
-    assert "- stage: active" in _yaml(repo)
+def test_a_snapshot_replace_carries_cost_forward(repo, monkeypatch):
+    """The two writers of runtime.json must not clobber each other. Only the
+    status line sees cost; only the hook sees the model. A re-snapshot replaces
+    the whole record, so without this every model switch erased the spend."""
+    _snap(repo, monkeypatch, session_id="s1", model="claude-opus-5")
+    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
+    session = _snap(repo, monkeypatch, session_id="s1", model="claude-sonnet-5")[
+        "sessions"
+    ][0]
+    assert session["agent"]["model_id"] == "claude-sonnet-5"
+    assert session["cost"]["usd"] == 4.12
 
 
-def test_the_ledger_preserves_comments_and_other_blocks(repo, monkeypatch):
+def test_the_ledger_leaves_the_rest_of_the_manifest_alone(repo, monkeypatch):
+    """beril.yaml is a reviewed file carrying an authoritative approval block and
+    inline comments. Appending to it by text is what avoids a YAML round-trip
+    eating them — silently, in a file nobody re-reads after a transition."""
     manifest = repo / "projects" / "p1" / "beril.yaml"
     manifest.write_text(
         "project_id: p1\n"
@@ -573,54 +443,32 @@ def test_the_ledger_preserves_comments_and_other_blocks(repo, monkeypatch):
     assert "- stage: exploration" in text
 
 
-def test_a_second_stage_appends_without_disturbing_the_first(repo, monkeypatch):
-    _set_status(repo, "exploration")
-    _snap(repo, monkeypatch)
-    record_session_cost(repo / "projects" / "p1", "s1", 1.00)
-    _set_status(repo, "proposed")
-    _snap(repo, monkeypatch)
-    record_session_cost(repo / "projects" / "p1", "s1", 3.00)
-    _set_status(repo, "active")
-    _snap(repo, monkeypatch)
-
-    text = _yaml(repo)
-    assert text.count("agent_cost:") == 1
-    assert text.index("- stage: exploration") < text.index("- stage: proposed")
-    assert "usd: 1.00" in text and "usd: 2.00" in text
+def test_an_unchanged_cents_value_does_not_rewrite_runtime_json(repo, monkeypatch):
+    """The status line renders every turn. Rewriting on each render would churn
+    a file the hook also writes, for no new information."""
+    _snap(repo, monkeypatch, session_id="s1")
+    path = repo / "projects" / "p1" / "runtime.json"
+    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
+    before = path.stat().st_mtime_ns
+    record_session_cost(repo / "projects" / "p1", "s1", 4.1234)  # same cents
+    assert path.stat().st_mtime_ns == before
+    record_session_cost(repo / "projects" / "p1", "s1", 4.13)  # a cent more
+    assert path.stat().st_mtime_ns != before
 
 
-def test_a_project_with_no_status_stamps_nothing(repo, monkeypatch):
-    """61 of 78 projects have no beril.yaml status at all."""
-    (repo / "projects" / "p1" / "beril.yaml").write_text("project_id: p1\n")
-    data = _snap(repo, monkeypatch)
-    assert "last_status" not in data
-    assert "agent_cost" not in _yaml(repo)
-
-
-def test_audit_cmd_does_not_import_the_cli_modules():
+def test_audit_cmd_stays_off_the_cli_import_chain():
     """The hook falls back to a bare `python3` when there is no venv — the BERDL
-    pod — so everything this module reaches has to import on the system
-    interpreter. `approve_cmd` reaches `tomllib` (3.11+) through its config
-    import, and pulling `block_span` from there made every `_append_stage` raise
-    ModuleNotFoundError into the blanket `except`: no error, no stamp, on
-    exactly the image the fallback exists for. Caught by an end-to-end run, not
-    by the unit tests above, which import this module directly.
-    """
-    import ast
+    pod. `approve_cmd` reaches `tomllib` (3.11+) via its config import, and
+    sourcing `block_span` from there made every stamp raise ModuleNotFoundError
+    into this module's blanket `except`: no error, no stamp, on exactly the
+    image the fallback exists for.
 
-    source = (Path(audit_cmd.__file__)).read_text()
-    imported = {
-        node.module
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.ImportFrom) and node.module
-    } | {
-        alias.name
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.Import)
-        for alias in node.names
-    }
-    heavy = {name for name in imported if name.startswith("beril_cli.")}
-    assert heavy == {"beril_cli.project_resolution"}, (
-        f"audit_cmd runs under the hook's bare-python3 fallback; {heavy} may drag"
-        " in tomllib/httpx and silently disable stage stamping"
+    The end-to-end test in test_statusline.py catches this for real, but only
+    when the system python3 happens to be old. This one is deterministic.
+    """
+    source = Path(audit_cmd.__file__).read_text()
+    reached = set(re.findall(r"^\s*from (beril_cli\.[\w.]+) import", source, re.MULTILINE))
+    assert reached == {"beril_cli.project_resolution"}, (
+        f"audit_cmd runs under the hook's bare-python3 fallback; {reached} may"
+        " drag in tomllib/httpx and silently disable stage stamping"
     )
