@@ -2,9 +2,9 @@
 
 Covers the wizard's deterministic helpers — the .env parser/writer, repo-root
 discovery, the input prompts, the best-effort BERIL login step, and the pure
-branches of the jupyter-server-proxy installer. The full `run_setup` orchestrator
-(subprocess-heavy, ends in `os.execvp`) is exercised through these units rather
-than end-to-end.
+branches of the jupyter-server-proxy installer — and the `run_setup` orchestrator
+itself, driven end-to-end with its external boundaries (subprocess, config,
+identity detection, proxy install, the final launch) mocked at the module edge.
 """
 
 from __future__ import annotations
@@ -340,3 +340,228 @@ class TestInstallServerProxy:
 
         assert setup_cmd._install_server_proxy(tmp_path, assume_yes=False) == 1
         run.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# run_setup — the wizard orchestrator, driven end-to-end
+#
+# External boundaries are mocked at the module edge: subprocess (git clone,
+# detection script, gh, bootstrap), config load/save, identity detection, the
+# jupyter-proxy installer, and the final launch. Step 2's real .env file logic
+# runs against a tmp_path repo so the parser/writer are exercised in situ.
+# ---------------------------------------------------------------------------
+
+
+def _completed(returncode=0, stdout=""):
+    """A stand-in for subprocess.CompletedProcess."""
+    cp = MagicMock()
+    cp.returncode = returncode
+    cp.stdout = stdout
+    return cp
+
+
+@pytest.fixture
+def repo(tmp_path):
+    """A repo root with the PROJECT.md marker and a .env.example."""
+    (tmp_path / "PROJECT.md").write_text("x")
+    (tmp_path / ".env.example").write_text("KBASE_AUTH_TOKEN=YOUR_AUTH_TOKEN_HERE\n")
+    return tmp_path
+
+
+@pytest.fixture
+def happy_setup(monkeypatch, repo):
+    """Mock every external boundary of run_setup for a clean off-cluster run.
+
+    Individual tests override pieces of this to drive a specific branch. Returns
+    a namespace of the key mocks/paths so assertions can reach them.
+
+    Defaults chosen so the wizard runs start-to-finish and returns 0 without
+    launching: repo is found (no clone), no detect script (off-cluster), venv
+    already present, gh absent, no coding agent detected (so no launch prompt /
+    execvp), no Vertex creds.
+    """
+    monkeypatch.setattr(setup_cmd, "_find_repo_root", lambda: repo)
+    monkeypatch.setattr(setup_cmd, "_run_login_step", MagicMock())
+    monkeypatch.setattr(setup_cmd, "_install_server_proxy", MagicMock(return_value=0))
+    monkeypatch.setattr(setup_cmd, "detect_user_identity", lambda: {})
+    monkeypatch.setattr(setup_cmd, "print_jupyterhub_path_hint", MagicMock())
+    monkeypatch.setattr(setup_cmd.config, "load", lambda: {})
+    saved: dict = {}
+    monkeypatch.setattr(setup_cmd.config, "save", lambda cfg: saved.update({"cfg": cfg}))
+    monkeypatch.setattr(setup_cmd.config, "CONFIG_PATH", repo / "config.toml")
+
+    # No env vars to sync, and _prompt/_confirm never asked to launch.
+    for key in ("KBASE_AUTH_TOKEN", "MINIO_ACCESS_KEY", "MINIO_SECRET_KEY", "MINIO_ENDPOINT_URL"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr(setup_cmd, "_prompt", lambda q, default="": default)
+    monkeypatch.setattr(setup_cmd, "_confirm", lambda *a, **k: True)
+
+    # venv exists → no bootstrap; no coding agent on PATH → no launch/execvp.
+    (repo / ".venv-berdl").mkdir()
+    monkeypatch.setattr(setup_cmd.shutil, "which", lambda name: None)
+
+    # Default: every subprocess call succeeds. Tests can override.
+    run = MagicMock(return_value=_completed(0))
+    monkeypatch.setattr(setup_cmd.subprocess, "run", run)
+
+    ns = MagicMock()
+    ns.repo = repo
+    ns.saved = saved
+    ns.run = run
+    return ns
+
+
+_VERTEX_ENV_KEYS = (
+    "CLAUDE_CODE_USE_VERTEX",
+    "CLOUD_ML_REGION",
+    "ANTHROPIC_VERTEX_PROJECT_ID",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "VERTEX_REGION_CLAUDE_HAIKU_4_5",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+)
+
+
+class TestRunSetupOrchestrator:
+    @pytest.fixture(autouse=True)
+    def _isolate_vertex_env(self, monkeypatch):
+        # run_setup sets Vertex vars on os.environ just before execvp. With
+        # execvp mocked (no process replacement) they would leak into later
+        # tests, so drop them for each test and let monkeypatch restore state.
+        for key in _VERTEX_ENV_KEYS:
+            monkeypatch.delenv(key, raising=False)
+
+    def test_happy_path_returns_0_and_saves_config(self, happy_setup):
+        rc = setup_cmd.run_setup()
+        assert rc == 0
+        # Config was persisted with the resolved default agent.
+        assert "cfg" in happy_setup.saved
+        assert happy_setup.saved["cfg"]["defaults"]["agent"] == "claude"
+
+    def test_creates_env_from_example(self, happy_setup):
+        env_path = happy_setup.repo / ".env"
+        assert not env_path.exists()
+        setup_cmd.run_setup()
+        # .env was created by copying .env.example.
+        assert env_path.exists()
+        assert "KBASE_AUTH_TOKEN" in env_path.read_text()
+
+    def test_syncs_env_token_into_dotenv(self, happy_setup, monkeypatch):
+        monkeypatch.setenv("KBASE_AUTH_TOKEN", "live-token-123")
+        setup_cmd.run_setup()
+        parsed = setup_cmd._parse_env_file(happy_setup.repo / ".env")
+        # The live environment token overwrote the .env.example placeholder.
+        assert parsed["KBASE_AUTH_TOKEN"] == "live-token-123"
+
+    def test_prompts_for_token_when_placeholder(self, happy_setup, monkeypatch):
+        # No env token, .env carries the placeholder → wizard prompts, and a
+        # typed token lands in .env.
+        monkeypatch.setattr(setup_cmd, "_prompt", lambda q, default="": "typed-token")
+        setup_cmd.run_setup()
+        parsed = setup_cmd._parse_env_file(happy_setup.repo / ".env")
+        assert parsed["KBASE_AUTH_TOKEN"] == "typed-token"
+
+    def test_runs_login_step(self, happy_setup):
+        setup_cmd.run_setup()
+        setup_cmd._run_login_step.assert_called_once()
+
+    def test_repo_not_found_and_declined_returns_1(self, monkeypatch):
+        monkeypatch.setattr(setup_cmd, "_find_repo_root", lambda: None)
+        monkeypatch.setattr(setup_cmd, "_confirm", lambda *a, **k: False)
+        run = MagicMock()
+        monkeypatch.setattr(setup_cmd.subprocess, "run", run)
+
+        assert setup_cmd.run_setup() == 1
+        # Declining the clone means git is never invoked.
+        run.assert_not_called()
+
+    def test_repo_not_found_clone_failure_returns_1(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(setup_cmd, "_find_repo_root", lambda: None)
+        monkeypatch.setattr(setup_cmd, "_confirm", lambda *a, **k: True)
+        monkeypatch.setattr(
+            setup_cmd.subprocess, "run", lambda *a, **k: _completed(returncode=1)
+        )
+
+        assert setup_cmd.run_setup() == 1
+
+    def test_off_cluster_bootstrap_failure_returns_1(self, happy_setup, monkeypatch):
+        # No venv, a bootstrap script present, and bootstrap exits non-zero →
+        # run_setup bails with 1 before reaching later steps.
+        import shutil as _shutil
+
+        _shutil.rmtree(happy_setup.repo / ".venv-berdl")
+        (happy_setup.repo / "scripts").mkdir()
+        (happy_setup.repo / "scripts" / "bootstrap_client.sh").write_text("#!/bin/sh\n")
+
+        def fake_run(cmd, *a, **k):
+            if cmd[0] == "bash":  # the bootstrap invocation
+                return _completed(returncode=1)
+            return _completed(0)
+
+        monkeypatch.setattr(setup_cmd.subprocess, "run", fake_run)
+        assert setup_cmd.run_setup() == 1
+
+    def test_on_cluster_skips_bootstrap(self, happy_setup, monkeypatch):
+        # A detection script reporting on-cluster means the venv/bootstrap step
+        # is skipped entirely — bootstrap is never invoked even without a venv.
+        import shutil as _shutil
+
+        _shutil.rmtree(happy_setup.repo / ".venv-berdl")
+        (happy_setup.repo / "scripts").mkdir()
+        (happy_setup.repo / "scripts" / "detect_berdl_environment.py").write_text("x")
+        (happy_setup.repo / "scripts" / "bootstrap_client.sh").write_text("#!/bin/sh\n")
+
+        calls = []
+
+        def fake_run(cmd, *a, **k):
+            calls.append(cmd)
+            if cmd and cmd[-1].endswith("detect_berdl_environment.py"):
+                return _completed(0, stdout='{"location": "on-cluster"}')
+            return _completed(0)
+
+        monkeypatch.setattr(setup_cmd.subprocess, "run", fake_run)
+        assert setup_cmd.run_setup() == 0
+        # bootstrap_client.sh must never be shelled out to on-cluster.
+        assert not any(c and c[0] == "bash" for c in calls)
+
+    def test_launches_agent_when_present_and_confirmed(self, happy_setup, monkeypatch):
+        # A detected agent + confirmed launch reaches os.execvp with the chosen
+        # binary. execvp is patched so the test process is not replaced.
+        monkeypatch.setattr(
+            setup_cmd.shutil, "which",
+            lambda name: "/usr/bin/claude" if name == "claude" else None,
+        )
+        execvp = MagicMock()
+        monkeypatch.setattr(setup_cmd.os, "execvp", execvp)
+
+        setup_cmd.run_setup()
+
+        execvp.assert_called_once()
+        binary, argv = execvp.call_args.args
+        assert binary == "/usr/bin/claude"
+        assert argv[0] == "claude" and "/berdl_start" in argv
+
+    def test_vertex_env_injected_before_launch(self, happy_setup, monkeypatch):
+        # When Vertex is enabled and claude launches, the Vertex env vars are set
+        # on os.environ just before execvp.
+        monkeypatch.setattr(
+            setup_cmd.shutil, "which",
+            lambda name: "/usr/bin/claude" if name == "claude" else None,
+        )
+        # Make ONLY the Vertex credentials path read as present — a blanket
+        # Path.exists patch would also fool Step 2's `env_path.exists()` and
+        # skip creating the .env the wizard then reads back.
+        vertex_path = "/global_share/BERIL-setup/20260507_hackathon.json"
+        real_exists = setup_cmd.Path.exists
+        monkeypatch.setattr(
+            setup_cmd.Path, "exists",
+            lambda self: True if str(self) == vertex_path else real_exists(self),
+        )
+        monkeypatch.setattr(setup_cmd, "_confirm", lambda *a, **k: True)
+        monkeypatch.setattr(setup_cmd.os, "execvp", MagicMock())
+
+        setup_cmd.run_setup()
+
+        assert setup_cmd.os.environ.get("CLAUDE_CODE_USE_VERTEX") == "1"
+        assert setup_cmd.os.environ.get("ANTHROPIC_VERTEX_PROJECT_ID") == "beril-hackathon-2026"
+        # Vertex config was also persisted.
+        assert happy_setup.saved["cfg"]["vertex"]["enabled"] is True
