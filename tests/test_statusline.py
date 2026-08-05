@@ -121,7 +121,7 @@ def _repo(tmp_path: Path, projects: dict) -> Path:
 
 
 def _render(repo: Path, session_id: str = "no-such-session", cwd=None, added=(),
-            model=None) -> str:
+            model=None, cost=None) -> str:
     payload = {
         "session_id": session_id,
         "workspace": {
@@ -132,6 +132,8 @@ def _render(repo: Path, session_id: str = "no-such-session", cwd=None, added=(),
     }
     if model is not None:
         payload["model"] = model
+    if cost is not None:
+        payload["cost"] = {"total_cost_usd": cost}
     done = subprocess.run(
         ["bash", str(STATUSLINE)],
         input=json.dumps(payload),
@@ -695,3 +697,35 @@ def test_a_write_that_merely_cites_another_project_does_not_rebind(tmp_path):
 
     assert "my_work" in line
     assert "other_proj" not in line, "citing another project switched the session to it"
+
+
+# --- cost ------------------------------------------------------------------
+#
+# The status line is the ONLY component in this repo that observes cost: no hook
+# payload carries it (verified against SessionStart, PostToolUse and Stop) and
+# the transcript records token counts, not dollars. So it is also the only place
+# that can persist it, and these pin that it does.
+
+
+def _cost(repo: Path, pid: str = "demo"):
+    data = json.loads((repo / "projects" / pid / "runtime.json").read_text())
+    return data["sessions"][0].get("cost")
+
+
+def test_the_statusline_records_cost_for_the_project_it_resolved(tmp_path):
+    repo = _repo(tmp_path, {"demo": ["s1"]})
+    out = _render(repo, session_id="s1", cwd=repo / "projects" / "demo", cost=4.12)
+    assert "$4.12" in out  # still displayed
+    cost = _cost(repo)
+    assert cost["usd"] == 4.12
+    assert cost["observer"] == "claude-code-statusline"
+
+
+def test_an_unreported_cost_is_not_persisted_as_zero(tmp_path):
+    """The harness omits cost on the very first render. Writing 0.00 there would
+    make an unwatched session indistinguishable from a free one downstream."""
+    repo = _repo(tmp_path, {"demo": ["s1"]})
+    _render(repo, session_id="s1", cwd=repo / "projects" / "demo")
+    assert _cost(repo) is None
+    _render(repo, session_id="s1", cwd=repo / "projects" / "demo", cost=0)
+    assert _cost(repo) is None
