@@ -4,8 +4,12 @@
 # Kept, because you act on them mid-research: which project, what stage it is
 # at, where to watch it, how close context is to running out, and which model is
 # answering.
-# Dropped: cost, elapsed, directory. All true, none of them change what you do
+# Dropped: elapsed, directory. All true, none of them change what you do
 # next while a project is running.
+#
+# Cost was on that dropped list and came back, for the same reason as model: a
+# BERDL project runs for hours across many notebook rounds, and the running
+# total is what tells you a re-run is getting expensive before the bill does.
 #
 # Model was on that dropped list and came back. The reasoning that put it there
 # was that it does not change what you do next, and that is wrong in one
@@ -28,6 +32,9 @@ pct = int(float(d.get("context_window", {}).get("used_percentage") or 0))
 # than "claude-opus-5[1m]". The parenthetical is the half you would actually act
 # on — it is why a long run has not compacted yet.
 model = str((d.get("model") or {}).get("display_name") or "")
+# Session-to-date USD, summed by the harness across every API call including
+# subagents — the script only formats it. Absent on the very first render.
+cost = float((d.get("cost") or {}).get("total_cost_usd") or 0)
 
 C, G, Y, R, DIM, X = "\033[36m", "\033[32m", "\033[33m", "\033[31m", "\033[2m", "\033[0m"
 
@@ -121,6 +128,10 @@ if branch:
 # stray space.
 gauge = f"{heat}{bar}{X} {pct}%"
 line.append(f"{DIM}{model}{X} {gauge}" if model else gauge)
+# Own cell, not shared with the gauge: the gauge is "how much room is left in
+# this window", cost is "what the session has spent". A compact resets one
+# and not the other, so pairing them would read as one number.
+line.append(f"{Y}${cost:.2f}{X}")
 print(" | ".join(line))
 
 if not pdir:
