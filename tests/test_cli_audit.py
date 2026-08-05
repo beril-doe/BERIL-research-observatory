@@ -323,3 +323,92 @@ def test_non_v2_runtime_file_is_replaced_with_fresh_v2_state(repo, monkeypatch):
     assert data["schema_version"] == "2.0"
     assert "legacy_snapshot" not in data
     assert [s["session_id"] for s in data["sessions"]] == ["new-session"]
+
+
+# --- agent cost ------------------------------------------------------------
+#
+# Cost is observable in exactly one place in this repo — the status line's
+# payload. No hook payload carries it (verified against SessionStart,
+# PostToolUse and Stop), so `record_session_cost` is what the status line calls,
+# and everything downstream reads what it wrote.
+
+from beril_cli.audit_cmd import record_session_cost  # noqa: E402
+
+
+def _runtime(repo, project="p1"):
+    return json.loads((repo / "projects" / project / "runtime.json").read_text())
+
+
+def test_cost_lands_on_the_matching_session_record(repo, monkeypatch):
+    _snap(repo, monkeypatch, session_id="s1")
+    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
+    session = _runtime(repo)["sessions"][0]
+    assert session["session_id"] == "s1"
+    assert session["cost"]["usd"] == 4.12
+    assert session["cost"]["counted_usd"] == 0.0
+    assert session["cost"]["observer"] == "claude-code-statusline"
+
+
+def test_cost_creates_a_record_when_the_hook_has_not_written_one(repo):
+    """The status line resolves projects the hook cannot — a session working
+    from the repo root binds by runtime.json only *after* a tool write."""
+    record_session_cost(repo / "projects" / "p1", "s-new", 0.5)
+    data = _runtime(repo)
+    assert data["schema_version"] == "2.0"
+    assert data["sessions"][0]["session_id"] == "s-new"
+    assert data["sessions"][0]["cost"]["usd"] == 0.5
+
+
+@pytest.mark.parametrize("usd", [0, 0.0, -1.0, None, "free"])
+def test_an_unobserved_cost_is_never_recorded_as_zero(repo, monkeypatch, usd):
+    """A missing `cost` key is how a genuinely free stage is told apart from an
+    unwatched one. Recording 0.00 would erase that distinction."""
+    _snap(repo, monkeypatch, session_id="s1")
+    record_session_cost(repo / "projects" / "p1", "s1", usd)
+    assert "cost" not in _runtime(repo)["sessions"][0]
+
+
+def test_no_session_id_records_nothing(repo, monkeypatch):
+    _snap(repo, monkeypatch, session_id="s1")
+    record_session_cost(repo / "projects" / "p1", None, 4.12)
+    assert "cost" not in _runtime(repo)["sessions"][0]
+
+
+def test_an_unchanged_cents_value_does_not_rewrite_the_file(repo, monkeypatch):
+    """The status line renders every turn. Rewriting runtime.json each time
+    would churn a file the hook also writes, for no new information."""
+    _snap(repo, monkeypatch, session_id="s1")
+    path = repo / "projects" / "p1" / "runtime.json"
+    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
+    before = path.stat().st_mtime_ns
+    record_session_cost(repo / "projects" / "p1", "s1", 4.1234)  # same cents
+    assert path.stat().st_mtime_ns == before
+    record_session_cost(repo / "projects" / "p1", "s1", 4.13)  # a cent more
+    assert path.stat().st_mtime_ns != before
+
+
+def test_updating_cost_preserves_what_has_already_been_stamped(repo, monkeypatch):
+    """`counted_usd` is the portion already attributed to a closed stage. A
+    session spans stages, so losing it would re-attribute spend twice."""
+    _snap(repo, monkeypatch, session_id="s1")
+    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
+    data = _runtime(repo)
+    data["sessions"][0]["cost"]["counted_usd"] = 4.12
+    (repo / "projects" / "p1" / "runtime.json").write_text(json.dumps(data))
+    record_session_cost(repo / "projects" / "p1", "s1", 9.80)
+    cost = _runtime(repo)["sessions"][0]["cost"]
+    assert (cost["usd"], cost["counted_usd"]) == (9.80, 4.12)
+
+
+def test_a_snapshot_replace_carries_cost_forward(repo, monkeypatch):
+    """The two writers of runtime.json must not clobber each other. Only the
+    status line can see cost; only the hook can see the model. A re-snapshot
+    replaces the whole session record, so it has to keep the half it cannot
+    observe or every model switch would erase the session's spend."""
+    _snap(repo, monkeypatch, session_id="s1", model="claude-opus-5")
+    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
+    session = _snap(repo, monkeypatch, session_id="s1", model="claude-sonnet-5")[
+        "sessions"
+    ][0]
+    assert session["agent"]["model_id"] == "claude-sonnet-5"
+    assert session["cost"]["usd"] == 4.12

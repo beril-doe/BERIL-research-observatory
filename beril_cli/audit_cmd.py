@@ -24,6 +24,25 @@ from beril_cli.project_resolution import resolve_project
 RUNTIME_FILE = "runtime.json"
 RUNTIME_SCHEMA_VERSION = "2.0"
 
+#: Who observed a cost figure. There is exactly one candidate: no hook payload
+#: carries cost (verified against SessionStart, PostToolUse and Stop — all three
+#: omit it), and the session transcript records token counts, not dollars, so
+#: deriving USD would mean shipping and maintaining a per-model price table.
+#: ``.claude/statusline.sh`` receives ``cost.total_cost_usd`` and calls
+#: ``record_session_cost`` below; this module owns the file it writes into.
+COST_OBSERVER = "claude-code-statusline"
+
+#: Part of the record, not documentation: the figure is a floor over one
+#: harness, and it says so in the file a reviewer opens at PR time.
+AGENT_COST_NOTE = (
+    "Agent cost observed by Claude Code only. Work done by a human or by "
+    "another agent is not counted, so this is a floor, not a project total."
+)
+
+#: The lifecycle ``status:`` of a project, read the same way ``_actor`` reads
+#: the ORCID out of the same file — by regex, for the reasons in ``block_span``.
+_STATUS = re.compile(r"^status:\s*[\"']?([A-Za-z][\w-]*)", re.MULTILINE)
+
 #: The observatory's fixed lakehouse warehouse (per tools/lakehouse_upload.py) —
 #: a default label for this observatory, not an observed per-project fact.
 TENANT = "tenant-general-warehouse/microbialdiscoveryforge"
@@ -287,6 +306,91 @@ def _build_runtime(session_id: str, payload: dict, project_dir: Path) -> dict:
     return snapshot
 
 
+def _read_runtime(path: Path) -> dict | None:
+    """The runtime state at ``path``, or None if it is missing or unreadable."""
+    try:
+        state = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError, ValueError):
+        return None
+    return state if isinstance(state, dict) else None
+
+
+def _write_runtime(path: Path, state: dict) -> None:
+    """Atomic, because the status line and the hook both write this file."""
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(state, indent=2) + "\n")
+    os.replace(tmp, path)
+
+
+def record_session_cost(project_dir: Path, session_id: str | None, usd) -> None:
+    """Record the status line's session-to-date USD on this session's record.
+
+    Called from ``.claude/statusline.sh`` — see ``COST_OBSERVER`` for why that is
+    the only caller there can be. The harness sums this across every API call in
+    the session, subagents included; this only stores it.
+
+    **A zero is never recorded.** An unobserved session has no ``cost`` key at
+    all, which is what lets a genuinely free stage be told apart from an
+    unwatched one when the ledger is stamped. That is the same rule the rest of
+    this module follows: fields are omitted when absent, never fabricated.
+
+    Writes only when the *cents* value changed, so an ordinary turn costs one
+    small read and no write — the status line renders every turn, and this file
+    is also written by the hook.
+    """
+    if not isinstance(session_id, str) or not session_id.strip():
+        return
+    try:
+        usd = round(float(usd), 2)
+    except (TypeError, ValueError):
+        return
+    if usd <= 0:
+        return
+    session_id = session_id.strip()
+
+    project_dir = Path(project_dir)
+    path = project_dir / RUNTIME_FILE
+    state = _read_runtime(path) or {}
+    sessions = state.get("sessions")
+    if state.get("schema_version") != RUNTIME_SCHEMA_VERSION or not isinstance(
+        sessions, list
+    ):
+        # Same rule as the snapshot writer: a missing, corrupt, or non-schema-2
+        # file starts a fresh v2 history rather than being merged into.
+        state, sessions = {}, []
+    sessions = [item for item in sessions if isinstance(item, dict)]
+
+    record = next(
+        (item for item in sessions if item.get("session_id") == session_id), None
+    )
+    if record is None:
+        # The status line resolves a project by signals the hook does not have
+        # (cwd at launch, /add-dir), so it can be first to know about a session.
+        record = {"session_id": session_id, "observed_at": _now_iso()}
+        sessions.append(record)
+
+    prior = record.get("cost")
+    prior = prior if isinstance(prior, dict) else {}
+    if prior.get("usd") == usd:
+        return
+    record["cost"] = {
+        "usd": usd,
+        # Preserved, never reset: it is the portion already attributed to a
+        # closed stage, and a session outlives the stage it started in.
+        "counted_usd": prior.get("counted_usd", 0.0),
+        "observed_at": _now_iso(),
+        "observer": COST_OBSERVER,
+    }
+    state.update(
+        {
+            "schema_version": RUNTIME_SCHEMA_VERSION,
+            "project": project_dir.name,
+            "sessions": sessions,
+        }
+    )
+    _write_runtime(path, state)
+
+
 def _effective_session(session: dict) -> dict:
     """Remove observation timestamps before idempotency comparison."""
     effective = {key: value for key, value in session.items() if key != "observed_at"}
@@ -313,12 +417,7 @@ def run_runtime_snapshot(args: argparse.Namespace) -> int:
         if project_dir is None:
             return 0
         path = project_dir / RUNTIME_FILE
-        existing = {}
-        if path.exists():
-            try:
-                existing = json.loads(path.read_text())
-            except (json.JSONDecodeError, ValueError):
-                existing = {}
+        existing = _read_runtime(path) or {}
         snapshot = _build_runtime(session_id.strip(), payload, project_dir)
         if existing.get("schema_version") == RUNTIME_SCHEMA_VERSION and isinstance(
             existing.get("sessions"), list
@@ -339,6 +438,13 @@ def run_runtime_snapshot(args: argparse.Namespace) -> int:
             None,
         )
         if prior_index is not None:
+            # Cost is the one field this writer cannot observe (see
+            # COST_OBSERVER), so carry it across the replace rather than
+            # dropping it. The value is identical, so the idempotency check
+            # below is unaffected by having done so.
+            prior_cost = sessions[prior_index].get("cost")
+            if isinstance(prior_cost, dict):
+                snapshot["cost"] = prior_cost
             if _effective_session(sessions[prior_index]) == _effective_session(
                 snapshot
             ):
@@ -355,9 +461,7 @@ def run_runtime_snapshot(args: argparse.Namespace) -> int:
                 "sessions": sessions,
             }
         )
-        tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-        tmp.write_text(json.dumps(state, indent=2) + "\n")
-        os.replace(tmp, path)
+        _write_runtime(path, state)
     except Exception:
         # Best-effort: snapshotting must never block a session.
         return 0
