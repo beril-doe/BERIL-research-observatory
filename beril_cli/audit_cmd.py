@@ -391,6 +391,133 @@ def record_session_cost(project_dir: Path, session_id: str | None, usd) -> None:
     _write_runtime(path, state)
 
 
+def _project_status(project_dir: Path) -> str | None:
+    """The lifecycle ``status:`` from beril.yaml, or None if absent."""
+    try:
+        text = (project_dir / "beril.yaml").read_text()
+    except OSError:
+        return None
+    match = _STATUS.search(text)
+    return match.group(1) if match else None
+
+
+def _stage_entry(sessions: list[dict], stage: str, ended_at: str) -> dict:
+    """The ledger entry for a stage that just ended.
+
+    The stage's cost is the *uncounted remainder* of every session's spend, not
+    the spend of sessions that started inside it. A session outlives the stage
+    it started in, so a window would misattribute a long research session's
+    later work — and a fresh worktree (whose ``counted_usd`` starts at zero for
+    its own new sessions only) would double-count under any running total.
+    """
+    total = 0.0
+    observed = 0
+    for session in sessions:
+        cost = session.get("cost")
+        if not isinstance(cost, dict):
+            continue
+        try:
+            # max(): the harness total is monotonic within a session, but a
+            # remainder must never go negative if that ever stops being true.
+            delta = max(
+                0.0, float(cost.get("usd") or 0) - float(cost.get("counted_usd") or 0)
+            )
+        except (TypeError, ValueError):
+            continue
+        if delta > 0:
+            total += delta
+            observed += 1
+    entry = {"stage": stage, "ended_at": ended_at, "sessions_observed": observed}
+    if observed:
+        # Omitted, never zeroed, when nothing was observed: `usd: 0.00` reads as
+        # "this stage was free", a missing key reads as "nobody watched".
+        entry["usd"] = round(total, 2)
+    return entry
+
+
+def _append_stage(manifest: Path, entry: dict) -> bool:
+    """Append one entry to beril.yaml's ``agent_cost`` block. True if written.
+
+    Appended in place rather than rebuilt from the runtime history, because
+    ``runtime.json`` is gitignored — the manifest is the durable record, and
+    rebuilding it would need to read YAML back. ``block_span`` is shared with
+    ``beril approve``, the only other writer of this file.
+    """
+    from beril_cli.approve_cmd import block_span
+
+    try:
+        text = manifest.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    rendered = f"    - stage: {entry['stage']}\n"
+    rendered += f'      ended_at: "{entry["ended_at"]}"\n'
+    if "usd" in entry:
+        rendered += f"      usd: {entry['usd']:.2f}\n"
+    rendered += f"      sessions_observed: {entry['sessions_observed']}\n"
+
+    span = block_span(text, "agent_cost:")
+    if span is None:
+        if text and not text.endswith("\n"):
+            text += "\n"
+        text += (
+            "agent_cost:\n"
+            "  observed_by: claude-code\n"
+            f'  note: "{AGENT_COST_NOTE}"\n'
+            "  stages:\n"
+        ) + rendered
+    else:
+        text = text[: span[1]] + rendered + text[span[1] :]
+    try:
+        manifest.write_text(text, encoding="utf-8")
+    except OSError:
+        return False
+    return True
+
+
+def _stamp_stage_boundary(
+    project_dir: Path, state: dict, sessions: list[dict]
+) -> bool:
+    """Close the stage that just ended when beril.yaml's status has changed.
+
+    The boundary is detected here rather than by the skills that perform it
+    because there is nowhere else to put it: ``approve_cmd`` is the only code in
+    the repo that writes ``beril.yaml``, and it records ``plan_approval``, not
+    ``status`` — ``research-plan/SKILL.md`` says outright that "Setting
+    ``status: active`` records nothing". All six lifecycle transitions are
+    agent-written YAML with no code path, so a stamp hung off an existing writer
+    would cover one boundary out of six. The PostToolUse hook fires on the very
+    edit that performs a transition, and so witnesses all six.
+
+    Mutates ``state`` and ``sessions`` in place; the caller writes runtime.json
+    once. Returns True when it changed something.
+
+    ponytail: last-writer-wins across concurrent sessions in one clone. Each
+    file stays valid (os.replace), but two simultaneous stamps could duplicate
+    an entry or lose a counted_usd update. Per-project locking if it is ever
+    actually observed.
+    """
+    status = _project_status(project_dir)
+    if not status:
+        return False
+    last = state.get("last_status")
+    if last == status:
+        return False
+    state["last_status"] = status
+    if not last:
+        # Nothing to close. runtime.json is gitignored, so this is also what a
+        # fresh worktree does on its first snapshot — spend earned in another
+        # clone was either already stamped there or was never observed here.
+        return True
+    if not _append_stage(project_dir / "beril.yaml", _stage_entry(sessions, last, _now_iso())):
+        state["last_status"] = last  # nothing recorded — retry on the next write
+        return False
+    for session in sessions:
+        cost = session.get("cost")
+        if isinstance(cost, dict) and "usd" in cost:
+            cost["counted_usd"] = cost["usd"]
+    return True
+
+
 def _effective_session(session: dict) -> dict:
     """Remove observation timestamps before idempotency comparison."""
     effective = {key: value for key, value in session.items() if key != "observed_at"}
@@ -437,6 +564,7 @@ def run_runtime_snapshot(args: argparse.Namespace) -> int:
             ),
             None,
         )
+        changed = True
         if prior_index is not None:
             # Cost is the one field this writer cannot observe (see
             # COST_OBSERVER), so carry it across the replace rather than
@@ -448,8 +576,9 @@ def run_runtime_snapshot(args: argparse.Namespace) -> int:
             if _effective_session(sessions[prior_index]) == _effective_session(
                 snapshot
             ):
-                return 0
-            sessions[prior_index] = snapshot
+                changed = False
+            else:
+                sessions[prior_index] = snapshot
         else:
             sessions.append(snapshot)
 
@@ -461,6 +590,15 @@ def run_runtime_snapshot(args: argparse.Namespace) -> int:
                 "sessions": sessions,
             }
         )
+        # Runs even when the session record is unchanged — which is the normal
+        # case here, not an edge one. Nothing in a snapshot depends on lifecycle
+        # status, so the very edit that performs a transition produces a
+        # byte-identical record, and returning early on that would mean the
+        # boundary is never witnessed at all.
+        if _stamp_stage_boundary(project_dir, state, sessions):
+            changed = True
+        if not changed:
+            return 0
         _write_runtime(path, state)
     except Exception:
         # Best-effort: snapshotting must never block a session.

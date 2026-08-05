@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 import os
+import re
 
 import pytest
 
@@ -412,3 +413,178 @@ def test_a_snapshot_replace_carries_cost_forward(repo, monkeypatch):
     ][0]
     assert session["agent"]["model_id"] == "claude-sonnet-5"
     assert session["cost"]["usd"] == 4.12
+
+
+# --- the per-stage ledger --------------------------------------------------
+#
+# The boundary is detected here rather than by the skills that perform it,
+# because approve_cmd is the ONLY code in the repo that writes beril.yaml and it
+# records plan_approval, not status: all six lifecycle transitions are
+# agent-written YAML with no code path at all. The PostToolUse hook fires on the
+# very edit that performs one, so it is the only automatic witness available.
+
+
+def _yaml(repo, project="p1"):
+    return (repo / "projects" / project / "beril.yaml").read_text()
+
+
+def _set_status(repo, status, project="p1"):
+    """Edit `status:` in place, the way a skill performing a transition does.
+
+    Rewriting the whole manifest instead would silently wipe the ledger being
+    tested and make a passing append look like a failing one.
+    """
+    manifest = repo / "projects" / project / "beril.yaml"
+    text = manifest.read_text()
+    if re.search(r"^status:", text, re.MULTILINE):
+        # Only the value, keeping any trailing comment — that is what an editor
+        # performing a transition does, and this test file asserts elsewhere
+        # that the ledger writer leaves such comments alone.
+        text = re.sub(
+            r"^status:(\s*)[^\s#]+", rf"status:\g<1>{status}", text, count=1, flags=re.M
+        )
+    else:
+        text += f"status: {status}\n"
+    manifest.write_text(text)
+
+
+def test_the_first_observation_closes_no_stage(repo, monkeypatch):
+    """There is no prior stage to close. runtime.json is gitignored, so this is
+    also what every fresh worktree does on its first snapshot."""
+    _set_status(repo, "exploration")
+    assert _snap(repo, monkeypatch)["last_status"] == "exploration"
+    assert "agent_cost" not in _yaml(repo)
+
+
+def test_an_unchanged_status_closes_no_stage(repo, monkeypatch):
+    _set_status(repo, "exploration")
+    _snap(repo, monkeypatch)
+    _snap(repo, monkeypatch, session_id="s2")
+    assert "agent_cost" not in _yaml(repo)
+
+
+def test_a_transition_stamps_the_stage_that_just_ended(repo, monkeypatch):
+    _set_status(repo, "exploration")
+    _snap(repo, monkeypatch)
+    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
+    _set_status(repo, "proposed")
+    data = _snap(repo, monkeypatch)
+
+    text = _yaml(repo)
+    assert "agent_cost:" in text
+    assert "observed_by: claude-code" in text
+    assert "- stage: exploration" in text
+    assert "usd: 4.12" in text
+    assert "sessions_observed: 1" in text
+    # The stage that ENDED is stamped; the new one is now what's being watched.
+    assert data["last_status"] == "proposed"
+    # ...and its spend is marked consumed so the next stage cannot re-count it.
+    assert data["sessions"][0]["cost"]["counted_usd"] == 4.12
+
+
+def test_a_stage_nobody_watched_omits_usd_rather_than_recording_zero(
+    repo, monkeypatch
+):
+    """`usd: 0.00` reads as "this stage was free". A missing key reads as
+    "nobody watched", which is the true statement."""
+    _set_status(repo, "exploration")
+    _snap(repo, monkeypatch)
+    _set_status(repo, "proposed")
+    _snap(repo, monkeypatch)
+    text = _yaml(repo)
+    assert "- stage: exploration" in text
+    assert "sessions_observed: 0" in text
+    assert "usd:" not in text
+
+
+def test_a_session_spanning_two_stages_is_never_counted_twice(repo, monkeypatch):
+    """One session outlives the stage it started in. Each stage gets the spend
+    earned inside it, and the total across stages equals what was observed."""
+    _set_status(repo, "exploration")
+    _snap(repo, monkeypatch)
+    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
+    _set_status(repo, "proposed")
+    _snap(repo, monkeypatch)
+    record_session_cost(repo / "projects" / "p1", "s1", 9.80)  # same session
+    _set_status(repo, "active")
+    _snap(repo, monkeypatch)
+
+    stages = re.findall(r"- stage: (\w+)\n.*?\n(?:      usd: ([\d.]+)\n)?", _yaml(repo))
+    assert stages == [("exploration", "4.12"), ("proposed", "5.68")]
+
+
+def test_a_demotion_is_stamped_like_any_other_boundary(repo, monkeypatch):
+    """/synthesize and /berdl-review both demote reviewed -> analysis. A stage
+    name may therefore repeat; deltas make double-counting impossible anyway."""
+    _set_status(repo, "reviewed")
+    _snap(repo, monkeypatch)
+    record_session_cost(repo / "projects" / "p1", "s1", 2.00)
+    _set_status(repo, "analysis")
+    _snap(repo, monkeypatch)
+    assert "- stage: reviewed" in _yaml(repo)
+    assert "usd: 2.00" in _yaml(repo)
+
+
+def test_the_stamp_fires_even_when_the_session_snapshot_is_unchanged(
+    repo, monkeypatch
+):
+    """Nothing in a session snapshot depends on lifecycle status, so the very
+    edit that performs a transition usually produces a byte-identical record --
+    and that is exactly the event this has to catch. The snapshot writer's
+    idempotency short-circuit must not swallow it."""
+    _set_status(repo, "active")
+    _snap(repo, monkeypatch)
+    record_session_cost(repo / "projects" / "p1", "s1", 3.00)
+    (repo / "projects" / "p1" / "beril.yaml").write_text(
+        "project_id: p1\nstatus: analysis\n"
+    )
+    _snap(repo, monkeypatch)  # identical payload -> identical session record
+    assert "- stage: active" in _yaml(repo)
+
+
+def test_the_ledger_preserves_comments_and_other_blocks(repo, monkeypatch):
+    manifest = repo / "projects" / "p1" / "beril.yaml"
+    manifest.write_text(
+        "project_id: p1\n"
+        "status: exploration          # exploration | proposed | active\n"
+        "approval:\n"
+        '  by: "0000-0001-9076-6066"\n'
+        "\n"
+        "# trailing note about submissions\n"
+        "submissions: []\n"
+    )
+    _snap(repo, monkeypatch)
+    record_session_cost(repo / "projects" / "p1", "s1", 1.50)
+    _set_status(repo, "proposed")
+    _snap(repo, monkeypatch)
+
+    text = manifest.read_text()
+    assert "# exploration | proposed | active" in text
+    assert "# trailing note about submissions" in text
+    assert '  by: "0000-0001-9076-6066"' in text
+    assert "submissions: []" in text
+    assert "- stage: exploration" in text
+
+
+def test_a_second_stage_appends_without_disturbing_the_first(repo, monkeypatch):
+    _set_status(repo, "exploration")
+    _snap(repo, monkeypatch)
+    record_session_cost(repo / "projects" / "p1", "s1", 1.00)
+    _set_status(repo, "proposed")
+    _snap(repo, monkeypatch)
+    record_session_cost(repo / "projects" / "p1", "s1", 3.00)
+    _set_status(repo, "active")
+    _snap(repo, monkeypatch)
+
+    text = _yaml(repo)
+    assert text.count("agent_cost:") == 1
+    assert text.index("- stage: exploration") < text.index("- stage: proposed")
+    assert "usd: 1.00" in text and "usd: 2.00" in text
+
+
+def test_a_project_with_no_status_stamps_nothing(repo, monkeypatch):
+    """61 of 78 projects have no beril.yaml status at all."""
+    (repo / "projects" / "p1" / "beril.yaml").write_text("project_id: p1\n")
+    data = _snap(repo, monkeypatch)
+    assert "last_status" not in data
+    assert "agent_cost" not in _yaml(repo)
