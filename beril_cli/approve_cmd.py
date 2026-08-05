@@ -82,37 +82,56 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def block_span(manifest_text: str, key: str) -> tuple[int, int] | None:
+    """Character span of a top-level ``<key>:`` block, or None if it is absent.
+
+    A span rather than a rewrite, because this file has two writers that want
+    opposite things from the same boundary: `_drop_plan_approval` below deletes
+    it, and `audit_cmd._append_stage` inserts a new list entry at its end. It is
+    shared so the two can never disagree about where a block stops — and this is
+    a hand-rolled scanner rather than a YAML round-trip because `pyyaml` is not
+    a core dependency (httpx and certifi are the only two) and `beril.yaml`
+    carries inline comments a dumper would eat.
+
+    Blank and comment lines carry no indentation meaning in YAML, so they cannot
+    end the block on their own: absorbed when more block lines follow, excluded
+    when the next real line is top-level (they belong to whatever comes after).
+    """
+    if not key.endswith(":"):
+        key += ":"
+    offset = 0
+    start = end = None
+    for line in manifest_text.splitlines(keepends=True):
+        if start is not None:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                offset += len(line)  # undecided; `end` stays put unless absorbed
+                continue
+            if line.startswith((" ", "\t")):
+                offset += len(line)
+                end = offset  # absorbs any undecided lines passed over above
+                continue
+            break  # a top-level line — the block ended
+        if line.startswith(key):
+            start = offset
+            offset += len(line)
+            end = offset
+            continue
+        offset += len(line)
+    return None if start is None else (start, end)
+
+
 def _drop_plan_approval(manifest_text: str) -> str:
     """Remove an existing top-level ``plan_approval:`` block (key + indented lines).
 
     Re-approving replaces the record rather than stacking a second block that
     YAML would resolve to whichever came last.
-
-    Blank and comment lines carry no indentation meaning in YAML, so they cannot
-    end the block on their own: dropped when more block lines follow, kept when
-    the next real line is top-level (they belong to whatever comes after).
     """
-    kept: list[str] = []
-    pending: list[str] = []  # blank/comment lines of undecided membership
-    skipping = False
-    for line in manifest_text.splitlines(keepends=True):
-        if skipping:
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                pending.append(line)
-                continue
-            if line.startswith((" ", "\t")):
-                pending.clear()
-                continue
-            skipping = False
-            kept.extend(pending)
-            pending.clear()
-        if line.startswith("plan_approval:"):
-            skipping = True
-            continue
-        kept.append(line)
-    kept.extend(pending)
-    return "".join(kept)
+    span = block_span(manifest_text, "plan_approval:")
+    if span is None:
+        return manifest_text
+    start, end = span
+    return manifest_text[:start] + manifest_text[end:]
 
 
 def run_approve(args: argparse.Namespace) -> int:
