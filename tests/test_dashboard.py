@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from tools.dashboard import (  # noqa: E402
+    _cost_readout,
     _rail,
     agent_cost,
     jupyter_python,
@@ -1504,3 +1505,20 @@ def test_the_rail_shows_a_stage_cost_but_never_invents_a_zero(tmp_path):
     assert "floor" in html, "the page must not present this as the project total"
     # Stages the ledger never named carry no figure at all.
     assert _rail("exploration", {}).count("d-cost") == 0
+
+
+def test_the_header_total_sums_only_what_was_observed(tmp_path):
+    """The rail says where the money went; this says how much, which is the
+    question asked before re-running an expensive notebook round."""
+    html = _cost_readout({"exploration": 4.12, "proposed": 5.68, "active": None})
+    assert "$9.80" in html
+    assert "agent cost" in html
+    assert "floor" in html, "the most prominent number on the page must be qualified"
+    assert "1 further stage(s) had no observation" in html
+
+
+def test_no_observation_shows_no_total_at_all(tmp_path):
+    """A project finished before this shipped, or worked by a human, must not
+    get a confident $0.00 in the header."""
+    assert _cost_readout({}) == ""
+    assert _cost_readout({"exploration": None, "proposed": None}) == ""

@@ -1074,6 +1074,36 @@ def _rail(stage: str, cost: dict | None = None) -> str:
     return '<ol class="d-rail" aria-live="polite">' + "".join(items) + "</ol>"
 
 
+def _cost_readout(cost: dict) -> str:
+    """The project total, as a header readout beside `last activity`.
+
+    The rail answers "where did the money go"; this answers "how much", which is
+    the question you ask before deciding whether to re-run a notebook round.
+
+    Omitted entirely when no stage has an observation — a project worked on
+    before this shipped, or by a human, would otherwise get a confident `$0.00`
+    in the most prominent row on the page. Stages recorded with no observation
+    contribute nothing and are counted in the tooltip instead, so the total is
+    never quietly padded with zeros.
+    """
+    observed = [usd for usd in cost.values() if usd is not None]
+    if not observed:
+        return ""
+    missing = len(cost) - len(observed)
+    plural = "" if len(observed) == 1 else "s"
+    title = (
+        f"Agent cost observed by Claude Code across {len(observed)} stage{plural}"
+        " — a floor, not a project total: work by a human or another agent is"
+        " not counted."
+    )
+    if missing:
+        title += f" {missing} further stage(s) had no observation at all."
+    return (
+        f'<span class="d-read" title="{e(title)}">'
+        f"<b>${sum(observed):.2f}</b><i>agent cost</i></span>"
+    )
+
+
 def _open_href(routes: JupyterRoutes | None, path: str) -> str:
     """Where a document link points: a Jupyter viewer that renders it when one
     exists and we can reach it, otherwise the relative file the dashboard serves
@@ -1441,6 +1471,7 @@ def render(state: State, css: str, live: bool = True) -> str:
         '<span class="d-read">'
         f'<b data-epoch="{state.first_activity}" data-mode="since"></b>'
         "<i>elapsed</i></span>"
+        f"{_cost_readout(state.cost)}"
         "</div>"
         f"{_rail(state.stage, state.cost)}"
         f"{now_card}"
