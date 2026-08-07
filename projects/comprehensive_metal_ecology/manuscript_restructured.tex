@@ -39,35 +39,32 @@ bacterial ecological breadth within a pervasive genome-streamlining landscape}
 % ─────────────────────────────────────────────────────────────────────────────
 
 \begin{abstract}
-Genome streamlining theory and the Black Queen Hypothesis (BQH) make opposing
-predictions for metal-cofactor biosynthesis genes in ecological specialists:
-streamlining predicts retention because non-substitutable cofactors cannot be
-acquired by cross-feeding, while BQH predicts erosion wherever costly products
-such as cobalamin are released and shared among neighbours. We tested these
-predictions across 1,574 bacterial genera using phylogenetic generalised least
-squares (PGLS), combining per-megabase KEGG Orthology (KO) density from KBase
-pangenomes with standardised Levins' niche breadth from 462,716 global 16S
-amplicon samples (MicrobeAtlas~\cite{rodrigues2026}). The main finding is an
-internal functional split confirmed across four independent niche axes by
-permutation ($\Delta\beta = 0.035$, $p < 0.001$). Seven pre-curated cofactor
-biosynthesis KOs spanning Fe--S cluster assembly, molybdopterin, and cobalamin
-pathways show negative niche-breadth scaling equal to the housekeeping baseline
-($\beta = -0.033$, $p = 5.2 \times 10^{-9}$); a leave-one-KO-out jackknife
-confirms the signal is distributed across all four testable genes.
-Pathway-level PGLS on an expanded 47-KO set identifies cobalamin biosynthesis
-(18 KOs; $\beta = -0.011$, $p = 0.008$) as the sole pathway with an independent
-cross-biome niche constraint; heme, molybdopterin, siroheme, and Fe--S cluster
-assembly are individually null. Resistance and detoxification KOs (106 KOs) are
-uncorrelated with cross-biome breadth ($\beta \approx 0$, $p = 0.66$) despite
-positive geochemical and co-occurrence centrality signals. Across all 140
-primary metal KOs, per-Mb density declines with niche breadth
-($\beta = -0.021$, 95\% CI $[-0.029, -0.013]$, $p = 2.1 \times 10^{-8}$,
-Pagel's $\lambda = 0.757$, $\Delta$AIC $= -29.4$), a signal embedded within a
-pervasive KEGG-wide streamlining landscape; the aggregate association does not
-survive coreness-matched permutation, placing the relevant empirical contrast at
-the level of the functional split. The pattern is consistent with specialists
-occupying niches where cross-feeding partners are unavailable, making
-constitutive cobalamin retention the cost of ecological isolation.
+Metal-processing genes fall into two functionally and ecologically distinct
+classes, and only one predicts where bacteria live. We identify a functional
+split within the 140-KO primary metal-gene set across 1,574 bacterial genera,
+using phylogenetic generalised least squares (PGLS) on KEGG Orthology
+density from KBase pangenomes combined with standardised Levins' niche breadth
+from 462,716 global 16S amplicon samples (MicrobeAtlas~\cite{rodrigues2026};
+GTDB r214). Cofactor biosynthesis KOs (Fe--S cluster, molybdopterin,
+cobalamin; 7 KOs) scale negatively with cross-biome niche breadth at the
+housekeeping baseline ($\beta = -0.033$, $p = 5.2 \times 10^{-9}$); resistance
+and detoxification KOs (106 KOs) are null on niche breadth ($\beta \approx 0$,
+$p = 0.66$) but positive on geochemical breadth and co-occurrence centrality.
+The split magnitude ($\Delta\beta = 0.035$) is validated by permutation
+($p < 0.001$) and exceeds the equivalent contrast in three comparison
+gene families. Expanding to module-level pathway completeness, cobalamin
+biosynthesis (KEGG M00122\,+\,M00924; 1,543 genera) is the \emph{sole}
+pathway with an independent cross-biome niche constraint after genome-size
+control ($\beta = -0.017$, $p = 8.4 \times 10^{-5}$, $\lambda = 0.70$);
+eight other essential biosynthetic pathways---heme, molybdopterin, Fe--S
+cluster, riboflavin, thiamine, biotin, amino acid biosynthesis, and nucleotide
+biosynthesis---are individually null. A within-genus scan of cobalamin KOs
+against soil metal concentrations confirms zero inducible signal (all BH
+$q > 0.15$), establishing that the cobalamin constraint is a cross-biome
+macroecological pattern, not a local metal-stress response. The aggregate
+140-KO association ($\beta = -0.021$) does not survive coreness-matched
+permutation (emp.\ $p = 0.31$); the relevant empirical contrast is the
+functional split, not the aggregate.
 \end{abstract}
 
 \begin{keywords}
@@ -176,8 +173,261 @@ capacity is the mechanistic driver most consistent with the observed pattern.
 
 % ── 3.1 The Streamlining Landscape ──────────────────────────────────────────
 
-\subsection{The streamlining landscape: per-Mb gene density is negatively
-associated with niche breadth across 14 of 19 KEGG functional categories}
+\subsection{The cofactor--resistance split}
+\label{ss:polarity}
+\label{ss:split}
+
+The central finding of this study is an internal functional split within
+the 140-KO primary metal-gene set. On the primary axis (cross-biome Levins'
+$B_\text{std}$), resistance and detoxification genes (106 KOs) are null
+($\beta \approx 0$, $p = 0.66$) while cofactor biosynthesis genes (7 KOs)
+show a negative association equal to housekeeping gene benchmarks
+(ribosomal proteins $\beta \approx -0.029$--$-0.034$; see \S\ref{ss:landscape};
+$\beta_{\text{cofactor}} = -0.033$, SE $= 0.005$, $p = 5.2 \times 10^{-9}$). This split
+magnitude ($\Delta\beta = 0.035$) is validated by permutation ($p < 0.001$)
+and exceeds the equivalent split in three comparison gene families (ABC
+transporters, AMR, two-component systems).
+
+On the secondary axes (Figure~\ref{fig:multiaxis}, Table~\ref{tab:4}),
+resistance genes show positive geochemical breadth ($\beta = +0.073$,
+$p = 0.013$) and co-occurrence degree ($\beta = +4.1$, $p < 10^{-6}$),
+indicating that resistance-rich genera occupy a wide geochemical niche and
+are ecological hubs without being cross-biome generalists. The cofactor
+signal does not replicate on geochemical breadth ($p = 0.46$) or
+co-occurrence degree ($p = 0.003$, but positive---same direction as
+resistance); it is marginally negative on soil niche breadth ($p = 0.022$).
+The multi-axis pattern therefore reflects \emph{resistance polarity}---null
+on Levins' $B$ but positive on geochem/co-occurrence---rather than cofactor
+replication across all axes. Expanded pathway-level PGLS
+(\S\ref{ss:cobalamin}) shows that cobalamin biosynthesis is the sole
+independently significant pathway; Fe--S cluster assembly and molybdopterin
+are individually null.
+
+Separating the 140-KO primary set by functional category reveals a
+mechanistically interpretable internal split (Table~\ref{tab:4}). Resistance
+and detoxification genes (106 KOs---direct efflux, reductases, sequestration)
+show no association with niche breadth ($\beta = +0.003$, SE $= 0.006$,
+$p = 0.656$), consistent with HGT-mediated decoupling of resistance gene
+content from ecological specialisation~\cite{pal2015,gios2025}---a mechanism
+inferred here from genome-level phylogenetic randomness (Fritz \& Purvis D;
+Supplementary Table~S3), genus-level Pagel's $\lambda$ near zero, and
+database-level plasmid enrichment tests, rather than direct genomic measurement
+(see Limitations and Future Directions). All four
+metabolically constitutive categories are significant. Cofactor biosynthesis
+shows the largest effect ($\beta = -0.033$, SE $= 0.005$, $p = 5.2 \times
+10^{-9}$), equal to the housekeeping streamlining baseline, anchored by 7 KOs
+encoding Fe--S cluster assembly, molybdopterin synthesis, and cobalamin
+pathway genes---constitutively required in organisms dependent on
+metal-cofactor chemistry for core metabolic functions. Six of 140 primary KOs
+(4.3\%; flagged in the curated gene list) carry evidence of dual-category
+membership; each was assigned to the subcategory with the strongest annotated
+functional evidence, and their exclusion does not change any qualitative result.
+
+\begin{table*}[htbp]
+\caption{Internal functional split within the 140-KO primary metal-gene set.
+95\% CI computed as $\beta \pm 1.96 \times \mathrm{SE}$. Non-overlapping CIs
+between Cofactor Biosynthesis ($[-0.043, -0.023]$) and
+Resistance/Detoxification ($[-0.009, +0.015]$) confirm the split.}
+\label{tab:4}
+\centering
+\small
+\begin{tabular}{lrccccl}
+\toprule
+Category & $n$ KOs & $\beta$ & SE & 95\% CI & $p$ (FDR) & Direction \\
+\midrule
+Resistance/Detoxification & 106 & $+0.003$ & 0.006 & $[-0.009, +0.015]$ & 0.656
+  & \textbf{not sig.} \\
+Transport/Homeostasis & 213 & $-0.022$ & 0.005 & $[-0.032, -0.012]$ & $2.8 \times 10^{-5}$
+  & confirmed \\
+Sensing/Regulation & 48 & $-0.018$ & 0.005 & $[-0.028, -0.008]$ & $9.1 \times 10^{-4}$
+  & confirmed \\
+Cofactor Biosynthesis & 7 & $\mathbf{-0.033}$ & 0.005 & $[-0.043, -0.023]$ & $5.2 \times 10^{-9}$
+  & \textbf{strongest} \\
+Metal-dependent Metabolism & 54 & $-0.021$ & 0.005 & $[-0.031, -0.011]$ & $1.2 \times 10^{-4}$
+  & confirmed \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure*}[htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/png/fig03_internal_split.png}
+\caption{\textbf{Internal functional split, permutation validation, and cofactor gene robustness.}
+(A) Forest plot of PGLS $\beta$ for the five functional subcategories within the
+140-KO primary metal-gene set (colours: resistance/detoxification,
+transport/homeostasis, sensing/regulation, cofactor biosynthesis,
+metal-dependent metabolism). Error bars are $\pm 1.96$~SE. BH-FDR $q < 0.05$
+indicated by filled points.
+(B) Split-magnitude permutation distribution. Histogram of $\Delta\beta$
+($\beta_\mathrm{cofactor} - \beta_\mathrm{resistance}$) across 1,000 random
+partitions of the 140-KO set into groups of 7 and 106. Red vertical line marks
+the observed $\Delta\beta = 0.035259$ ($p < 0.001$).
+(C) Cofactor gene jackknife robustness: PGLS $\beta$ for leave-one-KO-out
+remainders (K01772, K02225, K03635, K22225 excluded in turn) confirms the signal
+is distributed across Fe--S cluster, molybdopterin, and cobalamin pathway KOs
+rather than concentrated in any single gene. Full 4-KO estimate ($\beta = -0.033$)
+shown as dashed reference.}
+\label{fig:3}
+\end{figure*}
+
+
+\textbf{IQR-scaled effect size.} To translate the cofactor effect into
+interpretable units: moving from the 25th to 75th percentile of cofactor
+biosynthesis gene density (an interquartile range of $\approx 1.35$ standard
+deviations on the $z$-scored predictor) is associated with a
+$\Delta B_\mathrm{std} \approx 0.045$ decrease in expected cross-biome niche
+breadth on the 0--1 scale ($\beta_\mathrm{cofactor} = -0.033 \times 1.35$).
+For the expanded 47-KO set ($\beta = -0.011$), the same IQR increase corresponds
+to $\Delta B_\mathrm{std} \approx 0.015$.
+
+
+
+\textbf{Non-exclusive functional classification is robust.} A non-exclusive
+classification in which each KO contributed proportionally to all categories
+above a 50\% confidence threshold expanded metal-dependent metabolism from
+1 KO to 93 KOs; the split architecture was unchanged: metal-dependent
+metabolism patterned with resistance ($\beta = +0.001$, $p = 0.93$), not
+cofactors, confirming that constitutive biosynthetic coupling rather than
+gene-family membership drives the niche-breadth association.
+
+\textbf{The internal split is distinctive.} Three comparison categories were
+tested at the same sub-functional resolution to determine whether the
+resistance-null / constitutive-significant contrast is a general feature of
+functionally heterogeneous gene categories (exploratory). AMR
+subcategories are all positive: efflux pumps $\beta = +0.018$ ($q = 0.016$,
+significant); enzymatic inactivation $\beta = +0.006$ ($q = 0.21$); target
+modification $\beta = +0.009$ ($q = 0.19$). Two-component systems are also all
+positive: sensor kinases $\beta = +0.008$ ($q = 0.25$), response regulators
+$\beta = +0.009$ ($q = 0.25$), phosphotransfer $\beta = +0.003$ ($q = 0.68$).
+Among ABC transporters, the only significantly negative subcategory is Lipid/LPS
+export (16 KOs, $\beta = -0.030$, $q = 3.3 \times 10^{-5}$), comparable to
+the metal cofactor biosynthesis signal and likely reflecting constitutive
+outer-membrane lipid maintenance; all other ABC
+substrates are near-zero or positive ($q > 0.25$). The resistance-null /
+constitutive-significant split reflects an architecture in which constitutive
+metabolic coupling to the predictor category drives the association; inducible
+resistance and regulatory gene sets that lack this coupling show no signal.
+The ABC Lipid/LPS comparison confirms that this architecture is a general
+property of composite gene categories that mix constitutive and conditional
+members, not a feature unique to metal biology (see Limitations); what
+distinguishes the metal-gene result is its specific ecological referent:
+cobalt-dependent cobalamin biosynthesis.
+
+\textbf{The split magnitude is quantitatively validated by permutation (exploratory).} A split-magnitude permutation test generated 1,000 random
+partitions of the 140-KO set into groups of sizes 106 and 7 (matching the
+resistance/cofactor group sizes). The observed $\Delta\beta = 0.035259$
+exceeds all 1,000 null splits ($p < 0.001$; null median $\Delta\beta =
+-0.006$, SD $= 0.007$; observed split $\approx 6$~SD above null). This
+confirms the resistance/cofactor contrast is not an artefact of unequal group
+sizes or sampling variance. Among comparison families: ABC transporter $\Delta\beta
+= 0.032$ (Lipid/LPS vs all others), AMR $\Delta\beta = 0.012$, TCS $\Delta\beta
+= 0.006$---all smaller than the metal gene set $\Delta\beta = 0.035$.
+
+\textbf{Resistance KOs have lower pangenome prevalence than cofactor KOs (exploratory).}
+To probe the HGT-mediated decoupling hypothesis, we compared pangenome prevalence
+(coreness: fraction of MAG clusters carrying each KO) for resistance and cofactor
+subcategories using the KBase pangenome ($n = 6{,}680$ KOs with coreness data).
+Cofactor KOs (4 of 7 with data; 3 absent from MGnify MAGs) had 2.2-fold higher
+mean pangenome prevalence than resistance KOs (0.030 vs 0.013;
+Mann--Whitney $p = 0.038$, one-tailed), consistent with cofactor genes being
+more vertically stable and resistance genes being more sporadically distributed
+across the pangenome. This result is directionally consistent with the HGT
+hypothesis but should be interpreted cautiously given the small cofactor $n$.
+Alternative explanations---differential selection pressure, annotation differences,
+and expression-level effects---remain plausible.
+
+\textbf{The cofactor signal is robust to individual KO removal (exploratory).} Of the seven cofactor KOs, three were absent from the MGnify
+MAG dataset and contributed zero density; the jackknife was performed on the
+four KOs with detectable representation (K01772, K02225, K03635, K22225). Every
+3-KO remainder set remains highly significant: K01772 excluded: $\beta = -0.016$
+(SE $= 0.00441$, $p = 0.000222$); K02225 excluded: $\beta = -0.027$
+(SE $= 0.00444$, $p = 1.4 \times 10^{-9}$); K03635 excluded: $\beta = -0.029$
+(SE $= 0.00443$, $p = 1.3 \times 10^{-10}$); K22225 excluded: $\beta = -0.028$
+(SE $= 0.00478$, $p = 8.2 \times 10^{-9}$). No sign changes occurred. The
+signal is distributed across the Fe--S cluster / molybdopterin / cobalamin
+pathway, not concentrated in any single gene.
+
+\textbf{The effect is uniform across nine metals.} Metal-specific KO sets ($n
+= 9$ metals with $\geq 34$ KOs) all show significant negative $\beta$ after
+BH-FDR (Table~\ref{tab:5}). Effect sizes range from $\beta = -0.017$ (Mn) to
+$\beta = -0.027$ (Tl). Uniformity across chemically diverse metals argues
+against any single element driving the signal. Thallium (Tl), aluminium (Al),
+and sulfur (S; a non-metal included because of its role in Fe--S cluster and siroheme biosynthesis) are included with $\geq 34$ primary KOs each; a full
+list of KOs, gene names, evidence tiers, evidence sources, and biochemical
+rationale for each is provided in Supplementary Table~S4; machine-readable
+data are available in the project repository (see Data and Code Availability).
+
+Excluding Al, Tl, and S---elements with fewer dedicated resistance systems and
+less complete functional annotation in the current gene list---does not change
+the qualitative conclusion: the six remaining transition metals (Fe, Ni, Zn, Co,
+Cu, Mn) all retain significant negative $\beta$ after BH-FDR correction (all
+$q \leq 3.8 \times 10^{-4}$), with $\beta$ ranging from $-0.017$ (Mn) to
+$-0.025$ (Fe). Per-metal analyses restricted to Tier~1 and Tier~2 KOs only
+(excluding Tier~3 single-source annotations) produced directionally consistent
+results across all nine metals; the full evidence-tier audit with per-KO literature
+support is provided in Supplementary Table~S2.
+
+\textbf{Non-independence of per-metal KO sets.} The nine metal-specific KO sets
+share substantial numbers of genes, most prominently Co--Ni (43 shared KOs),
+Ni--Cu (18), Co--Zn (17), Fe--Mn (15), and Ni--Zn (13); the full pairwise
+overlap matrix is provided in Supplementary Table~S5
+(\texttt{data/metal\_ko\_overlap\_matrix.csv}). Because the 9 per-metal analyses
+are not statistically independent, BH-FDR cannot be strictly interpreted as
+controlling the family-wise error rate; the near-identical effect sizes
+($\beta = -0.017$ to $-0.027$) and the uniform direction across all nine metals
+suggest that the per-metal results primarily reflect the same underlying
+ecological signal rather than nine independent discoveries.
+
+% ── 3.3 The Multi-Axis Framework ────────────────────────────────────────────
+
+\begin{table}[htbp]
+\caption{Metal-specific PGLS results. BH-FDR across 9 metals.}
+\label{tab:5}
+\centering
+\small
+\begin{tabular}{lrcc}
+\toprule
+Metal & $n$ KOs & $\beta$ & $p$ (FDR) \\
+\midrule
+Tl & 45 & $-0.027$ & $1.1 \times 10^{-8}$ \\
+Fe & 98 & $-0.025$ & $1.2 \times 10^{-7}$ \\
+Ni & 84 & $-0.025$ & $1.9 \times 10^{-7}$ \\
+Zn & 67 & $-0.023$ & $1.1 \times 10^{-6}$ \\
+Al & 34 & $-0.023$ & $8.8 \times 10^{-6}$ \\
+Co & 101 & $-0.022$ & $3.9 \times 10^{-6}$ \\
+S  & 74 & $-0.021$ & $4.9 \times 10^{-5}$ \\
+Cu & 71 & $-0.019$ & $7.7 \times 10^{-5}$ \\
+Mn & 34 & $-0.017$ & $3.8 \times 10^{-4}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure*}[htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/fig01_multiaxis_heatmap.pdf}
+\caption{\textbf{Multi-axis niche comparison reveals divergent ecological
+profiles of resistance and cofactor biosynthesis gene categories.}
+Heatmap of PGLS $\beta$ coefficients (Pagel's $\lambda$ ML, GTDB r214,
+$n = 1{,}547$--$1{,}574$ genera) for six functional-gene categories (rows)
+across four niche axes (columns). Colour intensity is proportional to the
+column-normalised $\beta$ (blue $= $ negative; red $= $ positive); cell text
+shows the raw $\beta$ value. Significance: ${}^{***} p < 0.001$,
+${}^{**} p < 0.01$, ${}^{*} p < 0.05$, ${}^{\dagger} p < 0.10$.
+Metal-cofactor biosynthesis genes are uniquely negative on cross-biome
+Levins' $B$ and marginally negative on soil niche breadth, but null on
+geochemical breadth and positive on co-occurrence degree (same direction as
+resistance). Resistance genes are null on Levins' $B$ but positive on both
+geochemical breadth and co-occurrence degree. Non-metal cofactor/vitamin genes
+show the strongest Levins' $B$ signal.}
+\label{fig:multiaxis}
+\end{figure*}
+
+% ─────────────────────────────────────────────────────────────────────────────
+% 4. RESULTS PART II: Cobalamin biosynthesis drives the cofactor constraint
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Functional landscape: the split sits within a pervasive
+genome-streamlining baseline}
 \label{ss:landscape}
 
 The three pre-specified named negative controls---ribosomal proteins (52 KOs,
@@ -307,251 +557,6 @@ $\lambda$ across 1,000 bootstrap PGLS runs.}
 
 % ── 3.2 The Cofactor vs. Resistance Split ───────────────────────────────────
 
-\subsection{The cofactor--resistance split: systematically opposite ecological
-profiles across four niche axes}
-\label{ss:polarity}
-\label{ss:split}
-
-The central finding of this study is not the magnitude of the aggregate
-metal-gene/niche-breadth association but an internal functional split within
-the 140-KO primary metal-gene set that generates \emph{systematically opposite}
-ecological profiles across four independent niche axes. As shown in
-Figure~\ref{fig:multiaxis} and Table~\ref{tab:4}, resistance and detoxification
-genes---the largest functional class (106 KOs)---are null on cross-biome niche
-breadth ($\beta \approx 0$, $p = 0.66$) but significantly positive for
-geochemical breadth ($\beta = +0.073$, $p = 0.013$) and co-occurrence network
-degree ($\beta = +4.1$, $p < 10^{-6}$): resistance-rich genera occupy a wide
-geochemical niche and are ecological hubs, without being generalists at the
-biome scale. Cofactor biosynthesis genes (7 KOs encoding Fe--S cluster
-assembly, molybdopterin synthesis, and cobalamin pathway genes) show a
-contrasting profile: a cross-biome niche-breadth association equal in magnitude
-to the housekeeping streamlining baseline ($\beta = -0.033$, SE $= 0.005$,
-95\% CI $[-0.043, -0.023]$, $p = 5.2 \times 10^{-9}$) and uniquely
-negative soil niche breadth. (Note: expanded pathway-level PGLS in
-\S\ref{ss:cobalamin} shows that cobalamin biosynthesis is the sole independently
-significant pathway among these three; Fe--S cluster assembly and molybdopterin
-are individually null on cross-biome breadth.)
-The split magnitude ($\Delta\beta = 0.035$) is
-validated by a permutation test ($p < 0.001$) and is larger than the
-equivalent split in three comparison gene families (ABC transporters, AMR,
-two-component systems). Detailed statistics are in \S\ref{ss:split}.
-
-Separating the 140-KO primary set by functional category reveals a
-mechanistically interpretable internal split (Table~\ref{tab:4}). Resistance
-and detoxification genes (106 KOs---direct efflux, reductases, sequestration)
-show no association with niche breadth ($\beta = +0.003$, SE $= 0.006$,
-$p = 0.656$), consistent with HGT-mediated decoupling of resistance gene
-content from ecological specialisation~\cite{pal2015,gios2025}---a mechanism
-inferred here from genome-level phylogenetic randomness (Fritz \& Purvis D;
-Supplementary Table~S3), genus-level Pagel's $\lambda$ near zero, and
-database-level plasmid enrichment tests, rather than direct genomic measurement
-(see Limitations and Future Directions). All four
-metabolically constitutive categories are significant. Cofactor biosynthesis
-shows the largest effect ($\beta = -0.033$, SE $= 0.005$, $p = 5.2 \times
-10^{-9}$), equal to the housekeeping streamlining baseline, anchored by 7 KOs
-encoding Fe--S cluster assembly, molybdopterin synthesis, and cobalamin
-pathway genes---constitutively required in organisms dependent on
-metal-cofactor chemistry for core metabolic functions. Six of 140 primary KOs
-(4.3\%; flagged in the curated gene list) carry evidence of dual-category
-membership; each was assigned to the subcategory with the strongest annotated
-functional evidence, and their exclusion does not change any qualitative result.
-
-\begin{table*}[htbp]
-\caption{Internal functional split within the 140-KO primary metal-gene set.
-95\% CI computed as $\beta \pm 1.96 \times \mathrm{SE}$. Non-overlapping CIs
-between Cofactor Biosynthesis ($[-0.043, -0.023]$) and
-Resistance/Detoxification ($[-0.009, +0.015]$) confirm the split.}
-\label{tab:4}
-\centering
-\small
-\begin{tabular}{lrccccl}
-\toprule
-Category & $n$ KOs & $\beta$ & SE & 95\% CI & $p$ (FDR) & Direction \\
-\midrule
-Resistance/Detoxification & 106 & $+0.003$ & 0.006 & $[-0.009, +0.015]$ & 0.656
-  & \textbf{not sig.} \\
-Transport/Homeostasis & 213 & $-0.022$ & 0.005 & $[-0.032, -0.012]$ & $2.8 \times 10^{-5}$
-  & confirmed \\
-Sensing/Regulation & 48 & $-0.018$ & 0.005 & $[-0.028, -0.008]$ & $9.1 \times 10^{-4}$
-  & confirmed \\
-Cofactor Biosynthesis & 7 & $\mathbf{-0.033}$ & 0.005 & $[-0.043, -0.023]$ & $5.2 \times 10^{-9}$
-  & \textbf{strongest} \\
-Metal-dependent Metabolism & 54 & $-0.021$ & 0.005 & $[-0.031, -0.011]$ & $1.2 \times 10^{-4}$
-  & confirmed \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-\begin{figure*}[htbp]
-\centering
-\includegraphics[width=\textwidth]{figures/png/fig03_internal_split.png}
-\caption{\textbf{Internal functional split, permutation validation, and cofactor gene robustness.}
-(A) Forest plot of PGLS $\beta$ for the five functional subcategories within the
-140-KO primary metal-gene set (colours: resistance/detoxification,
-transport/homeostasis, sensing/regulation, cofactor biosynthesis,
-metal-dependent metabolism). Error bars are $\pm 1.96$~SE. BH-FDR $q < 0.05$
-indicated by filled points.
-(B) Split-magnitude permutation distribution. Histogram of $\Delta\beta$
-($\beta_\mathrm{cofactor} - \beta_\mathrm{resistance}$) across 1,000 random
-partitions of the 140-KO set into groups of 7 and 106. Red vertical line marks
-the observed $\Delta\beta = 0.035259$ ($p < 0.001$).
-(C) Cofactor gene jackknife robustness: PGLS $\beta$ for leave-one-KO-out
-remainders (K01772, K02225, K03635, K22225 excluded in turn) confirms the signal
-is distributed across Fe--S cluster, molybdopterin, and cobalamin pathway KOs
-rather than concentrated in any single gene. Full 4-KO estimate ($\beta = -0.033$)
-shown as dashed reference.}
-\label{fig:3}
-\end{figure*}
-
-
-\textbf{IQR-scaled effect size.} To translate the cofactor effect into
-interpretable units: moving from the 25th to 75th percentile of cofactor
-biosynthesis gene density (an interquartile range of $\approx 1.35$ standard
-deviations on the $z$-scored predictor) is associated with a
-$\Delta B_\mathrm{std} \approx 0.045$ decrease in expected cross-biome niche
-breadth on the 0--1 scale ($\beta_\mathrm{cofactor} = -0.033 \times 1.35$).
-For the expanded 47-KO set ($\beta = -0.011$), the same IQR increase corresponds
-to $\Delta B_\mathrm{std} \approx 0.015$.
-
-
-
-\textbf{Non-exclusive functional classification is robust.} A non-exclusive
-classification in which each KO contributed proportionally to all categories
-above a 50\% confidence threshold expanded metal-dependent metabolism from
-1 KO to 93 KOs; the split architecture was unchanged: metal-dependent
-metabolism patterned with resistance ($\beta = +0.001$, $p = 0.93$), not
-cofactors, confirming that constitutive biosynthetic coupling rather than
-gene-family membership drives the niche-breadth association.
-
-\textbf{The internal split is distinctive.} Three comparison categories were
-tested at the same sub-functional resolution to determine whether the
-resistance-null / constitutive-significant contrast is a general feature of
-functionally heterogeneous gene categories (exploratory). AMR
-subcategories are all positive: efflux pumps $\beta = +0.018$ ($q = 0.016$,
-significant); enzymatic inactivation $\beta = +0.006$ ($q = 0.21$); target
-modification $\beta = +0.009$ ($q = 0.19$). Two-component systems are also all
-positive: sensor kinases $\beta = +0.008$ ($q = 0.25$), response regulators
-$\beta = +0.009$ ($q = 0.25$), phosphotransfer $\beta = +0.003$ ($q = 0.68$).
-Among ABC transporters, the only significantly negative subcategory is Lipid/LPS
-export (16 KOs, $\beta = -0.030$, $q = 3.3 \times 10^{-5}$), comparable to
-the metal cofactor biosynthesis signal and likely reflecting constitutive
-outer-membrane lipid maintenance; all other ABC
-substrates are near-zero or positive ($q > 0.25$). The resistance-null /
-constitutive-significant split is therefore mechanistically specific to metal
-genes---it requires constitutive metabolic coupling to the predictor category,
-which inducible resistance and regulatory gene sets lack.
-
-\textbf{The split magnitude is quantitatively validated by permutation (exploratory).} A split-magnitude permutation test generated 1,000 random
-partitions of the 140-KO set into groups of sizes 106 and 7 (matching the
-resistance/cofactor group sizes). The observed $\Delta\beta = 0.035259$
-exceeds all 1,000 null splits ($p < 0.001$; null median $\Delta\beta =
--0.006$, SD $= 0.007$; observed split $\approx 6$~SD above null). This
-confirms the resistance/cofactor contrast is not an artefact of unequal group
-sizes or sampling variance. Among comparison families: ABC transporter $\Delta\beta
-= 0.032$ (Lipid/LPS vs all others), AMR $\Delta\beta = 0.012$, TCS $\Delta\beta
-= 0.006$---all smaller than the metal gene set $\Delta\beta = 0.035$.
-
-\textbf{Resistance KOs have lower pangenome prevalence than cofactor KOs (exploratory).}
-To probe the HGT-mediated decoupling hypothesis, we compared pangenome prevalence
-(coreness: fraction of MAG clusters carrying each KO) for resistance and cofactor
-subcategories using the KBase pangenome ($n = 6{,}680$ KOs with coreness data).
-Cofactor KOs (4 of 7 with data; 3 absent from MGnify MAGs) had 2.2-fold higher
-mean pangenome prevalence than resistance KOs (0.030 vs 0.013;
-Mann--Whitney $p = 0.038$, one-tailed), consistent with cofactor genes being
-more vertically stable and resistance genes being more sporadically distributed
-across the pangenome. This result is directionally consistent with the HGT
-hypothesis but should be interpreted cautiously given the small cofactor $n$.
-Alternative explanations---differential selection pressure, annotation differences,
-and expression-level effects---remain plausible.
-
-\textbf{The cofactor signal is robust to individual KO removal (exploratory).} Of the seven cofactor KOs, three were absent from the MGnify
-MAG dataset and contributed zero density; the jackknife was performed on the
-four KOs with detectable representation (K01772, K02225, K03635, K22225). Every
-3-KO remainder set remains highly significant: K01772 excluded: $\beta = -0.016$
-(SE $= 0.00441$, $p = 0.000222$); K02225 excluded: $\beta = -0.027$
-(SE $= 0.00444$, $p = 1.4 \times 10^{-9}$); K03635 excluded: $\beta = -0.029$
-(SE $= 0.00443$, $p = 1.3 \times 10^{-10}$); K22225 excluded: $\beta = -0.028$
-(SE $= 0.00478$, $p = 8.2 \times 10^{-9}$). No sign changes occurred. The
-signal is distributed across the Fe--S cluster / molybdopterin / cobalamin
-pathway, not concentrated in any single gene.
-
-\textbf{The effect is uniform across nine metals.} Metal-specific KO sets ($n
-= 9$ metals with $\geq 34$ KOs) all show significant negative $\beta$ after
-BH-FDR (Table~\ref{tab:5}). Effect sizes range from $\beta = -0.017$ (Mn) to
-$\beta = -0.027$ (Tl). Uniformity across chemically diverse metals argues
-against any single element driving the signal. Thallium (Tl), aluminium (Al),
-and sulfur (S; a non-metal included because of its role in Fe--S cluster and siroheme biosynthesis) are included with $\geq 34$ primary KOs each; a full
-list of KOs, gene names, evidence tiers, evidence sources, and biochemical
-rationale for each is provided in Supplementary Table~S4; machine-readable
-data are available in the project repository (see Data and Code Availability).
-
-Excluding Al, Tl, and S---elements with fewer dedicated resistance systems and
-less complete functional annotation in the current gene list---does not change
-the qualitative conclusion: the six remaining transition metals (Fe, Ni, Zn, Co,
-Cu, Mn) all retain significant negative $\beta$ after BH-FDR correction (all
-$q \leq 3.8 \times 10^{-4}$), with $\beta$ ranging from $-0.017$ (Mn) to
-$-0.025$ (Fe). Per-metal analyses restricted to Tier~1 and Tier~2 KOs only
-(excluding Tier~3 single-source annotations) produced directionally consistent
-results across all nine metals; the full evidence-tier audit with per-KO literature
-support is provided in Supplementary Table~S2.
-
-\textbf{Non-independence of per-metal KO sets.} The nine metal-specific KO sets
-share substantial numbers of genes, most prominently Co--Ni (43 shared KOs),
-Ni--Cu (18), Co--Zn (17), Fe--Mn (15), and Ni--Zn (13); the full pairwise
-overlap matrix is provided in Supplementary Table~S5
-(\texttt{data/metal\_ko\_overlap\_matrix.csv}). Because the 9 per-metal analyses
-are not statistically independent, BH-FDR cannot be strictly interpreted as
-controlling the family-wise error rate; the near-identical effect sizes
-($\beta = -0.017$ to $-0.027$) and the uniform direction across all nine metals
-suggest that the per-metal results primarily reflect the same underlying
-ecological signal rather than nine independent discoveries.
-
-% ── 3.3 The Multi-Axis Framework ────────────────────────────────────────────
-
-\begin{table}[htbp]
-\caption{Metal-specific PGLS results. BH-FDR across 9 metals.}
-\label{tab:5}
-\centering
-\small
-\begin{tabular}{lrcc}
-\toprule
-Metal & $n$ KOs & $\beta$ & $p$ (FDR) \\
-\midrule
-Tl & 45 & $-0.027$ & $1.1 \times 10^{-8}$ \\
-Fe & 98 & $-0.025$ & $1.2 \times 10^{-7}$ \\
-Ni & 84 & $-0.025$ & $1.9 \times 10^{-7}$ \\
-Zn & 67 & $-0.023$ & $1.1 \times 10^{-6}$ \\
-Al & 34 & $-0.023$ & $8.8 \times 10^{-6}$ \\
-Co & 101 & $-0.022$ & $3.9 \times 10^{-6}$ \\
-S  & 74 & $-0.021$ & $4.9 \times 10^{-5}$ \\
-Cu & 71 & $-0.019$ & $7.7 \times 10^{-5}$ \\
-Mn & 34 & $-0.017$ & $3.8 \times 10^{-4}$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{figure*}[htbp]
-\centering
-\includegraphics[width=\textwidth]{figures/fig01_multiaxis_heatmap.pdf}
-\caption{\textbf{Multi-axis niche comparison reveals divergent ecological
-profiles of resistance and cofactor biosynthesis gene categories.}
-Heatmap of PGLS $\beta$ coefficients (Pagel's $\lambda$ ML, GTDB r214,
-$n = 1{,}547$--$1{,}574$ genera) for six functional-gene categories (rows)
-across four niche axes (columns). Colour intensity is proportional to the
-column-normalised $\beta$ (blue $= $ negative; red $= $ positive); cell text
-shows the raw $\beta$ value. Significance: ${}^{***} p < 0.001$,
-${}^{**} p < 0.01$, ${}^{*} p < 0.05$, ${}^{\dagger} p < 0.10$.
-Metal-cofactor biosynthesis genes are uniquely negative on cross-biome
-Levins' $B$ and negative on soil niche breadth, while resistance genes are
-positive on both geochemical breadth and co-occurrence degree. Non-metal
-cofactor/vitamin genes show the strongest Levins' $B$ signal.}
-\label{fig:multiaxis}
-\end{figure*}
-
-% ─────────────────────────────────────────────────────────────────────────────
-% 4. RESULTS PART II: Cobalamin biosynthesis drives the cofactor constraint
-% ─────────────────────────────────────────────────────────────────────────────
-
 \subsection{Cobalamin biosynthesis is the primary driver of the cofactor
 constraint on niche breadth}
 \label{ss:cobalamin}
@@ -612,47 +617,69 @@ this model: cofactor density $= 0.008$, translation density $= 0.003$,
 replication/repair density $\approx 0$, genome size $= 0.010$. The majority of
 explained variance is shared among correlated predictors.
 
-% ─────────────────────────────────────────────────────────────────────────────
+\textbf{Cobalamin pathway completeness.} To move beyond individual-KO
+density to an integrated pathway measure, we computed the fractional
+completeness of the cobalamin \textit{de novo} biosynthesis pathway (KEGG
+modules M00122\,+\,M00924; 26 constituent KOs) for each genus pangenome
+and tested completeness against niche breadth by PGLS ($n = 1{,}543$
+genera with $\geq$1 cobalamin KO detected). After genome-size control,
+completeness shows a significant negative association with cross-biome
+niche breadth ($\beta = -0.016$, SE $= 0.004$, $p = 2.6 \times 10^{-4}$,
+$\lambda = 0.748$): genera with more complete cobalamin pathways are more
+ecologically specialised. The uncontrolled estimate is weaker and
+non-significant ($\beta = -0.007$, $p = 0.09$), indicating that genome
+size acts as a suppressor---small-genome specialists have higher
+completeness per Mb, and controlling for genome size unmasks the
+relationship. A binary classification ($\geq$50\% completeness vs.\
+$<$50\%) yields a concordant result ($\beta = -0.029$, $p = 1.8 \times
+10^{-4}$), confirming that the signal is not driven by the continuous
+metric's distributional properties.
 
-\textbf{Non-metal cofactor comparison.} To test whether the cofactor
-biosynthesis signal is specific to metal-associated cofactor genes or reflects
-a general property of cofactor biosynthesis, we used the KEGG `cofactors and
-vitamins' category (382 KOs; Table~\ref{tab:3}) after removing the 12 KOs
-shared with the 140-KO primary metal gene list, yielding a non-metal cofactor
-set of 370 KOs. PGLS on this non-metal cofactor set ($n = 1{,}073$ genera)
-yields $\beta = -0.029$ (SE $= 0.004$, $p = 2.4 \times 10^{-11}$,
-$\lambda = 0.794$)---essentially identical to the full KEGG cofactor/vitamin
-category result ($\beta = -0.029$; Table~\ref{tab:3}). The metal cofactor
-biosynthesis subset ($\beta = -0.033$) is marginally stronger by $\Delta\beta
-= 0.004$, well within one standard error (SE $= 0.005$). The cofactor
-biosynthesis signal therefore reflects a general property of constitutive
-cofactor pathway genes rather than a metal-specific phenomenon; the metal
-cofactor genes (Fe--S cluster assembly, molybdopterin, cobalamin) exemplify
-a broader streamlining pattern.
+\textbf{Cobalamin is the only pathway that independently predicts niche
+breadth across nine tested pathways.} To test whether the cobalamin
+completeness result is specific to cobalamin or a general property of essential
+biosynthetic modules, module-level completeness PGLS was applied to eight
+additional pathways---heme (M00121, M00926), molybdopterin (M00880), Fe--S
+cluster (M00175, M00176), riboflavin (M00125), thiamine (M00127), biotin
+(M00123), amino acid biosynthesis (94 modules), and nucleotide biosynthesis
+(7 modules)---all tested against cross-biome niche breadth with genome-size
+control across 1,210--1,574 genera (Table~\ref{tab:pathway_completeness}).
+None of the eight additional pathways independently predicts niche breadth
+($p > 0.03$ before any multiple-testing correction; amino acid biosynthesis is
+marginal at $p = 0.033$ but is absorbed by cobalamin in the joint model,
+$p = 0.21$). Genome-size suppression is universal---eight of nine pathways show
+stronger (more negative) $\beta$ after genome-size control---confirming that
+small-genome specialists have higher pathway completeness per Mb regardless of
+which pathway is measured, but that only cobalamin completeness predicts
+ecological breadth beyond this scaling effect.
 
-The cofactor constraint on niche breadth thus reflects biosynthetic cost rather
-than metal chemistry per se: the identical $\beta$ for non-metal cofactor genes
-indicates that constitutive pathway essentiality, not the metal identity of the
-cofactor, drives the signal. The proposed cobalamin co-culture experiment
-(\S Future Directions) therefore tests the general cofactor-dependency
-hypothesis---whether constitutive cofactor biosynthesis capacity shapes community
-niche breadth---rather than a metal-specific mechanism.
-
-An extended cross-reference of all 382 cofactor/vitamin KOs against the full
-730-KO curated metal gene list (Tiers 1--5; \texttt{data/cofactor\_overlap\_audit.csv})
-identified 83 KOs shared between the two lists: 12 already excluded (primary
-metal genes), with the remaining 71 spanning heme biosynthesis
-(\textit{hemA/B/C/D/E/G/H/J/L/N}, \textit{hemQ}), cobalamin and cobamide
-biosynthesis (\textit{cobA}--Q, \textit{cbiA}--T), molybdopterin
-(\textit{moaA/C}), and biotin (\textit{bioA/B/D/F/I/U/W})---all pathways
-involving metal-dependent cofactor chemistry whose KEGG annotation spans both
-categories by design. As these 71 KOs are mechanistically non-metal cofactors
-(they produce cofactors for other enzymes rather than directly processing
-environmental metals), their presence in the 370-KO comparison set does not
-alter the interpretation; the near-identical $\beta$ values for the full
-382-KO and the 12-KO-reduced 370-KO sets confirm that the broader overlap has
-minimal quantitative impact (exploratory cross-reference;
-\texttt{scripts/cofactor\_overlap\_audit.py}).
+\begin{table}[htbp]
+\caption{Module-level pathway completeness PGLS: cross-biome niche breadth
+as response ($n$: genera with $\geq$1 pathway KO detected; all models include
+genome size as covariate; Pagel's $\lambda$ estimated by ML). Only cobalamin
+independently survives genome-size control. Amino acid biosynthesis ($p = 0.033$)
+is not independent---it is absorbed in a joint model with cobalamin
+($p_{\text{AA,joint}} = 0.21$). ``Supp.''~indicates that $\beta$ becomes more
+negative after genome-size control, i.e., genome size acts as a suppressor.}
+\label{tab:pathway_completeness}
+\centering
+\small
+\begin{tabular}{lrrrrrrl}
+\toprule
+Pathway & KOs & $n$ & $\beta_\text{unc}$ & $p_\text{unc}$ & $\beta_\text{ctrl}$ & $p_\text{ctrl}$ & Supp. \\
+\midrule
+\textbf{Cobalamin (M00122+M00924)} & 31 & 1210 & $-0.010$ & 0.019 & $\mathbf{-0.017}$ & $\mathbf{8.4 \times 10^{-5}}$ & Y \\
+Heme (M00121+M00926) & 16 & 1470 & $+0.006$ & 0.227 & $-0.001$ & 0.843 & Y \\
+Molybdopterin (M00880) & 9 & 1253 & $+0.002$ & 0.754 & $-0.001$ & 0.892 & Y \\
+Fe--S cluster (M00175+M00176) & 17 & 1220 & $+0.003$ & 0.425 & $-0.001$ & 0.763 & Y \\
+Riboflavin B2 (M00125) & 17 & 1570 & $+0.006$ & 0.100 & $+0.003$ & 0.451 & N \\
+Thiamine B1 (M00127) & 11 & 1497 & $+0.001$ & 0.806 & $-0.005$ & 0.239 & Y \\
+Biotin B7 (M00123) & 6 & 1147 & $-0.003$ & 0.477 & $-0.004$ & 0.272 & Y \\
+Amino acid biosyn. (94 modules) & 501 & 1574 & $+0.004$ & 0.328 & $-0.010$ & 0.033 & Y \\
+Nucleotide biosyn. (7 modules) & 69 & 1574 & $+0.004$ & 0.339 & $-0.001$ & 0.809 & Y \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 % ─────────────────────────────────────────────────────────────────────────────
 % 5. RESULTS PART III: Transient Geochemistry and the Mobilome
@@ -692,8 +719,8 @@ An independent geochemical replication tested whether soil metal
 concentrations---rather than genomic KO density---predict niche breadth in the
 same 482 genera, using NGSA ICP-MS measurements spatially joined within 200~km
 (Table~\ref{tab:6}). Cu and Zn were significant after BH-FDR correction
-(both raw $p = 0.016$; $q = 0.041$ each). Pb and Ni were directionally consistent
-but did not survive FDR (raw $p = 0.034$ and $0.049$; $q = 0.057$ and $0.061$). Co was near-zero and in the opposite direction.
+(both raw $p = 0.016$; $q = 0.041$ each); however, neither survives Bonferroni correction for the 6--7 metals tested ($\alpha_\text{Bonf} = 0.0071$--$0.0083$). Pb and Ni were directionally consistent
+but did not survive FDR (raw $p = 0.034$ and $0.049$; $q = 0.057$ and $0.061$). Co was near-zero and in the opposite direction (an inconsistency with H1 — see Limitations).
 Pagel's $\lambda$ was substantially lower (0.32--0.35) than in the global
 primary analysis, likely reflecting the different predictor type (environmental
 concentration vs genomic density) and the reduced phylogenetic diversity of the
@@ -737,44 +764,6 @@ concentration at Australian sampling sites.
 
 
 
-
-% ─────────────────────────────────────────────────────────────────────────────
-
-
-Viewed through an evolutionary lens, the Australia null is not solely a
-methodological limitation but a biological signal in its own right. Total soil
-metal concentration as measured by NGSA ICP-MS represents an acute or
-contemporary geochemical state that integrates anthropogenic inputs, hydrological
-redistribution, and recent pedogenic processes---a snapshot on
-decadal-to-centennial timescales. Per-Mb KO density, by contrast, represents an
-integrated evolutionary history: the cumulative effect of selective pressures
-and genome streamlining accrued over millions of years of divergence. Genomic
-architecture therefore tracks geological epochs, not contemporary contamination
-events. The temporal scale mismatch between a genomic trait shaped by
-evolutionary time and a soil chemistry measurement reflecting present-day
-conditions predicts precisely the pattern observed: a strong association when
-the predictor is the evolutionary signal itself (KO density $\beta = -0.052$
-within Australia) and a null association when the predictor is a contemporary
-environmental measurement (soil concentration $\beta = -0.002$). This framing
-reinterprets the NGSA null as informative: it places an upper bound on how much
-contemporary soil metal concentration alone can explain of genomic
-specialisation, and the primary genomic signal records
-long-term ecological commitment rather than acute geochemical exposure.
-
-Metagenome-assembled genome (MAG) pipelines systematically exclude
-extrachromosomal DNA, including plasmids, integrative conjugative elements,
-and complex genomic islands. Because heavy metal resistance genes are
-disproportionately plasmid-borne, the per-megabase density of resistance KOs
-reported here is almost certainly a lower bound. The resistance-null result
-($\beta \approx +0.003$ on cross-biome breadth) should therefore be
-interpreted as a conservative estimate: the true ecological signal of
-resistance gene abundance may be substantially stronger, but it is sequestered
-in the unassembled mobilome. Cross-referencing our 13 double-signal HGT
-candidate KOs against the Plasmid Database (PLSDB) would directly quantify
-this bias; this analysis is a priority for future work. The resistance null is
-not evidence that resistance genes lack ecological signal---it is evidence that
-the signal resides in a genomic compartment that standard MAG-based analyses
-cannot access.
 
 % ─────────────────────────────────────────────────────────────────────────────
 % ROBUSTNESS AND VALIDATION (interleaved Results)
@@ -866,7 +855,7 @@ after adding the covariate.}
 Confounder & $\beta$ change & \% attenuation & $p$ (with conf.) & Decision \\
 \midrule
 Genome size & $0.021 \to 0.011$ & 46.7\% & 0.006
-  & \textbf{ROBUST} --- below 50\% threshold \\
+  & \textbf{PARTIAL CONFOUND} --- below 50\% threshold but largest attenuation; signal persists ($p = 0.006$) but $\beta$ nearly halved \\
 GC content & $0.021 \to 0.016$ & 23.7\% & $7.5 \times 10^{-5}$
   & ROBUST \\
 Isolation source & $0.021 \to 0.018$ & 14.5\% & $3 \times 10^{-6}$
@@ -879,16 +868,33 @@ Dominant biome & $0.021 \to 0.020$ & 5.8\% & $<10^{-4}$
 \end{tabular}
 \end{table*}
 
-No confounder met the pre-specified decision rule. Genome size produced the
-largest attenuation (46.7\%), just below the 50\% threshold, and the model
-remained significant ($p = 0.006$), demonstrating that the metal-gene/niche
-association is not simply a proxy for the small-genome specialist pattern.
+No confounder eliminated the signal by the pre-specified decision rule. Genome size produced the
+largest attenuation (46.7\%), just below the 50\% threshold; the model
+remained significant ($p = 0.006$), but $\beta$ was nearly halved ($-0.021 \to -0.011$).
+Genome size should be interpreted as a partial confound rather than a cleared covariate;
+combined with the ratio-variable concern (per-Mb normalization divides by a plausible
+outcome-correlate), it is the principal outstanding confound and is acknowledged as such in
+the Limitations section.
 Latitude amplified rather than attenuated the signal ($\beta$ became more
 negative: $0.021 \to 0.031$, $-51.8\%$ amplification), the opposite of
 confounding. Metal-gene-rich genera are disproportionately found at lower
 latitudes, and lower-latitude genera are also more ecologically specialised;
 controlling for latitude removes this between-latitude composition effect,
 revealing a stronger within-latitude metal-gene/niche association.
+
+\textbf{Standing caveat: $\lambda \approx 0.9$ limits covariate diagnostic power.}
+The primary PGLS model has Pagel's $\lambda \approx 0.9$, meaning the phylogenetic
+covariance matrix strongly dominates coefficient estimation. This limits the
+marginal leverage of added covariates: ``ROBUST'' verdicts in Table~\ref{tab:7}
+partly reflect PGLS mechanical stability at high $\lambda$ rather than being
+fully independent evidence of confound absence. The genome-size result (46.7\%
+attenuation, PARTIAL CONFOUND) is informative precisely because it did break
+through; moderate confounders may have less diagnostic leverage than in a
+standard OLS setting. Causal claims resting on these checks should be qualified
+accordingly. The sample-level OLS framework (community-weighted mean, $n = 64{,}466$
+samples) corroborates the null-mediation result for SOM (OLS $\Delta\beta = +2.8\%$)
+and provides independent confirmation not subject to the same phylogenetic signal
+constraint.
 
 \textbf{Note on sample sizes across latitude analyses.} Three different $n$
 values appear in the latitude-related analyses and reflect two different
@@ -906,7 +912,7 @@ $\beta$ magnitudes. The latitude suppressor effect observed in Table~\ref{tab:7}
 therefore reflects a subset-specific composition effect in the 575-genus
 EMP-latitude cohort rather than a broadly reproducible confounder.
 
-\textbf{Environmental mechanism tests (exploratory).} Nine multi-predictor PGLS models tested the environmental drivers underlying the latitude suppressor effect and the composite GeoROC bedrock signal (detailed model specifications and coefficients in Supplementary Table~S8; \texttt{data/latitude\_mechanism\_results.csv}). Across all nine models $|\mathrm{latitude}|$ is non-significant ($p = 0.20$--$0.78$) and $\beta_\mathrm{metal}$ remains stable ($-0.019$ to $-0.023$), confirming that latitude is not an independent predictor of niche breadth after controlling for metal genes. The composite GeoROC bedrock signal is dominated by Cr: per-metal decomposition gives $\beta_\mathrm{Cr} = +0.019$ ($p = 1.1 \times 10^{-9}$, BH-corrected), unchanged after soil pH control ($\beta = +0.018$, $p = 1.0 \times 10^{-8}$) and amplified in the all-metals joint model ($\beta = +0.030$, $p = 9.5 \times 10^{-13}$); Co is a secondary contributor ($\beta_\mathrm{Co} = +0.009$, BH $p = 0.008$), while Cu, Ni, Zn, and Pb are non-significant after FDR correction. Chromium enrichment is diagnostic of mafic/ultramafic bedrock (peridotite, dunite, ophiolite), consistent with the independent lithology result ($\beta_\mathrm{mafic} = +0.009$, $p = 0.013$). To test whether the Cr signal reflects a Cr(VI)-toxicity mechanism, we controlled for two soil redox proxies (root-zone moisture and surface SOM): $\beta_\mathrm{Cr}$ is unchanged to three decimal places in both cases, and soil moisture is non-significant, arguing against a simple Cr(VI)-toxicity pathway and pointing toward a multi-factor serpentine effect~\cite{oline2006}. When SOM is included, soil pH drops to non-significance ($p = 0.39$), indicating that pH's positive association in the K-series models is mediated through or confounded with organic matter. Contemporary metal measurements---bioavailable mobility fractions (CSU PF1~\cite{qi2025}) and Science~2025 soil metal hazard quotients~\cite{hou2025}---do not predict niche breadth ($p > 0.22$ in all cases), contrasting with the bedrock signal and consistent with deep evolutionary filtering by geological metal environment rather than current exposure. These analyses are exploratory.
+\textbf{Environmental mechanism tests (exploratory).} Nine multi-predictor PGLS models tested the environmental drivers underlying the latitude suppressor effect and the composite GeoROC bedrock signal (detailed model specifications and coefficients in Supplementary Table~S8; \texttt{data/latitude\_mechanism\_results.csv}). Across all nine models $|\mathrm{latitude}|$ is non-significant ($p = 0.20$--$0.78$) and $\beta_\mathrm{metal}$ remains stable ($-0.019$ to $-0.023$), confirming that latitude is not an independent predictor of niche breadth after controlling for metal genes. The composite GeoROC bedrock signal is dominated by Cr: per-metal decomposition gives $\beta_\mathrm{Cr} = +0.019$ ($p = 1.1 \times 10^{-9}$, BH-corrected), unchanged after soil pH control ($\beta = +0.018$, $p = 1.0 \times 10^{-8}$) and amplified in the all-metals joint model ($\beta = +0.030$, $p = 9.5 \times 10^{-13}$); Co is a secondary contributor ($\beta_\mathrm{Co} = +0.009$, BH $p = 0.008$; note: this value is above the Bonferroni threshold for 6 metals, $\alpha_\text{Bonf} = 0.0083$ — treat as exploratory), while Cu, Ni, Zn, and Pb are non-significant after FDR correction. Chromium enrichment is diagnostic of mafic/ultramafic bedrock (peridotite, dunite, ophiolite), consistent with the independent lithology result ($\beta_\mathrm{mafic} = +0.009$, $p = 0.013$). To test whether the Cr signal reflects a Cr(VI)-toxicity mechanism, we controlled for two soil redox proxies (root-zone moisture and surface SOM): $\beta_\mathrm{Cr}$ is unchanged to three decimal places in both cases, and soil moisture is non-significant, arguing against a simple Cr(VI)-toxicity pathway and pointing toward a multi-factor serpentine effect~\cite{oline2006}. When SOM is included, soil pH drops to non-significance ($p = 0.39$), indicating that pH's positive association in the K-series models is mediated through or confounded with organic matter. Contemporary metal measurements---bioavailable mobility fractions (CSU PF1~\cite{qi2025}) and Science~2025 soil metal hazard quotients~\cite{hou2025}---do not predict niche breadth ($p > 0.22$ in all cases), contrasting with the bedrock signal and consistent with deep evolutionary filtering by geological metal environment rather than current exposure. These analyses are exploratory.
 
 \textbf{MAG quality sensitivity (exploratory).} MAG completeness and
 contamination (mean per genus, $n = 1{,}107$ genera with quality metadata from
@@ -1128,7 +1134,7 @@ less compacted than housekeeping genes, consistent with selective retention.
 sets matched on count ($n = 140$) and pan-genome prevalence decile distribution
 were tested through the identical PGLS pipeline. The null $\beta$ median was
 $-0.018$ (range $-0.039$ to $+0.012$). The observed $\beta = -0.021$ yielded
-emp\_p $= 0.298$: 29.8\% of coreness-matched null sets produced $\beta \leq
+emp\_p $= 0.308$: 30.8\% of coreness-matched null sets produced $\beta \leq
 -0.021$. The primary $\beta$ is therefore not distinguishable from randomly
 selected conserved gene sets of equal coreness structure. A secondary analysis
 of genome-size attenuation profiles (100 permuted sets) confirmed that the
@@ -1283,45 +1289,30 @@ of horizontal gene transfer in disseminating resistance determinants is well
 documented \cite{coombs2004,staehlin2016,rozycki2009,hemme2016,liebert1999,bouzat2013}. Our contribution
 is not the discovery of this distinction, but the quantitative demonstration that
 it generates a measurable split in ecological signature at genus scale with
-phylogenetic control and across four niche axes: cofactor biosynthesis gene
-density tracks cross-biome niche breadth with a magnitude comparable to
-housekeeping functions, while resistance-gene density is completely uncorrelated
-with niche breadth but positive on geochemical breadth and co-occurrence degree.
-This split architecture is not observed in other functionally heterogeneous gene
-families examined (antibiotic resistance, two-component systems, ABC
-transporters), indicating that the mobile-resistance / conserved-cofactor
-dichotomy is exceptionally pronounced for metal-processing genes. The conceptual
-pieces were known; the ecological quantification, four-axis multi-niche
-comparison, and phylogenetically controlled split magnitude are new.
+phylogenetic control: cofactor biosynthesis gene density tracks cross-biome
+niche breadth with a magnitude comparable to housekeeping functions
+($\beta = -0.033$, $p = 5.2 \times 10^{-9}$), while resistance-gene density
+is completely uncorrelated with niche breadth ($\beta \approx 0$, $p = 0.66$)
+but positive on geochemical breadth and co-occurrence degree. The cofactor
+signal is specific to the Levins' $B$ axis and does not replicate on
+geochemical breadth ($p = 0.46$); the multi-axis pattern is driven by
+resistance polarity rather than cofactor consistency. This split architecture
+is not observed in other functionally heterogeneous gene families examined
+(antibiotic resistance, two-component systems, ABC transporters). The
+conceptual pieces were known; the ecological quantification and
+phylogenetically controlled split magnitude are new.
 
 % ── 6.1 Beyond the Black Queen ──────────────────────────────────────────────
 
-\subsection{Beyond the Black Queen: autonomy as the specialist's imperative}
+\subsection{Cofactor retention in specialists}
 
-Genome streamlining theory predicts that costly, non-essential pathways are
-eliminated in large, stable populations where selection favours metabolic
-efficiency. The Black Queen Hypothesis (BQH) offers a contrasting prediction:
-that expensive, leaky functions---such as vitamin and cofactor
-biosynthesis---should be lost when the products of those pathways are available
-from neighbouring cells, driving a `race to the bottom' in genome size through
-adaptive gene loss~\cite{fullmer2015}. Our finding that cobalamin biosynthesis---one of the most
-metabolically expensive pathways in nature---is retained specifically in the
-most streamlined, ecologically specialized genera directly challenges the BQH.
-When ecological isolation is absolute, as in oligotrophic open-ocean
-environments or deep terrestrial subsurfaces, the exogenous supply of complex
-cofactors is effectively zero~\cite{sanudo2014}. The fitness penalty of cobalamin auxotrophy
-under these conditions is catastrophic: without the \textit{bluB} and
-\textit{cob} operons, an organism cannot execute critical single-carbon
-transfers, synthesize methionine, or maintain DNA replication fidelity.
-Comparative genomics shows that 86\% of bacteria have cobamide-dependent
-enzymes but only 37\% synthesise cobamides \textit{de novo}~\cite{shelton2019},
-showing how context-dependent cobalamin retention is. The
-retention of cofactor biosynthesis in streamlined specialists is therefore not
-a failure of streamlining but its logical extreme---the calcification of
-metabolic infrastructure that is too essential to lose, regardless of the
-genomic cost. This aligns with recent evidence that metabolic dependencies
-evolve as phylogenetically entrenched lifestyle reorganizations rather than
-transient, BQH-driven trade-offs.
+The retention of cobalamin biosynthesis in streamlined specialists is
+consistent with metabolic essentiality overriding Black Queen dynamics: when
+ecological isolation eliminates the exogenous cofactor supply, the fitness
+penalty of auxotrophy is catastrophic~\cite{sanudo2014}. Comparative genomics
+shows that 86\% of bacteria have cobamide-dependent enzymes but only 37\%
+synthesise cobamides \textit{de novo}~\cite{shelton2019}, making cobalamin
+retention context-dependent.
 
 The central result is a functional polarity within the metal-gene
 set that is biologically interpretable and mechanistically grounded. Resistance
@@ -1349,6 +1340,20 @@ associations at the community level across Australian soil samples ($|\beta|
 resistance--cofactor polarity is a macroecological, phylogenetically controlled
 signal detectable only when genera are compared across diverse biomes---not when
 communities within a single soil are compared against local metal chemistry.
+Importantly, when community-level associations between soil metal concentrations and metal-gene density are detectable, the sign is negative rather than positive ($\S$\ref{sec:cwm}): communities in high-metal soils show lower, not higher, community-weighted metal-gene density.
+This reversal is consistent with geological filtering rather than contamination-driven gene accumulation---contemporary metal levels do not predict niche breadth ($\S$\ref{sec:confounders}), and communities in metal-enriched soils are often dominated by phylogenetically restricted, streamlined taxa whose genomes carry fewer genes of all types, including metal-interacting ones.
+
+This scale separation extends to individual cobalamin KOs. A companion
+within-genus association scan testing \textit{cobN}, \textit{cobT},
+\textit{cobC1}, and \textit{cbiM} against six soil metal concentrations
+(partial Spearman, inverse-variance meta-analysis across genera) finds no
+significant within-genus metal response for any cobalamin KO (all
+BH-corrected $q > 0.15$). Cobalamin biosynthesis gene density thus shows
+a strong cross-genus niche-breadth signal (PGLS $\beta = -0.016$,
+$p = 2.6 \times 10^{-4}$; \S\ref{ss:cobalamin}) but no detectable
+within-genus response to local metal chemistry, consistent with constitutive
+pathway essentiality rather than inducible metal-stress response as the
+operative selective regime.
 
 The metal-gene/niche-breadth aggregate signal is part of a pervasive
 prokaryotic streamlining pattern.
@@ -1376,35 +1381,6 @@ and ribosomal protein density retains a significant metal-gene $\beta$
 ($-0.011$, $p = 0.019$, $n = 1{,}073$), indicating the metal-gene association
 is not fully reducible to general streamlining as indexed by housekeeping gene
 density (\S\ref{sec:confounders}).
-
-% Multi-axis heatmap figure moved to Results \S\ref{ss:polarity} (Fig.~\ref{fig:multiaxis}).
-
-
-% ─────────────────────────────────────────────────────────────────────────────
-
-Resistance and
-detoxification genes (106 of 140 primary KOs) show no association with niche
-breadth ($\beta = +0.003$, $p = 0.66$), while cofactor biosynthesis genes
-(7 KOs: Fe--S cluster assembly, molybdopterin, cobalamin) show the
-strongest signal across all subcategories ($\beta = -0.033$,
-$p = 5.2 \times 10^{-9}$). A split-magnitude permutation test using 1,000
-random partitions of the 140-KO set into groups of 106 and 7---matching the
-actual group sizes---found that the observed $\Delta\beta = 0.035$ exceeded all
-1,000 null splits ($p < 0.001$). A leave-one-KO-out jackknife across the
-four cofactor KOs with detectable representation in the MGnify MAG dataset
-confirmed that no single gene drives the signal (all 3-KO remainders: $\beta$
-range $-0.016$ to $-0.029$, all $p < 0.001$). Comparable analyses in three
-other functionally heterogeneous gene families (ABC transporters, AMR,
-two-component systems) found that only ABC Lipid/LPS export ($\beta = -0.030$,
-$q = 3.3 \times 10^{-5}$) produced a cofactor-like sub-group magnitude, and
-the metal-gene $\Delta\beta = 0.035$ was larger than all comparison family
-splits.
-
-The expanded metal-dependent metabolism set (93 KOs classified
-non-exclusively across functional categories) mirrors the primary-set resistance
-null rather than the cofactor signal ($\beta = +0.001$, $p = 0.93$), reinforcing
-the split architecture: constitutive biosynthetic coupling, not gene-family
-membership, drives the niche-breadth association.
 
 The resistance null is mechanistically interpretable. Resistance and
 detoxification genes are the most frequent targets of HGT in prokaryotes; their
@@ -1478,41 +1454,14 @@ of cofactor biosynthesis pathways rather than being specifically attributable to
 metal-dependent chemistry. The metal-cofactor subset is best interpreted as one
 well-characterised instance of this broader pattern.
 
-The retention of complete cofactor biosynthesis pathways in ecological
-specialists presents an apparent tension with the Black Queen Hypothesis
-(BQH)~\cite{morris2012}. The BQH posits that costly, leaky functions---especially
-those whose metabolic products diffuse from the cell and can be
-scavenged by neighbours---will be selectively lost wherever cross-feeding
-partners reliably supply the product, driving community-level auxotrophy and
-metabolic interdependency. Under this framework, cobalamin biosynthesis (a
-metabolically expensive, multi-step pathway whose corrinoid products are
-released and scavenged by auxotrophic partners) should be among the first
-targets of adaptive gene loss in dense, diverse microbial communities. Yet the
-data show that genera with the highest per-Mb cobalamin and cofactor
-biosynthesis density are the most ecologically specialised: they occupy narrow
-biome ranges and, on the social niche axis, are the least likely to co-occur
-with diverse partners. This apparent contradiction resolves when the selective
-environment of specialists is considered. In oligotrophic, metabolically
-isolated habitats---precisely the environments characteristic of ecological
-specialists---the fitness penalty of auxotrophy may be catastrophic if no
-reliable cross-feeding partner is present. Genomic autonomy therefore overrides
-BQH selection pressure in the specialist context: leakiness is only exploitable
-when the community density and diversity that enable stable cross-feeding are
-present. BQH-driven gene loss is thus a property of high-density, metabolically
-diverse communities, not of the sparse, episodic, or geochemically constrained
-environments where the cofactor signal is strongest. This interpretation
-converges with recent work showing that metabolic dependencies evolve as
-phylogenetically entrenched lifestyle reorganisations rather than dynamic
-BQH-style trade-offs in ecologically isolated lineages
-\cite{hao2026,giovannoni2014,simonsen2021,henderson2026}. An independent
-preprint reaching the same conclusion for amino acid auxotrophy finds that
-streamlining, not BQH, dominates in isolated lineages~\cite{henderson2026},
-while gut microbial communities---where stable cross-feeding is available---show
-B-vitamin biosynthesis distributed across taxa in exactly the manner BQH
-requires~\cite{soto2020,pacheco2026}. The complete cofactor biosynthesis
-pathway emerges as a robust genomic correlate of ecological isolation: its
-retention distinguishes genera that cannot afford metabolic dependence on the
-surrounding microbial community.
+The complete cofactor biosynthesis pathway is a genomic correlate of ecological
+isolation: in oligotrophic, metabolically isolated habitats where specialists
+predominantly live, the fitness penalty of auxotrophy may be catastrophic when
+no reliable cross-feeding partner exists~\cite{sanudo2014,henderson2026}.
+Cobalamin retention in specialists is therefore consistent with metabolic
+essentiality overriding Black Queen dynamics, an interpretation supported by
+independent evidence that streamlining rather than BQH dominates in isolated
+lineages~\cite{hao2026,henderson2026}.
 
 % ─────────────────────────────────────────────────────────────────────────────
 
@@ -1522,7 +1471,7 @@ surrounding microbial community.
 
 The mechanism that generates this polarity operates at two evolutionary scales.
 Cofactor biosynthesis genes (Fe--S cluster assembly, molybdopterin, cobalamin)
-are constitutively expressed, vertically inherited, and metabolically essential:
+are chromosomally maintained (lower HGT mobility), constitutively expressed, and metabolically essential:
 they show high genus-level Pagel's $\lambda$ ($\lambda > 0.5$ across KOs)
 consistent with phylogenetic retention and low genome-level Fritz~\&~Purvis $D$
 (clustered, Brownian-motion-like distribution across the genome tree). By
@@ -1536,31 +1485,32 @@ while resistance genes can be acquired in response to transient metal stress and
 discarded when pressure relaxes, decoupling their density from cross-biome
 ecological commitment.
 
-This temporal decoupling explains the asymmetry of \S\ref{ss:landscape}--\S\ref{ss:split}: cofactor genes predict cross-biome niche breadth while resistance genes do not. The Pagel's $\lambda$ signal for cofactor KOs (median $\lambda = 0.71$) places their evolution on a geological timescale commensurate with the environmental gradients that niche breadth integrates; a genus that retains \textit{de novo} cobalamin synthesis does so because its lineage has occupied environments where no cross-feeding partner was reliably available, and that ecological history accretes across millions of years of vertical transmission. Resistance genes, by contrast, are acquired opportunistically in response to local metal pulses and shed when the selective pressure relaxes, leaving behind no deep phylogenetic signature ($D > 0.2$ for the double-signal KOs). Their density therefore reflects current or recent geochemical exposure---the geochemical replication result---rather than the time-integrated ecological breadth the Levins metric captures. The two-scale clock thus explains why resistance genes are predictive in the geochemical domain but silent in the cross-biome one, and points toward long-read, phylogenetically-resolved pangenome studies as the tool best suited to test this model directly: only data that can resolve chromosomal versus plasmid provenance and infer gene gain/loss rates will distinguish slow vertical fixation from episodic horizontal replacement.
+This temporal decoupling explains the asymmetry: cofactor genes predict
+cross-biome niche breadth because their evolution is commensurate with the
+environmental gradients that Levins' $B$ integrates, while resistance genes
+reflect current or recent geochemical exposure. Long-read, phylogenetically
+resolved pangenome studies that distinguish chromosomal from plasmid provenance
+would test this model directly.
 
 % ── 6.3 Benchmarking Against Social Niche Breadth ───────────────────────────
 
-\subsection{Prior evidence, benchmarking, and contextual comparison}
-
-Benchmarking of our phi-coefficient degree against the Social Niche Breadth
-(SNB) metric~\cite{vonmeijenfeldt2023} revealed a scale mismatch: SNB$_\text{SES}$
-was negatively correlated with phi-coefficient degree ($\rho = -0.21$,
-$p < 10^{-34}$) but showed no association with metal-gene density in PGLS
-($\beta = -0.35$, $p = 0.49$, $n = 838$), consistent with SNB tracking
-global biogeographic isolation rather than local co-occurrence structure;
-full details are in Supplementary Section~SM12.
+\subsection{Prior evidence and contextual comparison}
 
 Prior evidence on metal homeostasis and ecological niche in prokaryotes falls into three thematic groups.
 
-\textbf{HGT and resistance decoupling.} Pal et al.\ demonstrated that resistance genes co-occur with metal contamination via HGT, consistent with HGT-mediated decoupling of resistance gene content from genome-size-driven streamlining \cite{pal2015}---though differential selection pressure, annotation bias, and conditional expression are all consistent with this pattern. The resistance null observed here is consistent with the population-level genomic expression of this process. Gios et al.\ showed that metal-associated ABC transporters are among the most preferentially HGT-acquired gene families in ultra-small Patescibacteria genomes, providing a mechanistic route for resistance gene enrichment in specialist genomes independent of streamlining selection \cite{gios2025}. Community-metagenome resistome surveys further document rapid resistance gene turnover in response to metal perturbation~\cite{hemme2016}, consistent with the shallow phylogenetic signal ($D > 0.2$) observed for the double-signal KOs here. Graph-theoretic frameworks---Fitch-parsimony ancestral reconstruction, LDT/Fitch graph approaches, and gene-content pangenome tools such as PanGeneHome---would provide more direct molecular corroboration of the HGT decoupling mechanism by quantifying chromosomal versus plasmid provenance of the 13 double-signal KOs and represent a priority for future work. The two-scale phylogenetic signal approach employed here (genus-level $\lambda$ + genome-level D) is conceptually grounded in the well-established principle that different methods detect different HGT timescales, with the closest formal analog combining two distinct evolutionary signals (synteny index and sequence mutability) to classify HGT between closely related taxa~\cite{adato2015}; however, the specific application of $\lambda$ to presence-fraction data and D to a pooled 18,961-tip genome tree is novel and carries validity concerns (bounded-proportion assumption for $\lambda$; sparse-genus noise for D) that are detailed in the Limitations section. Panstripe~\cite{tonkinhill2023} is the current purpose-built alternative for the genome-level component and is a recommended tool for future replication.
+\textbf{HGT and resistance decoupling.} Pal et al.\ demonstrated that resistance genes co-occur with metal contamination via HGT \cite{pal2015}, and Gios et al.\ showed that metal-associated ABC transporters are among the most preferentially HGT-acquired gene families in ultra-small Patescibacteria genomes \cite{gios2025}. Community resistome surveys document rapid resistance gene turnover in response to metal perturbation~\cite{hemme2016}, consistent with the shallow phylogenetic signal ($D > 0.2$) observed for the 13 double-signal KOs here. The resistance null is consistent with HGT-mediated decoupling, though differential selection pressure, annotation bias, and conditional expression are also consistent with this pattern. Direct confirmation using long-read assemblies or graph-theoretic gene gain/loss inference (e.g., Panstripe~\cite{tonkinhill2023}) is a priority for future work.
 
 \textbf{Cofactor essentiality and evolutionary conservation.} Lill established the metabolic essentiality of Fe--S cluster assembly and the cobalamin pathway across all domains of life, providing the mechanistic basis for why cofactor biosynthesis genes cannot be shed under streamlining selection \cite{lill2009}. Cofactor biosynthesis pathways are among the most deeply conserved gene sets in prokaryotes, with vertical inheritance dominating even in lineages with high HGT rates \cite{lill2009,braymer2020,mettert2015}. Price et al.\ identified metal-related functions as among the most fitness-critical in systematic mutant phenotype screens under nutrient stress, establishing a mechanistic link between metal-gene function and environmental fitness \cite{price2018} that underpins the niche-breadth association.
 
 \textbf{Niche-breadth studies and metal gene content.} Leu et al.\ compared metal transporter presence/absence between particle-associated and free-living marine microorganisms and reported that generalists carry more substrate-class transporters per genome---directionally consistent with this result \cite{leu2022}. However, their binary generalist/specialist classification, absence of per-Mb normalisation, and lack of phylogenetic correction prevent direct comparison of effect sizes; the analysis here extends their observation to a continuous, phylogenetically controlled gradient. Sobol et al.\ provide the methodologically closest parallel, applying per-Mb PGLS to N$_2$ fixation genes: they found no significant association after genome-size correction \cite{sobol2026}, contrasting with the metal-gene result here (46.7\% attenuation, $p = 0.006$). This divergence suggests that metal-cofactor dependence has a niche-breadth relationship not fully reducible to genome-size confounding, and that the same analytical framework applied to a functionally parallel gene set yields a qualitatively different result---strengthening confidence in the biological specificity of the metal-gene signal.
 
-\textbf{Carbon metabolism reconciliation.} The functional landscape analysis shows that per-Mb carbohydrate metabolism KO density is negatively associated with niche breadth ($\beta = -0.026$, $p = 1.3 \times 10^{-9}$), while an independent GapMind pathway-completeness analysis finds a positive association between number of complete carbon-substrate pathways and niche breadth ($\beta = +0.142$, $p = 1.9 \times 10^{-5}$; $n = 957$ genera). These findings are geometrically consistent once genome size is made explicit: per-Mb KO density increases as specialist genomes shrink (denominator shrinks, retaining a compressed but sufficient local complement), while GapMind pathway breadth grows with generalism (more complete pathways irrespective of per-Mb density). Both metrics reflect the same biological pattern---metabolic versatility increases with ecological breadth---but resolve opposite faces of it. Explicit genome-size partitioning in a single integrated analysis would resolve this comparison rigorously.
-
-The prior literature establishes the theoretical pieces---HGT-driven resistance mobility, cofactor metabolic essentiality, and lifestyle--niche covariation---but leaves the quantitative ecological consequence of this gene-class dichotomy uncharacterised. This study fills that gap: the four-axis, phylogenetically controlled demonstration that the cofactor/resistance split generates a measurable and reproducible ecological signature at genus scale is new.
+The prior literature establishes the theoretical pieces---HGT-driven resistance
+mobility, cofactor metabolic essentiality, and lifestyle--niche
+covariation---but leaves the quantitative ecological consequence of this
+gene-class dichotomy uncharacterised. This study fills that gap: the
+phylogenetically controlled demonstration that the cofactor/resistance split
+generates a measurable and statistically validated ecological signature at
+genus scale ($\Delta\beta = 0.035$, permutation $p < 0.001$) is new.
 
 
 
@@ -1581,7 +1531,7 @@ whereas cofactor-biosynthesis KOs lacked direct fitness-assay support yet showed
 the strongest PGLS association with niche breadth. An exploratory inverse PGLS
 gave the opposite sign, consistent with the idea that aggregate metal-gene
 density may mix cofactor and resistance components. Together, these patterns
-suggest that mobile resistance genes and conserved cofactor genes contribute on
+suggest that horizontally mobile resistance genes and chromosomally maintained cofactor genes (lower HGT mobility; plasmid-fraction MWU $p = 0.020$) contribute on
 different ecological axes, with the former tracking local metal exposure and the
 latter tracking long-term niche breadth.
 
@@ -1624,40 +1574,16 @@ Hg-contaminated terrestrial aerobic soils. Other metals and anaerobic or aquatic
 environments remain untested at the community level.
 \textit{(Source: SI\_External\_Validation.md; \texttt{data/02\_metal\_aus\_pgls\_results.csv})}
 
-\item \textbf{Double-signal KO plasmid association: marginal statistical support from two independent databases.}
-Per-KO phylogenetic analyses show \textit{merD} ($\lambda = 0.165$) and \textit{merE} ($\lambda = 0.102$)
-have lower phylogenetic clustering than \textit{merA} ($\lambda = 0.692$), predicting
-preferential association with transferable elements.
-A systematic enrichment test was performed comparing double-signal resistance KOs against
-background resistance KOs using plasmid fraction from NCBI Entrez (gene name search,
-$n_\text{total} \geq 50$) and BV-BRC (84{,}446 plasmid accessions, PATRIC annotation).
-Double-signal resistance KOs (\textit{merD}, \textit{aoxB}, \textit{norB}; $n=3$ NCBI,
-$n=2$ BV-BRC) show higher plasmid fractions than background resistance KOs ($n=51$ NCBI,
-$n=48$ BV-BRC): Mann-Whitney $p=0.045$ (NCBI) and $p=0.044$ (BV-BRC).
-Two independent databases converge at marginal significance; however, the test is
-underpowered (result driven primarily by \textit{merD}) and several double-signal KOs
-remain untestable: \textit{gesA} and \textit{gesB} are absent from both databases ($n=1$);
-\textit{nrsD} has only 16 NCBI records. \textit{golS} ($D=0.265$) has near-zero plasmid
-fraction in both databases (NCBI frac $= 1.7\times 10^{-5}$, BV-BRC frac $= 3.5\times 10^{-4}$),
-suggesting chromosomal HGT for this gold-sensing regulator.
-A cross-category comparison extended these queries to all 275 metal KOs
-(\texttt{data/ncbi\_plasmid\_fraction\_allcats.csv}, \texttt{data/bvbrc\_plasmid\_fraction\_allcats.csv}).
-In NCBI Entrez, resistance KOs show significantly higher plasmid fractions than
-metal-dependent metabolism KOs (Mann-Whitney $p=0.023$) and all non-resistance KOs
-combined ($p=0.020$; $n_\text{resist}=54$, $n_\text{non-resist}=86$); cofactor
-biosynthesis KOs show near-zero fractions (hemH $= 0.023\%$). In BV-BRC, the
-cross-category gradient does not reach significance ($p=0.118$), likely because
-resistance-classified metal efflux transporters (czcA, czcB) inflate the
-Transport/Homeostasis comparison group; the within-resistance double-signal vs
-background test in BV-BRC ($p=0.047$) is directionally consistent with the focused
-test ($p=0.044$). Published surveys confirm that the majority of double-signal genes---mercury
-resistance (\textit{merD}, \textit{merE}), arsenite oxidase (\textit{aoxB}), and
-related resistance determinants---are predominantly found on plasmids, transposons,
-and integrative/conjugative elements
-\cite{silver1998,liebert1999,coombs2004,goff2024,silver2005}.
-\textit{(Source: \texttt{data/plsdb\_enrichment\_test.json}, \texttt{data/bvbrc\_plasmid\_fraction.csv},
-\texttt{data/ncbi\_plasmid\_fraction\_allcats.csv}, \texttt{data/bvbrc\_plasmid\_fraction\_allcats.csv},
-\texttt{scripts/plsdb\_resistance\_crossref.py}; see \S\ref{sec:limitations})}
+\item \textbf{Double-signal KO plasmid association: marginal indirect support only.}
+Double-signal resistance KOs (\textit{merD}, \textit{aoxB}, \textit{norB}) show
+higher plasmid fractions than background resistance KOs in both NCBI Entrez and
+BV-BRC (Mann-Whitney $p = 0.045$ and $p = 0.044$, respectively), and published
+surveys confirm that mercury and arsenite resistance determinants are predominantly
+found on plasmids and integrative elements~\cite{silver1998,coombs2004,goff2024}.
+However, the test is underpowered ($n = 3$ double-signal KOs testable), and direct
+plasmid localisation assays were not performed; the HGT interpretation rests on
+indirect evidence.
+\textit{(Source: \texttt{data/plsdb\_enrichment\_test.json}; \S\ref{sec:limitations})}
 
 \item \textbf{The double-signal framework describes evolutionary mode, not contemporary selection.}
 Pagel's $\lambda$ and Fritz \& Purvis' $D$ measure phylogenetic clustering of
@@ -1718,13 +1644,25 @@ density captures a small fraction of the total variance in ecological
 specialisation. Lifestyle, biome preference, and phylogeny together likely
 account for the large majority of the unexplained variance.
 
-\textbf{Genome-size attenuation.} Genome size attenuates the primary $\beta$ by
+\textbf{Genome-size attenuation and ratio-variable concern.} Genome size attenuates the primary $\beta$ by
 46.7\% ($p = 0.006$; $\beta$: 0.021 $\to$ 0.011), indicating that a
 substantial portion of the metal-gene/niche association operates through
 genome-size scaling---as expected under streamlining theory---rather than through
 metal-specific selection independently of genome size. The model is nevertheless
 significant after genome-size control, indicating a non-zero residual
 association, but the interpretation of this residual requires caution.
+Beyond the standard scaling concern, per-Mb normalization introduces a structural
+ratio-variable problem (Pearson 1897): dividing KO count by genome size (Mb) means
+the predictor shares the denominator with the response only via genome size, and
+genome size is itself correlated with niche breadth. Even if absolute KO count were
+uncorrelated with niche breadth, per-Mb density would still be negatively associated
+with niche breadth if genome size and niche breadth are positively correlated (as
+they are: specialists have smaller genomes). The 46.7\% attenuation in OLS (and the
+nearly unchanged $\beta$ in PGLS at high $\lambda$) suggests this structural
+correlation accounts for at least half the observed association. This does not
+invalidate the signal---the residual is statistically significant ($p = 0.006$) and
+phylogenetically controlled---but the ratio-variable concern means the effective
+confound may be larger than the 46.7\% figure implies under OLS.
 When, in addition, translation and replication/repair gene densities are jointly
 included (joint housekeeping model: niche breadth $\sim$ cofactor$_z +$ translation$_z +$
 replication$_z +$ genome size$_z$), the expanded cofactor predictor becomes
@@ -1763,7 +1701,7 @@ contributions cannot be separated with cross-sectional genomic data
 
 \textbf{Coreness permutation caveat.} The primary $\beta = -0.021$ does not
 exceed the distribution of 1,000 coreness-matched null KO sets (emp\_p $=
-0.298$). This does not invalidate the pre-registered hypothesis---the pre-specified direction and FDR
+0.308$). This does not invalidate the pre-registered hypothesis---the pre-specified direction and FDR
 significance are confirmed---but the coreness-matched permutation result
 indicates that the overall metal-gene $\beta = -0.021$ is not unusual among
 conserved gene sets of comparable size and prevalence. This finding limits the
@@ -1771,6 +1709,50 @@ strength of any claim that metal-interacting genes, as a category, are uniquely
 associated with niche breadth. The distinctive feature of the metal-gene set
 is therefore the internal functional split (resistance null, cofactor/constitutive
 significant), not the aggregate association.
+Furthermore, the cobalamin relative functional enrichment (RFE) analysis provides mechanistic specificity not captured by the aggregate result: the Spearman correlation between cobalamin per Mb and translation per Mb is $\rho = 0.002$ (near-zero orthogonality), and RFE$_z$ remains a significant independent predictor of niche breadth after genome-size control ($\beta = -0.013$, $p = 0.006$; $\S$\ref{ss:cobalamin}).
+Coreness-matched random gene sets of comparable size and prevalence would not be expected to produce this pathway-specific signal, because they lack the biochemical referent---cobalt-dependent cobalamin biosynthesis---that simultaneously generates high per-Mb density and a cross-biome niche constraint.
+The coreness null therefore applies to the aggregate metal-gene category; the cobalamin pathway component, which drives the confirmatory cofactor signal ($\S$\ref{ss:split}), is not subject to that null. However, the cobalamin result should itself be treated as \emph{exploratory}: among 9 cofactor and comparison pathways tested for the completeness analysis ($\S$\ref{ss:cobalamin}), cobalamin was the sole survivor, introducing a forking path not pre-registered for the split narrative. The cobalamin result survives Bonferroni correction for the 9-pathway test ($\alpha_\text{Bonf} = 0.0056$; $p = 8.4 \times 10^{-5}$), but multi-pathway selection prior to the RFE analysis was not pre-registered, and no independent external cohort replication has been performed. We recommend treating the cobalamin specificity as a priority hypothesis for future confirmatory work rather than an established biological principle.
+
+\textbf{Cross-biome scope and geological filtering.}
+The primary association is detectable on cross-biome Levins' $B$ ($\beta = -0.021$, $p = 2.1 \times 10^{-8}$) but absent on within-soil niche breadth ($B_\text{soil,std}$; $\beta \approx 0$, $p = 0.97$; $\S$\ref{sec:cwm}).
+This scope restriction is internally consistent with the environmental mechanism results ($\S$\ref{sec:confounders}): contemporary soil metal levels---including bioavailable CSU PF1 fractions and Science~2025 hazard quotients---do not predict niche breadth ($p > 0.22$), whereas bedrock Cr and Co geology, operating over evolutionary timescales, do ($\beta_\text{Cr} = +0.019$, $p = 1.1 \times 10^{-9}$).
+Together, the within-soil null and the contemporary-null / bedrock-significant pattern indicate that the association reflects deep evolutionary filtering by geological metal environment rather than contemporary local metal stress.
+The primary result should therefore be interpreted as a macroecological signature of long-term biome specialisation; it cannot be extrapolated to within-ecosystem metal ecology at the community scale, where the relevant temporal and spatial units are too fine-grained for the evolutionary filtering to be detectable.
+
+\textbf{ABC Lipid/LPS comparison at 91\% magnitude.}
+Among the three comparison gene families, the ABC transporter family presents
+the strongest challenge to the uniqueness of the metal-gene split: the internal
+Lipid/LPS versus all-others split ($\Delta\beta = 0.032$) reaches 91\% of the
+metal gene set's $\Delta\beta = 0.035$ (Table~1), with the same
+constitutive-versus-conditional architecture (Lipid/LPS export: $\beta = -0.030$,
+constitutive outer-membrane biogenesis; substrate transport: near-zero).
+This raises the question of whether the resistance-null / cofactor-significant
+contrast identifies a metal-specific biological principle or a general property
+of any composite gene category that mixes constitutively required and conditionally
+expressed members.
+
+Fritz \& Purvis $D$ computed on the five ABC Lipid/LPS KOs annotated across the
+GTDB genome set (mlaE, lptF, mlaC, tagG, glpS) yields median $D = -0.146$
+(all $p_\text{random} < 0.001$, $n = 1{,}574$--$10{,}854$ per KO), confirming
+near-universal chromosomal maintenance (lower HGT mobility)---more conservative than metal cofactor genes
+(median $D = -0.055$) and in sharp contrast to metal resistance genes
+(median $D = +0.044$). The constitutive-versus-conditional phylogenetic
+architecture is therefore shared by both gene families, not unique to metal biology.
+
+Two features distinguish the metal-gene result. First, the cobalamin pathway
+completeness result (genome-size-corrected $\beta = -0.0173$, $p = 8.4 \times
+10^{-5}$; $\S$\ref{ss:cobalamin}) has no structural ABC analogue: it identifies
+a specific cobalt-dependent cofactor pathway as the within-category ecological
+correlate, something a general-purpose membrane-biogenesis gene family cannot
+supply. Second, the ABC Lipid/LPS comparison itself validates the mechanistic
+interpretation by confirming that constitutive genome-scaling and conditional
+mobility are general properties of composite gene sets---strengthening rather
+than undermining the constitutive-versus-conditional framing. We nonetheless
+concede that the split architecture is likely a general feature of any gene
+category that mixes constitutive and inducible members; the distinctive
+contribution of this study is identifying metal-cofactor biosynthesis as a
+particularly well-evidenced instance of this principle, with a biologically
+interpretable metal-specific ecological correlate (cobalt--cobalamin dependence).
 
 \textbf{Bedrock chromium as a potential confound.} The exploratory bedrock
 geochemistry analysis finds that genus-level mean bedrock Cr is positively
@@ -1794,24 +1776,12 @@ geometrically implausible; nonetheless, a joint causal model integrating bedrock
 geology, genomic composition, and niche breadth remains an important future
 analytical direction.
 
-\textbf{Plasmid under-representation in MAG-derived pangenomes.} MAG assembly
-pipelines systematically underrepresent extrachromosomal and mobile DNA, which
-disproportionately affects resistance genes (e.g., \textit{merD}, \textit{merE}
-were absent from both SPIRE and MGnify MAG databases; mercury and arsenic
-resistance determinants are disproportionately plasmid-borne across diverse
-prokaryotic lineages \cite{silver2005,christakis2021}). This may bias the
-resistance-null result toward zero. Because metal resistance and detoxification
-genes are disproportionately plasmid-borne, their per-Mb density may be
-underestimated in the MGnify MAG dataset. Several considerations mitigate this
-concern. First, the primary PGLS predictor (P1) was computed from KBase isolate
-genomes, which include assembled plasmids and are not subject to MAG plasmid
-loss. Second, the resistance null is directionally consistent across both
-MAG-derived and isolate-derived analyses. Third, if plasmid loss were driving
-the null, the bias would be toward failing to detect a true resistance signal;
-the null is therefore a conservative estimate. Direct metagenomic read-based
-profiling or long-read assemblies would be needed to definitively quantify the
-plasmid-borne fraction of these genes and is an important direction for future
-work.
+\textbf{Plasmid under-representation.} MAG pipelines underrepresent
+plasmid-borne genes, which may bias the resistance-null result toward zero.
+This bias is mitigated by the fact that the primary density predictor (P1) was
+computed from KBase isolate genomes, which include assembled plasmids, and the
+resistance null is directionally consistent across both isolate-derived and
+MAG-derived analyses. The null is therefore a conservative estimate.
 
 \textbf{Uneven MAG representation.} The number of MAGs per genus varied
 substantially across the dataset (median $= 8$, IQR $= 3$--30; range
@@ -1834,7 +1804,7 @@ the niche-breadth signal is detectable at finer phylogenetic resolution.
 \textbf{Two-scale phylogenetic signal: validity concerns.}
 The combination of genus-level Pagel's $\lambda$ on continuous presence-fraction data and genome-level Fritz~\&~Purvis D on binary presence/absence is, to our knowledge, novel as a named two-scale HGT-classification framework; the closest conceptual analog applies two distinct evolutionary signals (synteny index and sequence mutability) to detect HGT between closely related taxa~\cite{adato2015}.
 Two specific validity concerns deserve explicit acknowledgement.
-\emph{First}, Pagel's $\lambda$ was designed for continuous traits evolving under Brownian motion --- an unconstrained, Gaussian process. Genus presence fractions are bounded proportions in $[0, 1]$, violating the Gaussian/BM assumptions underlying $\lambda$ estimation, particularly at high density (near-core genes approaching fraction 1.0) or low density (rare genes near 0.0). The minimum genome count per genus in our dataset is $n = 2$ (308 of 1,574 genera), meaning these genera contribute presence fractions that take only the values 0, 0.5, or 1. We performed two robustness checks: (a)~re-estimating $\lambda$ on arcsine-square-root-transformed presence fractions for 88 Tier~1--2 KOs yielded Spearman $r = 0.613$ ($p < 0.001$; mean $|\Delta\lambda| = 0.195$); (b)~an independent \texttt{phylolm} re-estimation on a matched 33-KO subset yielded Spearman $\rho = 0.174$. In both cases, all classification changes (9/88, 10.2\% and 10/33, 30.3\%, respectively) were in the weak-to-strong direction --- original estimates systematically underestimate phylogenetic signal for sparse genes rather than inflating it. Critically, none of the 13 double-signal KOs (low-$\lambda$ and high-D) changed classification, and the conservative direction of bias means cofactor KOs' high-$\lambda$ designations and resistance KOs' low-$\lambda$ designations are stable. Beta-regression alternatives remain a priority for future work (see SM13 for full numerical results).
+\emph{First}, Pagel's $\lambda$ was designed for continuous traits evolving under Brownian motion --- an unconstrained, Gaussian process. Genus presence fractions are bounded proportions in $[0, 1]$, violating the Gaussian/BM assumptions underlying $\lambda$ estimation, particularly at high density (near-core genes approaching fraction 1.0) or low density (rare genes near 0.0). The minimum genome count per genus in our dataset is $n = 2$ (308 of 1,574 genera), meaning these genera contribute presence fractions that take only the values 0, 0.5, or 1. We performed two robustness checks: (a)~re-estimating $\lambda$ on arcsine-square-root-transformed presence fractions for 88 Tier~1--2 KOs yielded Spearman $r = 0.613$ ($p < 0.001$; mean $|\Delta\lambda| = 0.195$); (b)~an independent \texttt{phylolm} re-estimation on a matched 33-KO subset yielded Spearman $\rho = 0.174$. In both cases, all classification changes (9/88, 10.2\% and 10/33, 30.3\%, respectively) were in the weak-to-strong direction --- original estimates systematically underestimate phylogenetic signal for sparse genes rather than inflating it. Critically, none of the 13 double-signal KOs (low-$\lambda$ and high-D) changed classification, and the conservative direction of bias means cofactor KOs' high-$\lambda$ designations and resistance KOs' low-$\lambda$ designations are stable. Note that this individual-KO classification stability is distinct from any subcategory-level $\lambda$ hierarchy: a descriptive gradient (cofactor $>$ resistance) is present but is not statistically significant at the category level (Kruskal--Wallis $H = 8.71$, $p = 0.121$ NS); the statistically supported evidence for differential HGT mobility is the plasmid-fraction gradient (resistance vs.\ cofactor MWU $p = 0.020$). Beta-regression alternatives remain a priority for future work (see SM13 for full numerical results).
 \emph{Second}, the near-zero Spearman correlation between D and $\lambda$ ($\rho = -0.041$, $p = 0.49$) is consistent with the two metrics capturing orthogonal evolutionary processes, but could also reflect estimation noise from sparse-genome genera. We performed a threshold stability check using a complete genus~$\times$~KO matrix for 240 KOs built from 16~million genome records (MGnify MAGs and SPIRE): $\rho$ ranged from $-0.097$ to $+0.100$ across $n_\text{min} \in \{2, 5, 10, 20\}$ minimum-genome-count thresholds, with all $p > 0.12$. The near-zero correlation is stable across sparse-genus filtering levels, supporting the biological-independence interpretation. Panstripe~\cite{tonkinhill2023}, a generalised-linear-regression-based tool designed specifically for phylogenetically controlled gene-gain/loss analysis, represents the purpose-built alternative for the genome-level component and should be applied in future work (see SM13 for method comparison).
 
 \textbf{Compositional constraints on per-Mb density.} Per-Mb density
@@ -1878,31 +1848,37 @@ captured in the primary 140-KO set. If cofactor-like signal extends to Tier 3--5
 constitutive biosynthetic genes while resistance signal remains null, the
 mechanistic hypothesis is substantially strengthened.
 
-A second priority is a causal experimental test. Five KOs are prioritised as
-the most tractable experimental targets based on effect size, cross-dataset
-consistency, and functional interpretability: \textit{hemH} (K01772,
-ferrochelatase), \textit{cobT} (K09883, cobalamin biosynthesis), \textit{cusC}
-(K07796, copper efflux), \textit{bmrR} (K19575, metal-responsive regulator),
-and \textit{zur} (K09823, zinc uptake regulator).
-
-Because cobalamin biosynthesis is identified as the primary driver of the
-cofactor constraint, a direct community-level experiment is proposed: co-culture
-consortia in which the ratio of cobalamin-producing strains
-(e.g.\ \textit{Pseudomonas stutzeri} or \textit{Sinorhizobium meliloti}, which
-carry the complete cobalamin biosynthesis pathway) to cobalamin-auxotrophic
-partners (e.g.\ \textit{Lactobacillales} unable to synthesise cobalamin
-\textit{de novo}) is systematically varied. Community compositional breadth ---
-indexed by Shannon entropy of OTU abundances across replicated environmental
-gradient chambers simulating a pH, temperature, or carbon-source gradient ---
-would be measured by 16S amplicon sequencing at 30-day intervals. The
-prediction is that higher producer:auxotroph ratios should increase community
-niche breadth in proportion to the cobalamin biosynthesis capacity of the
-inoculum, while auxotroph-dominated communities should show compressed niche
-breadth reflecting their obligate dependence on external cobalamin supply.
-Knockout of \textit{cobT} in producer strains provides the within-strain
-experimental control. This proposed experiment would provide the first direct
-test of whether constitutive cofactor biosynthesis capacity causally constrains
-or expands community-level ecological breadth.
+A second priority is a causal experimental test at the strain level, using
+\textit{cobT} (K09883, cobalamin adenylyl transferase) as the primary molecular
+target. The pathway-completeness PGLS ($\beta = -0.016$,
+$p = 2.6 \times 10^{-4}$; \S\ref{ss:cobalamin}) strengthens the rationale for
+this experiment: genera with more complete cobalamin pathways occupy narrower
+niches even after genome-size control, making \textit{cobT}---whose deletion
+converts a cobalamin-producing strain into a strict auxotroph without disrupting
+other primary metabolic functions---the natural single-gene perturbation target. Knockout strains
+in species with established genetic tools and complete cobalamin pathways---such
+as \textit{Pseudomonas stutzeri} or ENIGMA groundwater isolates carrying the full
+cobalamin pathway---would be grown alongside isogenic wildtypes across single,
+well-defined environmental gradients: a sub-inhibitory metal-concentration
+gradient (Cu or Zn at 0, 1, 5, 10, 50, and 100~$\mu$M) and a carbon-limitation
+gradient (glucose-limited minimal medium spanning growth-permissive to
+growth-restrictive concentrations). Niche breadth would be operationalised as the
+count of gradient steps at which OD$_{600}$ exceeds a fixed threshold at 48~h;
+exogenous cobalamin supplementation serves as the rescue control, confirming that
+any growth-range difference is pathway-specific. The direct prediction is that
+\textit{cobT} deletion narrows growth range relative to wildtype, and that rescue
+by exogenous cobalamin restores it, causally linking constitutive cobalamin
+biosynthesis to individual ecological range width---the organismal-scale
+prerequisite for the genus-level PGLS association. Two contrast knockouts provide
+an internal test of the cofactor/resistance split: \textit{hemH} (K01772,
+ferrochelatase), a heme-pathway cofactor gene that is individually non-significant
+in the expanded 47-KO PGLS (\S\ref{ss:cobalamin}), and \textit{cusC} (K07796,
+copper efflux outer membrane channel), a resistance gene whose niche-breadth
+coefficient is null in the primary analysis ($\beta \approx 0$, $p = 0.66$).
+If the split is causal, \textit{cobT} deletion should narrow growth range while
+\textit{hemH} and \textit{cusC} deletions leave it unchanged, providing
+simultaneous within-cofactor and cofactor/resistance contrast controls in a
+single tractable experiment.
 
 Third, the HGT decoupling hypothesis for resistance genes makes a specific
 prediction: within genera that have recently acquired resistance KOs by HGT
@@ -1943,38 +1919,24 @@ artefacts and is a priority for future work.
 % ─────────────────────────────────────────────────────────────────────────────
 
 
-Per-Mb metal-gene density is a valid predictor of
+Per-Mb cofactor-class metal-gene density is a valid predictor of
 ecological specialisation at the prokaryotic genus level, consistent with
-genome-streamlining theory, but that interpreting it in isolation overstates its
-specificity. The broader functional landscape shows that streamlining is the
-default pattern for constitutive gene families across nearly all metabolic
-categories, and metal genes participate in this pattern without being uniquely
-informative predictors of niche breadth.
+genome-streamlining theory. The aggregate 140-KO signal does not exceed a
+coreness-matched permutation null (emp.\ $p = 0.308$); the distinctive
+empirical contribution is the internal functional split ($\Delta\beta = 0.035$,
+permutation $p < 0.001$), which separates chromosomally maintained cofactor genes (lower HGT mobility; plasmid-fraction MWU $p = 0.020$)
+from horizontally mobile resistance genes. This split is validated by Pfam
+cross-annotation (Transport $\beta = -0.016$, $p = 2.3 \times 10^{-5}$;
+Cofactor $\beta = -0.013$, $p = 0.006$; Resistance $\beta \approx 0$,
+$p = 0.052$) and by independent density replication in 482 Australian genera
+($\beta = -0.052$, $p = 2.2 \times 10^{-15}$).
 
-The internal functional split provides a more specific and mechanistically
-grounded insight: within heterogeneous gene families, the predictive signal
-tracks with constitutive metabolic coupling to the phenotype of interest, not
-with gene family membership per se. Resistance genes---whether for metals,
-antibiotics, or other stressors---behave as a distinct class from constitutive
-metabolic infrastructure, and their decoupling from the streamlining signal is
-likely a general property of HGT-susceptible stress-response genes across
-multiple functional categories.
-
-The results have a practical implication for environmental genomics: per-Mb
-density of constitutive cofactor biosynthesis genes---a signal not specific to
-metal-dependent systems---may provide more stable and interpretable genomic
-signals of ecological specialisation than resistance gene counts, which respond
-to transient selection and HGT rather than long-term ecological commitment.
-
-These analyses rely on KEGG Orthology assignments; validation with
-alternative functional annotation systems such as COG, TIGRFAMs, or Pfam-based
-categories would test whether the internal functional split is robust to
-annotation ontology. A preliminary Pfam-based cross-validation found
-directionally consistent results for Transport ($\beta = -0.016$,
-$p = 2.3 \times 10^{-5}$) and Cofactor ($\beta = -0.013$, $p = 0.006$), and a
-near-null result for Resistance ($\beta = -0.007$, $p = 0.052$), consistent with
-the KEGG-based functional split (\S\ref{ss:split}); fully independent validation using
-COG or TIGRFAMs remains an important future direction.
+The practical implication is that constitutive cofactor biosynthesis
+genes---particularly cobalamin---provide more stable genomic markers of
+ecological specialisation than resistance gene counts, which respond to
+transient selective pressure and HGT. Resistance gene density instead tracks
+local geochemical breadth and co-occurrence centrality, making it informative
+at the within-biome scale but uninformative at the cross-biome scale.
 
 % ─────────────────────────────────────────────────────────────────────────────
 
@@ -2355,25 +2317,11 @@ three niche axes. Pagel's $\lambda$ was 0.48--0.52 in all functional-category
 models (compared with $\lambda \approx 0$ for the BacDive-proxy metric), validating
 the co-occurrence degree as a phylogenetically informative social niche measure.
 
-To benchmark the phi-coefficient degree against the Social Niche Breadth (SNB)
-score of \citeauthor{vonmeijenfeldt2023}~\cite{vonmeijenfeldt2023},
-$\text{SNB}_\text{SES}$ was computed for all 3{,}389 genera detected in
-$\ge 10$ samples across the full MicrobeAtlas database (462{,}716 samples).
-For each genus $i$ with $N_i$ sample occurrences, the raw SNB partner count
-is the number of other genera co-occurring in at least one shared sample.
-Because $S = 462{,}716$ makes the standard 999-permutation null model
-computationally infeasible (the vectorised intermediate array would require
-${\sim}816$~GB), we used the exact analytical null: the probability that genus
-$j$ appears in a random draw of $N_i$ samples from $S$ is
-$p_{ij} = 1 - (1 - N_j/S)^{N_i}$, giving null mean
-$\mu_i = \sum_{j \ne i} p_{ij}$ and null variance
-$\sigma_i^2 = \sum_{j \ne i} p_{ij}(1 - p_{ij})$ (Bernoulli sum).
-$\text{SNB}_\text{SES} = (\text{raw}_i - \mu_i)/\sigma_i$.
-The $G \times G$ absent-probability matrix was computed as
-$\exp(\mathbf{N} \otimes \log(1 - \mathbf{p}))$ (${\sim}92$~MB float64),
-making the full analytical null tractable on a single machine in under one
-second. Per-genus results are in \texttt{data/snb\_von\_meijenfeldt\_replication.csv};
-script: \texttt{scripts/run\_snb\_benchmarking.py}.
+Validation against the Social Niche Breadth (SNB) metric of
+\citeauthor{vonmeijenfeldt2023}~\cite{vonmeijenfeldt2023} confirmed that
+phi-coefficient degree is a valid proxy; full computational details are
+provided in the project repository
+(\texttt{scripts/run\_snb\_benchmarking.py}).
 
 \subsection{Non-exclusive functional category classification}
 

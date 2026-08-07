@@ -51,7 +51,7 @@ The **primary analysis** uses the **Tier 1 + Tier 2** subset (140 KOs).
 | 06_confounder_discovery | Exploratory | BERDL namespace scan for new confounders |
 | 07_marine_geol_proxies | Exploratory | Geological proxies and marine signal |
 | 08_emp_niche_breadth | Exploratory | EMP 16S niche breadth PGLS (n=539, β=−0.019, p=0.099) |
-| 09_bacdive_niche_breadth | Exploratory | BacDive geographic niche breadth PGLS (incomplete) |
+| 09_bacdive_niche_breadth | Exploratory | BacDive geographic niche breadth PGLS (complete): β=+0.100, p≈0, n=752 — positive direction (geographic range ≠ habitat breadth) |
 | 10_pfam_metal_qc | QC | Pfam/InterPro metal-binding domain validation (10/140 KOs) |
 | 11_enigma_frc_replication | Exploratory | ENIGMA MAG-level site replication (n_wells=3; underpowered) |
 | 12_ngsa_proper_replication | **Confirmatory** | P4 proper NGSA replication: niche breadth ~ NGSA metal conc (140-KO list) |
@@ -106,4 +106,4 @@ Minimum Python dependencies: `pandas`, `numpy`, `scipy`, `statsmodels`, `dendrop
 
 ## Status
 
-Reviewed — REVIEW_4.md drafted; awaiting /submit.
+Analysis — report drafted (Findings 1–19), awaiting `/berdl-review` and `/submit`.
