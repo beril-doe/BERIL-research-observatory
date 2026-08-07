@@ -89,7 +89,60 @@ cat(sprintf("Pagel lambda=%.3f: AIC = %.1f\n", lambda, AIC(fit)))
 if (!is.null(fit_bm)) cat(sprintf("Brownian (lambda=1): AIC = %.1f\n", AIC(fit_bm)))
 cat(sprintf("OLS (lambda=0):     AIC = %.1f\n", AIC(fit_ols)))
 
-# ── Save ──────────────────────────────────────────────────────────────────────
+# ── Extract results for lambda=1 (Brownian) and lambda=0 (OLS) ─────────────────
+results_list <- list()
+
+# Pagel lambda result
+results_list[[1]] <- data.frame(
+  model   = "PGLS log(KO) Pagel",
+  lambda  = lambda,
+  beta_B  = beta_B,
+  se_B    = se_B,
+  p_B     = p_B,
+  AIC     = AIC(fit)
+)
+
+# Brownian (lambda=1) result
+if (!is.null(fit_bm)) {
+  tbl_bm <- summary(fit_bm)$tTable
+  beta_B_bm <- tbl_bm["B_z", "Value"]
+  se_B_bm   <- tbl_bm["B_z", "Std.Error"]
+  p_B_bm    <- tbl_bm["B_z", "p-value"]
+  results_list[[2]] <- data.frame(
+    model   = "PGLS log(KO) Brownian",
+    lambda  = 1.0,
+    beta_B  = beta_B_bm,
+    se_B    = se_B_bm,
+    p_B     = p_B_bm,
+    AIC     = AIC(fit_bm)
+  )
+  cat(sprintf("\nBrownian (lambda=1):\n"))
+  cat(sprintf("  B_z: beta = %+.4f, SE = %.4f, p = %.2e\n", beta_B_bm, se_B_bm, p_B_bm))
+}
+
+# OLS (lambda=0) result
+tbl_ols <- summary(fit_ols)$coefficients
+beta_B_ols <- tbl_ols["B_z", "Estimate"]
+se_B_ols   <- tbl_ols["B_z", "Std. Error"]
+p_B_ols    <- tbl_ols["B_z", "Pr(>|t|)"]
+results_list[[3]] <- data.frame(
+  model   = "OLS log(KO)",
+  lambda  = 0.0,
+  beta_B  = beta_B_ols,
+  se_B    = se_B_ols,
+  p_B     = p_B_ols,
+  AIC     = AIC(fit_ols)
+)
+cat(sprintf("\nOLS (lambda=0):\n"))
+cat(sprintf("  B_z: beta = %+.4f, SE = %.4f, p = %.2e\n", beta_B_ols, se_B_ols, p_B_ols))
+
+# ── Save lambda sensitivity table ─────────────────────────────────────────────
+lambda_sens_df <- do.call(rbind, results_list)
+rownames(lambda_sens_df) <- NULL
+write.csv(lambda_sens_df, file.path(DATA, "pgls_lambda_sensitivity.csv"), row.names = FALSE)
+cat("\nSaved -> data/pgls_lambda_sensitivity.csv\n")
+
+# ── Also save original Pagel result to pgls_logko_results.csv ──────────────────
 res_df <- data.frame(
   model        = "PGLS log(KO) Pagel",
   n_genera     = n,
@@ -104,5 +157,5 @@ res_df <- data.frame(
   AIC_OLS      = AIC(fit_ols)
 )
 write.csv(res_df, file.path(DATA, "pgls_logko_results.csv"), row.names = FALSE)
-cat("\nSaved -> data/pgls_logko_results.csv\n")
+cat("Saved -> data/pgls_logko_results.csv\n")
 cat("Done.\n")
