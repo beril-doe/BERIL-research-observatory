@@ -66,10 +66,12 @@ would be restricted to a small number of lineages. Testing requires two definiti
 
 H3 is supported in both senses: in the strict form (13.4% is a minority) and in the
 broad form (co-occurrence at 53.8% is the modal state, with defense-only at 44.8% the
-second-largest group). The narrow gap between these two groups highlights that defense
-prevalence is so universal that most genomes carrying at least one metabolism KO also
-carry defense, yet a large fraction carry defense without metabolism — reinforcing the
-asymmetry between the two categories. The RESEARCH_PLAN phrasing "high densities of
+second-largest group). However, the broad co-occurrence rate is largely a consequence of
+near-universal defense prevalence: under statistical independence, expected co-occurrence =
+0.986 × 0.540 = 53.2%, nearly identical to the observed 53.8%. The broad result does
+not demonstrate positive association of the two classes; it is a near-tautology given that
+98.6% of genomes carry at least one defense gene. The strict form (13.4% carry >p75 in
+both) is the more meaningful metric for H3. The RESEARCH_PLAN phrasing "high densities of
 both classes" aligns with the strict definition; the broad result is reported for completeness.
 
 *(Notebook: 03_phylogenetic_distribution.ipynb)*
@@ -96,8 +98,13 @@ taxa) and Bacteria genus (7,858 taxa) were not estimated; Archaea at all five le
 | Archaea | family | **1.24** | 2.8 × 10⁻²⁴ | **1.26** | 1.8 × 10⁻²⁵ | **0.83** | 7.0 × 10⁻²² |
 | Archaea | genus | **1.14** | 1.2 × 10⁻¹⁰³ | **1.10** | 1.1 × 10⁻⁹⁸ | **1.03** | 4.3 × 10⁻¹¹⁵ |
 
-λ > 1 indicates stronger-than-Brownian-motion phylogenetic structuring and is common for
-count data with clade-level variation in gene load. Key findings:
+ML estimation of Pagel's λ via `phytools::phylosig()` is not analytically bounded at 1.0;
+values exceeding 1.0 arise when observed between-clade variance in gene counts exceeds
+Brownian motion expectations given the tree's branch lengths (Freckleton et al. 2002,
+*The American Naturalist* 160:712–726; doi:10.1086/343873). Estimates are most unstable at phylum/class levels where n is small
+(17 Bacteria phyla, 34 classes). The p-values — from likelihood-ratio tests comparing
+fitted λ versus λ=0 — remain valid and are the primary quantity interpreted here; the
+magnitude of λ>1 is not interpreted directly. Key findings:
 - **Defense signal is deepest**: λ=3.03 at Bacteria phylum level (p=2.1×10⁻⁶) reflects
   dramatic between-phylum differences in defense gene load (Bacteroidota OR=117.6 vs
   Bacillota OR=0.65 in phylum enrichment), strongly structured by ancient evolutionary history.
@@ -123,28 +130,28 @@ pristine/REE-impacted) against 27,690 genomes with isolation source metadata:
 
 Raw Fisher exact tests (pqqA–E removed from seed list; 15 metabolism KOs):
 
-| Habitat | Category | Raw OR | 95% CI | q (raw) | Phylum-adj OR | q (adj) |
-|---------|----------|--------|--------|---------|---------------|---------|
-| Contaminated | Defense | 0.32 | [0.23, 0.45] | 4.6 × 10⁻⁸ | — (singular) | — |
-| Contaminated | Metabolism | **1.25** | [1.10, 1.42] | 1.8 × 10⁻³ | **1.28** | 1.6 × 10⁻³ |
-| Contaminated | Homeostasis | 0.50 | [0.43, 0.59] | 8.2 × 10⁻¹⁴ | 0.65 | 6.3 × 10⁻⁵ |
-| Pristine | Metabolism | 1.00 | — | n.s. | 0.70 | 2.3 × 10⁻⁸ |
-| Pristine | Homeostasis | 0.82 | [0.70, 0.96] | 0.03 | 0.60 | 1.7 × 10⁻⁷ |
-| REE-impacted | Metabolism | 1.46 | — | n.s. | 1.24 | n.s. |
-| REE-impacted | Homeostasis | 3.83 | [1.32, 11.1] | 4.9 × 10⁻³ | 2.76 | n.s. (0.11) |
+| Habitat | Category | Raw OR | 95% CI | q (raw) | Phylum-adj OR | q (phylum) | Size-adj OR | q (size) |
+|---------|----------|--------|--------|---------|---------------|------------|-------------|---------|
+| Contaminated | Defense | 0.32 | [0.23, 0.45] | 4.6 × 10⁻⁸ | — (singular) | — | — (singular) | — |
+| Contaminated | Metabolism | **1.25** | [1.10, 1.42] | 1.8 × 10⁻³ | **1.28** | 2.1 × 10⁻³ | **1.47** | 5 × 10⁻⁶ |
+| Contaminated | Homeostasis | 0.50 | [0.43, 0.59] | 8.2 × 10⁻¹⁴ | 0.65 | 8.1 × 10⁻⁵ | 0.70 | 5.1 × 10⁻³ |
+| Pristine | Metabolism | 1.00 | — | n.s. | 0.70 | 4.0 × 10⁻⁸ | 0.88 | n.s. (0.083) |
+| Pristine | Homeostasis | 0.82 | [0.70, 0.96] | 0.03 | 0.60 | 2.9 × 10⁻⁷ | 0.81 | n.s. (0.083) |
+| REE-impacted | Metabolism | 1.46 | — | n.s. | 1.24 | n.s. | 1.01 | n.s. |
+| REE-impacted | Homeostasis | 3.83 | [1.32, 11.1] | 4.9 × 10⁻³ | 2.76 | n.s. (0.11) | 2.24 | n.s. |
 
-Phylum-adjusted ORs from logistic regression (`has_category ~ is_habitat + C(phylum_grp)`, top-10 phyla; `ecology_results_phylum_adj.csv`).
+Phylum-adjusted ORs from logistic regression (`has_category ~ is_habitat + C(phylum_grp)`, top-10 phyla). Size-adjusted ORs from `has_category ~ is_habitat + C(phylum_grp) + log_genome_size` using genome sizes from `kbase.ke_pangenome.gtdb_metadata` (n=27,690, 100% matched, 2026-07-30). Both models saved in `ecology_results_phylum_adj.csv`.
 
 **H1 (defense enriched in contaminated) is not supported.** The raw OR=0.32 appeared to be a taxonomic composition artifact: contaminated-habitat samples are enriched in defense-poor archaea (Patescibacteria, Thermoplasmatota, and Micrarchaeota are substantially over-represented among contaminated-habitat genomes relative to the full pangenome). Phylum-adjusted logistic regression cannot estimate a defense effect — near-universal defense prevalence (98.6%) produces a singular matrix for all three habitat models — so the within-phylum signal cannot be separated from compositional effects. The raw OR=0.32 reflects taxonomic composition only.
 
 **H2 (metabolism enriched in pristine/REE) is not supported.** After removing the spurious pqqA–E KOs (see Limitations — Spurious PQQ Annotations) and applying phylum-adjusted logistic regression:
-- **Contaminated sites**: metabolism is genuinely enriched (raw OR=1.25, q=0.002; phylum-adj OR=1.28, q=0.002 — robust). This is unexpected relative to H2 but consistent with a positive ecological relationship between metal availability and metal metabolism gene carriage.
-- **Pristine sites**: metabolism is not enriched by raw Fisher test (OR=1.00, n.s.) and is significantly *depleted* after phylum control (OR=0.70, q=2.3×10⁻⁸). Pristine-habitat phyla are enriched in metabolism-carrying lineages (e.g., nitrogen-fixing Pseudomonadota), which maskes a genuine within-phylum depletion relative to contaminated sites.
-- **REE-impacted sites**: metabolism enrichment (raw OR=1.46) is not significant after FDR correction and is not confirmed by phylum-adjusted regression (OR=1.24, n.s.). The 114-genome REE sample is too small to resolve phylum-adjusted effects.
+- **Contaminated sites**: metabolism is genuinely enriched (raw OR=1.25, q=0.002; phylum-adj OR=1.28, q=0.002; size-adj OR=**1.47**, q=5×10⁻⁶ — signal strengthens after genome-size correction). This is unexpected relative to H2 but consistent with a positive ecological relationship between metal availability and metal metabolism gene carriage. Genome-size correction increases the OR because contaminated-habitat organisms tend to have smaller genomes on average, making their disproportionate metabolism gene carriage even more striking per Mbp.
+- **Pristine sites**: metabolism is not enriched by raw Fisher test (OR=1.00, n.s.). After phylum control, pristine organisms appear depleted (OR=0.70, q=4×10⁻⁸), but this attenuates substantially after genome-size correction (size-adj OR=0.88, q=0.083). Pristine-habitat phyla carry somewhat larger genomes; the phylum-only depletion is partially a genome-size artefact.
+- **REE-impacted sites**: metabolism enrichment (raw OR=1.46) is not significant after FDR correction and collapses to OR=1.01 in the size-adjusted model. Not supported.
 
 The **note on Thermoplasmatota**: post-hoc KO tracing of all 294 Thermoplasmatota showed that the old 87.4% apparent metabolism prevalence was driven by pqqB (60.9%) and pqqE (63.6%) — but pqqC is absent in all 294 genomes and xoxF in only 1, indicating spurious annotation in non-methylotrophic marine archaea and acidophiles. Genuine metabolism KOs (mcrA, hyd1, nifH) are present in only 22.4%. These KOs were removed from the seed list before the re-run; the results above reflect the corrected classification.
 
-**The most robust ecological finding**: metal metabolism genes are specifically enriched in contaminated habitats (phylum-adj OR=1.28, q=0.002), not in pristine or REE-impacted habitats. This reverses the H2 hypothesis direction and suggests that metal contamination, rather than metal scarcity, drives metabolism gene selection.
+**The most robust ecological finding**: metal metabolism genes are specifically enriched in contaminated habitats (phylum-adj OR=1.28, q=0.002; size-adj OR=1.47, q=5×10⁻⁶), not in pristine or REE-impacted habitats. The signal strengthens after genome-size correction, ruling out the genome-size confound. This reverses the H2 hypothesis direction and suggests that metal contamination, rather than metal scarcity, drives metabolism gene selection. Effect size is small by convention (phylum-adj Cohen's d ≈ 0.136; size-adj d ≈ 0.211; Cramér's V for the 6-phylum × defense enrichment table ≈ 0.115) — the result is statistically robust at N=15,958 but represents a small ecological signal, detectable only because of large sample size.
 
 *(Notebook: 04_ecological_signature.ipynb)*
 
@@ -164,7 +171,7 @@ For experimental prioritization, the table above ranks by **composite score** (z
 
 ## Discoveries
 
-- **Contaminated habitat metabolism enrichment is a genuine ecological signal** (phylum-adjusted OR=1.28, q=0.002; robust to phylum composition control) — but it is specific to contaminated sites, not pristine or REE-impacted sites. Pristine-habitat metabolism is not enriched (raw OR=1.00) and is slightly depleted after phylum control (OR=0.70, q<0.001), reversing the original H2 hypothesis. The contaminated-habitat defense raw OR=0.32 is a taxonomic composition effect; near-universal defense prevalence (98.6%) makes phylum-adjusted regression inestimable (singular matrix). Spurious pqqA–E KO annotations were traced and removed from the seed list before this re-run; the corrected Thermoplasmatota metabolism prevalence is 22.4% (not 87.4%).
+- **Contaminated habitat metabolism enrichment is a genuine ecological signal, robust to both phylum and genome-size control** (phylum-adj OR=1.28, q=0.002; size-adj OR=1.47, q=5×10⁻⁶; signal strengthens after correction). It is specific to contaminated sites; pristine-habitat metabolism depletion (phylum-adj OR=0.70, q<0.001) is a partial genome-size artefact (size-adj OR=0.88, n.s.). The contaminated-habitat defense raw OR=0.32 is a taxonomic composition effect; near-universal defense prevalence (98.6%) makes phylum-adjusted regression inestimable (singular matrix). Spurious pqqA–E KO annotations were traced and removed from the seed list before this re-run; the corrected Thermoplasmatota metabolism prevalence is 22.4% (not 87.4%).
 - Defense genes are effectively universal in bacteria (98.6% prevalence across 27,690 species), making contaminated-habitat enrichment tests uninformative for this class; habitat ecology studies of metal gene distributions should focus on metabolism and homeostasis genes where variance is high enough to detect ecological structure.
 - Co-occurrence of both classes is the modal state (53.8% carry both ≥1 each), with defense-only the second-largest group (44.8%). Strict dual specialization (>75th percentile in both) is a minority pattern (13.4%), consistent with H3. The high defense-only fraction underscores that defense prevalence asymmetry is real but not so extreme as to eliminate co-occurrence as the most common profile.
 - **Phylogenetic signal is strong and taxonomically structured**: defense gene counts show the deepest signal (λ=3.03 at Bacteria phylum level, p=2.1×10⁻⁶), while metabolism signal is absent at the Bacteria phylum level (λ≈0, p=1.0) but emerges at class level (λ=1.83, p=3.1×10⁻¹⁶). This supports the interpretation that metal defense reflects ancient, clade-wide evolutionary constraints, while metal metabolism reflects more lineage-specific or ecologically contingent acquisitions. Archaea show consistent signal at class through genus levels for all three traits.
@@ -292,13 +299,18 @@ ranked candidate list for experimental validation that no prior analysis has pro
   transport), and K16163/mai (no direct experimental paper for metal-coordination). Seed
   list has NOT been cross-validated against CARD database (pending manual curation).
   Expanding via InterPro domain scanning is a natural next step.
-- **Genome size confounding**: raw counts n_defense, n_metabolism, n_homeostasis scale
-  with genome size — larger genomes carry more genes of all types. The current Fisher's
-  exact tests (NB03, NB04) do not control for this. A genome-size query cell was added
-  to NB02 (cell `21f5cf55`) and will produce `data/genome_size.parquet` on first Seaborg
-  execution. Logistic regression in NB04 should include `log(genome_size)` as a
-  covariate; counts should be normalized to genes-per-Mbp for scatter plots. This is a
-  known limitation of the current draft.
+- **Pangenome-level gene counts inflate means and Pagel's λ for highly-sequenced species**: `n_defense` and `n_metabolism` are ke_pangenome gene cluster counts aggregated across all genomes per species in the pangenome database — not per-genome counts from a single representative. Species with thousands of sequenced genomes (K. pneumoniae, Pseudomonas aeruginosa, Salmonella enterica) accumulate accessory gene cluster diversity proportional to sequencing effort: K. pneumoniae has n_defense=2,949 (128× the dataset median of 16). Mean n_defense=23.1 reported in the abstract and Pagel's λ values are affected by this pangenome confound. **The binary enrichment tests (phylum enrichment, habitat enrichment) use `has_category` (>0 vs. 0) and are NOT affected** — the primary thesis claims rest on these. The continuous metrics (means, λ) should be interpreted as pangenome-level properties of species, not per-genome properties.
+- **Genome size confounding (resolved 2026-07-30)**: genome sizes for all 27,690 species
+  were fetched from `kbase.ke_pangenome.gtdb_metadata` via Spark (100% join rate). The
+  size-adjusted logistic regression (`has_category ~ is_habitat + C(phylum_grp) +
+  log_genome_size`) was run for all habitat × category combinations and is now included
+  in `ecology_results_phylum_adj.csv`. Key finding: the contaminated × metabolism
+  enrichment STRENGTHENS after genome-size correction (size-adj OR=1.47, q=5×10⁻⁶;
+  phylum-only OR=1.28, q=0.002), ruling out genome-size confounding as an explanation.
+  The pristine × metabolism depletion (phylum-only OR=0.70, q<0.001) is partially a
+  genome-size artefact (size-adj OR=0.88, n.s.). Per-Mb counts are now available as
+  `n_defense_per_mb`, `n_metabolism_per_mb`, `n_homeostasis_per_mb` in
+  `genome_metal_counts.parquet`.
 - **Isolation source annotation coverage**: only 57.7% of genomes (15,958/27,690) had
   interpretable isolation_source text; REE-impacted habitat is covered by only 114
   genomes, making those estimates provisional.
@@ -354,8 +366,21 @@ ranked candidate list for experimental validation that no prior analysis has pro
   xoxF (K00114) or mxaF (K14028) is also present in the same genome.
 - **H3 dual-specialist count depends on threshold**: the strict dual-specialist count
   (13.4%, >75th percentile in both) is sensitive to the threshold choice. The broad
-  co-occurrence count (53.8%, >0 in both) is threshold-free. Both are reported; future
-  analyses should test sensitivity to alternative percentile cutoffs.
+  co-occurrence count (53.8%, >0 in both) is threshold-free. A threshold sensitivity
+  analysis (2026-07-30) confirms the "minority" conclusion is robust:
+
+  | Threshold | defense cutoff | metabolism cutoff | Dual specialists | % of 27,690 |
+  |-----------|---------------|-------------------|-----------------|-------------|
+  | >p50 | >16 | >1 | 7,852 | 28.4% |
+  | >p60 | >20 | >2 | 6,079 | 22.0% |
+  | >p70 | >25 | >3 | 4,623 | 16.7% |
+  | >p75 (reported) | >29 | >4 | 3,699 | 13.4% |
+  | >p80 | >33 | >5 | 2,750 | 9.9% |
+  | >p90 | >50 | >8 | 886 | 3.2% |
+
+  Strict dual specialization remains a minority pattern at all thresholds from p50 (28.4%)
+  to p90 (3.2%); the H3 conclusion is therefore not threshold-dependent. The p75 result
+  (13.4%) is a reasonable middle choice and is retained as the primary reported value.
 
 ## Data
 
@@ -374,13 +399,14 @@ ranked candidate list for experimental validation that no prior analysis has pro
 |------|------|-------------|
 | `data/seed_list.tsv` | 46 | Curated metal gene KOs with category labels (defense/metabolism/homeostasis); pqqA–E removed |
 | `data/annotation_vocab_map.parquet` | — | Seed KO to gene cluster mapping |
-| `data/genome_metal_counts.parquet` | 27,690 | Per-genome defense/metabolism/homeostasis gene cluster counts |
+| `data/genome_metal_counts.parquet` | 27,690 | Per-genome defense/metabolism/homeostasis counts + per-Mb normalized columns (n_defense_per_mb, n_metabolism_per_mb, n_homeostasis_per_mb, genome_size_mb) added 2026-07-30 |
 | `data/species_trait_matrix.csv` | 27,690 | Binary presence/absence of each category per species |
 | `data/phylum_prevalence.csv` | 18 | Phylum-level prevalence with Wilson 95% CIs |
 | `data/phylum_enrichment.csv` | 18 | Fisher's exact test results with BH-FDR (`q_value_bh`) and Bonferroni (`q_value_bonferroni`) corrections |
 | `data/genome_env.parquet` | 27,690 | Genome–isolation source mapping from ncbi_env EAV table |
 | `data/ecology_results.csv` | 7 | Habitat enrichment test results (significant associations) |
-| `data/ecology_results_phylum_adj.csv` | ~6 | Phylum-adjusted logistic regression results (metabolism/homeostasis; defense models singular) |
+| `data/ecology_results_phylum_adj.csv` | 18 | Phylum-adjusted and genome-size-adjusted logistic regression results (model column: 'phylum_adj' / 'size_adj'; defense models singular) |
+| `data/genome_size.parquet` | 27,690 | Genome size (bp) and CheckM completeness from kbase.ke_pangenome.gtdb_metadata, 100% match rate |
 | `data/pagel_lambda_summary.csv` | 24 | Pagel's λ for defense, metabolism, homeostasis (Bacteria phylum–order; Archaea phylum–genus) |
 | `data/enigma_isolate_classification.csv` | 2,879 | Per-isolate defense/metabolism/homeostasis counts, z-scores, composite scores |
 
