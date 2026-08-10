@@ -14,7 +14,7 @@ The pattern replicates in 8,849 MGnify soil MAGs: M1 (RMSE=0.0385) is again wors
 
 ### H2 NOT SUPPORTED (Cu only; untested for As/Cd/Cr/Hg/Pb) — Soil chemistry outperforms metal-gene density
 
-Soil chemistry features (M2: SoilGrids pH, organic carbon, clay fraction) achieve RMSE=0.0439 in the SPIRE dataset and RMSE=0.0164 in MGnify — consistently outperforming MAG KO density (M1: 0.0527 SPIRE, 0.0385 MGnify). The gap is especially large in MGnify (M2/M1 RMSE ratio = 0.43), reflecting that local metal mobility is determined primarily by edaphic geochemistry rather than the gene content of individual assembled genomes.
+Soil chemistry features (M2: SoilGrids pH, organic carbon, clay fraction) achieve RMSE=0.0439 in the SPIRE dataset and RMSE=0.0370 in MGnify — outperforming MAG KO density (M1: 0.0527 SPIRE, 0.0385 MGnify) in both datasets. The advantage is substantial in SPIRE (M2/M1 RMSE ratio = 0.83) but marginal in MGnify (ratio = 0.96), consistent with the SoilGrids-only M2 feature set providing weaker environmental context when the target distribution is narrower.
 
 *(Notebooks: 02_predict_mobility.ipynb, 02b_mgnify_mobility_prediction.ipynb)*
 
@@ -24,7 +24,7 @@ Soil chemistry features (M2: SoilGrids pH, organic carbon, clay fraction) achiev
 
 The combined model (M3: MAG density + SoilGrids) achieves RMSE=0.0400 (SPIRE), improving over M1 (0.0527) and M2 (0.0439) alone. However, SHAP analysis reveals that SoilGrids features dominate by ~20–50×: organic_carbon_density (0.0195) > clay_content (0.0120) > ph_h2o (0.0113), versus ko_per_mb_transport (0.00073) and all remaining KO-density subcategories ≤0.00050. Metal-gene KO density contributes <4% of total M3 SHAP importance. The M3 improvement over M1 is entirely attributable to soil chemistry features entering the model.
 
-In MGnify, M3 SHAP shows a different pattern: metal fraction covariates (PF1_Cr: 0.0106, PF1_As: 0.0087, PF1_Hg: 0.0045) rather than SoilGrids dominate, with KO density features contributing <1% (ko_per_mb_resistance: 0.00013). When metal fraction covariates are included as features alongside KO density, M3 and M2 are essentially equivalent (RMSE 0.0163 vs 0.0164), and M3 wins only 2/5 spatial folds.
+MGnify M3 SHAP shows the same SoilGrids-dominant pattern as SPIRE: organic_carbon_density (0.0136) > clay_content (0.0071) > ph_h2o (0.0067), with KO density features negligible (<4% total importance; ko_per_mb_primary: 0.000494). This structural similarity suggests the null result generalises: soil chemistry is the dominant predictor regardless of dataset.
 
 *(Notebooks: 02_predict_mobility.ipynb, 02b_mgnify_mobility_prediction.ipynb)*
 
@@ -54,8 +54,8 @@ All three datasets (P1 genus-level: β=−0.021; SPIRE MAG-level: β=−0.011; M
 
 | Hypothesis | Outcome | Evidence |
 |---|---|---|
-| H5exp — M3 beats B0 | SUPPORTED | MGnify M3 RMSE=0.0163 < B0=0.0369 (all 5 folds); driven by metal-fraction covariates |
-| H6exp — M3 outperforms M2 on ≥3/5 folds | NOT SUPPORTED | M3 wins 2/5 folds (folds 1, 4); M2 wins 3/5; mean RMSE near-equivalent (0.0163 vs 0.0164) |
+| H5exp — M3 beats B0 | NOT SUPPORTED | MGnify M3 RMSE=0.0387 > B0=0.0369; SoilGrids-based M3 does not beat the mean baseline |
+| H6exp — M3 outperforms M2 on ≥3/5 folds | NOT SUPPORTED | M3 RMSE (0.0387) > M2 RMSE (0.0370); adding KO density to SoilGrids degrades MGnify performance |
 | H7exp — geographic holdout ratio < 1.25 | SUPPORTED | ratio=0.655 < 1.25 (n=97 Australian MGnify MAGs); same caveat as H4: R²=−0.37 |
 | H8exp — SPIRE vs MGnify β correlation ρ > 0.3 | NOT EVALUABLE | Only primary-KO-set β compared; both negative (SPIRE −0.011, MGnify −0.047, P1 −0.021); formal per-predictor Spearman ρ requires per-KO PGLS which was not run |
 
@@ -86,10 +86,10 @@ SPIRE MAGs were downloaded from `https://spire.embl.de/download_eggnog/{SAMPLE_I
 |---|---|---|---|---|
 | B0 (mean baseline) | 0.0369 | 0.015 | −0.083 | 0.080 |
 | M1 (MAG density only) | 0.0385 | 0.013 | −0.231 | 0.165 |
-| M2 (metal fractions only) | 0.0164 | 0.005 | 0.760 | 0.090 |
-| M3 (MAG density + metal fractions) | **0.0163** | 0.007 | **0.779** | 0.084 |
+| M2 (SoilGrids features) | 0.0370 | 0.009 | −0.381 | 0.790 |
+| M3 (MAG density + SoilGrids) | 0.0387 | 0.008 | −0.523 | 0.876 |
 
-*Note: MGnify M2 uses PF1_As/Cd/Cr/Hg/Pb as features in addition to PF1_Cu target; SPIRE M2 uses SoilGrids soil chemistry. Different feature sets reflect what was available per dataset.*
+*Note: MGnify M2 uses SoilGrids soil properties (ph_h2o, organic_carbon_density, clay_content), identical feature set to SPIRE M2. MGnify M2 definition was updated mid-project to match SPIRE; earlier exploratory runs used PF1_As/Cd/Cr/Hg/Pb as M2 features. All data files and figures now reflect the current SoilGrids-based pipeline (NB02b and NB05 both re-executed in dependency order).*
 
 ### SHAP importance — SPIRE M3
 
@@ -111,19 +111,17 @@ Soil features are 20–50× more important than any KO density feature. All KO-d
 
 | Feature | Mean |SHAP| |
 |---|---|
-| PF1_Cr | 0.01064 |
-| PF1_As | 0.00866 |
-| PF1_Hg | 0.00446 |
-| PF1_Pb | 0.00398 |
-| PF1_Cd | 0.00297 |
-| ko_per_mb_resistance | 0.00013 |
-| ko_per_mb_cofactor | 0.000061 |
-| ko_per_mb_primary | 0.000049 |
-| ko_per_mb_metabolism | 0.000047 |
-| ko_per_mb_sensing | 0.000037 |
-| ko_per_mb_transport | 0.000036 |
+| organic_carbon_density | 0.01362 |
+| clay_content | 0.00706 |
+| ph_h2o | 0.00669 |
+| ko_per_mb_primary | 0.000494 |
+| ko_per_mb_metabolism | 0.000248 |
+| ko_per_mb_cofactor | 0.000231 |
+| ko_per_mb_resistance | 0.000212 |
+| ko_per_mb_sensing | 0.000192 |
+| ko_per_mb_transport | 0.000190 |
 
-Metal fraction covariates dominate MGnify M3 SHAP. KO density features are 50–300× smaller than the leading metal fraction feature (PF1_Cr).
+SoilGrids features dominate MGnify M3 SHAP — the same pattern as SPIRE. KO density features are 20–70× smaller than the leading soil feature (organic_carbon_density), contributing <4% of total importance.
 
 ### Geographic holdout — Australia
 
@@ -162,9 +160,9 @@ The sign-concordant negative β across P1 (genus-level), SPIRE (MAG-aggregated),
 
 The failure of this signal to translate to MAG-level prediction is informative precisely because it is not a null result in the genus-level analysis. It means the association is a genus-level aggregate phenomenon, not a feature of individual genomes — analogous to how phylogenetic inertia at the genus level can produce a signal that is undetectable at the isolate level.
 
-### MGnify SHAP — metal fractions as environmental proxies
+### MGnify SHAP — SoilGrids as dominant predictor (both datasets)
 
-The MGnify M3 SHAP pattern (metal fraction features >> KO density) reflects that local metal mobility co-varies with other metals in the CSU grid. PF1_Cr and PF1_As are excellent proxies for the overall geochemical context of a sampling site, so including them as features gives the model environmental context that dwarfs any genomic signal. This is consistent with the SPIRE result (where pH and organic carbon play the same proxy role).
+The MGnify M3 SHAP pattern replicates the SPIRE finding: soil chemistry features (organic carbon, clay content, pH) dominate by 20–70×, and KO density contributes negligible independent information. This structural similarity across two independent datasets reinforces that soil geochemistry — not genomic content — is the primary driver of metal mobility at individual-MAG resolution. The SoilGrids-only M2 and the combined M3 model perform nearly identically in MGnify (0.0370 vs 0.0387), confirming that adding KO density features provides no benefit.
 
 ### Literature Context
 
@@ -189,7 +187,7 @@ This project provides the first direct test of whether a genus-level genomic-eco
 
 ## Discoveries
 
-- **The P1 genus-level metal-gene signal (β=−0.021 in comprehensive_metal_ecology) is sign-concordant but non-significant at MAG resolution across two independent datasets (SPIRE β=−0.011 p=0.22, MGnify β=−0.047 p=0.25).** Scale matters: the association is a genus-level aggregate phenomenon that does not surface at individual-genome resolution. This establishes an ecological resolution bound — metal-gene niche breadth associations operate at ≥genus level, not at the isolate/MAG level.
+- **The P1 genus-level metal-gene signal (β=−0.021 in comprehensive_metal_ecology) is sign-concordant but non-significant at MAG resolution across two independent datasets (SPIRE β=−0.011 p=0.22, MGnify β=−0.047 p=0.25).** Scale matters: the association is a genus-level aggregate phenomenon that does not surface at individual-genome resolution. These results are consistent with, but do not independently confirm, a genus-level-only effect — metal-gene niche breadth associations may operate at ≥genus level rather than the isolate/MAG level, though two non-significant replication attempts cannot rule out power limitations.
 
 ## Performance Notes
 

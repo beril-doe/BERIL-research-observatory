@@ -171,6 +171,7 @@ Three overarching concerns remain:
 
 ### Suggested
 
+> ⚠️ **CITATION FABRICATED**: DOI 10.1086/343873 resolves to "Phylogenetic Analysis and Comparative Data: A Test and Review of Evidence", but citation claims "Freckleton et al. 2002, *J. Evol. Biol.*" (title overlap 0%)
 - **S4: Freckleton et al. 2002 citation venue is incorrect** — REPORT §Pagel's λ. The REPORT cites "Freckleton et al. 2002, *J. Evol. Biol.*" for the interpretation of λ > 1. The actual citation is Freckleton RP, Harvey PH, Pagel M. (2002). "Phylogenetic Analysis and Comparative Data: A Test and Review of Evidence." *The American Naturalist* 160(6):712–726. doi:10.1086/343873. Journal of Evolutionary Biology is incorrect.
 
   **Suggested fix:** Correct the journal name to *The American Naturalist* and add the DOI.
@@ -243,13 +244,27 @@ Verified from `ecology_results_phylum_adj.csv`: contaminated × metabolism phylu
 
 ### Claim 4: "XoxF may be ancestral, implying metabolism gene prevalence partially reflects ancient lineage-specific acquisitions"
 
-This claim references Bruger & Bazurto (2026). The interpretation — that XoxF's broad distribution implies ancient origin rather than recent adaptive spread — is reasonable but introduces a tension with the project's own framing: if metabolism genes are ancient, their "selective" presence in some lineages could reflect gene loss (not gain under metal selection), which would undermine the contaminated-habitat enrichment interpretation.
+**Bruger EL, Bazurto JV. (2026). "Beneath the surface: expanding the known repertoire of methylotrophic metabolism." Applied and Environmental Microbiology 92(3):e02116-25.** doi:10.1128/aem.02116-25 [PMID:41636527]
+
+- **Studied:** Perspective article reviewing XoxF distribution and evolutionary history across bacteria; commentary on a study of the XoxF-CBB pathway in nitrogen-fixing rhizobia (Sinorhizobium, Bradyrhizobium)
+- **Finding:** "Given that both XoxF and CBB are now considered to be among the most ancestral methylotrophic machinery available, the XoxF-CBB pathway may be representative of the simplest and most ancient methylotrophic schema available in nature."
+- **Scope alignment:** ✓ broad bacterial scope; addresses XoxF as an ancestral lanthanide-dependent enzyme directly relevant to the project's claim
+- **Assessment:** ✓ supports the ancestral XoxF interpretation cited in the project; however, the ancestral framing introduces a tension with the ecological narrative (see below)
+
+The interpretation — that XoxF's broad distribution implies ancient origin rather than recent adaptive spread — is reasonable but introduces a tension with the project's own framing: if metabolism genes are ancient, their "selective" presence in some lineages could reflect gene loss (not gain under metal selection), which would undermine the contaminated-habitat enrichment interpretation.
 
 - **Assessment:** ⚠ the ancestral interpretation is literature-supported but creates an unresolved tension with the ecological narrative.
 
 ### Claim 5: "Xie et al. (2023) demonstrated that insoluble lanthanide oxides can be dissolved and mobilized by chelating compounds secreted by methanotrophs"
 
-Verified via WebSearch (PMID:38092408). The actual paper's primary finding is transcriptional regulation of methanol dehydrogenases by lanthanides (the "lanthanide switch"). The chelating-compound observation is a secondary finding: "M. capsulatus produces Ce-chelating compound(s) only under lanthanide-deficient conditions." The REPORT's claim oversimplifies — the paper is primarily about transcriptional regulation, not about dissolution/mobilization of lanthanide oxides as a general methanotrophic mechanism.
+**Xie R, Takashino M, Igarashi K, Kitagawa W, Kato S. (2023). "Transcriptional Regulation of Methanol Dehydrogenases in the Methanotrophic Bacterium Methylococcus capsulatus Bath by Soluble and Insoluble Lanthanides." Microbes and Environments 38(4):ME23065.** doi:10.1264/jsme2.ME23065 [PMID:38092408, PMCID:PMC10728633]
+
+- **Studied:** Methylococcus capsulatus Bath (methanotroph); transcriptomic response to soluble lanthanide chlorides and insoluble lanthanide oxides; gene expression of XoxF-MDHs and MxaFI-MDHs
+- **Finding:** "Insoluble lanthanide oxides also induced the lanthanide switch and were dissolved by the spent medium of M. capsulatus, suggesting the presence of lanthanide-chelating compounds. A transcriptome analysis indicated that a gene cluster for the synthesis of an enterobactin-like metal chelator contributed to the dissolution of insoluble lanthanides."
+- **Scope alignment:** ⚠ single-species study (M. capsulatus Bath); chelator-mediated dissolution is a secondary observation; primary focus is transcriptional regulation of MDH gene expression
+- **Assessment:** ⚠ partially supported. The chelating-compound observation is present in the paper but is not its central finding; the primary result is transcriptional regulation. The REPORT's framing overstates the dissolution/mobilization as the paper's core contribution.
+
+The actual paper's primary finding is transcriptional regulation of methanol dehydrogenases by lanthanides (the "lanthanide switch"). The chelating-compound observation is a secondary finding: "M. capsulatus produces Ce-chelating compound(s) only under lanthanide-deficient conditions." The REPORT's claim oversimplifies — the paper is primarily about transcriptional regulation, not about dissolution/mobilization of lanthanide oxides as a general methanotrophic mechanism.
 
 - **Assessment:** ⚠ partially supported. The chelating observation is in the paper but is not its central finding. The claim should be reframed to reflect the paper's actual emphasis on transcriptional regulation.
 
@@ -336,3 +351,25 @@ The project does not discuss why external tools were not used. CARD validation i
 - **Date**: 2026-08-03
 - **Scope**: 5 notebooks (structure checked), REPORT.md, RESEARCH_PLAN.md, README.md, references.md, 6 figures (existence verified), 10 data files (5 spot-checked computationally), 2 prior adversarial reviews read, literature scan (12 papers assessed), 5 biological claims checked via WebSearch/Tier 1 computation, 4 Tier 1 statistical calculations performed
 - **Note**: AI-generated review. Treat as advisory input, not definitive.
+
+
+## Citation Verification
+
+Programmatically verified 8 citation block(s) against Crossref (DOI) and NCBI PubMed (PMID).
+
+- Verified: 7
+- Fabricated: 1
+- Unverifiable (network failure): 0
+- Missing identifier (no DOI/PMID): 0
+
+### Fabricated
+
+- Line 174: DOI 10.1086/343873 resolves to "Phylogenetic Analysis and Comparative Data: A Test and Review of Evidence", but citation claims "Freckleton et al. 2002, *J. Evol. Biol.*" (title overlap 0%)
+
+## Run Metadata
+
+- **Elapsed**: 30:57
+- **Model**: opus
+- **Tokens**: input=31,003 output=83,842 (cache_read=2,706,195, cache_create=445,255)
+- **Estimated cost**: $11.375
+- **Pipeline**: main + critic + fix + re-critic (4 calls)

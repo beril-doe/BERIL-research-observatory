@@ -1,8 +1,14 @@
 # metagenomic_environment_prediction
 
-**Does per-Mb metal-gene density in environmental MAGs predict local metal mobility at the sampling site?**
+## Research Question
 
-This project tests whether the genomic signal documented in `comprehensive_metal_ecology` is recoverable at the individual-MAG level and generalises across geographic space. It is a downstream extension, not a replication — the predictor (MAG-level density) and target (environmental metal conditions at sampling coordinates) are both different from P1.
+Does per-Mb metal-gene density in environmental MAGs predict local metal mobility at the sampling site, and does this MAG-level signal generalise across geographic space?
+
+This project tests whether the genomic signal documented in `comprehensive_metal_ecology` is recoverable at the individual-MAG level. It is a downstream extension, not a replication — the predictor (MAG-level KO density) and target (environmental PF1 metal mobility at sampling coordinates) are both different from the genus-level analysis in P1.
+
+## Authors
+
+- Heather MacGregor (ORCID: 0000-0003-1112-3009)
 
 ---
 
@@ -119,14 +125,14 @@ Can be run in parallel with or after SPIRE pipeline. NB05 should run last as it 
 
 ## Status
 
-Reviewed — REVIEW_1.md drafted; awaiting /submit.
+Completed — MAG-level metal-gene density does not predict local Cu mobility (H1/H2 not supported); combining MAG density with SoilGrids marginally improves prediction (H3 supported); Australia geographic holdout transfers (H4 supported, ratio=0.52); PGLS β sign-concordant with P1 across both SPIRE and MGnify (H5 consistent, p>0.2 at MAG resolution).
 
 ### SPIRE pipeline
 All notebooks executed (2026-07-09).
 
 | Notebook | Status | Key output |
 |----------|--------|------------|
-| NB00 | Complete | `data/spire_probe_results.json` — use_spire_downloads=True |
+| NB00 | Complete | `data/spire_probe_results.json` — use_spire_downloads=True. Note: NB00 was executed in JupyterHub via `nbconvert` and its Spark probe cells require a live SPIRE cluster connection; the `.ipynb` file does not retain cell outputs in the committed state (outputs were written to the data file, not the notebook). |
 | NB01 | Complete | `data/mag_feature_matrix.parquet` — 15,957 MAGs, 15,368 with CSU, 13,182 with SoilGrids |
 | NB02 | Complete | `data/cv_results.csv`, `data/shap_mean_abs.csv` |
 | NB03 | Complete | `data/holdout_results.json` |
@@ -138,7 +144,7 @@ All notebooks executed (2026-07-09 to 2026-07-31).
 | Notebook | Status | Key output |
 |----------|--------|------------|
 | NB01b | Complete | `data/mgnify_mag_feature_matrix.csv` — 8,849 MAGs, 7,973 with CSU |
-| NB02b | Complete | `data/mgnify_mobility_prediction_results.csv` — B0/M1/M2/M3 CV; M3=0.0163, B0=0.0369 |
+| NB02b | Complete | `data/mgnify_mobility_prediction_results.csv` — B0/M1/M2/M3 CV; B0=0.0369, M2=0.0370, M3=0.0387 (SoilGrids-based M2) |
 | NB03b | Complete | `data/mgnify_geographic_holdout.csv` — ratio=0.655, n=97 Australia MAGs |
 | NB04b | Complete | `data/mgnify_pgls_validation.csv` — β=−0.047, p=0.252, n=444 genera |
 | NB05 | Complete | `data/mgnify_vs_spire_comparison.csv` — cross-dataset CV RMSE comparison |
@@ -213,3 +219,29 @@ A second data source (MGnify MAGs) has been scaffolded to test whether results r
 | `03b_mgnify_geographic_holdout.ipynb` | Test geographic generalization (Australia holdout) | `mgnify_geographic_holdout.csv` |
 | `04b_mgnify_pgls_validation.ipynb` | Genus-level PGLS (if taxonomy available) | `mgnify_pgls_validation.csv` |
 | `05_mgnify_vs_spire_comparison.ipynb` | Compare CV RMSE, target distributions, and H8 (coefficient correlation) | `mgnify_vs_spire_comparison.csv` |
+
+---
+
+## Reproduction
+
+Run notebooks in sequence:
+
+### SPIRE (primary)
+```
+OMP_NUM_THREADS=1 jupyter nbconvert --to notebook --execute notebooks/00_download_spire.ipynb --inplace
+OMP_NUM_THREADS=1 jupyter nbconvert --to notebook --execute notebooks/01_mag_feature_matrix.ipynb --inplace
+OMP_NUM_THREADS=1 jupyter nbconvert --to notebook --execute notebooks/02_predict_mobility.ipynb --inplace
+OMP_NUM_THREADS=1 jupyter nbconvert --to notebook --execute notebooks/03_geographic_holdout.ipynb --inplace
+OMP_NUM_THREADS=1 jupyter nbconvert --to notebook --execute notebooks/04_pgls_validation.ipynb --inplace
+```
+
+### MGnify (exploratory)
+```
+OMP_NUM_THREADS=1 jupyter nbconvert --to notebook --execute notebooks/01b_mgnify_feature_matrix.ipynb --inplace
+OMP_NUM_THREADS=1 jupyter nbconvert --to notebook --execute notebooks/02b_mgnify_mobility_prediction.ipynb --inplace
+OMP_NUM_THREADS=1 jupyter nbconvert --to notebook --execute notebooks/03b_mgnify_geographic_holdout.ipynb --inplace
+OMP_NUM_THREADS=1 jupyter nbconvert --to notebook --execute notebooks/04b_mgnify_pgls_validation.ipynb --inplace
+OMP_NUM_THREADS=1 jupyter nbconvert --to notebook --execute notebooks/05_mgnify_vs_spire_comparison.ipynb --inplace
+```
+
+Dependencies: Spark Connect session (BERDL JupyterHub), `libpysal`, `xgboost`, `shap`, `rpy2`, R with `ape` + `nlme`.

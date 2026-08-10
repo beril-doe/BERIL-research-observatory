@@ -145,7 +145,7 @@ The rebuilt SPIRE matrix (2,477 MAGs, extended env filter) was analysed with two
 
 **45 pairs that disappear after sg_pH control** include: K02757/K02755/K02756 (PTS phosphotransferase components) × Hg and **K01548 (kdpB) × Pb** (β = −19.6 baseline, lost after sg_pH). This confirms that the kdpB–Pb association in SPIRE is partially confounded by soil pH gradients, while the kdpC–Cr association is not.
 
-Notably, **K07093 (MerR-family HTH regulator) × Hg** is among the 24 robust hits (survives both latitude and soil pH). Note: K07093 is the broad MerR-family transcriptional regulator superfamily, which includes regulators for multiple metals and oxidative stress — not the canonical mercury-specific merR (K14658, absent from SPIRE due to low global prevalence ~2.5%). The K07093 Hg association therefore reflects enrichment of a broad stress-responsive regulator class near Hg gradients, not mercury operon specificity per se. Files: `data/spire_adj_ko_associations.csv` (baseline, 69 sig), `data/spire_sg_adj_ko_associations.csv` (sg-adjusted, 31 sig).
+Notably, **K07093 (MerR-family HTH regulator) × Hg** is among the 24 pairs significant in both the total-effect (latitude-adjusted) and direct-effect (latitude+pH-adjusted) models. Note: K07093 is the broad MerR-family transcriptional regulator superfamily, which includes regulators for multiple metals and oxidative stress — not the canonical mercury-specific merR (K14658, absent from SPIRE due to low global prevalence ~2.5%). The K07093 Hg association therefore reflects enrichment of a broad stress-responsive regulator class near Hg gradients, not mercury operon specificity per se. Files: `data/spire_adj_ko_associations.csv` (baseline, 69 sig), `data/spire_sg_adj_ko_associations.csv` (sg-adjusted, 31 sig).
 
 ### OR per IQR — key associations (2026-08-06)
 
@@ -361,7 +361,7 @@ kdpA is FDR-significant for four metals (Hg, As, Cd, Pb), with Pb strongly negat
 
 **Interpretation.** The multi-metal pattern (positive Hg/As/Cd, negative Pb) is not parsimoniously explained by a single latitude-driven gradient: Cd is anti-correlated with Hg geographically yet has a positive β in the same direction as Hg. The most likely explanation is that high-Hg, high-As, low-Pb environments select for genomes with enhanced K⁺ acquisition (Kdp), independently of latitude — consistent with ionic competition at potassium channels (Hg²⁺ competes with K⁺) and with K⁺-limitation being a convergent feature of high-metal-stress soil types.
 
-**SoilGrids pH sensitivity check (2026-07-29, SPIRE).** Adding sg_pH as a covariate to the SPIRE model yields 31 FDR-significant pairs in the pH-adjusted model (vs 69 in the baseline model). Of the 31 pH-adjusted pairs: 24 are also in the baseline (overlap), 7 are newly significant in the pH-adjusted model only (not in baseline). Of the 69 baseline pairs: 45 do not reach FDR significance in the pH-adjusted model. The pH-adjusted model is a separate regression, not a survival filter: it can produce new significant pairs when pH was a confounding suppressor in the baseline. The overall pattern (69 baseline → 31 pH-adjusted, 24 overlap) should be read as "24 robust pairs confirmed in both models; 7 newly resolved by pH control; 45 baseline-only pairs at least partially pH-confounded." kdpB (K01548) × Pb is among the 45 hits that *do not* survive sg_pH control — the Pb-negative kdp signal in SPIRE is partially confounded by soil pH gradients. In contrast, kdpC (K01547) × Cr (β = +11.0, q = 6.6×10⁻⁵) survives sg_pH control and emerges as a robust SPIRE cross-metal signal. The Hg kdp associations (K01546–K01548 × Hg) are MGnify-specific and were not evaluated in the SPIRE SoilGrids check because the quasi-separation that drives the large MGnify β is not resolved in SPIRE (which has 2,477 MAGs vs MGnify's 8,585).
+**SoilGrids pH sensitivity check (2026-07-29, SPIRE).** Adding sg_pH as a covariate to the SPIRE model yields 31 FDR-significant pairs in the pH-adjusted model (vs 69 in the baseline model). Of the 31 pH-adjusted pairs: 24 are also in the baseline (overlap), 7 are newly significant in the pH-adjusted model only (not in baseline). Of the 69 baseline pairs: 45 do not reach FDR significance in the pH-adjusted model. The pH-adjusted model is a separate regression, not a survival filter: it can produce new significant pairs when pH was a confounding suppressor in the baseline. The overall pattern (69 baseline → 31 pH-adjusted, 24 overlap) should be read as "24 pairs significant in both total-effect and direct-effect models; 7 pairs significant only in the direct-effect model (pH was a suppressor masking them in the baseline); 45 baseline-only pairs whose Wald significance depends on total-effect estimation — not necessarily confounded, as pH may be a mediator." kdpB (K01548) × Pb is among the 45 hits that *do not* survive sg_pH control — the Pb-negative kdp signal in SPIRE is partially confounded by soil pH gradients. In contrast, kdpC (K01547) × Cr (β = +11.0, q = 6.6×10⁻⁵) survives sg_pH control and emerges as a robust SPIRE cross-metal signal. The Hg kdp associations (K01546–K01548 × Hg) are MGnify-specific and were not evaluated in the SPIRE SoilGrids check because the quasi-separation that drives the large MGnify β is not resolved in SPIRE (which has 2,477 MAGs vs MGnify's 8,585).
 
 The canonical mercury resistance genes also appear in the top 14:
 - K06045 (merP, periplasmic Hg-binding protein): enriched
@@ -840,7 +840,7 @@ The most biologically informative hit is **merP (K08364) × Cd, on 11 MGEs**. me
 
 **Q3: SPIRE-significant KOs on ORR MGEs.**
 
-Of the 31 pH-robust SPIRE-significant pairs (23 unique KOs), 8 KOs appear on ORR MGEs in S11:
+Of the 31 SPIRE pairs significant in the direct-effect model (23 unique KOs), 8 KOs appear on ORR MGEs in S11:
 
 | KO | Gene | SPIRE metal | Beta | MGEs (n) | Notes |
 |----|------|------------|------|----------|-------|
@@ -853,7 +853,7 @@ Of the 31 pH-robust SPIRE-significant pairs (23 unique KOs), 8 KOs appear on ORR
 | K21903 | — | Cd | −10.0 | 2 | ArsR-family regulator |
 | K02564 | — | Hg | −12.6 | 1 | — |
 
-**merT (K08363) × Hg is the most important cross-study connection.** merT is the inner membrane Hg transport protein — it works with merP (K08364) and merA (K00520) as part of the mer operon. merT is in our 31 pH-robust SPIRE pairs (negative β = −30.2, q = 0.046).
+**merT (K08363) × Hg is the most important cross-study connection.** merT is the inner membrane Hg transport protein — it works with merP (K08364) and merA (K00520) as part of the mer operon. merT is among the 31 SPIRE pairs significant in the direct-effect model (β_direct = −30.2, q = 0.046; β_total = −19.5, q = 0.04).
 
 **The negative sign requires explanation.** A mercury transport gene negatively associated with Hg environments globally is counterintuitive. Three hypotheses are consistent with the data:
 
@@ -1237,7 +1237,7 @@ Data: `data/aim3_step1_fitness_matrix.csv`, `data/aim3_step2_classification.csv`
 
 1. **Beta scale**: Many top associations (especially Pb and As) have OR > 10⁴, indicative of near-complete separation in logistic regression. These estimates are numerically unstable; interpret direction, not magnitude. 1.5% of all finite-beta pairs are flagged quasi-separated (|β|>10). A 24-pair Firth check (20 Pb/As extreme-β pairs + 4 kdp×Hg pairs added 2026-07-30) confirms direction stability: **24/24 match**. The kdp operon (top Hg finding, OR > 10⁵) is confirmed positive by Firth IRLS (see Quasi-separation section for detail).
 2. **Cross-dataset correlation is very low (ρ ≈ 0.06)**. Findings are MGnify-specific and may not generalize.
-3. **Latitude is an imperfect geographic covariate**. It captures north–south gradients but not longitudinal or elevation variation. **SoilGrids pH sensitivity check complete (SPIRE, 2026-07-29; MGnify, 2026-07-30).** *SPIRE:* `arkinlab.envdbs.soilgrids_master` (338 K rows, 0.25-deg resolution) joined to the SPIRE matrix (77.4% coverage). Model `KO_present ~ PF1_metal + log_genome_size + latitude + sg_pH + C(phylum/genus)` applied to all 4,759 KOs × 6 metals: 69 baseline SPIRE hits → 31 survive sg_pH control (45% retention), 24 overlap with baseline. The 24 robust hits (surviving both latitude and soil pH control) include K07093 (MerR-family HTH regulator, not mercury-specific merR K14658) × Hg, kdpC (K01547) × Cr, and cytochrome c oxidase subunits × As. *MGnify:* The local SoilGrids grid (`projects/metal_contamination_bioindicators/data/soilgrids_grid.parquet`, 338,939 cells at 0.25°) was joined to the 8,585 MGnify MAG coordinates (72.1% coverage, 6,193 MAGs matched). Model `KO_present ~ PF1_metal + latitude + sg_pH + genome_size + C(phylum)` was applied to all 219 H1-significant pairs: **151/219 (69%) remain FDR q<0.05 after pH + latitude control**. By metal: As 31/43 (72%), Cd 4/12 (33%), Cr 5/6 (83%), Hg 76/107 (71%), Pb 35/51 (69%). Cd associations show the highest attrition (4/12, 33% survival). Soil pH and Cd bioavailability are inversely correlated — acidic soils mobilise Cd, creating a pH gradient that directly tracks Cd exposure — so this attrition almost certainly reflects genuine confounding rather than sampling noise. **Cd associations in MGnify should be treated as unreliable: most do not survive a pH-adjusted model.** Hg and As associations are robust (71–72% survival). Note: the pH model covers only 72.1% of MAGs (6,193/8,585); the 151/219 survival figure is not directly comparable to the 138/219 from the full-dataset latitude-only model, because the 28% dropped MAGs (those with no SoilGrids match) are a geographically non-random subset. Results: `data/h1_ph_adjusted.csv`.
+3. **Latitude is an imperfect geographic covariate**. It captures north–south gradients but not longitudinal or elevation variation. **SoilGrids pH sensitivity check complete (SPIRE, 2026-07-29; MGnify, 2026-07-30).** *SPIRE:* `arkinlab.envdbs.soilgrids_master` (338 K rows, 0.25-deg resolution) joined to the SPIRE matrix (77.4% coverage). Model `KO_present ~ PF1_metal + log_genome_size + latitude + sg_pH + C(phylum/genus)` applied to all 4,759 KOs × 6 metals: 69 baseline SPIRE hits → 31 survive sg_pH control (45% retention), 24 overlap with baseline. The 24 pairs significant in both models (total-effect and direct-effect) include K07093 (MerR-family HTH regulator, not mercury-specific merR K14658) × Hg, kdpC (K01547) × Cr, and cytochrome c oxidase subunits × As. Under the mediator DAG, these 24 represent associations whose direct metal→KO pathway is detectable even after conditioning on pH; the 45 total-effect-only pairs retain their total-effect estimate as the primary reported association. *MGnify:* The local SoilGrids grid (`projects/metal_contamination_bioindicators/data/soilgrids_grid.parquet`, 338,939 cells at 0.25°) was joined to the 8,585 MGnify MAG coordinates (72.1% coverage, 6,193 MAGs matched). Model `KO_present ~ PF1_metal + latitude + sg_pH + genome_size + C(phylum)` was applied to all 219 H1-significant pairs: **151/219 (69%) remain FDR q<0.05 after pH + latitude control**. By metal: As 31/43 (72%), Cd 4/12 (33%), Cr 5/6 (83%), Hg 76/107 (71%), Pb 35/51 (69%). Cd associations show the highest attrition (4/12, 33% survival). Soil pH and Cd bioavailability are inversely correlated — acidic soils mobilise Cd, creating a pH gradient that directly tracks Cd exposure — so this attrition almost certainly reflects genuine confounding rather than sampling noise. **Cd associations in MGnify should be treated as unreliable: most do not survive a pH-adjusted model.** Hg and As associations are robust (71–72% survival). Note: the pH model covers only 72.1% of MAGs (6,193/8,585); the 151/219 survival figure is not directly comparable to the 138/219 from the full-dataset latitude-only model, because the 28% dropped MAGs (those with no SoilGrids match) are a geographically non-random subset. Results: `data/h1_ph_adjusted.csv`.
 
    **Causal role of pH — DAG and model selection (2026-08-06).** Controlling for soil pH inflates the merT×Hg coefficient in SPIRE from β = −19.5 (lat-adj) to β = −30.2 (pH-adj), an increase of 55% in magnitude. A covariate that inflates an association when added is a **suppressor** — not a confounder, which would shrink or flip the coefficient toward zero. The proposed causal DAG is:
 
@@ -1252,8 +1252,86 @@ Data: `data/aim3_step1_fitness_matrix.csv`, `data/aim3_step2_classification.csv`
    **Which model is primary:** The latitude-adjusted model (without pH) gives the correct **total-effect** estimand — the net impact of metal exposure on gene frequency through all pathways, including the pH-mediated bioavailability pathway. This is the biologically meaningful quantity: "does residing in a high-metal environment predict carrying this gene, by any mechanism?" The pH-adjusted model gives a **direct-effect** estimand conditioning on pH, which is only interpretable if (a) the pH-mediator DAG is verified and (b) a direct-effect question is scientifically appropriate. Given current evidence, the latitude-adjusted associations are the primary results; pH-adjusted results are reported as sensitivity checks, not corrections. The exception is Cd: for Cd, pH determines bioavailability so directly (inverse correlation) that the pH gradient and Cd gradient are largely collinear — the pH-adjusted Cd model is the more conservative and appropriate primary model for that metal specifically.
 
    **An alternative explanation for pH inflation** — collider bias — cannot yet be ruled out. If both metal exposure and some unmeasured soil factor independently affect pH, conditioning on pH opens a non-causal back-door path (Elwert & Winship 2014 *Annu Rev Sociol* 40:31). Distinguishing mediator from collider requires either a randomised intervention (not feasible here) or a sensitivity analysis under alternative DAG assumptions. This is an acknowledged unresolved limitation.
+
+   **Total-effect vs direct-effect: all 69 SPIRE baseline-significant pairs (2026-08-08, per Adam Arkin's feedback).** Rather than presenting only the 24 pH-surviving pairs as "robust," both estimands are reported here for all 69 total-effect-significant pairs. Column definitions: β_total = latitude-adjusted model (total effect, primary); β_direct = latitude+pH-adjusted model (direct effect, conditional on pH); OR/IQR = exp(β × IQR_metal) where IQR is the SPIRE interquartile range for each metal (As=0.041, Cd=0.088, Cr=0.077, Cu=0.028, Hg=0.093, Pb=0.032). A `†` indicates the pair also reaches FDR q<0.05 in the direct-effect model. Among the 69 pairs: pH inflates |β| in 36/69 (52%) and attenuates it in 33/69 (48%) — consistent with pH functioning as a partial suppressor/mediator rather than a classical confounder (which would uniformly attenuate). No pair shows a statistically significant Gelman-Stern contrast between total and direct effects (all |z| < 1.96; Gelman & Stern 2006 *Am Stat* 60:328). Complete data: `data/spire_total_vs_direct_effects.csv`.
+
+   | KO | Metal | β_total | OR/IQR (total) | q_total | β_direct | OR/IQR (direct) | q_direct |
+   |---|---|---|---|---|---|---|---|
+   | K00425 | As | +15.0 | 1.84 | 7e-05 | +15.7 | 1.89 | 2e-03 † |
+   | K00426 | As | +14.1 | 1.77 | 1e-04 | +14.5 | 1.80 | 3e-03 † |
+   | K16013 | As | +13.0 | 1.70 | 4e-04 | +15.2 | 1.86 | 2e-03 † |
+   | K16014 | As | +12.7 | 1.68 | 2e-03 | +14.3 | 1.79 | 3e-03 † |
+   | K09131 | As | +10.1 | 1.51 | 1e-02 | +11.4 | 1.59 | 2e-02 † |
+   | K19147 | As | −32.8 | 0.26 | 3e-02 | −40.4 | 0.19 | 3e-02 † |
+   | K08217 | As | −18.8 | 0.46 | 3e-02 | −15.4 | 0.53 | 5e-01 |
+   | K15733 | As | +16.3 | 1.94 | 2e-02 | +19.5 | 2.21 | 9e-02 |
+   | K01193 | As | +14.2 | 1.78 | 3e-02 | +11.9 | 1.62 | 5e-01 |
+   | K22187 | As | −13.8 | 0.57 | 5e-02 | −11.1 | 0.64 | 5e-01 |
+   | K01186 | As | +13.4 | 1.72 | 2e-02 | +13.6 | 1.74 | 1e-01 |
+   | K01547 | As | +12.5 | 1.66 | 3e-02 | +6.3 | 1.29 | 6e-01 |
+   | K01628 | As | +11.8 | 1.61 | 3e-02 | +12.8 | 1.68 | 1e-01 |
+   | K01056 | Cd | +8.3 | 2.08 | 2e-02 | +9.7 | 2.33 | 4e-02 † |
+   | K10006 | Cd | +14.4 | 3.53 | 9e-03 | +12.2 | 2.92 | 4e-01 |
+   | K10007 | Cd | +13.8 | 3.36 | 9e-03 | +11.1 | 2.64 | 4e-01 |
+   | K04078 | Cd | +7.1 | 1.86 | 4e-02 | +8.3 | 2.06 | 9e-02 |
+   | K03789 | Cd | +6.7 | 1.80 | 4e-02 | +7.9 | 1.99 | 9e-02 |
+   | K01547 | Cr | +11.0 | 2.34 | 7e-05 | +8.7 | 1.96 | 3e-02 † |
+   | K00859 | Cr | −8.5 | 0.52 | 2e-02 | −9.3 | 0.49 | 3e-02 † |
+   | K00549 | Cr | +9.7 | 2.12 | 3e-03 | +8.2 | 1.88 | 7e-02 |
+   | K01546 | Cr | +8.0 | 1.86 | 1e-02 | +6.5 | 1.66 | 1e-01 |
+   | K01548 | Cr | +7.7 | 1.81 | 2e-02 | +7.4 | 1.77 | 8e-02 |
+   | K01547 | Cu | +10.4 | 1.34 | 2e-02 | +10.8 | 1.35 | 2e-02 † |
+   | K00859 | Cu | −10.0 | 0.76 | 2e-02 | −10.3 | 0.75 | 3e-02 † |
+   | K16013 | Cu | +8.6 | 1.27 | 2e-02 | +10.4 | 1.34 | 6e-03 † |
+   | K03702 | Cu | −11.5 | 0.73 | 3e-02 | −10.3 | 0.75 | 2e-01 |
+   | K08363 | Hg | −19.5 | 0.16 | 4e-02 | −30.2 | 0.06 | 5e-02 † |
+   | K10007 | Hg | −18.0 | 0.19 | 9e-04 | −18.7 | 0.18 | 5e-02 † |
+   | K19147 | Hg | −17.8 | 0.19 | 1e-02 | −18.9 | 0.17 | 5e-02 † |
+   | K10006 | Hg | −17.3 | 0.20 | 1e-03 | −18.1 | 0.19 | 5e-02 † |
+   | K07093 | Hg | −13.9 | 0.28 | 1e-02 | −16.3 | 0.22 | 5e-02 † |
+   | K17331 | Hg | −9.8 | 0.40 | 4e-02 | −12.0 | 0.33 | 5e-02 † |
+   | K02564 | Hg | −9.1 | 0.43 | 4e-02 | −12.6 | 0.31 | 5e-02 † |
+   | K02005 | Hg | +8.3 | 2.15 | 3e-02 | +9.9 | 2.50 | 5e-02 † |
+   | K00368 | Hg | −7.2 | 0.51 | 3e-02 | −9.0 | 0.44 | 5e-02 † |
+   | K02757 | Hg | −21.6 | 0.14 | 4e-02 | −20.2 | 0.15 | 3e-01 |
+   | K02755 | Hg | −21.6 | 0.14 | 4e-02 | −20.2 | 0.15 | 3e-01 |
+   | K02756 | Hg | −21.6 | 0.14 | 4e-02 | −20.2 | 0.15 | 3e-01 |
+   | K06201 | Hg | −17.0 | 0.21 | 3e-02 | −15.2 | 0.24 | 3e-01 |
+   | K07217 | Hg | −15.5 | 0.24 | 4e-02 | −14.4 | 0.26 | 2e-01 |
+   | K03272 | Hg | −14.8 | 0.25 | 3e-02 | −13.6 | 0.28 | 1e-01 |
+   | K03429 | Hg | +14.7 | 3.92 | 5e-02 | +14.4 | 3.79 | 2e-01 |
+   | K01823 | Hg | −13.4 | 0.29 | 8e-03 | −12.4 | 0.32 | 1e-01 |
+   | K10005 | Hg | −13.3 | 0.29 | 8e-03 | −13.1 | 0.30 | 9e-02 |
+   | K10008 | Hg | −12.8 | 0.31 | 8e-03 | −10.6 | 0.37 | 2e-01 |
+   | K04098 | Hg | +12.6 | 3.22 | 4e-02 | +10.0 | 2.53 | 2e-01 |
+   | K03737 | Hg | +11.4 | 2.88 | 1e-02 | +10.8 | 2.72 | 6e-02 |
+   | K09931 | Hg | +11.2 | 2.83 | 1e-02 | +10.0 | 2.53 | 1e-01 |
+   | K04654 | Hg | +9.8 | 2.49 | 3e-02 | +10.4 | 2.62 | 9e-02 |
+   | K07054 | Hg | −9.7 | 0.41 | 4e-02 | −9.8 | 0.40 | 1e-01 |
+   | K01547 | Hg | +9.6 | 2.44 | 4e-03 | +6.6 | 1.84 | 2e-01 |
+   | K04653 | Hg | +9.5 | 2.42 | 3e-02 | +10.3 | 2.60 | 6e-02 |
+   | K03605 | Hg | +9.4 | 2.38 | 3e-02 | +10.3 | 2.60 | 5e-02 |
+   | K04655 | Hg | +9.1 | 2.32 | 4e-02 | +9.5 | 2.42 | 1e-01 |
+   | K00077 | Hg | +8.9 | 2.27 | 4e-02 | +6.6 | 1.84 | 3e-01 |
+   | K01531 | Hg | +8.6 | 2.22 | 4e-03 | +7.1 | 1.93 | 1e-01 |
+   | K07646 | Hg | +8.2 | 2.14 | 2e-02 | +5.1 | 1.61 | 5e-01 |
+   | K01548 | Hg | +8.2 | 2.13 | 2e-02 | +3.7 | 1.41 | 6e-01 |
+   | K03932 | Hg | +8.0 | 2.10 | 2e-02 | +8.0 | 2.11 | 1e-01 |
+   | K00425 | Hg | +7.9 | 2.07 | 9e-03 | +8.3 | 2.15 | 6e-02 |
+   | K00368 | Hg | −7.2 | 0.51 | 3e-02 | −9.0 | 0.44 | 5e-02 † |
+   | K02012 | Pb | +13.7 | 1.55 | 2e-03 | +15.3 | 1.62 | 1e-02 † |
+   | K02011 | Pb | +12.7 | 1.50 | 9e-03 | +14.4 | 1.58 | 4e-02 † |
+   | K14335 | Pb | −17.0 | 0.58 | 2e-02 | −20.9 | 0.52 | 4e-02 † |
+   | K02021 | Pb | +20.1 | 1.89 | 4e-03 | +16.4 | 1.68 | 2e-01 |
+   | K01548 | Pb | −19.6 | 0.54 | 5e-04 | −12.3 | 0.68 | 4e-01 |
+   | K03820 | Pb | +19.8 | 1.87 | 4e-02 | +20.5 | 1.91 | 1e-01 |
+   | K07646 | Pb | −15.9 | 0.60 | 2e-02 | −5.5 | 0.84 | 8e-01 |
+   | K01546 | Pb | −14.5 | 0.63 | 2e-02 | −8.1 | 0.77 | 6e-01 |
+
+   Note: large |β| values reflect quasi-complete separation in logistic regression (PF1 concentrations are sparse continuous predictors); interpret OR/IQR (which represents a realistic predictor shift) rather than raw β. All raw β values should be treated as numerically unstable; Firth IRLS was applied to the 24 extreme-β pairs and confirmed direction stability. K00368 × Hg appears twice in the original table output due to a merge artifact and represents a single pair; the deduplicated table is in `data/spire_total_vs_direct_effects.csv`.
+
 4. **Taxonomic control** uses phylum in MGnify baseline (genus fallback for SPIRE). Class-level control was applied to the 219 H1-sig pairs (Robustness section). Genus-level random effects are not feasible (65% singleton genera).
-5. **MAG quality sensitivity is threshold-dependent**. Phase 3A (quality covariates, all MAGs) shows 91% survival — no confounding. Phase 3C (≥97%/≤1%, n=1,854) shows 13% survival, but this reflects reduced power (22% of MAGs) rather than quality artefact: there is no evidence that low-quality MAGs drive the associations. **MGnify MAG completeness and contamination are controlled via Phase 3A covariate analysis (91% survival, 200/219 pairs).** SPIRE MAG quality data (completeness, contamination, sequencing depth, evenness, MAGs-per-sample) is not currently accessible in the refdata.spire.genome_metadata table on BERDL. If available, sensitivity tests on the 24 pH-robust SPIRE pairs would address whether assembly quality or sample-level sequencing heterogeneity confounds SPIRE associations. For now, the SPIRE analysis relies on genome_size (already included as log_genome_size covariate) as a proxy for assembly completeness; log_genome_size acts as an implicit quality control (larger, more contiguous genomes tend to be more complete).
+5. **MAG quality sensitivity is threshold-dependent**. Phase 3A (quality covariates, all MAGs) shows 91% survival — no confounding. Phase 3C (≥97%/≤1%, n=1,854) shows 13% survival, but this reflects reduced power (22% of MAGs) rather than quality artefact: there is no evidence that low-quality MAGs drive the associations. **MGnify MAG completeness and contamination are controlled via Phase 3A covariate analysis (91% survival, 200/219 pairs).** SPIRE MAG quality data (completeness, contamination, sequencing depth, evenness, MAGs-per-sample) is not currently accessible in the refdata.spire.genome_metadata table on BERDL. If available, sensitivity tests on the 24 SPIRE pairs significant in both models would address whether assembly quality or sample-level sequencing heterogeneity confounds SPIRE associations. For now, the SPIRE analysis relies on genome_size (already included as log_genome_size covariate) as a proxy for assembly completeness; log_genome_size acts as an implicit quality control (larger, more contiguous genomes tend to be more complete).
 6. **Phylogenetic control not feasible**. The GTDB pruned representative tree covers only 16.2% of MAGs; PGLS on this subset would introduce severe survivor bias.
 7. **All analyses are exploratory**. FDR correction is per-metal, not across all metals simultaneously.
 8. **Elevation was controlled for the 88 robust pairs (exploratory)**. An elevation covariate from `arkinlab.envdbs.etopo1_elevation` (0.1° grid) was added for the 88 all-controls-surviving pairs. 83/88 remain FDR-significant; 0 direction flips; β Spearman ρ vs latitude-only model = 0.959. Elevation does not explain the robust associations. The 77.1% MAG elevation-coverage gap (23% unmatched at 0.1°) means this check uses a slightly reduced dataset; results are labeled exploratory. See the Elevation sensitivity subsection of Robustness controls for details.
@@ -1287,7 +1365,7 @@ All metals show strong positive spatial autocorrelation (I ≫ E[I]), confirming
 - 43 pairs show β_pH-adjusted > β_baseline (pH amplifies effect)
 - All contrasts have p > 0.05; confidence intervals are wide
 
-**Interpretation:** pH adjustment in the SPIRE dataset does not significantly alter the magnitude or direction of any KO-metal association at the false-discovery rate threshold. While 45 pairs drop out of significance post-pH-control (see REPORT Finding 1 section), the ones that remain statistically robust do so with similar effect sizes. The pH-driven confounding, where present, appears to be categorical (membership in sig/non-sig set) rather than quantitative (magnitude change). The lack of sharp contrasts is consistent with the observation that only 24/69 baseline pairs survive pH adjustment: these 24 carry true metal signals independent of soil pH gradients, and the contrast test confirms their effect sizes are stable.
+**Interpretation:** Under the mediator DAG (metal → pH → bioavailability → KO, plus a direct pathway), pH adjustment does not significantly alter the magnitude of any KO-metal effect — 0/76 pairs show a Gelman-Stern |z| > 1.96. pH control shifts which pairs reach FDR significance (categorical selection: 69 total-effect significant → 31 direct-effect significant) without meaningfully changing the magnitude of effects in pairs that remain significant. This pattern is consistent with pH functioning as a partial mediator and suppressor rather than a classical confounder: in 36/69 pairs pH inflates |β| (suppressor behavior); in 33/69 pairs pH attenuates |β|. The total-effect estimates (latitude-adjusted model, 69 pairs) are the primary reported associations; the direct-effect estimates (latitude+pH-adjusted, 31 pairs) provide secondary conditional estimates. Note: the earlier language "24 pairs carry true metal signals independent of soil pH" has been corrected — under the mediator DAG, all 69 total-effect estimates are valid; the 24 overlap pairs are simply those where the direct-effect model also reaches FDR significance. Full total-effect vs direct-effect comparison for all 69 pairs: `data/spire_total_vs_direct_effects.csv`.
 
 **Output:** `data/gelman_stern_interaction_results.csv` (76 rows; ko_id, metal, beta_baseline, se_baseline, beta_ph_adj, se_ph_adj, beta_diff, se_diff, z_diff, p_diff).
 

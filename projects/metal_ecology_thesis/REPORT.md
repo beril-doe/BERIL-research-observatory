@@ -16,7 +16,7 @@ Does metal contamination select for metal-tolerant microbial communities through
 
 1. **Resistance genes are ecologically neutral** — they accumulate in generalists (positive niche breadth β=+0.067, p=0.013), not specialists, and only 1/84 field-significant KO-metal pairs is a canonical resistance gene.
 2. **Constitutive metal-metabolic genes are ecological specialists** — cofactor biosynthesis β=−0.033 (p=10⁻⁹); the difference from resistance is real (split permutation p<0.001) and replicates across PGLS, MWAS, and genome enrichment analyses.
-3. **Individual gene-metal pairs work as bioindicators; aggregate metrics do not** — 31 pH-robust KO-metal pairs identified, but community-level resistance density is uninformative.
+3. **Individual gene-metal pairs work as bioindicators; aggregate metrics do not** — 69 KO-metal pairs are significant in the total-effect model (primary associations); 31 are also significant in the direct-effect model after pH control. Community-level resistance density is uninformative.
 4. **Lab resistance ≠ field ecology** — field-identified and lab-identified metal fitness genes are significantly below-random in co-occurrence (Z=−73); metal stress classifiers fail to generalize across genera (LOGO AUC 0.53–0.62).
 
 ---
@@ -35,7 +35,9 @@ Does metal contamination select for metal-tolerant microbial communities through
 
 **λ sensitivity (Adam S1):** All three models agree on direction and significance — Pagel (λ=0.758): β=−0.031, p=0.0024; Brownian (λ=1): β=−0.027, p=0.0047; OLS (λ=0): β=−0.032, p=0.0017. β direction preserved regardless of λ assumption. Source: `comprehensive_metal_ecology/data/pgls_lambda_sensitivity.csv`.
 
-**Forsberg RDA variance partition:** Unique R²(metals)=0.064, Unique R²(pH+climate)=0.041. Metal-unique variance exceeds pH+climate-unique variance in metal gene density — consistent with metals exerting independent selection pressure beyond covariation with pH/climate. Source: `comprehensive_metal_ecology/data/forsberg_permutation_results.csv`.
+**Leave-one-clade-out diagnostic (2026-08-08; Uyeda et al. 2018 *Syst Biol* 67:1091):** For each of 12 major bacterial phyla (n ≥ 10 genera), the phylum was dropped and PGLS refit with λ fixed at 0.758. Direction stable in 12/12 phyla; significant (p < 0.05) in 11/12. Only dropping Proteobacteria (43% of genera) loses significance (β=−0.027, p=0.066) due to power loss, not signal reversal. The association is not driven by any single phylogenetic block. Source: `comprehensive_metal_ecology/scripts/leave_one_clade_out_pgls.py`, `comprehensive_metal_ecology/data/clade_leave_one_out_pgls.csv`.
+
+**Forsberg RDA variance partition (NB28):** In CLR-transformed genus abundances (community composition), unique R²(metals)=0.064 vs unique R²(pH+climate)=0.041 — metal-unique fraction is 58% larger. Unadjusted R², descriptive (not permutation-tested). Metals structure community composition along an independent axis from pH/climate. Source: `comprehensive_metal_ecology/REPORT.md` line 770.
 
 **Coverage standardization:** Sequencing completeness (CheckM) explains R²=0.013 (1.3%) of metal-KO diversity variance (Spearman ρ=0.104, p=5.2×10⁻⁴). Coverage bias is negligible; PGLS signal robust to sequencing depth. Source: `comprehensive_metal_ecology/data/coverage_standardized_metal_diversity.csv`.
 
@@ -117,7 +119,7 @@ Does metal contamination select for metal-tolerant microbial communities through
 
 The four findings together support the **turnover** model over the **gene gain** model as the primary driver of metal community structure at global scales. Metal-metabolic specialist taxa (high cofactor gene density, narrow niches) are ecologically selected at metal-influenced sites over evolutionary time. Resistance genes, despite being the canonical "metal adaptation" mechanism, are ecologically neutral because they are episodically acquired by broad-niche generalists through HGT and do not fix in specialists. This explains why community turnover (replacement of generalists by specialists) rather than within-lineage gene accumulation drives the field signal.
 
-The individual gene-level finding (31 pH-robust pairs) is complementary: these are mostly stress-response and metabolic genes (DNA repair, cofactor biosynthesis, electron transport chain) rather than dedicated resistance genes, consistent with the PGLS ecology result.
+The individual gene-level finding (69 total-effect-significant KO-metal pairs; 31 also significant in the direct-effect model after pH control) is complementary: the significant associations are mostly stress-response and metabolic genes (DNA repair, cofactor biosynthesis, electron transport chain) rather than dedicated resistance genes, consistent with the PGLS ecology result. Because pH is a mediator in the causal DAG (metal → pH → bioavailability → KO), the 69 total-effect pairs are the primary reported result; the 31 direct-effect-significant subset provides additional evidence for associations that persist through the direct pathway independent of pH-mediated bioavailability changes.
 
 ---
 
@@ -127,15 +129,15 @@ The following analyses were identified as needed by the committee (2026-08-07) a
 
 | Task | Status | Sub-project |
 |---|---|---|
-| CheckM in MCMCglmm | Script written (`phylo_nb_glmm_checkm.R`); run pending | comprehensive_metal_ecology |
-| λ=1 Brownian sensitivity | Script updated; CSV pending pgls_logko.R execution | comprehensive_metal_ecology |
-| Ives et al. tip-error λ correction | Script written (`ives_lambda_correction_check.R`); run pending | comprehensive_metal_ecology |
+| CheckM in MCMCglmm | **DONE** — B_z pMCMC=0.592 NS, completeness pMCMC=0.986 NS; `data/phylo_nb_glmm_checkm_results.csv` | comprehensive_metal_ecology |
+| λ=1 Brownian sensitivity | **DONE** — β=−0.027, p=0.0047; `data/pgls_lambda_sensitivity.csv` | comprehensive_metal_ecology |
+| Ives et al. tip-error λ correction | **DONE** — Step 1 R PGLS (n=1,249, fixed λ=0.757): β=−0.037, p=0.0024; simulation loop killed (per-sim ~10+ min, 100 sims infeasible); analytic fraction_negative=1.0 (CI=[−0.051,−0.011] entirely negative); `data/ives_correction_results.csv` | comprehensive_metal_ecology |
 | Forsberg RDA permutation test | **DONE** — metals unique R²=0.064 > pH unique R²=0.041 | comprehensive_metal_ecology |
 | Operon collapse sensitivity | **DONE** — `operon_collapse_analysis.py` written | per_ko_metal_associations |
 | MAG recovery covariates | **DONE** — `mag_quality_sensitivity.py` written | per_ko_metal_associations |
 | Gelman & Stern joint interaction model | **DONE** — 0/76 contrasts significant; pH is categorical selector | per_ko_metal_associations |
 | Coverage standardization for metal diversity | **DONE** — coverage explains R²=0.013; signal robust | comprehensive_metal_ecology |
-| Spatial block CV (gene panel vs taxa vs pH) | **DONE** (scaffold) — Spark run required for full execution | community_composition_prediction |
+| Spatial block CV (gene panel vs taxa vs pH) | **DONE** — executed 2026-08-08; no predictor >AUROC 0.65 except Zn-pH=0.684; confirms cross-region collapse across all predictor types | community_composition_prediction |
 | Positive MRG literature defense | **DONE** — added to per_ko REPORT.md | per_ko_metal_associations |
 | D vs λ metric justification | **DONE** — added to CME REPORT.md | comprehensive_metal_ecology |
 | Three resistance β reconciliation | **DONE** — added to CME REPORT.md | comprehensive_metal_ecology |

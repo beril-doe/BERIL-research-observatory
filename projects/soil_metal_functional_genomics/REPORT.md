@@ -40,7 +40,10 @@ not real project accessions, and (b) a "climate PC1" predictor that was derived 
 from the PCA of the COG response matrix — a circular predictor guaranteed to explain
 variance. The result is an artifact. The corrected implementation (NB04 cell 9) uses
 actual metal concentrations (log1p-transformed) against CLR-transformed COG profiles
-without circular predictors; results require re-run on Seaborg.
+without circular predictors; results require re-run on Seaborg. **Shared pipeline note:**
+The same `project_accession` simulation bug also invalidated the db-RDA in
+`microbeatlas_metal_ecology` NB08d (Arc 5); both notebooks share the same pipeline
+origin and require corrected Spark re-execution before any db-RDA R² can be cited.
 
 **2,355 significant associations at FDR < 0.05 in 51,748 samples:** With 9 metals ×
 435 COGs = 3,915 tests, a 60% discovery rate is high. Metals co-contaminate (Cr, Pb,

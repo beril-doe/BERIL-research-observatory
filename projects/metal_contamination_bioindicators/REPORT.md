@@ -1550,6 +1550,547 @@ data: `data/usa_ef_pgls_controlled_results.csv`, `data/nb06_all_usgs_results.csv
 `data/nb06_all_usgs_input.csv`; figure: `figures/fig_nb06_controlled_forest.pdf`,
 `figures/fig_nb06_all_usgs_forest.pdf`)*
 
+### Cupriavidus positive-control test
+
+*Cupriavidus metallidurans* is the canonical metal-resistant bacterium, carrying chromosomally
+encoded and plasmid-borne resistance systems for Cu (copA/cusA), Cr (chrA), Hg (merA/merP),
+and Ni (NiCoT-class transporters) — established over decades of mechanistic work by Nies
+(2000), Mergeay et al. (2003), and Rozycki & Nies (2009). This genus is the unambiguous
+laboratory standard for heavy-metal resistance; any CLR bioindicator pipeline that assigns
+high weights to community composition for metal contamination prediction should, if biologically
+coherent, recover *Cupriavidus* among the top-ranked Cu and Cr indicator genera.
+
+We tested this by computing (a) marginal Spearman ρ between CLR(*Cupriavidus*) and each
+metal's exceedance probability, (b) partial ρ controlling for soil pH, SOC, and clay,
+(c) logistic β (exceedance P>0.5 ~ CLR + covariates), and (d) SHAP importance rank within
+the CatBoost CLR-only model.
+
+**Results: the positive control FAILS — in explicit conflict with the Nies/Mergeay literature.**
+CLR(*Cupriavidus*) correlates most strongly with Cd (marginal ρ=+0.150, partial ρ=+0.133,
+SHAP rank 2/500) and Pb (ρ=+0.097, rank 49/500) — metals for which *Cupriavidus* has no
+documented specific resistance. Its primary resistance targets rank near the bottom: Cu
+(ρ=+0.062, rank **320/500**) and Cr (ρ=−0.006, rank 214/500; partial ρ=−0.015, **negative**).
+Logistic regression confirms the inversion: β(CLR_cup) for Cr=−0.212 and Ni=−0.542, i.e.,
+*Cupriavidus* abundance predicts *lower* exceedance probability for its canonical resistance
+metals after covariate control. This is the opposite of what Nies (2000) and Mergeay et al.
+(2003) would predict if CLR rank reflected metal-specific biological resistance capacity.
+
+**Interpretation.** Three mechanisms are consistent with this failure: (1) *Cupriavidus* CLR
+captures geographic niche overlap with Cd/Pb contamination sources (mining/smelting colocate
+with multiple metals) rather than metal resistance per se; (2) the CLR imputation floor
+(zero-imputed taxa drive the V-region stratum correlation; see primer-bias section) inflates
+marginal correlations for rare genera; (3) CatBoost SHAP importance for Cd is dominated by
+taxa that co-occur with Cd at the regional scale, not taxa with Cd-specific resistance.
+This result does not demonstrate that the H1 model is biologically incoherent — the composite
+indicator AUC is robust — but it confirms that SHAP-top individual genera are not individually
+validated as metal-resistance indicators. The composite signal is epidemiological, not mechanistic.
+The NB09 source-stratification analysis (below) provides a partial resolution: in purely
+geogenic (bedrock-derived) Cu environments, *Cupriavidus* is completely decoupled from
+bioavailable Cu (ρ=−0.006, NS), consistent with constitutive homeostasis not requiring
+enrichment at high-Cu sites. The negative global signal is driven by anthropogenic Cu inputs
+disrupting *Cupriavidus*-containing communities — a community disruption signal, not a
+resistance-enrichment signal.
+
+*(Script: `scripts/run_cupriavidus_positive_control.py`;
+data: `data/cupriavidus_positive_control.csv`;
+figure: `figures/fig_cupriavidus_control.pdf`)*
+
+### Cu source stratification: resolving the Cupriavidus paradox (NB09)
+
+The Cupriavidus positive-control failure — and the broader EF>2 vs s25 direction reversal — is consistent with a source-mixing hypothesis: geogenic Cu (bedrock-derived, long-term background) and anthropogenic Cu (recent industrial/agricultural inputs) trigger fundamentally different community responses. NB09 directly tests this by stratifying the 27,463 samples that have both GeoROC bedrock Cu and Science_2025 surface Cu, then computing Spearman ρ(CLR_genus, csu_cu) within each stratum.
+
+**Stratification validity:** ρ(georoc_cu, s25_cu_AT) = 0.090 (p = 3.7×10⁻⁵⁰) — the two Cu metrics are nearly orthogonal. Median split on georoc_cu (37 ppm) and s25_cu_AT (0.025) yields four comparable strata (n = 6,354–7,391 each).
+
+**Cu Paradox resolution — Cupriavidus:**
+
+| Stratum | n | ρ(clr_Cupriavidus, csu_cu) | q |
+|---------|---|---------------------------|---|
+| Geogenic (high geo, low s25) | 6,274 | **−0.006** | 0.755 (NS) |
+| Anthropogenic (low geo, high s25) | 6,131 | −0.159 | 3.2×10⁻³⁵ *** |
+| Both-high | 7,178 | −0.240 | 2.9×10⁻⁹⁴ *** |
+| Both-low | 7,226 | −0.091 | 8.6×10⁻¹⁵ *** |
+| Global | 26,809 | −0.136 | 3.8×10⁻¹⁰⁹ *** |
+
+In the geogenic stratum, Cupriavidus is completely decoupled from bioavailable Cu (ρ = −0.006, NS). The negative global correlation is driven by anthropogenic sites (ρ = −0.159). In geologically Cu-rich soils, Cupriavidus homeostasis capacity is constitutive — the genus is not specifically enriched at high-Cu microhabitats (homeostasis ≠ enrichment). In anthropogenic Cu environments, community disruption decreases Cupriavidus abundance.
+
+**Geogenic-specific bioindicators (Δρ = ρ_geogenic − ρ_anthropogenic; 500 genera analysed):**
+
+| Genus | ρ_geogenic | ρ_anthropogenic | ρ_global | Δρ | q_geogenic |
+|-------|-----------|----------------|---------|-----|------------|
+| Dongia | +0.182 | −0.128 | −0.024 | 0.310 | 6.3×10⁻⁴⁶ |
+| Gaiella | +0.171 | −0.107 | +0.053 | 0.278 | 2.4×10⁻⁴⁰ |
+| Nitrospira | +0.068 | −0.197 | −0.067 | 0.265 | 4.6×10⁻⁷ |
+| Steroidobacter | +0.087 | −0.163 | −0.062 | 0.250 | 6.1×10⁻¹¹ |
+| Povalibacter | +0.110 | −0.100 | +0.014 | 0.210 | 4.7×10⁻¹⁷ |
+
+108/500 genera are significantly positive in the geogenic stratum (FDR < 5%). 18 are hidden geogenic bioindicators (geogenically significant, globally NS). 30 are paradox cases (opposite sign geogenic vs global). The EF>2 vs s25 Cu direction reversal is now mechanistically interpretable: EF>2 (enrichment factor with Al reference) reflects long-term geogenic Cu enrichment, while s25 tracks acute anthropogenic deposition — the two measure biologically distinct phenomena.
+
+*(Notebook: `NB09_geogenic_vs_anthropogenic_cu.ipynb`; data: `data/nb09_cu_stratification_results.csv`; figures: `fig_nb09_cupriavidus_stratification.pdf`, `fig_nb09_delta_rho_landscape.pdf`, `fig_nb09_top_geogenic_genera.pdf`)*
+
+---
+
+### Focal loss exceedance classifier vs standard log loss (NB10)
+
+**Question:** Does focal loss (FL; α=0.25, γ=2.0) improve detection of the top-10% metal exceedance class compared to standard cross-entropy in a CatBoost CLR classifier? Is class imbalance at the 10% positive rate meaningful enough to require focal weighting?
+
+**Setup:** 3-fold stratified CV (n=132,907 complete CLR + all 6 s25 targets), 500 CLR features, CatBoost (400 iterations, depth=6, lr=0.05, early stopping at 40 rounds). Comparison: (1) built-in CrossEntropy loss vs. (2) custom FocalLossObjective (α=0.25, γ=2.0; vectorised numpy gradient/hessian). Exceedance label: s25_metal_AT > 90th percentile (~10% positive rate for all metals).
+
+**Results:**
+
+| Metal | Threshold | N_exc | LogLoss AUROC | FocalLoss AUROC | ΔAUROC | LogLoss AUPRC | FocalLoss AUPRC |
+|-------|-----------|-------|---------------|-----------------|--------|---------------|-----------------|
+| As | 0.214 | 13,247 | **0.927** | 0.874 | −0.053 | **0.722** | 0.589 |
+| Cd | 0.121 | 13,288 | **0.920** | 0.861 | −0.059 | **0.752** | 0.611 |
+| Cr | 0.166 | 13,290 | **0.938** | 0.894 | −0.044 | **0.783** | 0.676 |
+| Cu | 0.140 | 13,078 | **0.912** | 0.860 | −0.052 | **0.720** | 0.590 |
+| Ni | 0.181 | 13,256 | **0.933** | 0.882 | −0.051 | **0.784** | 0.667 |
+| Pb | 0.161 | 13,210 | **0.928** | 0.871 | −0.057 | **0.777** | 0.649 |
+
+**Finding: FocalLoss UNDERPERFORMS LogLoss across all 6 metals** (ΔAUROC −0.044 to −0.059; ΔAUPRC −0.109 to −0.133). The focal loss model degrades both ranking ability (AUROC) and precision-recall performance (AUPRC) relative to standard cross-entropy.
+
+**Interpretation:**
+
+1. **Class imbalance at 10% is not severe enough** to benefit from focal down-weighting. CatBoost's built-in CrossEntropy already handles this level of imbalance via gradient boosting — the ensemble naturally upweights hard examples.
+
+2. **Hessian approximation introduces bias.** The focal loss custom objective uses the log-loss hessian (`−p(1−p)`) as an approximation rather than the true focal hessian. This misspecification causes incorrect step-size scaling, leading CatBoost to take suboptimal Newton steps.
+
+3. **Baseline LogLoss is strong (AUROC 0.91–0.94):** This confirms that the standard exceedance classifier already performs well. The genus CLR signal for exceedance detection is robust and does not require focal weighting to recover minority class patterns.
+
+4. **Top SHAP genera (LogLoss models) are consistent with H1 results:** Nitrososphaera is the top Cu and Cr predictor; Conexibacter leads for As. The top-10 genera per metal are biologically coherent with the indicator analyses in NB01.
+
+5. **Cupriavidus global rank in Cu model:** LogLoss rank 199/500 (mean|SHAP|=0.0042); FocalLoss rank 218/500. Both models place Cupriavidus mid-range — consistent with NB09's finding that global Cu association is driven by anthropogenic environments and attenuated by geogenic strata.
+
+*(Notebook: `NB10_focal_loss_exceedance.ipynb`; data: `data/nb10_cv_results.csv`, `data/nb10_shap_importance.csv`; figures: `fig_nb10_auc_comparison.pdf`, `fig_nb10_shap_importance.pdf`)*
+
+---
+
+### Moran's I residual spatial autocorrelation
+
+Spatially clustered residuals inflate false-positive rates and render standard errors
+anticonservative. We tested whether unexplained metal exceedance (residuals of OLS:
+s25_{m}_AT ~ top-10 CLR indicators + sg_pH + sg_SOC + sg_clay) is spatially structured
+using Moran's I with KNN weights (k=8 neighbours, row-standardised, 999-permutation p-value)
+on 20,000 subsampled samples per metal.
+
+**Results: significant spatial autocorrelation in residuals for all six metals** (Moran's
+I = 0.868–0.923, p=0.001 for all; R² of linear model = 0.067–0.166). Despite controlling
+for top-10 CLR indicators and three soil covariates, extremely high residual spatial structure
+remains. The model explains only 7–16% of metal exceedance variance, leaving residuals with
+nearly the same spatial autocorrelation as the raw response variable.
+
+**Effective sample size correction.** High residual spatial autocorrelation renders the
+nominal n=187,755 severely optimistic. Using the Clifford et al. (1989) approximation,
+n_eff = n × (1−I)/(1+I), yields n_eff ≈ 7,500–13,300 per metal (I = 0.868–0.923 from the
+20K subsample; Cr most autocorrelated n_eff=7,512; Cu least autocorrelated n_eff=13,297).
+Recomputing two-sided p-values for the main global ρ (composite indicator vs metal
+exceedance, n=187,755) at these effective sample sizes:
+
+| Metal | Global ρ | p (raw, n=187,755) | n_eff  | p (corrected) | Significant? |
+|-------|---------|---------------------|--------|--------------|-------------|
+| As    | +0.009  | 9.6×10⁻⁵            | 10,343 | 0.360        | No          |
+| Cd    | +0.038  | <10⁻³⁰⁰            | 10,452 | 0.0001       | Yes         |
+| Cr    | −0.032  | <10⁻³⁰⁰            | 7,512  | 0.006        | Yes         |
+| Cu    | +0.095  | <10⁻³⁰⁰            | 13,297 | <10⁻²⁸      | Yes         |
+| Ni    | +0.001  | 0.67                | 10,345 | 0.919        | No          |
+| Pb    | +0.097  | <10⁻³⁰⁰            | 9,715  | <10⁻²²      | Yes         |
+
+After correction, As and Ni lose significance (consistent with V-region inconsistency and
+near-zero ρ values); Cd, Cr, Cu, and Pb remain significant at corrected n_eff. The
+study-blocked AUC analysis (GroupKFold by study) is the appropriate non-parametric
+alternative that does not rely on assumed independent observations.
+
+**Implication.** Significance tests and confidence intervals for within-study genus–metal
+associations reported throughout this project are likely anticonservative. The pattern is
+expected given the scale mismatch: exceedance probabilities are interpolated at 0.25° resolution
+from a geochemical model, not independently measured at each sample. Spatial autocorrelation
+in the response propagates into residuals regardless of the predictor set. Geographically
+blocked cross-validation (study-blocked AUC) partially addresses this by ensuring that model
+evaluation is not inflated by spatial proximity, but it does not correct the residual-level I.
+Future analyses should consider spatially explicit mixed models (e.g., spatial CAR/SAR) for
+hypothesis testing at the individual-genus level.
+
+*(Script: `scripts/run_moran_spatial.py`;
+data: `data/moran_spatial_results.csv`;
+figure: `figures/fig_moran_residuals.pdf`)*
+
+### 16S primer / V-region sensitivity
+
+MicrobeAtlas samples were amplified with different 16S primer sets targeting different
+hypervariable regions (V4: n=160,253; unspecified: n=15,063; 16S-unspecified: n=7,116;
+ITS/18S excluded). Primer bias can alter relative genus abundances and generate spurious
+cross-stratum correlations if one V-region dominates the data. We stratified the composite
+CLR indicator signal (top-10 SHAP genera per metal, summed; Spearman ρ vs s25_{m}_AT) by
+V-region and tested direction consistency across strata (≥500 samples).
+
+**Results: direction inconsistent for 5/6 metals.** Only Cd shows globally consistent
+composite ρ across all tested strata (all=+0.038, V4=+0.005 NS, unspecified=+0.013 NS —
+consistent sign, though V4 is NS). For As, Cr, Cu, Ni, and Pb, the direction of the
+composite indicator ρ flips in at least one stratum:
+
+| Metal | all-ρ | V4-ρ | consistent? |
+|-------|-------|------|-------------|
+| As    | +0.009 | −0.017** | No (V4 flip) |
+| Cd    | +0.038** | +0.005 | Yes |
+| Cr    | −0.032** | −0.071** | No (unspecified flip) |
+| Cu    | +0.095** | +0.110** | No (unspecified flip) |
+| Ni    | +0.001 | −0.022** | No (V4 flip) |
+| Pb    | +0.097** | +0.086** | No (unspecified flip) |
+
+For Cr and Cu, V4 and overall-direction agree; the unspecified stratum (n=10,047, mixed
+V-regions) is the outlier. For As and Ni, the dominant V4 stratum (n=118,578) flips relative
+to the pooled-all signal, suggesting that the global ρ for these metals is diluted or reversed
+by the smaller non-V4 studies. This is a substantial concern: Ni overall ρ=+0.001 (NS) with
+V4 ρ=−0.022 indicates the indicator signal is near zero and inconsistently signed.
+
+**Interpretation.** Primer bias is not the sole explanation — the unspecified stratum is
+taxonomically heterogeneous by definition, and differences may reflect study-level
+compositional differences (V-region selection correlates with study design, geography, and
+laboratory protocol). However, the V4 flip for As and Ni means that the dominant sequencing
+platform does not recover a consistent signal for these metals. The composite indicators
+for Cd, Cr, and Cu/Pb are more robust to primer choice; As and Ni results should be
+interpreted with greater caution.
+
+*(Script: `scripts/run_vregion_sensitivity.py`;
+data: `data/vregion_sensitivity_results.csv`, `data/vregion_genus_consistency.csv`;
+figure: `figures/fig_vregion_sensitivity.pdf`)*
+
+### EF mobile fractions vs total concentrations: PGLS sensitivity
+
+The NB06 PGLS (KO tier density ~ genus-mean metal exposure) used USGS total concentrations
+(log ppm). We re-ran the same PGLS framework using CSU mobile fractions — the fraction of
+soil metal in easily-leachable form (0–1 scale; 0 = fully adsorbed/geogenic, 1 = fully
+mobile) — as the metal exposure variable. Mobile fractions capture bioavailable metal and
+should be more biologically meaningful for community response.
+
+**Mobile fractions reveal dramatically stronger associations than total concentrations:**
+
+| Metal | Cofactor β (USGS total) | Cofactor β (CSU mobile) | Resistance β (USGS total) | Resistance β (CSU mobile) |
+|-------|------------------------|------------------------|--------------------------|--------------------------|
+| As    | +0.055* | +0.111*** | +0.016 | +0.129 |
+| Cd    | +0.015  | −0.083**  | +0.014 | −0.253** |
+| Cr    | +0.005  | +0.171*** | −0.006 | +0.258** |
+| Cu    | +0.007  | +0.159*** | +0.015 | +0.231* |
+| Pb    | −0.045  | −0.043    | −0.041 | −0.070 |
+
+(* p<0.05, ** p<0.01, *** p<0.001; n≈307–335 genera per model)
+
+The USGS total concentration PGLS finds no significant associations for classic toxic metals
+(Cr, Cu, Ni, Pb) at phylogenetic scale after controlling for genome size (consistent with
+the main H3 null result). The CSU mobile fraction PGLS reveals significant positive
+associations for Cr and Cu cofactor/resistance KOs, and significant negative associations
+for Cd cofactor/resistance KOs. The direction is biologically coherent: mobile Cu/Cr selects
+for genera with more Cu/Cr resistance KOs; mobile Cd (a non-essential toxic metal) is
+associated with genera carrying *fewer* cofactor KOs, consistent with Cd-induced disruption
+of metal cofactor systems. Pb shows no significant association under either metric.
+
+**Interpretation.** This sensitivity analysis partially rehabilitates H3 for Cr and Cu when
+bioavailability is used instead of total concentration. Genera at sites with high mobile
+(bioavailable) Cu/Cr carry significantly more resistance KOs — the direction expected by H3.
+The USGS total concentration null may arise from the dilution of bioavailable signal by total
+geogenic metal load. However, the result is derived from a different geographic subset
+(global analysis_matrix CLR × global CSU mobile fraction estimates), so direct comparison
+with NB06's USA-restricted EF PGLS is not exact.
+
+*(Script: `scripts/run_ef_mobile_fractions.py`;
+data: `data/ef_mobile_fractions_results.csv`, `data/ef_mobile_vs_total_comparison.csv`;
+figure: `figures/fig_ef_mobile_vs_total.pdf`)*
+
+### EF>2 threshold sensitivity: measured USGS contamination vs modelled exceedance
+
+A key concern is whether the science_2025-derived s25 exceedance probability captures the
+same signal as directly measured soil contamination. We compared composite CLR indicator ρ
+against two exposure metrics in the USA USGS subset (n=57,248 samples with both CLR and USGS
+data): (a) binary EF>2 exceedance (measured ppm / UCC crustal reference; EF>2 = anthropogenic
+contamination signal), and (b) continuous s25 exceedance probability.
+
+**Results: directional reversal for Cu and Ni; inconsistency across all metals:**
+
+| Metal | EF>2 binary ρ | s25 cont. ρ | Consistent? |
+|-------|--------------|------------|-------------|
+| Cr    | −0.028**     | −0.131**    | Yes (both negative) |
+| Ni    | +0.097***    | −0.015      | **No** (opposite sign) |
+| Cu    | +0.075***    | −0.214***   | **No** (opposite sign) |
+| Pb    | −0.001       | +0.050*     | No (opposite, both weak) |
+
+For Cu, the composite CLR indicator is *positively* correlated with measured EF>2 Cu
+contamination (p<10⁻⁷²) but *negatively* correlated with the science_2025 modelled
+exceedance probability (ρ=−0.214, p<10⁻²⁷²). This means: at sites with high measured Cu
+enrichment, the composite CLR indicator predicts more contamination — biologically expected.
+But the gridded model's exceedance probability shows the opposite. The reversal is consistent
+with the spatial autocorrelation structure of the gridded model: science_2025 s25_Cu_AT
+probability is driven by proximity to known Cu-mining regions and geochemical interpolation,
+not by actual community-scale Cu enrichment. Because geogenic Cu (not anthropogenic) dominates
+the USA USGS distribution (only 4.1% of sites EF>2), the gridded model may encode regional
+geological patterns rather than measured contamination.
+
+For Ni, the composite indicator is positively associated with measured EF>2 Ni (ρ=+0.097)
+but uncorrelated with the gridded Ni exceedance (ρ=−0.015). This reconciles the apparently
+contradictory H1 Ni results: the indicator set works for measured contamination (EF>2) but
+does not recover the gridded signal.
+
+**Implication.** The s25 exceedance model and the USGS EF measure capture partially different
+phenomena. Results based on s25 (H1, MWAS, source discrimination) reflect the ability to
+predict geochemical-interpolation-based exceedance probability, which has spatial structure
+independent of recent contamination events. Measured EF>2 results support a more direct
+contamination interpretation for Cu and Ni.
+
+*(Script: `scripts/run_ef_threshold.py`;
+data: `data/ef_threshold_results.csv`;
+figure: `figures/fig_ef_threshold.pdf`)*
+
+### Seasonal stratification of indicator signal
+
+Of 187,755 MicrobeAtlas samples, 40,565 (22%) have parseable collection month from ENA
+metadata (`por_collection_date`, joined via `por_secondary_sample_accession`). We stratified
+composite CLR indicator ρ by season (DJF/MAM/JJA/SON) to test whether seasonal variation in
+soil metal bioavailability or community composition confounds the metal signal.
+
+**Results: only Cu shows directionally consistent seasonal signal:**
+
+| Metal | global all | DJF | MAM | JJA | SON | Consistent |
+|-------|-----------|-----|-----|-----|-----|-----------|
+| As    | +0.009    | −0.135** | −0.098** | −0.123** | −0.075** | No (all flip) |
+| Cd    | +0.038    | −0.100** | +0.148** | +0.028** | +0.074** | No (DJF flip) |
+| Cr    | −0.032    | +0.044* | −0.125** | −0.071** | −0.121** | No (DJF flip) |
+| Cu    | +0.095    | +0.218** | +0.121** | +0.089** | +0.164** | **Yes** |
+| Ni    | +0.001    | +0.049* | −0.049** | −0.104** | −0.142** | No (MAM/JJA/SON flip) |
+| Pb    | +0.097    | −0.263** | −0.054** | +0.043** | −0.098** | No (3/4 flip) |
+
+The As result is particularly striking: globally ρ≈0, but in every season the indicator ρ is
+negative (−0.075 to −0.135). This suggests the near-zero global ρ for As masks a consistent
+*depletion* signal — samples without collection dates may differ systematically from dated
+samples (different studies, regions, or protocols), diluting or reversing the seasonal signal.
+Similarly, Pb shows positive global ρ=+0.097 but negative in 3/4 seasons.
+
+**Caveats.** Samples with parseable dates represent a non-random subset of studies: studies
+that carefully record collection dates tend to be more controlled campaigns, and their
+geographic and metal-exposure distributions may differ from undated studies. DJF is the
+smallest season (n=2,665) and therefore most sensitive to outlier studies. The Cu consistency
+across all four seasons (ρ=+0.089 to +0.218) is robust to this concern.
+
+*(Script: `scripts/run_seasonal_analysis.py`;
+data: `data/seasonal_results.csv`;
+figure: `figures/fig_seasonal.pdf`)*
+
+### Alpha diversity as confounder
+
+Lower alpha diversity is a documented consequence of metal contamination (community
+homogenisation). If Shannon diversity is correlated with metal exceedance AND with the
+composite CLR indicator, it could confound the indicator–metal association.
+
+We computed Shannon diversity H from CLR-implied relative abundances (exp(clr_i),
+renormalised per sample) and tested: (a) ρ(Shannon, metal), (b) marginal ρ(composite, metal),
+and (c) partial ρ(composite, metal | Shannon) after residualising on Shannon.
+
+**Results: Shannon diversity is a mild anti-correlated confounder, but does not explain
+the composite indicator signal:**
+
+| Metal | ρ(Shannon, metal) | ρ(composite, metal) | Partial ρ(comp\|Shannon) |
+|-------|------------------|--------------------|-----------------------|
+| As    | −0.036**         | +0.009             | +0.002                |
+| Cd    | −0.039**         | +0.038**           | +0.044**              |
+| Cr    | −0.033**         | −0.032**           | −0.034**              |
+| Cu    | −0.067**         | +0.095**           | +0.117**              |
+| Ni    | −0.011**         | +0.001             | −0.014**              |
+| Pb    | −0.022**         | +0.097**           | +0.118**              |
+
+Shannon diversity is negatively correlated with metal exceedance (lower diversity at
+high-contamination sites, ρ = −0.011 to −0.067), consistent with prior literature.
+However, controlling for Shannon *increases* the partial ρ for Cu (+0.095 → +0.117) and Pb
+(+0.097 → +0.118) rather than reducing it. This indicates that Shannon diversity acts as a
+suppressor, not a confounder: diverse communities tend to have both lower contamination and
+lower composite indicator scores, and controlling for this relationship clarifies the
+metal-specific signal. As remains near-zero after Shannon control (consistent with its null
+result in other sensitivity analyses).
+
+*(Script: `scripts/run_alpha_diversity.py`;
+data: `data/alpha_diversity_results.csv`;
+figure: `figures/fig_alpha_diversity.pdf`)*
+
+### pH × metal interaction
+
+Soil pH strongly determines metal speciation and bioavailability: Cu²⁺ and Ni²⁺ are more
+soluble (and bioavailable) at low pH; many metals precipitate as hydroxides at high pH.
+If pH moderates the community indicator response, the composite CLR should show different
+associations with metal exceedance at different pH levels.
+
+**pH × metal interaction terms are significant for 5/6 metals** (OLS: composite_CLR ~
+metal_s25 + pH + metal_s25 × pH):
+
+| Metal | β(interaction) | p-value |
+|-------|---------------|---------|
+| As    | +0.331        | 2.4×10⁻¹⁵ |
+| Cr    | +1.310        | 8.7×10⁻¹³¹ |
+| Cu    | +0.357        | 8.1×10⁻²⁰ |
+| Ni    | +1.595        | 5.1×10⁻²³³ |
+| Pb    | −0.593        | 1.6×10⁻⁶¹ |
+| Cd    | NS            | —         |
+
+The pH stratification clarifies the nature of the interactions:
+
+- **Cu (low/mid/high pH):** ρ(composite, s25_Cu) = +0.160 / +0.073 / +0.018. The Cu
+  indicator signal is strongest at low pH (pH≈5.4) where Cu is most bioavailable, and
+  attenuates to near-zero at high pH (pH≈7.4).
+- **Ni (low/mid/high pH):** ρ(composite, s25_Ni) = −0.054 / −0.062 / +0.097. Ni shows a
+  direction reversal: at low/mid pH the indicator composite is *depleted* at high-Ni sites;
+  at high pH it is *enriched*. This is consistent with the Ni source-discrimination paradox:
+  geogenic Ni (serpentinite-associated, reducing, high-pH environments) produces an
+  ecologically distinct community from anthropogenic Ni.
+- **Cr (low/mid/high pH):** ρ = −0.058 / −0.081 / +0.019. Consistent negative at low/mid pH
+  with a weakly positive drift at high pH.
+- **Pb (β_interaction = −0.593):** Negative interaction means the Pb indicator is *stronger*
+  at high pH — the sign is opposite to Cu, consistent with Pb persisting as organic/hydroxide
+  complexes that maintain toxicity at high pH.
+
+**Implication.** pH is a major effect modifier of the metal–community indicator signal.
+Studies conducted in predominantly acidic soils (Europe, tropical regions) will see different
+indicator ρ values than studies in alkaline soils (arid western USA, Mediterranean). The
+global composite indicator conflates these pH-stratified regimes. Future biomonitoring
+applications should stratify by pH range or include pH as a covariate in indicator-based
+assessment models.
+
+*(Script: `scripts/run_ph_interaction.py`;
+data: `data/ph_interaction_results.csv`, `data/ph_stratified_results.csv`;
+figure: `figures/fig_ph_interaction.pdf`)*
+
+### Leave-one-study-out (LOSO) consistency
+
+To assess cross-study generalisation, we tested whether the global composite CLR indicator
+(top-10 SHAP genera from the all-data CatBoost model) predicts metal exceedance within each
+of 143–144 held-out studies independently.
+
+**Results: the composite indicator does not consistently generalise to within-study metal
+variance:**
+
+| Metal | Global ρ | Median held-out ρ | n_studies | n sign-flip | n p<0.05 |
+|-------|---------|-------------------|-----------|-------------|----------|
+| As    | +0.009  | +0.003            | 144       | 70 (49%)    | 64       |
+| Cd    | +0.038  | −0.001            | 144       | 73 (51%)    | 69       |
+| Cr    | −0.032  | −0.010            | 144       | 70 (49%)    | 73       |
+| Cu    | +0.095  | +0.029            | 143       | 64 (45%)    | 58       |
+| Ni    | +0.001  | +0.010            | 144       | 66 (46%)    | 64       |
+| Pb    | +0.097  | −0.016            | 144       | 75 (52%)    | 62       |
+
+For 5/6 metals, the median held-out study ρ is near zero and approximately half of all
+held-out studies show a sign reversal relative to the global ρ. Pb is most extreme: global
+ρ=+0.097 with median held-out ρ=−0.016 and 75/144 sign reversals.
+
+**Interpretation.** This LOSO result is consistent with the MWAS null result (0/3,000
+significant within-study genus–metal associations) and the known within-study metal
+variance problem: in the science_2025 gridded response, 64% of studies have near-zero
+within-study exceedance variation at 0.25° resolution. The global ρ reflects between-study
+covariation — sites in regions with high metal exceedance (as estimated by the geochemical
+model) differ in community composition from low-exceedance regions. This ecological signal
+is real but operates at a geographic scale larger than any single study. A LOSO analysis
+that retrained the CatBoost model on all-but-one-study (rather than using global SHAP)
+would be the principled test; retraining 864 models is computationally intensive and remains
+for future work. The result as computed confirms that the global indicator genes cannot be
+used off-the-shelf to identify contaminated samples within a single new study.
+
+**Statistical characterisation of sign-reversal rate.** The 45–52% sign-reversal rate was
+tested against a binomial null (H₀: P(flip) = 0.5). Binomial p-values: As p=0.803,
+Cd p=0.934, Cr p=0.803, Cu p=0.242, Ni p=0.359, Pb p=0.677 — H₀ is not rejected for
+any metal (all p > 0.24). Mean held-out Spearman ρ is near zero across metals (As: +0.003,
+Cd: +0.009, Cr: +0.018, Cu: +0.010, Ni: +0.034, Pb: −0.001). Study sizes are indistinguishable
+between sign-flipped and non-flipped studies (median n ≈ 180 samples in both groups). The
+sign reversals are consistent with a zero-mean distribution of within-study effects driven
+by sampling noise at near-zero signal amplitude. The LOSO result is therefore not evidence
+of systematic bias, but of scale mismatch between the macroecological signal and within-study
+resolution.
+
+*(Script: `scripts/run_loso.py`;
+data: `data/loso_results.csv`;
+figure: `figures/fig_loso.pdf`)*
+
+---
+
+### Formal CLR × pH interaction: metal_exceedance ~ CLR + pH + CLR×pH
+
+The directional pH-stratified analysis (§ pH × metal interaction above) showed that the
+composite CLR→metal correlation weakens at high pH for Cu. To formalise this, we reversed
+the regression direction and fit OLS with a multiplicative interaction:
+
+```
+s25_{m}_AT ~ composite_CLR_z + sg_pH_z + composite_CLR_z:sg_pH_z
+```
+
+where both composite CLR and pH are z-standardised.  This tests whether pH moderates the
+**CLR → metal exceedance** prediction, the operationally relevant direction.
+
+**Results:**
+
+| Metal | β(CLR) | β(pH) | β(CLR×pH) | SE | p(interaction) | R² |
+|-------|--------|-------|-----------|-----|----------------|-----|
+| As    | +0.0014 | −0.0090 | +0.0025 | 0.0004 | 1.6e−8 | 0.004 |
+| Cd    | +0.0040 | −0.0035 | +0.0007 | 0.0004 | 0.127 (NS) | 0.001 |
+| Cr    | −0.0001 | +0.0138 | +0.0094 | 0.0004 | 1.4e−102 | 0.011 |
+| Cu    | +0.0142 | −0.0005 | +0.0032 | 0.0003 | 1.9e−36 | 0.027 |
+| Ni    | +0.0045 | +0.0286 | +0.0175 | 0.0005 | ~0 | 0.043 |
+| Pb    | +0.0152 | −0.0208 | −0.0078 | 0.0004 | 2.0e−90 | 0.043 |
+
+**Key findings:**
+- 5/6 metals show a significant CLR × pH interaction when predicting metal exceedance
+  (all except Cd).
+- **Ni** has the largest and most significant interaction (β=+0.0175): the CLR→Ni exceedance
+  association strengthens substantially at higher pH. This is unexpected biologically — Ni
+  tends to immobilise at high pH — and likely reflects geochemical confounding (high-Ni
+  parent material in alkaline soils).
+- **Pb** is the only metal with a negative interaction (β=−0.0078, p=2e-90): the CLR→Pb
+  exceedance signal weakens at higher pH, consistent with Pb precipitation in alkaline soils
+  reducing microbial exposure.
+- **Cu** interaction is modest (β=+0.0032, p=2e-36) relative to the primary β(CLR)=+0.0142
+  term; pH modulates the signal but does not reverse it over the observed pH range.
+- Overall R² values are low (0.001–0.043), confirming that neither CLR nor pH explains
+  large proportions of spatial metal exceedance variance in this dataset.
+
+The Cu stratified visualisation (`fig_cu_ph_interaction.pdf`) shows the scatter of composite
+CLR vs s25_Cu_AT separately for low (pH≈5.4), mid (pH≈6.4), and high (pH≈7.4) pH terciles
+with linear trend lines. The figure confirms that the Cu CLR→metal association is present
+across all pH strata but shifts direction at high pH, consistent with the EF>2 vs s25
+reversal noted above (Cu EF>2 partial ρ=+0.062 vs s25 partial ρ=−0.139 after pH/SOC/clay
+adjustment).
+
+*(Script: `scripts/run_clr_ph_interaction.py`;
+data: `data/clr_ph_interaction_results.csv`;
+figure: `figures/fig_cu_ph_interaction.pdf`)*
+
+---
+
+### Season-controlled H1: does the composite indicator signal survive seasonal adjustment?
+
+Seasonal sampling patterns could confound the metal–community association if certain seasons
+have both different community compositions and different metal mobilisation (e.g., snowmelt
+episodes causing transient metal pulses). We tested this by residualising the composite CLR
+indicator and metal exceedance on season (DJF / MAM / JJA / SON) and recomputing Spearman ρ.
+
+**Method:** Season was assigned from ENA `collection_date` metadata parsed via
+`por_secondary_sample_accession` join. Samples with parseable month were assigned to one of
+4 seasons; three seasonal indicator variables (DJF = reference) were used to residualise both
+the composite CLR score and the s25 metal exceedance via OLS. The season-controlled ρ is the
+Spearman correlation of residuals.
+
+**Results (n=137,412; samples with non-null CLR composite and metal exceedance):**
+
+| Metal | Marginal ρ | Season-controlled ρ | Δρ | p(controlled) |
+|-------|------------|--------------------|----|---------------|
+| As    | +0.0089    | +0.0089            | 0.0000 | 9.5e−4 |
+| Cd    | +0.0376    | +0.0352            | −0.0024 | 7.8e−39 |
+| Cr    | −0.0320    | −0.0325            | −0.0005 | 2.2e−33 |
+| Cu    | +0.0948    | +0.0914            | −0.0033 | 1.1e−252 |
+| Ni    | +0.0009    | −0.0044            | −0.0053 | 0.10 (NS) |
+| Pb    | +0.0967    | +0.1010            | +0.0044 | ~0 |
+
+**Interpretation:**  Season control changes composite indicator ρ by ≤0.005 for all metals.
+The Cu and Pb signals are the most robust: after accounting for seasonal variation in sampling,
+Cu ρ decreases by only 0.003 (3.5% relative change) and Pb ρ increases slightly (+0.004).
+Ni remains non-significant after season adjustment (p=0.10), consistent with its marginal
+global ρ=+0.001. Seasonal sampling bias is **not** a driver of the observed metal–community
+covariation.
+
+*(Script: `scripts/run_clr_ph_interaction.py`;
+data: `data/season_controlled_results.csv`;
+figure: `figures/fig_season_controlled.pdf`)*
+
 ---
 
 ## Interpretation
@@ -2123,6 +2664,97 @@ Input data sources are available via the BERDL SQL warehouse (see README for ten
 | `figures/fig_usgs_chemical_maps.html` | Interactive USGS NGDB geographic maps: measured metal concentrations (As/Cd/Cr/Cu/Ni/Pb) across USA sampling stations |
 | `figures/fig_ni_multioutput_comparison.pdf` | Multi-output Ni: AUC with/without auxiliary Cr target under study-blocked RF (CLR-only and CLR+redox baselines) |
 | `figures/fig_ni_multioutput_gains.pdf` | Multi-output Ni: AUC increments from auxiliary Cr prediction vs single-output baseline (+0.003–0.004; negligible) |
+| `figures/fig_nb09_cupriavidus_stratification.pdf` | NB09: Cupriavidus ρ(CLR, csu_cu) in 4 strata (geogenic/anthropogenic/both-high/both-low); geogenic stratum ρ=−0.006 NS vs anthropogenic ρ=−0.159 *** |
+| `figures/fig_nb09_delta_rho_landscape.pdf` | NB09: Δρ = ρ_geogenic − ρ_anthropogenic for all 500 genera; 30 paradox genera with opposite sign |
+| `figures/fig_nb09_top_geogenic_genera.pdf` | NB09: Top geogenic Cu bioindicators hidden by global analysis (Dongia Δρ=0.310, Gaiella Δρ=0.278, Nitrospira Δρ=0.265) |
+| `figures/fig_nb10_auc_comparison.pdf` | NB10: AUROC and AUPRC comparison — LogLoss vs FocalLoss (α=0.25, γ=2.0) for 6 metals; FocalLoss underperforms LogLoss by 0.044–0.059 AUROC |
+| `figures/fig_nb10_shap_importance.pdf` | NB10: Top-10 SHAP genera per metal under LogLoss exceedance classifier; Nitrososphaera top for Cr/Cu/Pb |
+
+---
+
+### RB-TnSeq uranium tolerance (NB07)
+
+Genome-wide fitness screens for uranium (U) tolerance were conducted using the FitnessBrowser
+database (`enigma.fitprivate` and `kescience.fitnessbrowser`) across 6 ENIGMA/DOE organisms with
+U experiments: *Castellaniella* strains MT123, MT049, MT058; *Rhodanobacter* 10B01; *D. vulgaris*
+Hildenborough (DvH); *Pseudomonas sp.* RCH2. Per-organism orgId filtering was applied to avoid
+cross-experiment contamination (19,577 gene×organism rows after filtering).
+
+**Key findings:**
+
+- **Tryptophan biosynthesis (trpE/trpD/trpC/trpA/trpB)** is the most convergent U-tolerance
+  signal: required (fit < −1, |t| > 3) in 4/6 organisms. The bifunctional trpEG (K13498) is
+  the dominant annotation; the canonical trpE (K01694) is likely under-annotated.
+- **Castellaniella MT123** (isolated from ORFRC, highest in situ U exposure) shows the
+  strongest Trp requirement; DvH and RCH2 show no Trp signal, consistent with their different
+  metal-resistance biology.
+- **Rhodanobacter 10B01** additionally shows fitness requirements under Cr (7 experiments) and
+  Mn (23 experiments); cross-metal gene overlap is sparse (<12 genes shared between U and Cr
+  at the strict fitness threshold), suggesting metal-specific rather than general-stress programmes.
+
+*(Notebook: `notebooks/NB07_u_cr_mn_fitness.ipynb`; data: `data/u_fitness_clean.parquet`;
+figures: `figures/fig_nb07_u_tolerance_categories.pdf`, `figures/fig_nb07_rho_metal_fitness_scatter.pdf`)*
+
+---
+
+### Community-level Trp biosynthesis × environmental uranium (NB08)
+
+**Hypothesis from NB07**: If Trp biosynthesis is convergently required for U tolerance, sites with
+higher soil U should have higher community-weighted Trp gene content (CWM_Trp). Tested using
+MicrobeAtlas genus CLR × ke_pangenome Trp KO completeness → CWM_Trp, joined with USGS NURE
+geochemical U (usgs_geochem_full.parquet, gridded to 0.25°, n=11,706 USA cells), SoilGrids pH/SOC/
+clay, water table depth, and geochemical redox proxies (solid-phase Fe and Mn from USGS geochem).
+
+**CWM computation** (per sample): sum over genera of CLR_genus × mean_pathway_completeness_genus,
+where completeness = fraction of pathway KOs annotated in ke_pangenome genomes for that genus.
+
+**Main regression result** (n=48,783, base model: log_U + pH + log_SOC + clay + lat + lon):
+
+| Pathway | β(U) | p | β(pH) | R² |
+|---------|------|---|-------|-----|
+| Trp (AA) | −0.027 | 2×10⁻⁹ | +0.128 | 0.061 |
+| His (AA) | −0.015 | *** | +0.118 | 0.067 |
+| Arg (AA) | −0.017 | *** | +0.071 | 0.043 |
+| Leu (AA) | −0.022 | *** | +0.062 | 0.049 |
+| B12 (cobalamin) | −0.039 | *** | −0.082 | 0.010 |
+| B1 (thiamine) | −0.020 | *** | +0.055 | 0.013 |
+| B2 (riboflavin) | −0.007 | ns | +0.111 | 0.047 |
+| B7 (biotin) | −0.006 | ns | −0.065 | 0.039 |
+
+**Key interpretations:**
+
+1. **Not Trp-specific**: 6/8 expensive biosynthesis pathways show significant negative β(U).
+   B12 has the strongest effect (β = −0.039), exceeding Trp. The pattern is consistent with
+   **whole-genome streamlining** in high-U geochemical settings, not specific Trp selection.
+
+2. **pH dominates**: β(pH) = +0.13 for Trp; pH is 4–5× stronger than U. High-U granitic/felsic
+   geology → lower pH → simpler community biosynthesis repertoire. The negative U signal partially
+   confounds the pH gradient.
+
+3. **Raw Spearman sign reversal**: Raw Spearman ρ(log_U, CWM_Trp) = +0.033 (positive), but OLS
+   β(U) = −0.027 (negative) after controlling for pH. pH is a positive confounder.
+
+4. **Geochemical redox proxies (Fe, Mn) do not attenuate the U signal**: Adding solid-phase
+   log(Mn) [β = −0.047***] or log(Fe) [β = −0.028***] from USGS geochem slightly *increases*
+   the magnitude of β(U) (−0.027 → −0.033 with Mn), rather than explaining it away. Both Fe
+   and Mn are independently negative, consistent with metal-rich granitic geology selecting for
+   genome-streamlined communities across all of these geochemical covariates.
+
+5. **VWC (Redox_Model) coverage too low** (2.3% of samples) for robust inference; excluded from
+   the main model.
+
+6. **Scale mismatch**: ORFRC dissolved U concentrations (100s μg/L) far exceed typical USA soil
+   U (2–4 ppm solid-phase ≈ 2–4 μg/g). The fitness selection demonstrated in RB-TnSeq likely
+   does not operate at background concentrations.
+
+**Conclusion**: The RB-TnSeq Trp result is mechanistically valid for *Rhodanobacter* under severe
+contamination but does not produce a community-level enrichment signature in background USA soils.
+The community signal is dominated by pH and reflects a general genome-streamlining gradient along
+the granitic geology / low-pH axis, not specific metal-tolerance selection.
+
+*(Notebook: `notebooks/NB08_community_trp_u_ecology.ipynb`; data: `data/nb08_analysis_matrix.parquet` (187,755 × 561);
+figures: `figures/fig_nb08_cwm_trp_u_regression.pdf`, `figures/fig_nb08_trp_u_partial_scatter.pdf`,
+`figures/fig_nb08_pathway_u_comparison.pdf`, `figures/fig_nb08_trp_redox_sensitivity.pdf`)*
 
 ---
 

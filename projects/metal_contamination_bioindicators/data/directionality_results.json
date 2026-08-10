@@ -122,17 +122,17 @@
     }
   },
   "group_summary": {
-    "Geographic": {
-      "mean_forward": 0.08335253453965707,
-      "mean_reverse": 0.5318245966698025,
-      "mean_directionality_index": -0.7542959052824327,
-      "n_variables": 2
-    },
     "Soil": {
       "mean_forward": -0.08787103327649326,
       "mean_reverse": 0.528702699725259,
       "mean_directionality_index": -2.0292019910848818,
       "n_variables": 3
+    },
+    "Geographic": {
+      "mean_forward": 0.08335253453965707,
+      "mean_reverse": 0.5318245966698025,
+      "mean_directionality_index": -0.7542959052824327,
+      "n_variables": 2
     }
   },
   "genus_asymmetry": {

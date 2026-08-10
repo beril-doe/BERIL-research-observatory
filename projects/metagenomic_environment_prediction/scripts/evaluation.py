@@ -5,6 +5,8 @@ Companion to modelling.py. Runs after CV is complete.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Optional
 
 import matplotlib.pyplot as plt
@@ -12,6 +14,9 @@ import numpy as np
 import pandas as pd
 import shap
 from xgboost import XGBRegressor
+
+sys.path.insert(0, str(Path(__file__).parents[3] / "tools"))
+from figure_style import save, PALETTE, FIGW, ROW_H
 
 
 # ---------------------------------------------------------------------------
@@ -60,33 +65,35 @@ def plot_shap_bar(
     title: str = "SHAP feature importance",
     metal_features: Optional[list[str]] = None,
     output_path: Optional[str] = None,
-    figsize: tuple[int, int] = (8, 6),
+    figsize: Optional[tuple] = None,
 ) -> None:
     """Horizontal bar chart of mean |SHAP| coloured by metal vs non-metal."""
+    from matplotlib.patches import Patch
+    if figsize is None:
+        figsize = (FIGW['1.5col'], ROW_H)
     metal_features = set(metal_features or [])
+    sorted_shap = mean_shap.sort_values()
     colours = [
-        "#d62728" if feat in metal_features else "#1f77b4"
-        for feat in mean_shap.index
+        PALETTE[1] if feat in metal_features else PALETTE[0]
+        for feat in sorted_shap.index
     ]
     fig, ax = plt.subplots(figsize=figsize)
-    bars = mean_shap.sort_values().plot(
-        kind="barh", color=list(reversed(colours)), ax=ax,
+    sorted_shap.plot(
+        kind="barh", color=colours, ax=ax, edgecolor="k", linewidth=0.5,
     )
     ax.set_xlabel("Mean |SHAP value|")
+    ax.set_ylabel("Feature")
     ax.set_title(title)
-    ax.axvline(0, color="black", linewidth=0.8)
+    ax.axvline(0, color="gray", linewidth=0.8, ls="--")
 
-    from matplotlib.patches import Patch
     legend_handles = [
-        Patch(color="#d62728", label="Metal mobility (CSU PF1)"),
-        Patch(color="#1f77b4", label="Non-metal env"),
+        Patch(color=PALETTE[1], label="Metal mobility (CSU PF1)"),
+        Patch(color=PALETTE[0], label="Non-metal env"),
     ]
     ax.legend(handles=legend_handles, loc="lower right")
 
-    plt.tight_layout()
     if output_path:
-        fig.savefig(output_path, dpi=150)
-    plt.show()
+        save(fig, Path(output_path))
 
 
 def shap_metal_fraction(
