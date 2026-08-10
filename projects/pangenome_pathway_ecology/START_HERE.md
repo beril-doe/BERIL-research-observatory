@@ -1,3 +1,5 @@
+> **HISTORICAL** — This scaffolding document was generated at project creation (Feb 2026). For current status see [README.md](README.md) and [RESEARCH_PLAN.md](RESEARCH_PLAN.md).
+
 # Pangenome Openness, Metabolic Pathways & Phylogenetic Distances
 
 ## Welcome! 👋

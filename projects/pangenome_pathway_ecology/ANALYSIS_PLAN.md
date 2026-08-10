@@ -1,3 +1,5 @@
+> **HISTORICAL** — This plan was drafted at project creation (Feb 2026) and has been superseded by the revised [RESEARCH_PLAN.md](RESEARCH_PLAN.md) (v2). Retained for provenance. The hypotheses labeled H1-H4 here were adopted into RESEARCH_PLAN.md v2.
+
 # Analysis Plan: Pangenome Openness, GapMind Pathways & AlphaEarth Distances
 
 ## Overview

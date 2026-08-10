@@ -1,0 +1,2 @@
+genus_rho_uncontrolled,genus_p_uncontrolled,genus_rho_controlled,reduction_pct,n_genera,n_species_subset,rho_openness_niche,p_openness_niche,rho_niche_pathways,p_niche_pathways,h1_supported,h2_supported
+-0.2758981988471299,3.6956471701301683e-06,-0.3246358622056346,-17.665089356204653,273,1840,0.03515693713122345,0.5629931389143422,0.2604141170420123,1.309944979218068e-05,False,True

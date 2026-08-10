@@ -1,0 +1,40 @@
+project_id: pangenome_pathway_ecology
+status: complete
+created_at: "2026-02-12T00:00:00Z"
+last_session_at: "2026-08-10T16:57:32Z"
+branch: fix/hook-paths-claude-project-dir
+engine:
+  name: claude
+authors:
+  - name: "Bill"
+    affiliation: "LBNL"
+    orcid: "0000-0002-3405-2744"
+artifacts:
+  readme: true
+  research_plan: true
+  report: true
+  review: true
+  requirements: true
+approval:
+  by: "0000-0002-3405-2744"
+  at: "2026-08-10T16:57:32Z"
+  report_hash: "sha256:f22e96fb8f03a65279628500cc2b1ea7729867884e471719fbb46e879cabe117"
+  review: "REVIEW_3.md"
+  review_hash: "sha256:802b9b97066435a4e86aa2653c63048dbfd8823cf704fb689cba4dcf933ccf9d"
+  notebook_hashes:
+    "notebooks/01_data_exploration.ipynb": "sha256:6a06600aa61c2ec3db0b426d3bb3193a5a564f047801776172081e1a2458bfb7"
+    "notebooks/02_pathway_analysis.ipynb": "sha256:2d815d7108f53ca43c5ae4001bd02b4f4b96e678dec5f7902ba53c9785e16693"
+    "notebooks/03_data_integration.ipynb": "sha256:4f3dc63b10ae69991f8843e88791c67e195042423af33bab6cda869764949607"
+    "notebooks/04_statistical_analysis.ipynb": "sha256:63300e3642a9c048d233cc6967653d8971e3ee333de568c01576d6eb57c03c3f"
+submissions:
+  - status: failed
+    attempted_at: "2026-08-10T16:57:32Z"
+    error: "mc cp signature mismatch — MinIO credentials expired or misconfigured"
+    approved_at: "2026-08-10T16:57:32Z"
+  - status: success
+    attempted_at: "2026-08-10T17:03:33Z"
+    archive_key: "s3a://cdm-lake/tenant-general-warehouse/microbialdiscoveryforge/projects/pangenome_pathway_ecology/"
+    file_count: 41
+    byte_total: 8295142
+    duration_seconds: 6.29
+    approved_at: "2026-08-10T16:57:32Z"

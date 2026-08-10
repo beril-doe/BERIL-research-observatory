@@ -1,5 +1,10 @@
 # Data files (large matrices)
 data/*.csv
+# Track small results files as evidentiary artifacts
+!data/multiscale_correlation_results.csv
+!data/mediation_results.csv
+!data/environment_stratified_results.csv
+!data/within_genus_correlations.csv
 data/*.tsv
 data/*.pkl
 data/*.parquet

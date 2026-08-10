@@ -1,0 +1,2 @@
+species_level_rho,genus_level_rho,genus_level_p,n_genera,family_level_rho,family_level_p,n_families,phylum_level_rho,phylum_level_p,n_phyla,within_genus_median_rho,within_genus_pct_positive,within_genus_pct_significant,h0_rejected
+-0.24491313963781086,-0.3067616057435029,1.4732377505338898e-10,418,-0.24524125579435316,0.00020318604267708745,225,-0.1608751608751609,0.3485989501741376,36,-0.060534293292913974,0.425,0.1,True

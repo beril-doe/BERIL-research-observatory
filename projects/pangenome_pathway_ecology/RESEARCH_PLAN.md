@@ -154,5 +154,35 @@ closedness = 1 - openness
 - `ecotype_analysis/` - Environment vs. phylogeny effects on gene content
 - `cog_analysis/` - COG functional category distributions
 
+## Hypotheses (Revised, v2)
+
+The following explicit, testable hypotheses replaced the v1 open-ended framing.
+The mediation and environment-stratification designs were developed during the
+Aug 6, 2026 analysis session rather than pre-registered (see WORKLOG.md).
+
+### H0: No correlation
+Pangenome openness is not correlated with GapMind pathway completeness at any
+taxonomic scale.
+- **Test**: Multi-scale Spearman correlations (species, genus, family, phylum)
+- **Rejection criterion**: Significant negative correlation at genus level (p < 0.01)
+
+### H1: Niche breadth mediates the association
+The openness–pathway correlation is explained by niche breadth (generalist species
+have both open pangenomes and more diverse pathways).
+- **Test**: Partial correlation controlling for niche breadth; compare uncontrolled vs controlled rho
+- **Support criterion**: >30% reduction in correlation magnitude after controlling for niche breadth
+
+### H2: Phylogenetic signal structures the pattern
+The correlation is stronger between lineages than within lineages, indicating shared
+descent rather than a universal biological mechanism.
+- **Test**: Compare genus-level rho to within-genus median rho; check % of genera individually significant
+- **Support criterion**: Genus-level rho significantly stronger than within-genus median; <50% of genera individually significant
+
+### H3: Ecology differs between lifestyles
+The openness–pathway relationship differs between host-associated and free-living bacteria.
+- **Test**: Fisher z-test comparing Spearman rho between host-associated and free-living genera
+- **Support criterion**: Fisher z p < 0.05
+
 ## Revision History
 - **v1** (2026-02): Migrated from README.md
+- **v2** (2026-08): Added explicit H0–H3 hypotheses, mediation design, and environment-stratification design developed during analysis. Documented that Phases 3 (structural distances) and 4 (PGLS) from v1 were not implemented; multi-scale taxonomic correlations were used as a lighter-weight proxy for phylogenetic control. See also ANALYSIS_PLAN.md (historical) for the original H1–H4 framing.
