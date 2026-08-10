@@ -2,11 +2,10 @@ ko_id,description,kegg_l1_code,kegg_l1_name,kegg_l2_code,kegg_l2_name,broad_cate
 K00001,ADH; alcohol dehydrogenase [EC:1.1.1.1],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00002,"AKR1A1, adh; alcohol dehydrogenase (NADP+) [EC:1.1.1.2]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00003,hom; homoserine dehydrogenase [EC:1.1.1.3],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-K00004,"BDH, butB; (R,R)-butanediol dehydrogenase / meso-butanediol dehydrogenase / diacetyl reductase [EC:1.1.1.4 1.1.1.- 1.1.1.303]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-"K00004,K00008,K05351",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00004,"BDH, butB; (R,R)-butanediol dehydrogenase / meso-butanediol dehydrogenase / diacetyl reductase [EC:1.1.1.4 1.1.1.- 1.1.1.303]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K00005,gldA; glycerol dehydrogenase [EC:1.1.1.6],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00007,dalD; D-arabinitol 4-dehydrogenase [EC:1.1.1.11],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
-K00008,"SORD, gutB; L-iditol 2-dehydrogenase [EC:1.1.1.14]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
+K00008,"SORD, gutB; L-iditol 2-dehydrogenase [EC:1.1.1.14]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K00009,mtlD; mannitol-1-phosphate 5-dehydrogenase [EC:1.1.1.17],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00010,iolG; myo-inositol 2-dehydrogenase / D-chiro-inositol 1-dehydrogenase [EC:1.1.1.18 1.1.1.369],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00011,AKR1B; aldehyde reductase [EC:1.1.1.21],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
@@ -47,8 +46,7 @@ K00054,mvaA; hydroxymethylglutaryl-CoA reductase [EC:1.1.1.88],09100,Metabolism,
 K00055,E1.1.1.90; aryl-alcohol dehydrogenase [EC:1.1.1.90],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K00057,gpsA; glycerol-3-phosphate dehydrogenase (NAD(P)+) [EC:1.1.1.94],09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
 K00058,"serA, PHGDH; D-3-phosphoglycerate dehydrogenase / 2-oxoglutarate reductase [EC:1.1.1.95 1.1.1.399]",09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
-K00059,"fabG, OAR1; 3-oxoacyl-[acyl-carrier protein] reductase [EC:1.1.1.100]",09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
-"K00059,K10617",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00059,"fabG, OAR1; 3-oxoacyl-[acyl-carrier protein] reductase [EC:1.1.1.100]",09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,True,False
 K00060,tdh; threonine 3-dehydrogenase [EC:1.1.1.103],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K00064,E1.1.1.122; D-threo-aldose 1-dehydrogenase [EC:1.1.1.122],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K00065,kduD; 2-dehydro-3-deoxy-D-gluconate 5-dehydrogenase [EC:1.1.1.127],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
@@ -65,8 +63,7 @@ K00077,"panE, apbA; 2-dehydropantoate 2-reductase [EC:1.1.1.169]",09100,Metaboli
 K00082,ribD2; 5-amino-6-(5-phosphoribosylamino)uracil reductase [EC:1.1.1.193],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K00086,"dhaT; 1,3-propanediol dehydrogenase [EC:1.1.1.202]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00087,"ygeS, xdhA; xanthine dehydrogenase molybdenum-binding subunit [EC:1.17.1.4]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
-K00088,"IMPDH, guaB; IMP dehydrogenase [EC:1.1.1.205]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
-"K00088,K00364",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00088,"IMPDH, guaB; IMP dehydrogenase [EC:1.1.1.205]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,True,False
 K00090,ghrB; glyoxylate/hydroxypyruvate/2-ketogluconate reductase [EC:1.1.1.79 1.1.1.81 1.1.1.215],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00091,E1.1.1.219; dihydroflavonol-4-reductase [EC:1.1.1.219],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K00096,"araM, egsA; glycerol-1-phosphate dehydrogenase [NAD(P)+] [EC:1.1.1.261]",09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
@@ -78,11 +75,10 @@ K00101,"CYB2, FCB2; L-lactate dehydrogenase (cytochrome) [EC:1.1.2.3]",09100,Met
 K00102,"LDHD, dld; D-lactate dehydrogenase (cytochrome) [EC:1.1.2.4]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00103,GULO; L-gulonolactone oxidase [EC:1.1.3.8],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00104,glcD; glycolate dehydrogenase FAD-linked subunit [EC:1.1.99.14],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K00105,glpO; alpha-glycerophosphate oxidase [EC:1.1.3.21],09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
-"K00105,K00111",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00105,glpO; alpha-glycerophosphate oxidase [EC:1.1.3.21],09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,True,False
 K00108,"betA, CHDH; choline dehydrogenase [EC:1.1.99.1]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,True
 K00109,L2HGDH; 2-hydroxyglutarate dehydrogenase [EC:1.1.99.2],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K00111,"glpA, glpD; glycerol-3-phosphate dehydrogenase [EC:1.1.5.3]",09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
+K00111,"glpA, glpD; glycerol-3-phosphate dehydrogenase [EC:1.1.5.3]",09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,True,False
 K00112,glpB; glycerol-3-phosphate dehydrogenase subunit B [EC:1.1.5.3],09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
 K00113,glpC; glycerol-3-phosphate dehydrogenase subunit C,09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
 K00114,exaA; alcohol dehydrogenase (cytochrome c) [EC:1.1.2.8],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
@@ -96,10 +92,9 @@ K00124,"fdoH, fdsB; formate dehydrogenase iron-sulfur subunit",09100,Metabolism,
 K00125,fdhB; formate dehydrogenase (coenzyme F420) beta subunit [EC:1.17.98.3 1.8.98.6],09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,False,True,True,False,False
 K00126,fdsD; formate dehydrogenase subunit delta [EC:1.17.1.9],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00127,"fdoI, fdsG; formate dehydrogenase subunit gamma",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K00128,ALDH; aldehyde dehydrogenase (NAD+) [EC:1.2.1.3],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-"K00128,K00130",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00128,ALDH; aldehyde dehydrogenase (NAD+) [EC:1.2.1.3],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K00129,ALDH3; aldehyde dehydrogenase (NAD(P)+) [EC:1.2.1.5],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K00130,"betB, gbsA; betaine-aldehyde dehydrogenase [EC:1.2.1.8]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
+K00130,"betB, gbsA; betaine-aldehyde dehydrogenase [EC:1.2.1.8]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
 K00131,gapN; glyceraldehyde-3-phosphate dehydrogenase (NADP+) [EC:1.2.1.9],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00132,E1.2.1.10; acetaldehyde dehydrogenase (acetylating) [EC:1.2.1.10],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00133,asd; aspartate-semialdehyde dehydrogenase [EC:1.2.1.11],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
@@ -119,8 +114,7 @@ K00153,E1.1.1.306; S-(hydroxymethyl)mycothiol dehydrogenase [EC:1.1.1.306],09190
 K00154,E1.2.1.68; coniferyl-aldehyde dehydrogenase [EC:1.2.1.68],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K00156,poxB; pyruvate dehydrogenase (quinone) [EC:1.2.5.1],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00158,"spxB, poxL; pyruvate oxidase [EC:1.2.3.3]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
-K00161,"PDHA, pdhA; pyruvate dehydrogenase E1 component subunit alpha [EC:1.2.4.1]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-"K00161,K21416",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00161,"PDHA, pdhA; pyruvate dehydrogenase E1 component subunit alpha [EC:1.2.4.1]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K00162,"PDHB, pdhB; pyruvate dehydrogenase E1 component subunit beta [EC:1.2.4.1]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00163,aceE; pyruvate dehydrogenase E1 component [EC:1.2.4.1],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00164,"OGDH, sucA; 2-oxoglutarate dehydrogenase E1 component [EC:1.2.4.2]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
@@ -192,8 +186,7 @@ K00261,"GLUD1_2, gdhA; glutamate dehydrogenase (NAD(P)+) [EC:1.4.1.3]",09100,Met
 K00262,"E1.4.1.4, gdhA; glutamate dehydrogenase (NADP+) [EC:1.4.1.4]",09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
 K00263,E1.4.1.9; leucine dehydrogenase [EC:1.4.1.9],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
 K00265,gltB; glutamate synthase (NADPH) large chain [EC:1.4.1.13],09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
-K00266,gltD; glutamate synthase (NADPH) small chain [EC:1.4.1.13],09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
-"K00266,K17722",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00266,gltD; glutamate synthase (NADPH) small chain [EC:1.4.1.13],09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,True,False
 K00271,vdh; valine dehydrogenase (NAD+) [EC:1.4.1.23],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K00273,"DAO, aao; D-amino-acid oxidase [EC:1.4.3.3]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K00274,"MAO, aofH; monoamine oxidase [EC:1.4.3.4]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
@@ -260,7 +253,7 @@ K00356,,,,,,Uncharacterized,Uncharacterized,True,True,True,True,False,False
 K00360,nasB; assimilatory nitrate reductase electron transfer subunit [EC:1.7.99.-],09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
 K00362,nirB; nitrite reductase (NADH) large subunit [EC:1.7.1.15],09100,Metabolism,09102,Energy metabolism,Nitrogen cycling,Nitrogen cycling,True,True,True,True,False,False
 K00363,nirD; nitrite reductase (NADH) small subunit [EC:1.7.1.15],09100,Metabolism,09102,Energy metabolism,Nitrogen cycling,Nitrogen cycling,True,True,True,True,False,False
-K00364,"guaC, GMPR; GMP reductase [EC:1.7.1.7]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
+K00364,"guaC, GMPR; GMP reductase [EC:1.7.1.7]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,True,False
 K00365,uaZ; urate oxidase [EC:1.7.3.3],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K00366,nirA; ferredoxin-nitrite reductase [EC:1.7.7.1],09100,Metabolism,09102,Energy metabolism,Nitrogen cycling,Nitrogen cycling,True,True,True,True,False,False
 K00367,narB; ferredoxin-nitrate reductase [EC:1.7.7.2],09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
@@ -366,8 +359,7 @@ K00561,"ermC, ermA; 23S rRNA (adenine-N6)-dimethyltransferase [EC:2.1.1.184]",09
 K00563,rlmA1; 23S rRNA (guanine745-N1)-methyltransferase [EC:2.1.1.187],09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
 K00564,rsmC; 16S rRNA (guanine1207-N2)-methyltransferase [EC:2.1.1.172],09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
 K00566,"mnmA, trmU; tRNA-uridine 2-sulfurtransferase [EC:2.8.1.13]",09120,Genetic Information Processing,09123,"Folding, sorting and degradation",Protein folding / degradation,Metabolism,True,True,True,True,False,False
-K00567,"ogt, MGMT; methylated-DNA-[protein]-cysteine S-methyltransferase [EC:2.1.1.63]",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
-"K00567,K07443",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00567,"ogt, MGMT; methylated-DNA-[protein]-cysteine S-methyltransferase [EC:2.1.1.63]",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,True,False
 K00568,ubiG; 2-polyprenyl-6-hydroxyphenyl methylase / 3-demethylubiquinone-9 3-methyltransferase [EC:2.1.1.222 2.1.1.64],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K00569,"TPMT, tpmT; thiopurine S-methyltransferase [EC:2.1.1.67]",09100,Metabolism,09111,Xenobiotics biodegradation and metabolism,Xenobiotics biodegradation,Metabolism,True,False,True,True,False,False
 K00570,pmtA; phosphatidylethanolamine/phosphatidyl-N-methylethanolamine N-methyltransferase [EC:2.1.1.17 2.1.1.71],09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
@@ -379,8 +371,7 @@ K00587,"ICMT, STE14; protein-S-isoprenylcysteine O-methyltransferase [EC:2.1.1.1
 K00588,E2.1.1.104; caffeoyl-CoA O-methyltransferase [EC:2.1.1.104],09100,Metabolism,09110,Biosynthesis of other secondary metabolites,Secondary metabolites,Metabolism,True,True,True,True,False,False
 K00590,E2.1.1.113; site-specific DNA-methyltransferase (cytosine-N4-specific) [EC:2.1.1.113],09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,True,False
 K00594,"xyoA, aldO; alditol oxidase [EC:1.1.3.41]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K00595,"cobL-cbiET; precorrin-6B C5,15-methyltransferase / cobalt-precorrin-6B C5,C15-methyltransferase [EC:2.1.1.132 2.1.1.289 2.1.1.196]",09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,True
-"K00595,K02191",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00595,"cobL-cbiET; precorrin-6B C5,15-methyltransferase / cobalt-precorrin-6B C5,C15-methyltransferase [EC:2.1.1.132 2.1.1.289 2.1.1.196]",09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,True,True
 K00596,"E4.1.1.64; 2,2-dialkylglycine decarboxylase (pyruvate) [EC:4.1.1.64]",09180,Brite Hierarchies,09181,Protein families: metabolism,Protein families: metabolism,Metabolism,True,True,True,True,False,False
 K00598,tam; trans-aconitate 2-methyltransferase [EC:2.1.1.144],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K00600,"glyA, SHMT; glycine hydroxymethyltransferase [EC:2.1.2.1]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
@@ -451,8 +442,7 @@ K00693,GYS; glycogen synthase [EC:2.4.1.11],09100,Metabolism,09101,Carbohydrate 
 K00694,bcsA; cellulose synthase (UDP-forming) [EC:2.4.1.12],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00695,SUS; sucrose synthase [EC:2.4.1.13],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
 K00696,"sps, SPS; sucrose-phosphate synthase [EC:2.4.1.14]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K00697,otsA; trehalose 6-phosphate synthase [EC:2.4.1.15 2.4.1.347],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-"K00697,K16055",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00697,otsA; trehalose 6-phosphate synthase [EC:2.4.1.15 2.4.1.347],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K00700,"GBE1, glgB; 1,4-alpha-glucan branching enzyme [EC:2.4.1.18]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K00701,cgt; cyclomaltodextrin glucanotransferase [EC:2.4.1.19],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
 K00702,E2.4.1.20; cellobiose phosphorylase [EC:2.4.1.20],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
@@ -474,8 +464,7 @@ K00758,"deoA, TYMP; thymidine phosphorylase [EC:2.4.2.4]",09100,Metabolism,09104
 K00759,"APRT, apt; adenine phosphoribosyltransferase [EC:2.4.2.7]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K00760,"hprT, hpt, HPRT1; hypoxanthine phosphoribosyltransferase [EC:2.4.2.8]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K00761,"upp, UPRT; uracil phosphoribosyltransferase [EC:2.4.2.9]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
-K00762,pyrE; orotate phosphoribosyltransferase [EC:2.4.2.10],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
-"K00762,K13421",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00762,pyrE; orotate phosphoribosyltransferase [EC:2.4.2.10],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,True,False
 K00763,"pncB, NAPRT1; nicotinate phosphoribosyltransferase [EC:6.3.4.21]",09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K00764,"purF, PPAT; amidophosphoribosyltransferase [EC:2.4.2.14]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K00765,hisG; ATP phosphoribosyltransferase [EC:2.4.2.17],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
@@ -511,13 +500,11 @@ K00812,aspB; aspartate aminotransferase [EC:2.6.1.1],09100,Metabolism,09105,Amin
 K00813,aspC; aspartate aminotransferase [EC:2.6.1.1],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,False,True,True,False,False
 K00814,"GPT, ALT; alanine transaminase [EC:2.6.1.2]",09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,False,True,True,False,False
 K00817,hisC; histidinol-phosphate aminotransferase [EC:2.6.1.9],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-K00819,"rocD, OAT; ornithine--oxo-acid transaminase [EC:2.6.1.13]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-"K00819,K00821",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00819,"rocD, OAT; ornithine--oxo-acid transaminase [EC:2.6.1.13]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
 K00820,"glmS, GFPT; glutamine---fructose-6-phosphate transaminase (isomerizing) [EC:2.6.1.16]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-K00821,argD; acetylornithine/N-succinyldiaminopimelate aminotransferase [EC:2.6.1.11 2.6.1.17],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
+K00821,argD; acetylornithine/N-succinyldiaminopimelate aminotransferase [EC:2.6.1.11 2.6.1.17],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
 K00822,E2.6.1.18; beta-alanine--pyruvate transaminase [EC:2.6.1.18],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K00823,puuE; 4-aminobutyrate aminotransferase [EC:2.6.1.19],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-"K00823,K20708",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K00823,puuE; 4-aminobutyrate aminotransferase [EC:2.6.1.19],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K00824,dat; D-alanine transaminase [EC:2.6.1.21],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K00826,"E2.6.1.42, ilvE; branched-chain amino acid aminotransferase [EC:2.6.1.42]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K00830,AGXT; alanine-glyoxylate transaminase / serine-glyoxylate transaminase / serine-pyruvate transaminase [EC:2.6.1.44 2.6.1.45 2.6.1.51],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
@@ -681,8 +668,7 @@ K01073,yigI; acyl-CoA thioesterase [EC:3.1.2.-],09180,Brite Hierarchies,09181,Pr
 K01075,E3.1.2.23; 4-hydroxybenzoyl-CoA thioesterase [EC:3.1.2.23],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K01077,"ALP, phoA, phoB; alkaline phosphatase [EC:3.1.3.1]",09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K01079,"serB, PSPH; phosphoserine phosphatase [EC:3.1.3.3]",09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
-K01081,E3.1.3.5; 5'-nucleotidase [EC:3.1.3.5],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
-"K01081,K11751",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K01081,E3.1.3.5; 5'-nucleotidase [EC:3.1.3.5],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,True,False
 K01082,"cysQ, MET22, BPNT1; 3'(2'), 5'-bisphosphate nucleotidase [EC:3.1.3.7]",09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
 K01083,E3.1.3.8; 3-phytase [EC:3.1.3.8],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K01085,agp; glucose-1-phosphatase [EC:3.1.3.10],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
@@ -858,8 +844,7 @@ K01420,"fnr; CRP/FNR family transcriptional regulator, anaerobic regulatory prot
 K01421,yhgE; putative membrane protein,09190,Not Included in Pathway or Brite,09194,Poorly characterized,Membrane / cell envelope,Membrane / cell envelope,True,True,True,True,False,False
 K01424,"E3.5.1.1, ansA, ansB; L-asparaginase [EC:3.5.1.1]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K01425,"glsA, GLS; glutaminase [EC:3.5.1.2]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-K01426,"E3.5.1.4, amiE; amidase [EC:3.5.1.4]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-"K01426,K02433",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K01426,"E3.5.1.4, amiE; amidase [EC:3.5.1.4]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
 K01428,ureC; urease subunit alpha [EC:3.5.1.5],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K01429,ureB; urease subunit beta [EC:3.5.1.5],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K01430,ureA; urease subunit gamma [EC:3.5.1.5],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
@@ -901,9 +886,8 @@ K01474,hyuB; N-methylhydantoinase B [EC:3.5.2.14],09100,Metabolism,09105,Amino a
 K01476,"rocF, arg; arginase [EC:3.5.3.1]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K01477,"alc, ALLC; allantoicase [EC:3.5.3.4]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K01478,arcA; arginine deiminase [EC:3.5.3.6],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-K01479,hutG; formiminoglutamase [EC:3.5.3.8],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-"K01479,K01480,K12255",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
-K01480,speB; agmatinase [EC:3.5.3.11],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
+K01479,hutG; formiminoglutamase [EC:3.5.3.8],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
+K01480,speB; agmatinase [EC:3.5.3.11],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
 K01482,"DDAH, ddaH; dimethylargininase [EC:3.5.3.18]",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
 K01483,allA; ureidoglycolate lyase [EC:4.3.2.3],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K01484,astB; succinylarginine dihydrolase [EC:3.5.3.23],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,False,True,True,False,False
@@ -975,8 +959,7 @@ K01591,pyrF; orotidine-5'-phosphate decarboxylase [EC:4.1.1.23],09100,Metabolism
 K01593,"DDC, TDC; aromatic-L-amino-acid/L-tryptophan decarboxylase [EC:4.1.1.28 4.1.1.105]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K01595,ppc; phosphoenolpyruvate carboxylase [EC:4.1.1.31],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K01596,"E4.1.1.32, pckA, PCK; phosphoenolpyruvate carboxykinase (GTP) [EC:4.1.1.32]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K01597,"MVD, mvaD; diphosphomevalonate decarboxylase [EC:4.1.1.33]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
-"K01597,K01823",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K01597,"MVD, mvaD; diphosphomevalonate decarboxylase [EC:4.1.1.33]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,True,False
 K01598,"PPCDC, coaC; phosphopantothenoylcysteine decarboxylase [EC:4.1.1.36]",09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K01599,"hemE, UROD; uroporphyrinogen decarboxylase [EC:4.1.1.37]",09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,True
 K01601,"rbcL, cbbL; ribulose-bisphosphate carboxylase large chain [EC:4.1.1.39]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
@@ -1081,8 +1064,7 @@ K01730,ogl; oligogalacturonide lyase [EC:4.2.2.6],09100,Metabolism,09101,Carbohy
 K01732,E4.2.2.10; pectin lyase [EC:4.2.2.10],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
 K01733,thrC; threonine synthase [EC:4.2.3.1],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K01734,mgsA; methylglyoxal synthase [EC:4.2.3.3],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K01735,aroB; 3-dehydroquinate synthase [EC:4.2.3.4],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-"K01735,K13829",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K01735,aroB; 3-dehydroquinate synthase [EC:4.2.3.4],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
 K01736,aroC; chorismate synthase [EC:4.2.3.5],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K01737,"queD, ptpS, PTS; 6-pyruvoyltetrahydropterin/6-carboxytetrahydropterin synthase [EC:4.2.3.12 4.1.2.50]",09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K01738,cysK; cysteine synthase [EC:2.5.1.47],09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
@@ -1131,8 +1113,7 @@ K01799,"nicE, maiA; maleate isomerase [EC:5.2.1.1]",09100,Metabolism,09101,Carbo
 K01800,"maiA, GSTZ1; maleylacetoacetate isomerase [EC:5.2.1.2]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,False,True,True,False,False
 K01801,nagL; maleylpyruvate isomerase [EC:5.2.1.4],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,False,True,True,False,False
 K01802,E5.2.1.8; peptidylprolyl isomerase [EC:5.2.1.8],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
-K01803,"TPI, tpiA; triosephosphate isomerase (TIM) [EC:5.3.1.1]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-"K01803,K21910",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K01803,"TPI, tpiA; triosephosphate isomerase (TIM) [EC:5.3.1.1]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K01804,araA; L-arabinose isomerase [EC:5.3.1.4],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K01805,xylA; xylose isomerase [EC:5.3.1.5],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K01807,rpiA; ribose 5-phosphate isomerase A [EC:5.3.1.6],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
@@ -1142,26 +1123,24 @@ K01810,"GPI, pgi; glucose-6-phosphate isomerase [EC:5.3.1.9]",09100,Metabolism,0
 K01811,"xylS, yicI; alpha-D-xyloside xylohydrolase [EC:3.2.1.177]",09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K01812,uxaC; glucuronate isomerase [EC:5.3.1.12],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K01813,rhaA; L-rhamnose isomerase [EC:5.3.1.14],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
-K01814,hisA; phosphoribosylformimino-5-aminoimidazole carboxamide ribotide isomerase [EC:5.3.1.16],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-"K01814,K01817",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K01814,hisA; phosphoribosylformimino-5-aminoimidazole carboxamide ribotide isomerase [EC:5.3.1.16],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
 K01815,kduI; 4-deoxy-L-threo-5-hexosulose-uronate ketol-isomerase [EC:5.3.1.17],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K01816,"hyi, gip; hydroxypyruvate isomerase [EC:5.3.1.22]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K01817,trpF; phosphoribosylanthranilate isomerase [EC:5.3.1.24],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
+K01817,trpF; phosphoribosylanthranilate isomerase [EC:5.3.1.24],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
 K01818,fucI; L-fucose/D-arabinose isomerase [EC:5.3.1.25 5.3.1.3],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K01819,lacA_B; galactose-6-phosphate isomerase [EC:5.3.1.26],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K01820,rhaA; L-rhamnose isomerase / sugar isomerase [EC:5.3.1.14 5.3.1.-],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K01821,"praC, xylH; 4-oxalocrotonate tautomerase [EC:5.3.2.6]",09100,Metabolism,09111,Xenobiotics biodegradation and metabolism,Xenobiotics biodegradation,Metabolism,True,True,True,True,False,False
 K01822,ksi; steroid Delta-isomerase [EC:5.3.3.1],09100,Metabolism,09111,Xenobiotics biodegradation and metabolism,Xenobiotics biodegradation,Metabolism,True,True,True,True,False,False
-K01823,"idi, IDI; isopentenyl-diphosphate Delta-isomerase [EC:5.3.3.2]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
+K01823,"idi, IDI; isopentenyl-diphosphate Delta-isomerase [EC:5.3.3.2]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,True,False
 K01825,fadB; 3-hydroxyacyl-CoA dehydrogenase / enoyl-CoA hydratase / 3-hydroxybutyryl-CoA epimerase / enoyl-CoA isomerase [EC:1.1.1.35 4.2.1.17 5.1.2.3 5.3.3.8],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K01826,"hpaF, hpcD; 5-carboxymethyl-2-hydroxymuconate isomerase [EC:5.3.3.10]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K01829,dsbH; disulfide reductase [EC:1.8.-.-],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K01834,"PGAM, gpmA; 2,3-bisphosphoglycerate-dependent phosphoglycerate mutase [EC:5.4.2.11]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K01835,pgm; phosphoglucomutase [EC:5.4.2.2],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-"K01835,K01840",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K01835,pgm; phosphoglucomutase [EC:5.4.2.2],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K01838,pgmB; beta-phosphoglucomutase [EC:5.4.2.6],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K01839,deoB; phosphopentomutase [EC:5.4.2.7],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K01840,manB; phosphomannomutase [EC:5.4.2.8],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
+K01840,manB; phosphomannomutase [EC:5.4.2.8],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K01841,pepM; phosphoenolpyruvate phosphomutase [EC:5.4.2.9],09100,Metabolism,09106,Metabolism of other amino acids,Metabolism of other amino acids,Metabolism,True,True,True,True,False,False
 K01843,"kamA; lysine 2,3-aminomutase [EC:5.4.3.2]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K01844,"kamD; beta-lysine 5,6-aminomutase alpha subunit [EC:5.4.3.3]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
@@ -1217,14 +1196,12 @@ K01911,menE; o-succinylbenzoate---CoA ligase [EC:6.2.1.26],09100,Metabolism,0910
 K01912,paaK; phenylacetate-CoA ligase [EC:6.2.1.30],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K01914,asnA; aspartate--ammonia ligase [EC:6.3.1.1],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K01915,"glnA, GLUL; glutamine synthetase [EC:6.3.1.2]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K01916,nadE; NAD+ synthase [EC:6.3.1.5],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
-"K01916,K01950",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K01916,nadE; NAD+ synthase [EC:6.3.1.5],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,True,False
 K01918,panC; pantoate--beta-alanine ligase [EC:6.3.2.1],09100,Metabolism,09106,Metabolism of other amino acids,Metabolism of other amino acids,Metabolism,True,True,True,True,False,False
 K01919,"gshA, egtA; glutamate---cysteine ligase [EC:6.3.2.2]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K01920,gshB; glutathione synthase [EC:6.3.2.3],09100,Metabolism,09106,Metabolism of other amino acids,Metabolism of other amino acids,Metabolism,True,True,True,True,False,False
 K01921,ddl; D-alanine-D-alanine ligase [EC:6.3.2.4],09100,Metabolism,09106,Metabolism of other amino acids,Metabolism of other amino acids,Metabolism,True,True,True,True,False,False
-K01923,purC; phosphoribosylaminoimidazole-succinocarboxamide synthase [EC:6.3.2.6],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
-"K01923,K01945",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K01923,purC; phosphoribosylaminoimidazole-succinocarboxamide synthase [EC:6.3.2.6],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,True,False
 K01924,murC; UDP-N-acetylmuramate--alanine ligase [EC:6.3.2.8],09100,Metabolism,09107,Glycan biosynthesis and metabolism,Glycan biosynthesis / metabolism,Metabolism,True,True,True,True,False,False
 K01925,murD; UDP-N-acetylmuramoylalanine--D-glutamate ligase [EC:6.3.2.9],09100,Metabolism,09106,Metabolism of other amino acids,Metabolism of other amino acids,Metabolism,True,True,True,True,False,False
 K01926,rex; redox-sensing transcriptional repressor,09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
@@ -1239,10 +1216,10 @@ K01938,fhs; formate--tetrahydrofolate ligase [EC:6.3.4.3],09100,Metabolism,09102
 K01939,"purA, ADSS; adenylosuccinate synthase [EC:6.3.4.4]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K01940,"argG, ASS1; argininosuccinate synthase [EC:6.3.4.5]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K01941,uca; urea/guanidine carboxylase [EC:6.3.4.6 6.3.4.26],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-K01945,purD; phosphoribosylamine---glycine ligase [EC:6.3.4.13],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
+K01945,purD; phosphoribosylamine---glycine ligase [EC:6.3.4.13],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,True,False
 K01947,birA-coaX; biotin---[acetyl-CoA-carboxylase] ligase / type III pantothenate kinase [EC:6.3.4.15 2.7.1.33],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,False,True,True,False,False
 K01949,gmaS; glutamate---methylamine ligase [EC:6.3.4.12],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
-K01950,"E6.3.5.1, NADSYN1, QNS1, nadE; NAD+ synthase (glutamine-hydrolysing) [EC:6.3.5.1]",09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
+K01950,"E6.3.5.1, NADSYN1, QNS1, nadE; NAD+ synthase (glutamine-hydrolysing) [EC:6.3.5.1]",09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,True,False
 K01951,"guaA, GMPS; GMP synthase (glutamine-hydrolysing) [EC:6.3.5.2]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K01952,"PFAS, purL; phosphoribosylformylglycinamidine synthase [EC:6.3.5.3]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K01953,"asnB, ASNS; asparagine synthase (glutamine-hydrolysing) [EC:6.3.5.4]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
@@ -1265,14 +1242,12 @@ K01975,"thpR; RNA 2',3'-cyclic 3'-phosphodiesterase [EC:3.1.4.58]",09180,Brite H
 K01989,K01989; putative tryptophan/tyrosine transport system substrate-binding protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K01990,ABC-2.A; ABC-2 type transport system ATP-binding protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K01991,"wza, gfcE; polysaccharide biosynthesis/export protein",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
-K01992,ABC-2.P; ABC-2 type transport system permease protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
-"K01992,K09690",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K01992,ABC-2.P; ABC-2 type transport system permease protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,True,False
 K01993,ABC-2.TX; HlyD family secretion protein,09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,False,False
 K01995,livG; branched-chain amino acid transport system ATP-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K01996,livF; branched-chain amino acid transport system ATP-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K01997,livH; branched-chain amino acid transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-K01998,livM; branched-chain amino acid transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-"K01998,K11961",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K01998,livM; branched-chain amino acid transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K01999,livK; branched-chain amino acid transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K02000,proV; glycine betaine/proline transport system ATP-binding protein [EC:7.6.2.9],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K02001,proW; glycine betaine/proline transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
@@ -1288,8 +1263,7 @@ K02010,"afuC, fbpC; iron(III) transport system ATP-binding protein [EC:7.2.2.7]"
 K02011,"afuB, fbpB; iron(III) transport system permease protein",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,True
 K02012,"afuA, fbpA; iron(III) transport system substrate-binding protein",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,True
 K02013,ABC.FEV.A; iron complex transport system ATP-binding protein [EC:7.2.2.-],09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
-K02014,TC.FEV.OM; iron complex outermembrane recepter protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
-"K02014,K15721",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K02014,TC.FEV.OM; iron complex outermembrane recepter protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,True,False
 K02015,ABC.FEV.P; iron complex transport system permease protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K02016,ABC.FEV.S; iron complex transport system substrate-binding protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K02017,modC; molybdate transport system ATP-binding protein [EC:7.3.2.5],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
@@ -1303,12 +1277,10 @@ K02025,ABC.MS.P; multiple sugar transport system permease protein,09180,Brite Hi
 K02026,ABC.MS.P1; multiple sugar transport system permease protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K02027,ABC.MS.S; multiple sugar transport system substrate-binding protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K02028,ABC.PA.A; polar amino acid transport system ATP-binding protein [EC:7.4.2.1],09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
-K02029,ABC.PA.P; polar amino acid transport system permease protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
-"K02029,K10009",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K02029,ABC.PA.P; polar amino acid transport system permease protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,True,False
 K02030,ABC.PA.S; polar amino acid transport system substrate-binding protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K02031,ddpD; peptide/nickel transport system ATP-binding protein,09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,True,True,True,False,False
-K02032,ddpF; peptide/nickel transport system ATP-binding protein,09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,True,True,True,False,False
-"K02032,K10823",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K02032,ddpF; peptide/nickel transport system ATP-binding protein,09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,True,True,True,True,False
 K02033,ABC.PE.P; peptide/nickel transport system permease protein,09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,True,True,True,False,False
 K02034,ABC.PE.P1; peptide/nickel transport system permease protein,09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,True,True,True,False,False
 K02035,ABC.PE.S; peptide/nickel transport system substrate-binding protein,09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,True,True,True,False,False
@@ -1328,9 +1300,7 @@ K02048,cysP; sulfate/thiosulfate transport system substrate-binding protein,0910
 K02049,ABC.SN.A; NitT/TauT family transport system ATP-binding protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K02050,ABC.SN.P; NitT/TauT family transport system permease protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K02051,ABC.SN.S; NitT/TauT family transport system substrate-binding protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
-K02052,ABC.SP.A; putative spermidine/putrescine transport system ATP-binding protein,09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,True,True,True,False,False
-"K02052,K11072,K11076",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
-"K02052,K11084",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K02052,ABC.SP.A; putative spermidine/putrescine transport system ATP-binding protein,09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,True,True,True,True,False
 K02053,ABC.SP.P; putative spermidine/putrescine transport system permease protein,09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,True,True,True,False,False
 K02054,ABC.SP.P1; putative spermidine/putrescine transport system permease protein,09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,True,True,True,False,False
 K02055,ABC.SP.S; putative spermidine/putrescine transport system substrate-binding protein,09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,True,True,True,False,False
@@ -1394,7 +1364,7 @@ K02182,caiC; carnitine-CoA ligase [EC:6.2.1.48],09190,Not Included in Pathway or
 K02188,cbiD; cobalt-precorrin-5B (C1)-methyltransferase [EC:2.1.1.195],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,True
 K02189,cbiG; cobalt-precorrin 5A hydrolase [EC:3.7.1.12],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K02190,cbiK; sirohydrochlorin cobaltochelatase [EC:4.99.1.3],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,False,False,False,False,False,True
-K02191,cbiT; cobalt-precorrin-6B (C15)-methyltransferase [EC:2.1.1.196],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,False,True,True,False,False
+K02191,cbiT; cobalt-precorrin-6B (C15)-methyltransferase [EC:2.1.1.196],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,False,True,True,True,False
 K02192,bfd; bacterioferritin-associated ferredoxin,09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,False,False
 K02193,ccmA; heme exporter protein A [EC:7.6.2.5],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K02194,ccmB; heme exporter protein B,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
@@ -1483,9 +1453,7 @@ K02358,"tuf, TUFM; elongation factor Tu",09150,Organismal Systems,09159,Environm
 K02359,"EGH; beta-1,4-mannosyltransferase [EC:2.4.1.-]",09150,Organismal Systems,09158,Development and regeneration,Development and regeneration,Other,False,True,False,False,False,False
 K02361,entC; isochorismate synthase [EC:5.4.4.2],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K02362,"entD, pptT; enterobactin synthetase component D / holo-[acyl-carrier protein] synthase [EC:6.3.2.14 2.7.8.7]",09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,False,True,True,False,False
-K02363,"entE, dhbE, vibE, mxcE; 2,3-dihydroxybenzoate---[aryl-carrier protein] ligase [EC:6.3.2.14 6.2.1.71]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
-"K02363,K04783",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
-"K02363,K12238",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K02363,"entE, dhbE, vibE, mxcE; 2,3-dihydroxybenzoate---[aryl-carrier protein] ligase [EC:6.3.2.14 6.2.1.71]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,True,False
 K02364,entF; L-serine---[L-seryl-carrier protein] ligase [EC:6.3.2.14 6.2.1.72],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
 K02371,fabK; enoyl-[acyl-carrier protein] reductase II [EC:1.3.1.9],09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
 K02372,fabZ; 3-hydroxyacyl-[acyl-carrier-protein] dehydratase [EC:4.2.1.59],09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
@@ -1538,7 +1506,7 @@ K02427,"rlmE, rrmJ, ftsJ; 23S rRNA (uridine2552-2'-O)-methyltransferase [EC:2.1.
 K02428,,,,,,Uncharacterized,Uncharacterized,True,True,True,True,False,False
 K02429,"fucP, deoP, nagP, agaP; MFS transporter, FHS family, fucose-galactose-glucose:H+ symporter family protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K02431,"fucU, FUOM; L-fucose mutarotase [EC:5.1.3.29]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K02433,"gatA, QRSL1; aspartyl-tRNA(Asn)/glutamyl-tRNA(Gln) amidotransferase subunit A [EC:6.3.5.6 6.3.5.7]",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,False,False
+K02433,"gatA, QRSL1; aspartyl-tRNA(Asn)/glutamyl-tRNA(Gln) amidotransferase subunit A [EC:6.3.5.6 6.3.5.7]",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,True,False
 K02434,"gatB, PET112; aspartyl-tRNA(Asn)/glutamyl-tRNA(Gln) amidotransferase subunit B [EC:6.3.5.6 6.3.5.7]",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,False,False
 K02435,"gatC, GATC; aspartyl-tRNA(Asn)/glutamyl-tRNA(Gln) amidotransferase subunit C [EC:6.3.5.6 6.3.5.7]",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,False,False
 K02436,"gatR; DeoR family transcriptional regulator, galactitol utilization operon repressor",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Transcription / Regulation,Transcription / Regulation,True,False,True,True,False,False
@@ -1582,8 +1550,7 @@ K02477,"K02477; two-component system, LytTR family, response regulator",09180,Br
 K02478,"K02478; two-component system, LytTR family, sensor kinase [EC:2.7.13.3]",09180,Brite Hierarchies,09181,Protein families: metabolism,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
 K02479,"K02479; two-component system, NarL family, response regulator",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
 K02480,"K02480; two-component system, NarL family, sensor kinase [EC:2.7.13.3]",09180,Brite Hierarchies,09181,Protein families: metabolism,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
-K02481,"flgR; two-component system, NtrC family, response regulator",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
-"K02481,K02667",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K02481,"flgR; two-component system, NtrC family, response regulator",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transcription / Regulation,Transcription / Regulation,True,True,True,True,True,False
 K02482,"flgS; two-component system, NtrC family, sensor kinase [EC:2.7.13.3]",09180,Brite Hierarchies,09181,Protein families: metabolism,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
 K02483,"K02483; two-component system, OmpR family, response regulator",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
 K02484,"K02484; two-component system, OmpR family, sensor kinase [EC:2.7.13.3]",09180,Brite Hierarchies,09181,Protein families: metabolism,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
@@ -1710,7 +1677,7 @@ K02663,pilN; type IV pilus assembly protein PilN,09180,Brite Hierarchies,09183,P
 K02664,pilO; type IV pilus assembly protein PilO,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
 K02665,pilP; type IV pilus assembly protein PilP,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
 K02666,pilQ; type IV pilus assembly protein PilQ,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
-K02667,"pilR, pehR; two-component system, NtrC family, response regulator PilR",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
+K02667,"pilR, pehR; two-component system, NtrC family, response regulator PilR",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,True,False
 K02668,"pilS, pehS; two-component system, NtrC family, sensor histidine kinase PilS [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
 K02669,pilT; twitching motility protein PilT,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Motility / flagellar,Motility / flagellar,True,True,True,True,False,False
 K02670,pilU; twitching motility protein PilU,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Motility / flagellar,Motility / flagellar,True,False,True,True,False,False
@@ -1731,7 +1698,7 @@ K02720,psbV; photosystem II cytochrome c550,09100,Metabolism,09102,Energy metabo
 K02742,sprT; SprT protein,09190,Not Included in Pathway or Brite,09194,Poorly characterized,Poorly characterized,Uncharacterized,True,False,True,True,False,False
 K02744,agaF; N-acetylgalactosamine PTS system EIIA component [EC:2.7.1.-],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
 K02745,agaV; N-acetylgalactosamine PTS system EIIB component [EC:2.7.1.-],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
-"K02746,K02795",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K02746,agaW; N-acetylgalactosamine PTS system EIIC component,09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,False,False,False,False,True,False
 K02749,,,,,,Uncharacterized,Uncharacterized,False,True,False,False,False,False
 K02750,"glvC, malP, aglA; alpha-glucoside PTS system EIICB component [EC:2.7.1.208 2.7.1.-]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,False,True,False,False,False,False
 K02755,bglFa; beta-glucoside PTS system EIIA component [EC:2.7.1.-],09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
@@ -1751,12 +1718,13 @@ K02781,srlB; glucitol/sorbitol PTS system EIIA component [EC:2.7.1.198],09100,Me
 K02782,srlE; glucitol/sorbitol PTS system EIIB component [EC:2.7.1.198],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,False,False,False,False
 K02783,srlA; glucitol/sorbitol PTS system EIIC component,09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,False,False,False,False
 K02784,ptsH; phosphocarrier protein HPr,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
-"K02787,K02788",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K02787,,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K02788,lacE; lactose PTS system EIICB component [EC:2.7.1.207],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,False,False,False,False,True,False
 K02790,,,,,,Uncharacterized,Uncharacterized,False,True,False,False,False,False
 K02791,malX; maltose/glucose PTS system EIICB component [EC:2.7.1.199 2.7.1.208],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,False,True,False,False,False,False
 K02793,manXa; mannose PTS system EIIA component [EC:2.7.1.191],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
 K02794,manX; mannose PTS system EIIAB component [EC:2.7.1.191],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
-K02795,manY; mannose PTS system EIIC component,09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
+K02795,manY; mannose PTS system EIIC component,09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,True,False
 K02796,manZ; mannose PTS system EIID component,09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,False,True,True,False,False
 K02798,cmtB; mannitol PTS system EIIA component [EC:2.7.1.197],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K02799,,,,,,Uncharacterized,Uncharacterized,True,True,True,True,False,False
@@ -1773,8 +1741,7 @@ K02819,"treB, treP; trehalose PTS system EIIBC or EIIBCA component [EC:2.7.1.201
 K02821,"ulaC, sgaA; ascorbate PTS system EIIA or EIIAB component [EC:2.7.1.194]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K02822,"ulaB, sgaB; ascorbate PTS system EIIB component [EC:2.7.1.194]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K02823,pyrDII; dihydroorotate dehydrogenase electron transfer subunit,09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
-K02824,"uraA, pyrP; uracil permease",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
-"K02824,K09016",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K02824,"uraA, pyrP; uracil permease",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,True,False
 K02825,pyrR; pyrimidine operon attenuation protein / uracil phosphoribosyltransferase [EC:2.4.2.9],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K02826,qoxA; cytochrome aa3-600 menaquinol oxidase subunit II [EC:7.1.1.5],09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
 K02827,qoxB; cytochrome aa3-600 menaquinol oxidase subunit I [EC:7.1.1.5],09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
@@ -1833,8 +1800,7 @@ K02931,"RP-L5, MRPL5, rplE; large subunit ribosomal protein L5",09120,Genetic In
 K02933,"RP-L6, MRPL6, rplF; large subunit ribosomal protein L6",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,False,False
 K02935,"RP-L7, MRPL12, rplL; large subunit ribosomal protein L7/L12",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,False,False
 K02939,"RP-L9, MRPL9, rplI; large subunit ribosomal protein L9",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,False,False
-K02945,"RP-S1, rpsA; small subunit ribosomal protein S1",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,False,False
-"K02945,K03527",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K02945,"RP-S1, rpsA; small subunit ribosomal protein S1",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,True,False
 K02946,"RP-S10, MRPS10, rpsJ; small subunit ribosomal protein S10",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,False,False
 K02948,"RP-S11, MRPS11, rpsK; small subunit ribosomal protein S11",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,False,False
 K02950,"RP-S12, MRPS12, rpsL; small subunit ribosomal protein S12",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,True,True,True,False,False
@@ -1944,8 +1910,7 @@ K03222,"yscJ, sctJ, hrcJ, ssaJ; type III secretion protein J",09130,Environmenta
 K03223,"yscL, sctL; type III secretion protein L",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
 K03224,"yscN, sctN, hrcN, ssaN; ATP synthase in type III secretion protein N [EC:7.4.2.8]",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
 K03225,"yscQ, sctQ, hrcQ, ssaQ, spaO; type III secretion protein Q",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
-K03226,"yscR, sctR, hrcR, ssaR; type III secretion protein R",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
-"K03226,K22507",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K03226,"yscR, sctR, hrcR, ssaR; type III secretion protein R",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,True,False
 K03227,"yscS, sctS, hrcS, ssaS; type III secretion protein S",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
 K03228,"yscT, sctT, hrcT, ssaT; type III secretion protein T",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
 K03229,"yscU, sctU, hrcU, ssaU; type III secretion protein U",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
@@ -1966,11 +1931,9 @@ K03286,"TC.OOP; OmpA-OmpF porin, OOP family",09180,Brite Hierarchies,09183,Prote
 K03287,"TC.OMF; outer membrane factor, OMF family",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Membrane / cell envelope,Membrane / cell envelope,True,False,True,True,False,False
 K03288,"citA, tcuC; MFS transporter, MHS family, citrate/tricarballylate:H+ symporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,False,True,True,False,False
 K03289,"nupG; MFS transporter, NHS family, nucleoside permease",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,False,True,True,False,False
-K03290,"nanT; MFS transporter, SHS family, sialic acid transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
-"K03290,K08178",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K03290,"nanT; MFS transporter, SHS family, sialic acid transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,True,False
 K03291,"MFS.SET; MFS transporter, SET family, sugar efflux transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,True,False
-K03292,"TC.GPH; glycoside/pentoside/hexuronide:cation symporter, GPH family",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,False,False
-"K03292,K16210",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K03292,"TC.GPH; glycoside/pentoside/hexuronide:cation symporter, GPH family",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,True,False
 K03293,"TC.AAT; amino acid transporter, AAT family",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K03294,"TC.APA; basic amino acid/polyamine antiporter, APA family",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,False,False
 K03296,"TC.HAE1; hydrophobic/amphiphilic exporter-1 (mainly G- bacteria), HAE1 family",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,False,False
@@ -2066,14 +2029,12 @@ K03438,"mraW, rsmH; 16S rRNA (cytosine1402-N4)-methyltransferase [EC:2.1.1.199]"
 K03439,"trmB, METTL1, TRM8; tRNA (guanine-N7-)-methyltransferase [EC:2.1.1.33]",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
 K03442,mscS; small conductance mechanosensitive channel,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
 K03444,"ERD6, ESL1; MFS transporter, SP family, ERD6-like sugar transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,False,True,True,False,False
-K03445,"nepI; MFS transporter, DHA1 family, purine ribonucleoside efflux pump",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
-"K03445,K08159",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K03445,"nepI; MFS transporter, DHA1 family, purine ribonucleoside efflux pump",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,True,False
 K03446,"emrB; MFS transporter, DHA2 family, multidrug resistance protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,True
 K03449,"MFS.CP; MFS transporter, CP family, cyanate transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K03451,"TC.BCT; betaine/carnitine transporter, BCCT family",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Transport,Transport,True,False,True,True,False,False
 K03453,"TC.BASS; bile acid:Na+ symporter, BASS family",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,False,False
-K03455,"KEA1_2_3, kefB, kefC; K+:H+ antiporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
-"K03455,K03499",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K03455,"KEA1_2_3, kefB, kefC; K+:H+ antiporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,True,False
 K03457,"TC.NCS1; nucleobase:cation symporter-1, NCS1 family",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,False,False
 K03458,"TC.NCS2; nucleobase:cation symporter-2, NCS2 family",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,False,False
 K03462,NAMPT; nicotinamide phosphoribosyltransferase [EC:2.4.2.12],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,False,True,True,False,False
@@ -2104,7 +2065,7 @@ K03495,"gidA, mnmG, MTO1; tRNA uridine 5-carboxymethylaminomethyl modification e
 K03496,"parA, soj; chromosome partitioning protein",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
 K03497,"parB, spo0J; ParB family transcriptional regulator, chromosome partitioning protein",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
 K03498,"trkH, trkG, ktrB, ktrD; trk/ktr system potassium uptake protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
-K03499,"trkA, ktrA, ktrC; trk/ktr system potassium uptake protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
+K03499,"trkA, ktrA, ktrC; trk/ktr system potassium uptake protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,True,False
 K03500,"rsmB, sun; 16S rRNA (cytosine967-C5)-methyltransferase [EC:2.1.1.176]",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
 K03501,"gidB, rsmG; 16S rRNA (guanine527-N7)-methyltransferase [EC:2.1.1.170]",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
 K03502,umuC; DNA polymerase V,09180,Brite Hierarchies,09182,Protein families: genetic information processing,DNA repair / stress,DNA repair / stress,True,True,True,True,False,False
@@ -2114,13 +2075,12 @@ K03518,coxS; aerobic carbon-monoxide dehydrogenase small subunit [EC:1.2.5.3],09
 K03519,"coxM, cutM; aerobic carbon-monoxide dehydrogenase medium subunit [EC:1.2.5.3]",09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K03520,"coxL, cutL; aerobic carbon-monoxide dehydrogenase large subunit [EC:1.2.5.3]",09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K03521,"fixA, etfB; electron transfer flavoprotein beta subunit",09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
-K03522,"fixB, etfA; electron transfer flavoprotein alpha subunit",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
-"K03522,K22432",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K03522,"fixB, etfA; electron transfer flavoprotein alpha subunit",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,True,False
 K03523,bioY; biotin transport system substrate-specific component,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,True
 K03524,"birA; BirA family transcriptional regulator, biotin operon repressor / biotin---[acetyl-CoA-carboxylase] ligase [EC:6.3.4.15]",09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K03525,coaX; type III pantothenate kinase [EC:2.7.1.33],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K03526,"gcpE, ispG; (E)-4-hydroxy-3-methylbut-2-enyl-diphosphate synthase [EC:1.17.7.1 1.17.7.3]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
-K03527,"ispH, lytB; 4-hydroxy-3-methylbut-2-en-1-yl diphosphate reductase [EC:1.17.7.4]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
+K03527,"ispH, lytB; 4-hydroxy-3-methylbut-2-en-1-yl diphosphate reductase [EC:1.17.7.4]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,True,False
 K03528,zipA; cell division protein ZipA,09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,False,True,True,False,False
 K03529,smc; chromosome segregation protein,09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
 K03530,hupB; DNA-binding protein HU-beta,09180,Brite Hierarchies,09182,Protein families: genetic information processing,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
@@ -2447,8 +2407,7 @@ K04017,nrfF; formate-dependent nitrite reductase complex subunit NrfF,09190,Not 
 K04018,nrfG; formate-dependent nitrite reductase complex subunit NrfG,09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Nitrogen cycling,Nitrogen cycling,True,True,True,True,False,False
 K04019,eutA; ethanolamine utilization protein EutA,09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
 K04020,eutD; phosphotransacetylase,09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K04021,eutE; aldehyde dehydrogenase,09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-"K04021,K13922",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K04021,eutE; aldehyde dehydrogenase,09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K04027,eutM; ethanolamine utilization protein EutM,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
 K04028,eutN; ethanolamine utilization protein EutN,09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K04030,eutQ; ethanolamine utilization protein EutQ,09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
@@ -2583,6 +2542,7 @@ K04775,ydgD; protease YdgD [EC:3.4.21.-],09180,Brite Hierarchies,09181,Protein f
 K04780,dhbF; glyine---[glycyl-carrier protein] ligase [EC:6.2.1.66],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
 K04781,"mbtI, irp9, ybtS; salicylate synthetase [EC:5.4.4.2 4.2.99.21]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,True,False
 K04782,pchB; isochorismate pyruvate lyase [EC:4.2.99.21],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
+K04783,"irp5, ybtE; yersiniabactin salicyl-AMP ligase [EC:6.3.2.-]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,False,False,False,False,True,False
 K04786,"irp1, HMWP1; yersiniabactin nonribosomal peptide/polyketide synthase",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
 K04787,mbtA; mycobactin salicyl-AMP ligase [EC:6.3.2.-],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,False,True,False,False,False,False
 K04788,mbtB; mycobactin phenyloxazoline synthetase,09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,False,True,False,False,False,False
@@ -2618,7 +2578,7 @@ K05343,treS; maltose alpha-D-glucosyltransferase / alpha-amylase [EC:5.4.99.16 3
 K05346,deoR; deoxyribonucleoside regulator,09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
 K05349,bglX; beta-glucosidase [EC:3.2.1.21],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K05350,bglB; beta-glucosidase [EC:3.2.1.21],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K05351,E1.1.1.9; D-xylulose reductase [EC:1.1.1.9],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
+K05351,E1.1.1.9; D-xylulose reductase [EC:1.1.1.9],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K05358,quiA; quinate dehydrogenase (quinone) [EC:1.1.5.8],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,False,True,True,False,False
 K05359,"ADT, PDT; arogenate/prephenate dehydratase [EC:4.2.1.91 4.2.1.51]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,False,True,False,False,False,False
 K05362,murE; UDP-N-acetylmuramoyl-L-alanyl-D-glutamate-L-lysine ligase [EC:6.3.2.7],09100,Metabolism,09107,Glycan biosynthesis and metabolism,Glycan biosynthesis / metabolism,Metabolism,True,False,True,True,False,False
@@ -2693,8 +2653,7 @@ K05588,hoxU; bidirectional [NiFe] hydrogenase diaphorase subunit [EC:7.1.1.2],09
 K05589,ftsB; cell division protein FtsB,09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
 K05590,srmB; ATP-dependent RNA helicase SrmB [EC:5.6.2.7],09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,False,False,False,False,False
 K05591,dbpA; ATP-dependent RNA helicase DbpA [EC:5.6.2.6],09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,False,True,True,False,False
-K05592,"deaD, cshA; ATP-dependent RNA helicase DeaD [EC:5.6.2.7]",09120,Genetic Information Processing,09123,"Folding, sorting and degradation",Protein folding / degradation,Metabolism,True,True,True,True,False,False
-"K05592,K11927",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K05592,"deaD, cshA; ATP-dependent RNA helicase DeaD [EC:5.6.2.7]",09120,Genetic Information Processing,09123,"Folding, sorting and degradation",Protein folding / degradation,Metabolism,True,True,True,True,True,False
 K05593,aadK; aminoglycoside 6-adenylyltransferase [EC:2.7.7.-],09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
 K05594,elaB; ElaB protein,09190,Not Included in Pathway or Brite,09194,Poorly characterized,Poorly characterized,Uncharacterized,True,False,True,True,False,False
 K05595,marC; multiple antibiotic resistance protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
@@ -2817,8 +2776,7 @@ K05947,E2.4.1.217; mannosyl-3-phosphoglycerate synthase [EC:2.4.1.217],09100,Met
 K05951,draT; NAD+---dinitrogen-reductase ADP-D-ribosyltransferase [EC:2.4.2.37],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
 K05952,K05952; uncharacterized protein,09190,Not Included in Pathway or Brite,09194,Poorly characterized,Poorly characterized,Uncharacterized,True,False,True,True,False,False
 K05962,,,,,,Uncharacterized,Uncharacterized,True,True,True,True,False,False
-K05966,citG; triphosphoribosyl-dephospho-CoA synthase [EC:2.4.2.52],09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
-"K05966,K13930",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K05966,citG; triphosphoribosyl-dephospho-CoA synthase [EC:2.4.2.52],09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,True,False
 K05967,K05967; uncharacterized protein,09190,Not Included in Pathway or Brite,09194,Poorly characterized,Poorly characterized,Uncharacterized,True,True,True,True,False,False
 K05970,SIAE; sialate O-acetylesterase [EC:3.1.1.53],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K05972,AXE1; acetylxylan esterase [EC:3.1.1.72],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,False,False,False,False
@@ -2882,10 +2840,8 @@ K06140,rnk; regulator of nucleoside diphosphate kinase,09180,Brite Hierarchies,0
 K06142,"hlpA, ompH; outer membrane protein",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Membrane / cell envelope,Membrane / cell envelope,True,False,True,True,False,False
 K06143,creD; inner membrane protein,09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Membrane / cell envelope,Membrane / cell envelope,True,False,True,True,False,False
 K06145,"gntR; LacI family transcriptional regulator, gluconate utilization system Gnt-I transcriptional repressor",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Transcription / Regulation,Transcription / Regulation,True,True,True,True,True,False
-K06147,"ABCB-BAC; ATP-binding cassette, subfamily B, bacterial",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
-"K06147,K06148,K16012",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
-"K06147,K18893",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
-K06148,"ABCC-BAC; ATP-binding cassette, subfamily C, bacterial",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
+K06147,"ABCB-BAC; ATP-binding cassette, subfamily B, bacterial",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,True,False
+K06148,"ABCC-BAC; ATP-binding cassette, subfamily C, bacterial",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,True,False
 K06149,uspA; universal stress protein A,09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,False,False
 K06151,E1.1.99.3A; gluconate 2-dehydrogenase alpha chain [EC:1.1.99.3],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K06152,E1.1.99.3G; gluconate 2-dehydrogenase gamma chain [EC:1.1.99.3],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
@@ -3433,7 +3389,7 @@ K07405,E3.2.1.1A; alpha-amylase [EC:3.2.1.1],09100,Metabolism,09101,Carbohydrate
 K07406,melA; alpha-galactosidase [EC:3.2.1.22],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K07407,"E3.2.1.22B, galA, rafA; alpha-galactosidase [EC:3.2.1.22]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K07442,"TRM61, GCD14; tRNA (adenine57-N1/adenine58-N1)-methyltransferase catalytic subunit [EC:2.1.1.219 2.1.1.220]",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
-K07443,ybaZ; methylated-DNA-protein-cysteine methyltransferase related protein,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
+K07443,ybaZ; methylated-DNA-protein-cysteine methyltransferase related protein,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,True,False
 K07444,ypsC; putative N6-adenine-specific DNA methylase [EC:2.1.1.-],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K07445,K07445; putative DNA methylase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
 K07447,ruvX; putative pre-16S rRNA nuclease [EC:3.1.-.-],09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
@@ -3462,8 +3418,7 @@ K07479,yrdD; putative DNA topoisomerase,09190,Not Included in Pathway or Brite,0
 K07480,insB; insertion element IS1 protein InsB,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
 K07481,"K07481; transposase, IS5 family",09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
 K07482,"K07482; transposase, IS30 family",09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
-K07483,K07483; transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
-"K07483,K07497",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K07483,K07483; transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,True,False
 K07484,K07484; transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
 K07485,K07485; transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
 K07486,K07486; transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
@@ -3475,7 +3430,7 @@ K07493,K07493; putative transposase,09190,Not Included in Pathway or Brite,09192
 K07494,K07494; putative transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
 K07495,K07495; putative transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,False,True,True,False,False
 K07496,K07496; putative transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
-K07497,K07497; putative transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
+K07497,K07497; putative transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,True,False
 K07498,K07498; putative transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
 K07499,K07499; putative transposase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
 K07501,K07501; 3'-5' exonuclease,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,False,True,True,False,False
@@ -3504,9 +3459,8 @@ K07559,kptA; putative RNA 2'-phosphotransferase [EC:2.7.1.-],09180,Brite Hierarc
 K07560,"dtd, DTD; D-aminoacyl-tRNA deacylase [EC:3.1.1.96]",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
 K07566,"tsaC, rimN, SUA5, YRDC; L-threonylcarbamoyladenylate synthase [EC:2.7.7.87]",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
 K07568,queA; S-adenosylmethionine:tRNA ribosyltransferase-isomerase [EC:2.4.99.17],09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,True,True,True,False,False
-K07570,GSP13; general stress protein 13,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
-"K07570,K07571",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
-K07571,K07571; S1 RNA binding domain protein,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
+K07570,GSP13; general stress protein 13,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,True,False
+K07571,K07571; S1 RNA binding domain protein,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,True,False
 K07574,yhbY; RNA-binding protein,09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,False,True,True,False,False
 K07576,K07576; metallo-beta-lactamase family protein,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
 K07577,K07577; putative mRNA 3-end processing factor,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,False,True,True,False,False
@@ -3516,8 +3470,7 @@ K07588,"MMAA, argK; GTPase [EC:3.6.5.-]",09150,Organismal Systems,09154,Digestiv
 K07589,"folX; D-erythro-7,8-dihydroneopterin triphosphate epimerase [EC:5.1.99.7]",09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,False,True,True,True,False
 K07590,"RP-L7A, rplGB; large subunit ribosomal protein L7A",09120,Genetic Information Processing,09122,Translation,Translation,Metabolism,True,False,True,True,False,False
 K07623,"GJB4, CX30.3; gap junction beta-4 protein",09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,False,True,True,False,False
-K07636,"phoR; two-component system, OmpR family, phosphate regulon sensor histidine kinase PhoR [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
-"K07636,K07644",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K07636,"phoR; two-component system, OmpR family, phosphate regulon sensor histidine kinase PhoR [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,True,False
 K07637,"phoQ; two-component system, OmpR family, sensor histidine kinase PhoQ [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
 K07638,"envZ; two-component system, OmpR family, osmolarity sensor histidine kinase EnvZ [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
 K07639,"rstB; two-component system, OmpR family, sensor histidine kinase RstB [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
@@ -3561,8 +3514,7 @@ K07677,"rcsC; two-component system, NarL family, capsular synthesis sensor histi
 K07678,"barA, gacS, varS; two-component system, NarL family, sensor histidine kinase BarA [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
 K07679,"evgS, bvgS; two-component system, NarL family, sensor histidine kinase EvgS [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
 K07680,"comP; two-component system, NarL family, sensor histidine kinase ComP [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
-K07681,"vraS; two-component system, NarL family, vancomycin resistance sensor histidine kinase VraS [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,False,True,False,False,False,False
-"K07681,K11617",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K07681,"vraS; two-component system, NarL family, vancomycin resistance sensor histidine kinase VraS [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,False,True,False,False,True,False
 K07682,"devS; two-component system, NarL family, sensor histidine kinase DevS [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
 K07683,"nreB; two-component system, NarL family, sensor histidine kinase NreB [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
 K07684,"narL; two-component system, NarL family, nitrate/nitrite response regulator NarL",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
@@ -3658,7 +3610,7 @@ K07978,plmA; GntR family transcriptional regulator,09180,Brite Hierarchies,09182
 K07979,ytrA; GntR family transcriptional regulator,09180,Brite Hierarchies,09182,Protein families: genetic information processing,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
 K08068,"siaA, neuC1; UDP-N-acetylglucosamine 2-epimerase (hydrolysing) [EC:3.2.1.183]",09100,Metabolism,09107,Glycan biosynthesis and metabolism,Glycan biosynthesis / metabolism,Metabolism,True,True,True,True,False,False
 K08070,E1.3.1.74; 2-alkenal reductase [EC:1.3.1.74],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
-"K08077,K12945",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K08077,NUDT14; UDP-sugar diphosphatase [EC:3.6.1.45],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,False,False,False,False,True,False
 K08080,CMAH; CMP-N-acetylneuraminate monooxygenase [EC:1.14.18.2],09100,Metabolism,09107,Glycan biosynthesis and metabolism,Glycan biosynthesis / metabolism,Metabolism,True,True,True,True,False,False
 K08081,TR1; tropinone reductase I [EC:1.1.1.206],09100,Metabolism,09110,Biosynthesis of other secondary metabolites,Secondary metabolites,Metabolism,True,True,True,True,False,False
 K08082,"algZ; two-component system, LytTR family, sensor histidine kinase AlgZ [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
@@ -3680,7 +3632,7 @@ K08152,"lmrP; MFS transporter, DHA1 family, multidrug resistance protein B",0918
 K08153,"blt; MFS transporter, DHA1 family, multidrug resistance protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K08154,"emrD; MFS transporter, DHA1 family, 2-module integral membrane pump EmrD",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,False,True,True,False,False
 K08156,"araJ; MFS transporter, DHA1 family, arabinose polymer utilization protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,False,True,True,False,False
-K08159,"sotB; MFS transporter, DHA1 family, L-arabinose/isopropyl-beta-D-thiogalactopyranoside export protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
+K08159,"sotB; MFS transporter, DHA1 family, L-arabinose/isopropyl-beta-D-thiogalactopyranoside export protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,True,False
 K08161,"mdtG, pmrA; MFS transporter, DHA1 family, multidrug resistance protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,True
 K08162,"mdtH; MFS transporter, DHA1 family, multidrug resistance protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K08166,"mmr; MFS transporter, DHA2 family, methylenomycin A resistance protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
@@ -3693,7 +3645,7 @@ K08173,"ydfJ; MFS transporter, MHS family, metabolite:H+ symporter",09180,Brite 
 K08174,"glcP; MFS transporter, FHS family, glucose/mannose:H+ symporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,False,True,False,False,False,False
 K08176,"PHO84; MFS transporter, PHS family, inorganic phosphate transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K08177,"oxlT; MFS transporter, OFA family, oxalate/formate antiporter",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
-K08178,"JEN; MFS transporter, SHS family, lactate transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
+K08178,"JEN; MFS transporter, SHS family, lactate transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,True,False
 K08191,"exuT; MFS transporter, ACS family, aldohexuronate transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,False,True,True,False,False
 K08194,"dgoT; MFS transporter, ACS family, D-galactonate transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K08195,"pcaK; MFS transporter, AAHS family, 4-hydroxybenzoate transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
@@ -3772,9 +3724,8 @@ K08372,pepD; putative serine protease PepD [EC:3.4.21.-],09130,Environmental Inf
 K08384,spoVD; stage V sporulation protein D (sporulation-specific penicillin-binding protein),09100,Metabolism,09107,Glycan biosynthesis and metabolism,Glycan biosynthesis / metabolism,Metabolism,True,True,True,True,False,False
 K08481,kaiB; circadian clock protein KaiB,09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,False,False
 K08482,kaiC; circadian clock protein KaiC,09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,True,True,True,False,False
-K08483,ptsI; phosphoenolpyruvate-protein phosphotransferase (PTS system enzyme I) [EC:2.7.3.9],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-"K08483,K08484",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
-K08484,"ptsP; phosphotransferase system, enzyme I, PtsP [EC:2.7.3.9]",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
+K08483,ptsI; phosphoenolpyruvate-protein phosphotransferase (PTS system enzyme I) [EC:2.7.3.9],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
+K08484,"ptsP; phosphotransferase system, enzyme I, PtsP [EC:2.7.3.9]",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,True,False
 K08485,"ptsO, npr; phosphocarrier protein NPr",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
 K08591,plsY; acyl phosphate:glycerol-3-phosphate acyltransferase [EC:2.3.1.275],09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
 K08602,"pepF, pepB; oligoendopeptidase F [EC:3.4.24.-]",09180,Brite Hierarchies,09181,Protein families: metabolism,Protein families: metabolism,Metabolism,True,True,True,True,False,False
@@ -3872,7 +3823,7 @@ K09012,"sufR; DeoR family transcriptional regulator, suf operon transcriptional 
 K09013,sufC; Fe-S cluster assembly ATP-binding protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
 K09014,sufB; Fe-S cluster assembly protein SufB,09190,Not Included in Pathway or Brite,09194,Poorly characterized,Poorly characterized,Uncharacterized,True,True,True,True,False,False
 K09015,sufD; Fe-S cluster assembly protein SufD,09190,Not Included in Pathway or Brite,09194,Poorly characterized,Poorly characterized,Uncharacterized,True,True,True,True,False,False
-K09016,rutG; putative pyrimidine permease RutG,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,False,True,True,False,False
+K09016,rutG; putative pyrimidine permease RutG,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,False,True,True,True,False
 K09017,rutR; TetR/AcrR family transcriptional regulator,09180,Brite Hierarchies,09182,Protein families: genetic information processing,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
 K09018,rutA; pyrimidine oxygenase [EC:1.14.99.46],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,True,False
 K09019,rutE; 3-hydroxypropanoate dehydrogenase [EC:1.1.1.-],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
@@ -3953,7 +3904,7 @@ K09684,"pucR; PucR family transcriptional regulator, purine catabolism regulator
 K09685,"purR; HTH-type transcriptional regulator, purine operon repressor",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Transcription / Regulation,Transcription / Regulation,True,False,True,True,False,False
 K09688,kpsM; capsular polysaccharide transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
 K09689,kpsT; capsular polysaccharide transport system ATP-binding protein [EC:7.6.2.12],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-K09690,"wzm, rfbA; homopolymeric O-antigen transport system permease protein",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
+K09690,"wzm, rfbA; homopolymeric O-antigen transport system permease protein",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K09691,"wzt, rfbB; homopolymeric O-antigen transport system ATP-binding protein [EC:7.5.2.14]",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K09692,tagG; teichoic acid transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K09693,tagH; teichoic acid transport system ATP-binding protein [EC:7.5.2.4],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
@@ -4174,7 +4125,7 @@ K10005,gluB; glutamate transport system substrate-binding protein,09130,Environm
 K10006,gluC; glutamate transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K10007,gluD; glutamate transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K10008,gluA; glutamate transport system ATP-binding protein [EC:7.4.2.1],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-K10009,"tcyB, tcyL; L-cystine transport system permease protein",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
+K10009,"tcyB, tcyL; L-cystine transport system permease protein",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K10010,"tcyC, tcyN; L-cystine transport system ATP-binding protein [EC:7.4.2.1]",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K10011,"arnA, pmrI; UDP-4-amino-4-deoxy-L-arabinose formyltransferase / UDP-glucuronic acid dehydrogenase (UDP-4-keto-hexauronic acid decarboxylating) [EC:2.1.2.13 1.1.1.305]",09100,Metabolism,09107,Glycan biosynthesis and metabolism,Glycan biosynthesis / metabolism,Metabolism,True,True,True,True,False,False
 K10012,"arnC, pmrF; undecaprenyl-phosphate 4-deoxy-4-formamido-L-arabinose transferase [EC:2.4.2.53]",09100,Metabolism,09107,Glycan biosynthesis and metabolism,Glycan biosynthesis / metabolism,Metabolism,True,True,True,True,False,False
@@ -4253,11 +4204,9 @@ K10254,"ohyA, sph; oleate hydratase [EC:4.2.1.53]",09190,Not Included in Pathway
 K10255,"FAD6, desA; acyl-lipid omega-6 desaturase (Delta-12 desaturase) [EC:1.14.19.23 1.14.19.45]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
 K10277,"KDM8, JMJD5; [protein]-arginine 3-hydroxylase / protease [EC:1.14.11.73 3.4.-.-]",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,False,True,True,False,False
 K10297,FBXO11; F-box protein 11,09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,False,True,True,False,False
-K10439,rbsB; ribose transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-"K10439,K17213",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K10439,rbsB; ribose transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K10440,rbsC; ribose transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-K10441,rbsA; ribose transport system ATP-binding protein [EC:7.5.2.7],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-"K10441,K10539",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K10441,rbsA; ribose transport system ATP-binding protein [EC:7.5.2.7],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K10530,lctO; L-lactate oxidase [EC:1.1.3.2],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,False,False,False,False
 K10531,"pvdA, SIDA; L-ornithine N5-monooxygenase [EC:1.14.13.195 1.14.13.196]",09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K10533,"E3.3.2.8; limonene-1,2-epoxide hydrolase [EC:3.3.2.8]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
@@ -4265,7 +4214,7 @@ K10535,hao; hydroxylamine dehydrogenase [EC:1.7.2.6],09100,Metabolism,09102,Ener
 K10536,aguA; agmatine deiminase [EC:3.5.3.12],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K10537,araF; L-arabinose transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K10538,araH; L-arabinose transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
-K10539,araG; L-arabinose transport system ATP-binding protein [EC:7.5.2.12],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
+K10539,araG; L-arabinose transport system ATP-binding protein [EC:7.5.2.12],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K10541,mglC; methyl-galactoside transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K10542,mglA; methyl-galactoside transport system ATP-binding protein [EC:7.5.2.11],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K10543,xylF; D-xylose transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
@@ -4277,16 +4226,16 @@ K10548,gguA; putative multiple sugar transport system ATP-binding protein [EC:7.
 K10552,frcB; fructose transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K10553,frcC; fructose transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K10554,frcA; fructose transport system ATP-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-"K10555,K10559",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K10555,lsrB; AI-2 transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,False,False,False,False,True,False
 K10556,lsrC; AI-2 transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-K10559,rhaS; rhamnose transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
+K10559,rhaS; rhamnose transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K10560,rhaP; rhamnose transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K10561,rhaQ; rhamnose transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K10562,rhaT; rhamnose transport system ATP-binding protein [EC:7.5.2.-],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K10563,"mutM, fpg; formamidopyrimidine-DNA glycosylase [EC:3.2.2.23 4.2.99.18]",09120,Genetic Information Processing,09124,Replication and repair,DNA repair / stress,DNA repair / stress,True,True,True,True,False,False
 K10564,motC; chemotaxis protein MotC,09140,Cellular Processes,09142,Cell motility,Cell growth / death,Other,True,False,False,False,False,False
 K10565,motD; chemotaxis protein MotD,09140,Cellular Processes,09142,Cell motility,Cell growth / death,Other,True,False,True,True,False,False
-K10617,cymB; p-cumic alcohol dehydrogenase,09100,Metabolism,09111,Xenobiotics biodegradation and metabolism,Xenobiotics biodegradation,Metabolism,True,True,True,True,False,False
+K10617,cymB; p-cumic alcohol dehydrogenase,09100,Metabolism,09111,Xenobiotics biodegradation and metabolism,Xenobiotics biodegradation,Metabolism,True,True,True,True,True,False
 K10619,"cmtAb; p-cumate 2,3-dioxygenase subunit alpha [EC:1.14.12.25]",09100,Metabolism,09111,Xenobiotics biodegradation and metabolism,Xenobiotics biodegradation,Metabolism,True,True,True,True,False,False
 K10621,"cmtC, dhbA; 2,3-dihydroxy-p-cumate/2,3-dihydroxybenzoate 3,4-dioxygenase [EC:1.13.11.- 1.13.11.14]",09100,Metabolism,09111,Xenobiotics biodegradation and metabolism,Xenobiotics biodegradation,Metabolism,True,True,True,True,False,False
 K10622,"cmtD, dhbB; HCOMODA/2-hydroxy-3-carboxy-muconic semialdehyde decarboxylase [EC:4.1.1.-]",09100,Metabolism,09111,Xenobiotics biodegradation and metabolism,Xenobiotics biodegradation,Metabolism,False,True,False,False,False,False
@@ -4328,7 +4277,7 @@ K10815,hcnB; hydrogen cyanide synthase HcnB [EC:1.4.99.5],09100,Metabolism,09106
 K10816,hcnC; hydrogen cyanide synthase HcnC [EC:1.4.99.5],09100,Metabolism,09106,Metabolism of other amino acids,Metabolism of other amino acids,Metabolism,True,False,False,False,False,False
 K10817,eryAI; 6-deoxyerythronolide-B synthase EryAI [EC:2.3.1.94],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,False,True,True,False,False
 K10819,E2.7.13.3; histidine kinase [EC:2.7.13.3],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
-K10823,oppF; oligopeptide transport system ATP-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
+K10823,oppF; oligopeptide transport system ATP-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K10824,"nikE, cntF; nickel transport system ATP-binding protein [EC:7.2.2.11]",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K10831,tauB; taurine transport system ATP-binding protein [EC:7.6.2.7],09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
 K10834,"hmuV, phuV, bhuV, hemV; heme transport system ATP-binding protein [EC:7.6.2.5]",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,False,True,True,False,False
@@ -4377,14 +4326,14 @@ K11068,hlyIII; hemolysin III,09180,Brite Hierarchies,09183,Protein families: sig
 K11069,potD; spermidine/putrescine transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K11070,potC; spermidine/putrescine transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K11071,potB; spermidine/putrescine transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-K11072,potA; spermidine/putrescine transport system ATP-binding protein [EC:7.6.2.11],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
+K11072,potA; spermidine/putrescine transport system ATP-binding protein [EC:7.6.2.11],09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K11073,"potF, spuD, spuE; putrescine transport system substrate-binding protein",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K11074,"potI, spuH; putrescine transport system permease protein",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K11075,"potH, spuG; putrescine transport system permease protein",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
-K11076,"potG, spuF; putrescine transport system ATP-binding protein [EC:7.6.2.16]",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
+K11076,"potG, spuF; putrescine transport system ATP-binding protein [EC:7.6.2.16]",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K11081,phnS; 2-aminoethylphosphonate transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K11082,phnV; 2-aminoethylphosphonate transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
-K11084,phnT; 2-aminoethylphosphonate transport system ATP-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
+K11084,phnT; 2-aminoethylphosphonate transport system ATP-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K11085,"msbA; ATP-binding cassette, subfamily B, bacterial MsbA [EC:7.5.2.6]",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K11089,"TROVE2, SSA2; 60 kDa SS-A/Ro ribonucleoprotein",09160,Human Diseases,09163,Immune disease,Immune disease,Other,True,True,True,True,False,False
 K11102,"gltP, gltT; proton glutamate symport protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
@@ -4486,13 +4435,13 @@ K11610,mabA; meromycolic acid 3-oxoacyl-[acyl-carrier protein] reductase [EC:1.1
 K11611,inhA; meromycolic acid enoyl-[acyl-carrier protein] reductase [EC:1.3.1.118],09100,Metabolism,09103,Lipid metabolism,Lipid metabolism,Metabolism,True,True,True,True,False,False
 K11614,"yufL, malK; two-component system, CitB family, sensor histidine kinase MalK [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
 K11615,"malR; two-component system, CitB family, response regulator MalR",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
-K11617,"liaS; two-component system, NarL family, sensor histidine kinase LiaS [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
+K11617,"liaS; two-component system, NarL family, sensor histidine kinase LiaS [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,True,False
 K11618,"liaR; two-component system, NarL family, response regulator LiaR",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
 K11622,liaF; lia operon protein LiaF,09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
 K11623,"ydfH; two-component system, NarL family, sensor histidine kinase YdfH [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,False,True,False,False,False,False
 K11624,"ydfI; two-component system, NarL family, response regulator YdfI",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
 K11628,mas; mycocerosic acid synthase [EC:2.3.1.111],09180,Brite Hierarchies,09181,Protein families: metabolism,Protein families: metabolism,Metabolism,False,True,False,False,False,False
-"K11630,K19078",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K11630,"bceR; two-component system, OmpR family, bacitracin resistance response regulator BceR",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,False,False,False,False,True,False
 K11641,"natR; two-component system, LytTR family, response regulator NatR",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
 K11645,"fbaB; fructose-bisphosphate aldolase, class I [EC:4.1.2.13]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K11686,racA; chromosome-anchoring protein RacA,09180,Brite Hierarchies,09182,Protein families: genetic information processing,Protein families: genetic information processing,Other,True,False,False,False,False,False
@@ -4526,7 +4475,7 @@ K11747,kefB; glutathione-regulated potassium-efflux system protein KefB,09180,Br
 K11748,kefG; glutathione-regulated potassium-efflux system ancillary protein KefG,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
 K11749,rseP; regulator of sigma E protease [EC:3.4.24.-],09140,Cellular Processes,09143,Cell growth and death,Motility / flagellar,Motility / flagellar,True,True,True,True,False,False
 K11750,frsA; esterase FrsA [EC:3.1.-.-],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
-K11751,ushA; 5'-nucleotidase / UDP-sugar diphosphatase [EC:3.1.3.5 3.6.1.45],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
+K11751,ushA; 5'-nucleotidase / UDP-sugar diphosphatase [EC:3.1.3.5 3.6.1.45],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,True,False
 K11752,ribD; diaminohydroxyphosphoribosylaminopyrimidine deaminase / 5-amino-6-(5-phosphoribosylamino)uracil reductase [EC:3.5.4.26 1.1.1.193],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K11753,ribF; riboflavin kinase / FMN adenylyltransferase [EC:2.7.1.26 2.7.7.2],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
 K11754,folC; dihydrofolate synthase / folylpolyglutamate synthase [EC:6.3.2.12 6.3.2.17],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,True,True,True,False,False
@@ -4574,7 +4523,7 @@ K11921,"cynR; LysR family transcriptional regulator, cyn operon transcriptional 
 K11922,"mngR, farR; GntR family transcriptional regulator, mannosyl-D-glycerate transport/metabolism system repressor",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Transcription / Regulation,Transcription / Regulation,True,False,True,True,False,False
 K11923,"cueR; MerR family transcriptional regulator, copper efflux regulator",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Metal resistance,Metal resistance,True,True,True,True,False,False
 K11924,"mntR; DtxR family transcriptional regulator, manganese transport regulator",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Transcription / Regulation,Transcription / Regulation,True,False,True,True,False,True
-K11927,rhlE; ATP-dependent RNA helicase RhlE [EC:5.6.2.7],09120,Genetic Information Processing,09123,"Folding, sorting and degradation",Protein folding / degradation,Metabolism,True,True,True,True,False,False
+K11927,rhlE; ATP-dependent RNA helicase RhlE [EC:5.6.2.7],09120,Genetic Information Processing,09123,"Folding, sorting and degradation",Protein folding / degradation,Metabolism,True,True,True,True,True,False
 K11928,putP; sodium/proline symporter,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
 K11930,torT; periplasmic protein TorT,09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
 K11931,"pgaB; poly-beta-1,6-N-acetyl-D-glucosamine N-deacetylase [EC:3.5.1.-]",09140,Cellular Processes,09145,Cellular community - prokaryotes,Cellular community,Other,True,False,True,True,False,False
@@ -4627,14 +4576,14 @@ K12204,"dotC, traI; defect in organelle trafficking protein DotC",09180,Brite Hi
 K12216,"icmN, lphA, dotK; intracellular multiplication protein IcmN",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
 K12217,"icmO, trbC, dotL; intracellular multiplication protein IcmO [EC:7.2.4.8]",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
 K12234,cofE; coenzyme F420-0:L-glutamate ligase / coenzyme F420-1:gamma-L-glutamate ligase [EC:6.3.2.31 6.3.2.34],09100,Metabolism,09102,Energy metabolism,Energy metabolism,Metabolism,True,True,True,True,False,False
-K12238,pchD; salicylate---[aryl-carrier protein] ligase [EC:6.2.1.61],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
+K12238,pchD; salicylate---[aryl-carrier protein] ligase [EC:6.2.1.61],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,True,False
 K12239,pchE; L-cysteine---[L-cysteinyl-carrier protein] ligase PchE [EC:6.2.1.69],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,False,True,False,False,False,False
 K12240,pchF; L-cysteine---[L-cysteinyl-carrier protein] ligase PchF [EC:6.2.1.69],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
 K12251,aguB; N-carbamoylputrescine amidase [EC:3.5.1.53],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K12252,aruH; arginine:pyruvate transaminase [EC:2.6.1.84],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K12253,aruI; 5-guanidino-2-oxopentanoate decarboxylase [EC:4.1.1.75],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,False,True,True,False,False
 K12254,kauB; 4-guanidinobutyraldehyde dehydrogenase / NAD-dependent aldehyde dehydrogenase [EC:1.2.1.54 1.2.1.-],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-K12255,gbuA; guanidinobutyrase [EC:3.5.3.7],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
+K12255,gbuA; guanidinobutyrase [EC:3.5.3.7],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
 K12256,spuC; putrescine---pyruvate transaminase [EC:2.6.1.113],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K12257,secDF; SecD/SecF fusion protein,09120,Genetic Information Processing,09123,"Folding, sorting and degradation",Protein folding / degradation,Metabolism,True,True,True,True,False,False
 K12262,cybB; superoxide oxidase [EC:1.10.3.17],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
@@ -4752,6 +4701,7 @@ K12941,abgB; aminobenzoyl-glutamate utilization protein B,09180,Brite Hierarchie
 K12942,abgT; aminobenzoyl-glutamate transport protein,09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Transport,Transport,True,True,True,True,False,False
 K12943,ygeR; lipoprotein YgeR,09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Membrane / cell envelope,Membrane / cell envelope,True,False,True,True,False,False
 K12944,nudI; nucleoside triphosphatase [EC:3.6.1.-],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
+K12945,nudK; GDP-mannose pyrophosphatase NudK [EC:3.6.1.-],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,False,False,False,False,True,False
 K12949,ctpB; cation-transporting P-type ATPase B [EC:7.2.2.-],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K12950,ctpC; manganese-transporting P-type ATPase C [EC:7.2.2.22],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K12951,ctpD; cobalt/nickel-transporting P-type ATPase D [EC:7.2.2.-],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
@@ -4857,7 +4807,7 @@ K13381,chiA; bifunctional chitinase/lysozyme [EC:3.2.1.14 3.2.1.17],09100,Metabo
 K13408,"cvaA, mchE, raxA; membrane fusion protein",09150,Organismal Systems,09159,Environmental adaptation,Aging,Other,True,False,True,True,True,False
 K13409,"cvaB, mchF, raxB; ATP-binding cassette, subfamily B, bacterial CvaB/MchF/RaxB",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K13419,pknK; serine/threonine-protein kinase PknK [EC:2.7.11.1],09180,Brite Hierarchies,09181,Protein families: metabolism,Protein families: metabolism,Metabolism,True,True,True,True,False,False
-K13421,UMPS; uridine monophosphate synthetase [EC:2.4.2.10 4.1.1.23],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
+K13421,UMPS; uridine monophosphate synthetase [EC:2.4.2.10 4.1.1.23],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,True,False
 K13472,raxST; sulfotransferase,09150,Organismal Systems,09159,Environmental adaptation,Aging,Other,True,False,True,True,False,False
 K13479,"ygeT, xdhB; xanthine dehydrogenase FAD-binding subunit [EC:1.17.1.4]",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K13480,"ygeU, xdhC; xanthine dehydrogenase iron-sulfur-binding subunit",09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,False,True,True,False,False
@@ -4982,7 +4932,7 @@ K13818,mobAB; molybdopterin-guanine dinucleotide biosynthesis protein [EC:2.7.7.
 K13819,K13819; NifU-like protein,09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
 K13820,fliR-flhB; flagellar biosynthesis protein FliR/FlhB,09140,Cellular Processes,09142,Cell motility,Motility / flagellar,Motility / flagellar,True,True,True,True,False,False
 K13821,"putA; RHH-type transcriptional regulator, proline utilization regulon repressor / proline dehydrogenase / delta 1-pyrroline-5-carboxylate dehydrogenase [EC:1.5.5.2 1.2.1.88]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
-K13829,aroKB; shikimate kinase / 3-dehydroquinate synthase [EC:2.7.1.71 4.2.3.4],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
+K13829,aroKB; shikimate kinase / 3-dehydroquinate synthase [EC:2.7.1.71 4.2.3.4],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,True,False
 K13831,hps-phi; 3-hexulose-6-phosphate synthase / 6-phospho-3-hexuloisomerase [EC:4.1.2.43 5.3.1.27],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
 K13832,"aroDE, DHQ-SDH; 3-dehydroquinate dehydratase / shikimate dehydrogenase [EC:4.2.1.10 1.1.1.25]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K13853,"aroG, aroA; 3-deoxy-7-phosphoheptulonate synthase / chorismate mutase [EC:2.5.1.54 5.4.99.5]",09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
@@ -5002,7 +4952,7 @@ K13894,yejB; microcin C transport system permease protein,09130,Environmental In
 K13895,yejE; microcin C transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
 K13896,yejF; microcin C transport system ATP-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K13920,pduE; propanediol dehydratase small subunit [EC:4.2.1.28],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K13922,pduP; propionaldehyde dehydrogenase [EC:1.2.1.87],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
+K13922,pduP; propionaldehyde dehydrogenase [EC:1.2.1.87],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K13924,"cheBR; two-component system, chemotaxis family, CheB/CheR fusion protein [EC:2.1.1.80 3.1.1.61]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
 K13926,rbbA; ribosome-dependent ATPase,09190,Not Included in Pathway or Brite,09192,Unclassified: genetic information processing,Unclassified: genetic information processing,Other,True,True,True,True,False,False
 K13928,"mdcR; LysR family transcriptional regulator, malonate utilization transcriptional regulator",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Transcription / Regulation,Transcription / Regulation,True,False,True,True,False,False
@@ -5303,6 +5253,7 @@ K15671,"rifB; rifamycin polyketide synthase modules 4, 5 and 6",09100,Metabolism
 K15673,rifE; rifamycin polyketide synthase modules 9 and 10,09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,False,True,True,False,False
 K15675,"rhiB; rhizoxin biosynthesis, polyketide synthase / nonribosomal peptide synthetase RhiB",09180,Brite Hierarchies,09181,Protein families: metabolism,Protein families: metabolism,Metabolism,True,False,True,True,False,False
 K15677,"rhiD; rhizoxin biosynthesis, polyketide synthase RhiD",09180,Brite Hierarchies,09181,Protein families: metabolism,Protein families: metabolism,Metabolism,True,False,True,True,False,False
+K15721,fyuA; pesticin/yersiniabactin receptor,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,False,False,False,False,True,False
 K15723,syd; SecY interacting protein Syd,09190,Not Included in Pathway or Brite,09193,Unclassified: signaling and cellular processes,Unclassified: signaling and cellular processes,Other,True,False,False,False,False,False
 K15724,erpA; iron-sulfur cluster insertion protein,09190,Not Included in Pathway or Brite,09194,Poorly characterized,Poorly characterized,Uncharacterized,True,True,True,True,False,False
 K15725,"czcC, cusC, cnrC; outer membrane protein, heavy metal efflux system",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Metal resistance,Metal resistance,True,False,True,True,True,False
@@ -5388,7 +5339,7 @@ K15986,ppaC; manganese-dependent inorganic pyrophosphatase [EC:3.6.1.1],09100,Me
 K15987,hppA; K(+)-stimulated pyrophosphate-energized sodium pump [EC:7.2.3.1],09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,False,False
 K15996,tylF; macrocin O-methyltransferase [EC:2.1.1.101],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
 K16011,"algA, xanB, rfbA, wbpW, pslB; mannose-1-phosphate guanylyltransferase / mannose-6-phosphate isomerase [EC:2.7.7.13 5.3.1.8]",09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K16012,"cydC; ATP-binding cassette, subfamily C, bacterial CydC",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
+K16012,"cydC; ATP-binding cassette, subfamily C, bacterial CydC",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K16013,"cydD; ATP-binding cassette, subfamily C, bacterial CydD",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K16014,"cydCD; ATP-binding cassette, subfamily C, bacterial CydCD",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K16015,"rifL, asm44; oxidoreductase [EC:1.1.1.-]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,False,True,False,False,False,False
@@ -5414,7 +5365,7 @@ K16050,"hsaD; 4,5:9,10-diseco-3-hydroxy-5,9,17-trioxoandrosta-1(10),2-diene-4-oa
 K16051,tesI; 3-oxo-5alpha-steroid 4-dehydrogenase [EC:1.3.99.5],09100,Metabolism,09111,Xenobiotics biodegradation and metabolism,Xenobiotics biodegradation,Metabolism,True,True,True,True,False,False
 K16052,"ynaI, mscMJ; MscS family membrane protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Membrane / cell envelope,Membrane / cell envelope,True,True,True,True,False,False
 K16053,"ybdG, mscM; miniconductance mechanosensitive channel",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
-K16055,TPS; trehalose 6-phosphate synthase/phosphatase [EC:2.4.1.15 3.1.3.12],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
+K16055,TPS; trehalose 6-phosphate synthase/phosphatase [EC:2.4.1.15 3.1.3.12],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,True,False
 K16066,ydfG; 3-hydroxy acid dehydrogenase / malonic semialdehyde reductase [EC:1.1.1.381 1.1.1.-],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K16074,zntB; zinc transporter,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K16079,omp31; outer membrane immunogenic protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Membrane / cell envelope,Membrane / cell envelope,True,False,True,True,False,False
@@ -5422,8 +5373,7 @@ K16080,mnoP; high affinity Mn2+ porin,09180,Brite Hierarchies,09183,Protein fami
 K16081,algE; alginate production protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
 K16087,"TC.FEV.OM3, tbpA, hemR, lbpA, hpuB, bhuR, hugA, hmbR; hemoglobin/transferrin/lactoferrin receptor protein",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
 K16088,"TC.FEV.OM1, fhuE, fpvA, fptA; outer-membrane receptor for ferric coprogen and ferric-rhodotorulic acid",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
-K16089,"TC.FEV.OM2, cirA, cfrA, hmuR; outer membrane receptor for ferrienterochelin and colicins",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Membrane / cell envelope,Membrane / cell envelope,True,False,True,True,False,False
-"K16089,K19611",,,,,,Uncharacterized,Uncharacterized,False,False,False,False,True,False
+K16089,"TC.FEV.OM2, cirA, cfrA, hmuR; outer membrane receptor for ferrienterochelin and colicins",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Membrane / cell envelope,Membrane / cell envelope,True,False,True,True,True,False
 K16090,fiu; catecholate siderophore receptor,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,True
 K16091,fecA; Fe(3+) dicitrate transport protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,False,True,True,False,False
 K16092,btuB; vitamin B12 transporter,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,False,True,True,False,False
@@ -5461,7 +5411,7 @@ K16201,dppC; dipeptide transport system permease protein,09130,Environmental Inf
 K16202,dppD; dipeptide transport system ATP-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,False,True,False,False,False,False
 K16203,dppA1; D-amino peptidase [EC:3.4.11.-],09180,Brite Hierarchies,09181,Protein families: metabolism,Protein families: metabolism,Metabolism,True,True,True,True,False,False
 K16209,"lacS, galP, rafP; lactose/raffinose/galactose permease",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,False,True,False,False,False,False
-K16210,"togT, rhiT; oligogalacturonide transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
+K16210,"togT, rhiT; oligogalacturonide transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,True,False
 K16211,"malY, malT; maltose/moltooligosaccharide transporter",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,True,True,True,True,False,False
 K16212,mgp; 4-O-beta-D-mannosyl-D-glucose phosphorylase [EC:2.4.1.281],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
 K16213,"cbe, mbe; cellobiose epimerase [EC:5.1.3.11]",09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
@@ -5630,7 +5580,7 @@ K17205,xltC; putative xylitol transport system substrate-binding protein,09130,E
 K17206,xltB; putative xylitol transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K17209,iatP; inositol transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K17210,iatA; inositol transport system ATP-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,False,True,True,False,False
-K17213,K17213; inositol transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
+K17213,K17213; inositol transport system substrate-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K17214,K17214; inositol transport system permease protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K17215,K17215; inositol transport system ATP-binding protein,09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K17216,mccA; cystathionine beta-synthase (O-acetyl-L-serine) [EC:2.5.1.134],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,False,True,True,False,False
@@ -5702,7 +5652,7 @@ K17681,ATAD3A_B; ATPase family AAA domain-containing protein 3A/B,09180,Brite Hi
 K17686,"copA, ctpA, ATP7; P-type Cu+ transporter [EC:7.2.2.8]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,True
 K17713,bamB; outer membrane protein assembly factor BamB,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Membrane / cell envelope,Membrane / cell envelope,True,True,True,True,False,False
 K17716,capD; UDP-glucose 4-epimerase [EC:5.1.3.2],09100,Metabolism,09101,Carbohydrate metabolism,Carbohydrate metabolism,Metabolism,True,True,True,True,False,False
-K17722,preT; dihydropyrimidine dehydrogenase (NAD+) subunit PreT [EC:1.3.1.1],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
+K17722,preT; dihydropyrimidine dehydrogenase (NAD+) subunit PreT [EC:1.3.1.1],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,True,False
 K17723,preA; dihydropyrimidine dehydrogenase (NAD+) subunit PreA [EC:1.3.1.1],09100,Metabolism,09104,Nucleotide metabolism,Nucleotide metabolism,Metabolism,True,True,True,True,False,False
 K17733,cwlK; peptidoglycan LD-endopeptidase CwlK [EC:3.4.-.-],09180,Brite Hierarchies,09181,Protein families: metabolism,Membrane / cell envelope,Membrane / cell envelope,True,True,True,True,False,False
 K17734,aprX; serine protease AprX [EC:3.4.21.-],09180,Brite Hierarchies,09181,Protein families: metabolism,Protein families: metabolism,Metabolism,True,True,True,True,False,False
@@ -5996,7 +5946,7 @@ K18857,ADH1; alcohol dehydrogenase class-P [EC:1.1.1.1],09100,Metabolism,09101,C
 K18889,"mdlA, smdA; ATP-binding cassette, subfamily B, multidrug efflux pump",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K18890,"mdlB, smdB; ATP-binding cassette, subfamily B, multidrug efflux pump",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
 K18892,"patB, rscB, lmrC, satB; ATP-binding cassette, subfamily B, multidrug efflux pump",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,False,False,False,False,True,False
-K18893,"vcaM; ATP-binding cassette, subfamily B, multidrug efflux pump",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,False,False
+K18893,"vcaM; ATP-binding cassette, subfamily B, multidrug efflux pump",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,True,True,True,True,True,False
 K18894,"K18894; ATP-binding cassette, subfamily B, multidrug efflux pump",09130,Environmental Information Processing,09131,Membrane transport,Transport,Transport,False,True,False,False,False,False
 K18896,gsmt; glycine/sarcosine N-methyltransferase [EC:2.1.1.156],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
 K18897,sdmt; sarcosine/dimethylglycine N-methyltransferase [EC:2.1.1.157],09100,Metabolism,09105,Amino acid metabolism,Amino acid metabolism,Metabolism,True,True,True,True,False,False
@@ -6064,6 +6014,7 @@ K19072,oorD; oxalate oxidoreductase subunit delta [EC:1.2.7.10],09190,Not Includ
 K19073,DVR; divinyl chlorophyllide a 8-vinyl-reductase [EC:1.3.1.75],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,True,False,True,True,False,False
 K19075,"cst2, cas7; CRISPR-associated protein Cst2",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
 K19076,"cmr2, cas10; CRISPR-associated protein Cmr2",09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
+K19078,"graR; two-component system, OmpR family, response regulator protein GraR",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,False,False,False,False,True,False
 K19091,cas6; CRISPR-associated endoribonuclease Cas6 [EC:3.1.-.-],09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
 K19092,parE1_3_4; toxin ParE1/3/4,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,True,True,True,True,False
 K19100,blaDHA; beta-lactamase class C DHA [EC:3.5.2.6],09160,Human Diseases,09175,Drug resistance: antimicrobial,Human diseases,Other,True,False,True,True,False,False
@@ -6204,6 +6155,7 @@ K19595,"gesA, mexP; membrane fusion protein, gold/copper resistance efflux syste
 K19597,golT; Au+-exporting ATPase [EC:3.6.1.-],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
 K19609,"pfeS, pirS; two-component system, OmpR family, sensor histidine kinase PfeS [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,True,True,True,False,False
 K19610,"pfeR, pirR; two-component system, OmpR family, response regulator PfeR",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
+K19611,"fepA, pfeA, iroN, pirA; ferric enterobactin receptor",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,False,False,False,False,True,False
 K19615,"fitD, mcf; insecticidal toxin",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
 K19616,"fitF; two-component system, sensor histidine kinase and response regulator FitF [EC:2.7.13.3]",09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
 K19620,phcB; extracellular factor (EF) 3-hydroxypalmitic acid methyl ester biosynthesis protein,09130,Environmental Information Processing,09132,Signal transduction,Signal transduction,Transcription / Regulation,True,False,True,True,False,False
@@ -6357,6 +6309,7 @@ K20611,"crtD; 1-hydroxy-2-isopentenylcarotenoid 3,4-desaturase [EC:1.3.99.37]",0
 K20616,lyeJ; lycopene elongase/hydratase (dihydrobisanhydrobacterioruberin-forming) [EC:2.5.1.150],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
 K20628,exlX; expansin,09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K20707,E5.1.1.5; lysine racemase [EC:5.1.1.5],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
+K20708,E5.1.1.21; isoleucine 2-epimerase [EC:5.1.1.21],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,False,False,False,False,True,False
 K20712,glnA; 3-(hydroxyamino)phenol mutase [EC:5.4.4.3],09100,Metabolism,09111,Xenobiotics biodegradation and metabolism,Xenobiotics biodegradation,Metabolism,True,False,True,True,False,False
 K20742,ykfC; gamma-D-glutamyl-L-lysine dipeptidyl-peptidase [EC:3.4.14.13],09180,Brite Hierarchies,09181,Protein families: metabolism,Protein families: metabolism,Metabolism,True,True,True,True,False,False
 K20754,pstI; aqualysin 1 [EC:3.4.21.111],09180,Brite Hierarchies,09181,Protein families: metabolism,Protein families: metabolism,Metabolism,True,True,True,True,False,False
@@ -6558,7 +6511,7 @@ K21399,ortA; 2-amino-4-ketopentanoate thiolase alpha subunit [EC:2.3.1.263],0919
 K21400,ortB; 2-amino-4-ketopentanoate thiolase beta subunit [EC:2.3.1.263],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K21401,menJ; menaquinone-9 beta-reductase [EC:1.3.99.38],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,True,False
 K21405,"acoR; sigma-54 dependent transcriptional regulator, acetoin dehydrogenase operon transcriptional activator AcoR",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Transcription / Regulation,Transcription / Regulation,True,True,True,True,False,False
-K21416,"acoA; acetoin:2,6-dichlorophenolindophenol oxidoreductase subunit alpha [EC:1.1.1.-]",09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
+K21416,"acoA; acetoin:2,6-dichlorophenolindophenol oxidoreductase subunit alpha [EC:1.1.1.-]",09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,True,False
 K21417,"acoB; acetoin:2,6-dichlorophenolindophenol oxidoreductase subunit beta [EC:1.1.1.-]",09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K21420,bpt; leucyl-tRNA---protein transferase [EC:2.3.2.29],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K21429,impA; immunomodulating metalloprotease,09180,Brite Hierarchies,09181,Protein families: metabolism,Protein families: metabolism,Metabolism,True,True,True,True,False,False
@@ -6676,7 +6629,7 @@ K21900,"cysL; LysR family transcriptional regulator, transcriptional activator o
 K21902,"yfmP; MerR family transcriptional regulator, repressor of the yfmOP operon",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Metal resistance,Metal resistance,True,True,True,True,False,False
 K21903,"cadC, smtB; ArsR family transcriptional regulator, lead/cadmium/zinc/bismuth-responsive transcriptional repressor",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Metal resistance,Metal resistance,True,True,True,True,False,False
 K21909,eryC; D-erythrulose 1-phosphate 3-epimerase [EC:5.1.3.38],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
-K21910,"eryH, lerI; L-erythrulose 1-phosphate isomerase [EC:5.3.1.33]",09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
+K21910,"eryH, lerI; L-erythrulose 1-phosphate isomerase [EC:5.3.1.33]",09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,True,False
 K21911,eryI; D-erythrulose 4-phosphate isomerase [EC:5.3.1.34],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
 K21929,udg; uracil-DNA glycosylase [EC:3.2.2.27],09120,Genetic Information Processing,09124,Replication and repair,DNA repair / stress,DNA repair / stress,True,True,True,True,False,False
 K21935,ablB; beta-lysine N6-acetyltransferase [EC:2.3.1.264],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
@@ -6798,7 +6751,7 @@ K22397,"yjhH, yagE; 2-dehydro-3-deoxy-D-pentonate aldolase [EC:4.1.2.28]",09100,
 K22405,fprA1_2; NADH oxidase (H2O-forming) [EC:1.6.3.4],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K22409,sle1; N-acetylmuramoyl-L-alanine amidase [EC:3.5.1.28],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
 K22424,E2.7.3.13; glutamine kinase [EC:2.7.3.13],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
-K22432,carE; caffeyl-CoA reductase-Etf complex subunit CarE [EC:1.3.1.108],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
+K22432,carE; caffeyl-CoA reductase-Etf complex subunit CarE [EC:1.3.1.108],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,True,False
 K22441,paiA; diamine N-acetyltransferase [EC:2.3.1.57],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,True,True,True,False,False
 K22443,cntA; carnitine monooxygenase subunit [EC:1.14.13.239],09190,Not Included in Pathway or Brite,09191,Unclassified: metabolism,Unclassified: metabolism,Metabolism,True,False,True,True,False,False
 K22445,"ald, crtNc; 4,4'-diapolycopenoate synthase [EC:1.2.99.10]",09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,True,True,True,False,False
@@ -6819,6 +6772,7 @@ K22486,"hilA; transcriptional regulator HilA, main transcriptional regulator of 
 K22489,"hosA; MarR family transcriptional regulator, temperature-dependent positive regulator of motility",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Motility / flagellar,Motility / flagellar,True,True,True,True,False,False
 K22491,"litR; MerR family transcriptional regulator, light-induced transcriptional regulator",09180,Brite Hierarchies,09182,Protein families: genetic information processing,Metal resistance,Metal resistance,True,True,True,True,False,False
 K22502,crtY; lycopene beta-cyclase [EC:5.5.1.19],09100,Metabolism,09109,Metabolism of terpenoids and polyketides,Terpenoids / polyketides,Metabolism,True,False,True,True,False,False
+K22507,spaP; type III secretion system export apparatus protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,False,False,False,False,True,False
 K22510,spaS; type III secretion system export apparatus switch protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Protein families: signaling and cellular processes,Other,True,False,True,True,False,False
 K22552,mmcO; multicopper oxidase [EC:1.16.3.1],09100,Metabolism,09108,Metabolism of cofactors and vitamins,Cofactor biosynthesis,Cofactor biosynthesis,False,False,False,False,False,True
 K23242,mntP; manganese efflux pump family protein,09180,Brite Hierarchies,09183,Protein families: signaling and cellular processes,Transport,Transport,False,False,False,False,False,True

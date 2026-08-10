@@ -37,8 +37,12 @@ sources = {
 membership = {}
 for flag, (path, col) in sources.items():
     df = pd.read_csv(path, usecols=[col])
-    for ko in df[col].dropna().unique():
-        membership.setdefault(ko, {})[flag] = True
+    for raw in df[col].dropna().unique():
+        # ke_pangenome groups co-orthologs as "K00001,K00002" — split each
+        for ko in str(raw).split(","):
+            ko = ko.strip()
+            if ko:
+                membership.setdefault(ko, {})[flag] = True
 
 all_kos = sorted(membership.keys())
 print(f"Total unique KOs: {len(all_kos)}")
