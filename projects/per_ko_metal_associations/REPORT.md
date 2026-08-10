@@ -13,7 +13,7 @@
 | MGnify (primary) | 8,585 | 6,451 | As, Cd, Cr, Cu, Hg, Pb |
 | SPIRE (replication) | 2,477 | 4,759 | As, Cd, Cr, Cu, Hg, Pb |
 
-Metal values are PF1 (probability of first factor) scores from the CSU metal mobility grid, joined to each MAG by nearest grid cell ≤ 50 km (haversine BallTree). Latitude coverage: 100% in both datasets (range: −78.1° to 84.6°).
+Metal values are PF1 (probability of first factor) scores from the Qi et al. 2025 (*Nat Commun* 16; DOI 10.1038/s41467-025-58026-8) global soil metal mobility grid (~0.1° resolution), joined to each MAG by nearest grid cell ≤ 50 km (haversine BallTree). Latitude coverage: 100% in both datasets (range: −78.1° to 84.6°).
 
 **SPIRE matrix rebuild (2026-07-29).** The SPIRE matrix was rebuilt with an extended environment filter (excluding host-associated, gut, clinical, marine, ocean, freshwater, and wastewater samples) and a SoilGrids join (pH, soil organic carbon, clay content at 0.25° resolution; `arkinlab.envdbs.soilgrids_master`). SPIRE MAG count changed from 2,905 (old matrix, pre-env-filter) to 2,477 (current). SoilGrids pH non-null: 77.4% of matrix rows (1,972 of 2,477 MAGs matched at 0.25°). Files: `data/spire_adj_ko_associations.csv` (baseline), `data/spire_sg_adj_ko_associations.csv` (SoilGrids-adjusted, WP6 sensitivity check).
 
