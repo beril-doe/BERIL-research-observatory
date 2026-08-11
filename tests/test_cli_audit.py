@@ -443,17 +443,50 @@ def test_the_ledger_leaves_the_rest_of_the_manifest_alone(repo, monkeypatch):
     assert "- stage: exploration" in text
 
 
+def test_a_second_project_does_not_claim_the_first_ones_spend(repo, monkeypatch):
+    """The status line reports the session-wide total, so a session that moves to
+    a second project arrives there with the first project's spend included. Left
+    uncorrected, both ledgers claim it and the two sum to more than was spent."""
+    p1, p2 = repo / "projects" / "p1", repo / "projects" / "p2"
+    record_session_cost(p1, "s1", 3.00)
+    record_session_cost(p2, "s1", 4.00)  # $1 of the total was earned in p2
+
+    for project, status in ((p1, "proposed"), (p2, "proposed")):
+        (project / "beril.yaml").write_text(
+            f"project_id: {project.name}\nstatus: exploration\n"
+        )
+        _stdin(monkeypatch, {"session_id": "s1", "cwd": str(project)})
+        run_runtime_snapshot(argparse.Namespace())  # records last_status
+        (project / "beril.yaml").write_text(
+            f"project_id: {project.name}\nstatus: {status}\n"
+        )
+        _stdin(monkeypatch, {"session_id": "s1", "cwd": str(project)})
+        run_runtime_snapshot(argparse.Namespace())  # closes the stage
+
+    assert "usd: 3.00" in (p1 / "beril.yaml").read_text()
+    assert "usd: 1.00" in (p2 / "beril.yaml").read_text()
+
+
 def test_an_unchanged_cents_value_does_not_rewrite_runtime_json(repo, monkeypatch):
     """The status line renders every turn. Rewriting on each render would churn
     a file the hook also writes, for no new information."""
     _snap(repo, monkeypatch, session_id="s1")
-    path = repo / "projects" / "p1" / "runtime.json"
-    record_session_cost(repo / "projects" / "p1", "s1", 4.12)
-    before = path.stat().st_mtime_ns
-    record_session_cost(repo / "projects" / "p1", "s1", 4.1234)  # same cents
-    assert path.stat().st_mtime_ns == before
-    record_session_cost(repo / "projects" / "p1", "s1", 4.13)  # a cent more
-    assert path.stat().st_mtime_ns != before
+    project = repo / "projects" / "p1"
+    record_session_cost(project, "s1", 4.12)
+
+    # Counting the writes, not comparing mtimes: two writes a millisecond apart
+    # share an mtime on this filesystem, which made the assertion flaky.
+    writes = []
+    write = audit_cmd._write_runtime
+    monkeypatch.setattr(
+        audit_cmd,
+        "_write_runtime",
+        lambda path, state: (writes.append(path), write(path, state)),
+    )
+    record_session_cost(project, "s1", 4.1234)  # same cents
+    assert writes == []
+    record_session_cost(project, "s1", 4.13)  # a cent more
+    assert len(writes) == 1
 
 
 def test_audit_cmd_stays_off_the_cli_import_chain():
