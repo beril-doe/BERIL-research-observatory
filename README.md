@@ -45,7 +45,7 @@ To use Claude Code you will need an API key. If you are Berkeley Lab staff, you 
 ### Prerequisites
 
 - A KBase account with BERDL access (see [Getting BERDL Access](#getting-berdl-access))
-- [Claude Code](https://claude.ai/claude-code) installed (or another supported agent e.g. codex)
+- [Claude Code](https://claude.ai/claude-code) installed (or another supported agent: `codex`, `gemini`, `omp`)
 - Python 3.11+
 - Git
 

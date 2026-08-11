@@ -226,14 +226,15 @@ def run_setup() -> int:
     _step(7, "Coding agent")
 
     agents_found: list[str] = []
-    for agent in ("claude", "codex", "gemini"):
+    for agent in config.SUPPORTED_AGENTS:
         if shutil.which(agent):
             agents_found.append(agent)
 
+    supported = ", ".join(config.SUPPORTED_AGENTS)
     if agents_found:
         print(f"  Detected: {', '.join(agents_found)}")
     else:
-        print("  No agents detected (claude, codex, gemini).")
+        print(f"  No agents detected ({supported}).")
         print("  Install one and re-run setup, or use beril start --agent <name>.")
 
     default_agent = existing_cfg.get("defaults", {}).get("agent", "")
@@ -245,7 +246,7 @@ def run_setup() -> int:
         if chosen not in agents_found:
             print(f"  Warning: '{chosen}' was not detected on PATH.")
     else:
-        chosen = default_agent or "claude"
+        chosen = default_agent or config.DEFAULT_AGENT
 
     # ── Step 8: BERIL Anthropic key (Google Vertex) ──
     vertex_cfg: dict = {}
@@ -299,7 +300,10 @@ def run_setup() -> int:
                 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = vertex_cfg.get("credentials_file", "")
                 os.environ["VERTEX_REGION_CLAUDE_HAIKU_4_5"] = "us-east5"
                 os.environ["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = "claude-haiku-4-5@20251001"
-            os.execvp(binary, [chosen, "--model", "opus", "/berdl_start"])
+            # `--model opus` is Anthropic-specific; other agents reject or
+            # mis-resolve it. Only Claude gets the model pin.
+            model_args = ["--model", "opus"] if chosen == "claude" else []
+            os.execvp(binary, [chosen, *model_args, "/berdl_start"])
         else:
             print(f"  Error: '{chosen}' not found on PATH.", file=sys.stderr)
             return 1

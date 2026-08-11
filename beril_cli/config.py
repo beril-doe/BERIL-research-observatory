@@ -9,6 +9,12 @@ from typing import Any
 CONFIG_DIR = Path.home() / ".config" / "beril"
 CONFIG_PATH = CONFIG_DIR / "config.toml"
 
+# Coding agents `beril start` can launch. Kept here so the CLI parser, the
+# setup wizard, and doctor all agree on one list.
+SUPPORTED_AGENTS: tuple[str, ...] = ("claude", "codex", "gemini", "omp")
+
+DEFAULT_AGENT = "claude"
+
 
 def load() -> dict[str, Any]:
     """Load user config. Returns empty dict if file doesn't exist."""
@@ -60,7 +66,7 @@ def save(cfg: dict[str, Any]) -> None:
 def get_default_agent() -> str:
     """Return the user's default agent, or 'claude' as fallback."""
     cfg = load()
-    return cfg.get("defaults", {}).get("agent", "claude")
+    return cfg.get("defaults", {}).get("agent", DEFAULT_AGENT)
 
 
 def get_vertex_config() -> dict[str, Any]:
