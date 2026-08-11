@@ -26,6 +26,31 @@ def test_supported_agents_cannot_be_mutated_by_callers():
         config.SUPPORTED_AGENTS.append("rogue")  # type: ignore[attr-defined]
 
 
+# ── config.get_default_agent ───────────────────────────
+
+
+def test_get_default_agent_falls_back_when_unconfigured(tmp_path, monkeypatch):
+    """With no config file on disk, the shared DEFAULT_AGENT is used."""
+    monkeypatch.setattr(config, "CONFIG_PATH", tmp_path / "absent.toml")
+    assert config.get_default_agent() == config.DEFAULT_AGENT
+
+
+def test_get_default_agent_reads_configured_agent(tmp_path, monkeypatch):
+    """An agent pinned in config.toml wins over the fallback."""
+    cfg = tmp_path / "config.toml"
+    cfg.write_text('[defaults]\nagent = "omp"\n')
+    monkeypatch.setattr(config, "CONFIG_PATH", cfg)
+    assert config.get_default_agent() == "omp"
+
+
+def test_get_default_agent_falls_back_when_section_absent(tmp_path, monkeypatch):
+    """A config.toml without a [defaults] section still yields the fallback."""
+    cfg = tmp_path / "config.toml"
+    cfg.write_text('[user]\nname = "someone"\n')
+    monkeypatch.setattr(config, "CONFIG_PATH", cfg)
+    assert config.get_default_agent() == config.DEFAULT_AGENT
+
+
 # ── claude_defaults: Claude-only flags ─────────────────
 
 
