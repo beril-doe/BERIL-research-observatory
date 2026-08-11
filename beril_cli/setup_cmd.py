@@ -300,10 +300,7 @@ def run_setup() -> int:
                 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = vertex_cfg.get("credentials_file", "")
                 os.environ["VERTEX_REGION_CLAUDE_HAIKU_4_5"] = "us-east5"
                 os.environ["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = "claude-haiku-4-5@20251001"
-            # `--model opus` is Anthropic-specific; other agents reject or
-            # mis-resolve it. Only Claude gets the model pin.
-            model_args = ["--model", "opus"] if chosen == "claude" else []
-            os.execvp(binary, [chosen, *model_args, "/berdl_start"])
+            os.execvp(binary, config.launch_argv(chosen, "/berdl_start"))
         else:
             print(f"  Error: '{chosen}' not found on PATH.", file=sys.stderr)
             return 1

@@ -12,6 +12,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from beril_cli import config
 from beril_cli.config import get_default_agent, get_vertex_config
 from beril_cli.detect import print_jupyterhub_path_hint
 
@@ -205,14 +206,11 @@ def run_start(
                     file=sys.stderr,
                 )
 
-    # Default to Opus model for Claude
-    if agent == "claude" and "--model" not in extra_args:
-        extra_args = ["--model", "opus", *extra_args]
-
     print(f"Launching {agent}...")
     print_jupyterhub_path_hint(repo_root)
-    # Replace the current process with the agent
-    os.execvp(binary, [agent, *extra_args])
+    # Replace the current process with the agent. launch_argv pins Opus for
+    # Claude only; see config.launch_argv.
+    os.execvp(binary, config.launch_argv(agent, *extra_args))
 
     # execvp doesn't return on success; this is only reached on failure
     return 1  # pragma: no cover

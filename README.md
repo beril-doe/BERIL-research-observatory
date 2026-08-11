@@ -81,7 +81,7 @@ cp .env.example .env
 # from .env automatically. If your token is ever exposed, delete it immediately
 # from the JupyterHub token management page and generate a new one.
 
-# 3. Open Claude Code in the repo
+# 3. Open your agent in the repo (claude, codex, gemini or omp)
 claude
 ```
 
@@ -131,7 +131,7 @@ Skills are invoked automatically based on context, or explicitly with `/skill-na
 | **LinkML Schema** | `/linkml-schema` | Generate LinkML schema from markdown, Excel, or plain text |
 | **Phenix** | `/phenix` | Structural biology workflows — AlphaFold, X-ray, cryo-EM, MolProbity |
 
-BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environment management outside the agent session. Multi-agent support (Codex, Gemini) is planned.
+BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environment management outside the agent session. `beril start --agent <name>` launches Claude Code, Codex, Gemini CLI or omp.
 
 ---
 

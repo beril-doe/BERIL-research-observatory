@@ -16,6 +16,19 @@ SUPPORTED_AGENTS: tuple[str, ...] = ("claude", "codex", "gemini", "omp")
 DEFAULT_AGENT = "claude"
 
 
+def launch_argv(agent: str, *args: str) -> list[str]:
+    """Build the argv used to exec `agent`.
+
+    `--model opus` is Anthropic-specific, so it is pinned for Claude only:
+    codex, gemini and omp either reject it or resolve it to something
+    unintended. An explicit `--model` from the caller always wins.
+    """
+    extra = list(args)
+    if agent == "claude" and "--model" not in extra:
+        return [agent, "--model", "opus", *extra]
+    return [agent, *extra]
+
+
 def load() -> dict[str, Any]:
     """Load user config. Returns empty dict if file doesn't exist."""
     if not CONFIG_PATH.exists():
