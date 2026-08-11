@@ -370,6 +370,30 @@ def _write_runtime(path: Path, state: dict) -> None:
     os.replace(tmp, path)
 
 
+def _spent_elsewhere(project_dir: Path, session_id: str) -> float:
+    """The largest session total another project has already recorded.
+
+    The status line reports the *session-wide* figure, but the ledger is
+    per-project: a session that moves from `a` to `b` hands `b` a total that
+    already includes everything spent in `a`. Read once, when a session is first
+    seen here, to seed the baseline so only spend earned here is charged here.
+    """
+    total = 0.0
+    for path in project_dir.parent.glob(f"*/{RUNTIME_FILE}"):
+        if path.parent.name == project_dir.name:
+            continue
+        for item in (_read_runtime(path) or {}).get("sessions") or []:
+            if not isinstance(item, dict) or item.get("session_id") != session_id:
+                continue
+            cost = item.get("cost")
+            if isinstance(cost, dict):
+                try:
+                    total = max(total, float(cost.get("usd") or 0))
+                except (TypeError, ValueError):
+                    continue
+    return total
+
+
 def record_session_cost(project_dir: Path, session_id: str | None, usd) -> None:
     """Record the status line's session-to-date USD on this session's record.
 
@@ -421,11 +445,23 @@ def record_session_cost(project_dir: Path, session_id: str | None, usd) -> None:
     prior = prior if isinstance(prior, dict) else {}
     if prior.get("usd") == usd:
         return
-    record["cost"] = {
-        "usd": usd,
+    if "usd" in prior:
         # Preserved, never reset: it is the portion already attributed to a
         # closed stage, and a session outlives the stage it started in.
-        "counted_usd": prior.get("counted_usd", 0.0),
+        counted = prior.get("counted_usd", 0.0)
+    else:
+        # First sighting of this session here. Whatever it had already spent in
+        # another project is a baseline, not a charge — otherwise switching
+        # projects mid-session hands the new one the whole session's total and
+        # both ledgers claim it.
+        #
+        # ponytail: one-way. Moving back to a project already recorded resumes
+        # from its own last figure and re-charges the detour. Per-observation
+        # reconciliation only if a real ping-pong session shows up.
+        counted = _spent_elsewhere(project_dir, session_id)
+    record["cost"] = {
+        "usd": usd,
+        "counted_usd": counted,
         "observed_at": _now_iso(),
         "observer": COST_OBSERVER,
     }

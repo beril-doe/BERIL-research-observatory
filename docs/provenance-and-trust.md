@@ -76,7 +76,9 @@ a heavyweight dependency.
   only way an unwatched stage stays distinguishable from a free one. Per-session
   `counted_usd` tracks what a closed stage already consumed, so a session that
   outlives the stage it started in is attributed once, to each stage it earned
-  spend in. Token-level and per-tool cost attribution are out of scope.
+  spend in — and a session that moves to a second project arrives with the
+  first project's spend already baselined, so the two ledgers never both claim
+  it. Token-level and per-tool cost attribution are out of scope.
 - The **integrity** of an approved submission already lives in
   `beril.yaml.approval` (report / review / notebook SHA-256 digests + ORCID),
   which is an **in-toto-style attestation** (subject digests + agent). The two
