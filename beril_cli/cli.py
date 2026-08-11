@@ -5,10 +5,11 @@ from __future__ import annotations
 import argparse
 import sys
 
-from beril_cli import __version__
+from beril_cli import __version__, config
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """Construct the CLI parser. Split out from main() so it can be tested."""
     parser = argparse.ArgumentParser(
         prog="beril",
         description="BERIL Research Observatory — setup, check, and launch your research environment.",
@@ -27,7 +28,7 @@ def main(argv: list[str] | None = None) -> int:
     start_parser = sub.add_parser("start", help="Launch a coding agent")
     start_parser.add_argument(
         "--agent",
-        choices=["claude", "codex", "gemini"],
+        choices=list(config.SUPPORTED_AGENTS),
         default=None,
         help="Agent to launch (default: from config, or claude)",
     )
@@ -154,6 +155,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Write/merge the active project's runtime.json (hook)",
     )
 
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args, remaining = parser.parse_known_args(argv)
 
     if args.command is None:
