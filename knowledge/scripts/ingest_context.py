@@ -63,7 +63,7 @@ from observatory_context.ingest import (
     resolve_project_dir,
 )
 from observatory_context.openviking_client import create_client, diagnose
-from observatory_context.progress import RichIngestObserver
+from observatory_context.progress import RichIngestObserver, wait_for_queue_idle
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -122,13 +122,46 @@ def _preflight() -> tuple[bool, str]:
     return True, "context service available"
 
 
+class _QuietPollingObserver:
+    """Headless observer: no output, but polls the queue like the Rich one.
+
+    `NullObserver.wait_processed` calls the SDK's `client.wait_processed()`,
+    which is a single blocking POST held open for the whole embedding run. That
+    is fine against a local OV, but through the BERIL reverse proxy the edge
+    applies its own upstream read timeout — Cloudflare's is 100s and is not
+    configurable on most plans — so a long ingest comes back as a Cloudflare
+    504 even though OpenViking is healthy and still working.
+
+    Polling `get_status()` keeps every individual request short, so no single
+    call can trip the edge timeout. This mirrors `RichIngestObserver`'s
+    strategy (see its `wait_processed`) with the progress bars omitted, since
+    verdict mode must keep stdout clean for the caller's JSON parse.
+    """
+
+    def start(self, total: int) -> None:
+        return None
+
+    def advance(self, label: str) -> None:
+        return None
+
+    def note(self, message: str) -> None:
+        return None
+
+    def wait_processed(self, client) -> None:
+        wait_for_queue_idle(client)
+
+    def done(self) -> None:
+        return None
+
+
 def run_mirror(project_id: str) -> int:
     """Best-effort single-project mirror. Never raises; always returns 0.
 
     Shares `ingest_project` with the interactive path — the difference is the
     gating, the machine-readable verdict, and the promise never to fail the
-    caller. No observer is passed: Rich output would pollute the stdout line
-    the caller parses.
+    caller. Uses `_QuietPollingObserver` rather than the default `NullObserver`
+    so the post-upload wait polls instead of issuing one long blocking POST
+    that a reverse proxy would 504 (see that class's docstring).
     """
     try:
         ok, reason = _preflight()
@@ -148,7 +181,12 @@ def run_mirror(project_id: str) -> int:
         return _emit("skipped", f"context service became unreachable: {exc}")
 
     try:
-        ingest_project(config, client, project_id)
+        ingest_project(config, client, project_id, observer=_QuietPollingObserver())
+    except TimeoutError as exc:
+        # The queue never idled within wait_for_queue_idle's safety net. The
+        # upload itself already landed, so this is "submitted but unconfirmed"
+        # rather than a hard failure — still non-"ok" so the caller WARNs.
+        return _emit("failed", f"context-service queue did not drain: {exc}")
     except Exception as exc:
         return _emit("failed", f"context-service submission failed: {exc}")
     finally:
