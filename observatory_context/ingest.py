@@ -203,6 +203,7 @@ def ingest_projects(
     project_dirs = [
         resolve_project_dir(config, project_id) for project_id in project_ids
     ]
+    print(project_dirs)
     obs.start(total=len(project_dirs))
     for project_dir in project_dirs:
         _ingest_project_dir(config, client, project_dir)
@@ -219,6 +220,7 @@ def ingest_projects(
     manifest_to_save = _partial_manifest(
         load_manifest(_manifest_path(config)), new_manifest, touched
     )
+    print(manifest_to_save)
     save_manifest(_manifest_path(config), manifest_to_save)
     obs.done()
 
