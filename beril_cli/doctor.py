@@ -199,13 +199,15 @@ def run_doctor() -> int:
 
     # 6. Agent CLIs
     agents_found = []
-    for agent in ("claude", "codex", "gemini"):
+    for agent in config.SUPPORTED_AGENTS:
         if shutil.which(agent):
             agents_found.append(agent)
     if agents_found:
         checks.append(("Agent CLIs", "PASS", ", ".join(agents_found)))
     else:
-        checks.append(("Agent CLIs", "WARN", "none found (claude, codex, gemini)"))
+        checks.append(
+            ("Agent CLIs", "WARN", f"none found ({', '.join(config.SUPPORTED_AGENTS)})")
+        )
 
     # 7. BERIL webapp: login state + service availability. These are
     # informational (WARN, not FAIL) so a transient outage doesn't make doctor
