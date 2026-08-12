@@ -66,25 +66,26 @@ SKIP_PATTERNS = {
 # context service that is down (or a user who isn't logged in) must never fail
 # the upload.
 #
-# The actual gate-check + ingest lives in `knowledge/scripts/submit_context_mirror.py`
-# and is run as a separate `uv run --script` process. That indirection is
-# deliberate: this upload tool runs under whatever interpreter the caller has
-# active (which frequently lacks the `openviking` SDK — e.g. the webapp venv),
-# whereas the mirror script's PEP-723 header pins its own environment. Shelling
-# out keeps all the knowledge-layer dependencies out of the upload path and
-# lets the mirror provision itself. The script always exits 0 and emits a
-# single-line JSON verdict; we never let it fail the upload.
+# The actual gate-check + ingest lives in `knowledge/scripts/ingest_context.py`
+# (its `--json` verdict mode) and is run as a separate `uv run --script`
+# process. That indirection is deliberate: this upload tool runs under whatever
+# interpreter the caller has active (which frequently lacks the `openviking`
+# SDK — e.g. the webapp venv), whereas the ingest script's PEP-723 header pins
+# its own environment. Shelling out keeps all the knowledge-layer dependencies
+# out of the upload path and lets the mirror provision itself. Under `--json`
+# the script always exits 0 and emits a single-line JSON verdict; we never let
+# it fail the upload.
 
 
 def _mirror_script_path(base_path):
-    """Locate `knowledge/scripts/submit_context_mirror.py`.
+    """Locate `knowledge/scripts/ingest_context.py`.
 
     Prefer the caller-supplied `base_path` (the repo root /submit passes in);
     fall back to this file's parent-of-tools. Returns None if neither holds the
     script, so the caller can skip cleanly.
     """
     for candidate in (Path(base_path).resolve(), Path(__file__).resolve().parents[1]):
-        script = candidate / "knowledge" / "scripts" / "submit_context_mirror.py"
+        script = candidate / "knowledge" / "scripts" / "ingest_context.py"
         if script.is_file():
             return script
     return None
@@ -105,20 +106,20 @@ def submit_to_context_service(project_id, base_path):
     - "failed":  gates passed but the submission itself errored. Again the
                  archive is unaffected and the mirror can be retried later.
 
-    Runs `knowledge/scripts/submit_context_mirror.py` via `uv run --script` so
-    the mirror gets its own pinned environment regardless of the interpreter
-    running this tool.
+    Runs `knowledge/scripts/ingest_context.py --project <id> --json` via
+    `uv run --script` so the mirror gets its own pinned environment regardless
+    of the interpreter running this tool.
     """
     script = _mirror_script_path(base_path)
     if script is None:
         return {
             "status": "skipped",
-            "reason": "context-mirror script not found (knowledge/scripts/submit_context_mirror.py)",
+            "reason": "context-mirror script not found (knowledge/scripts/ingest_context.py)",
         }
 
     try:
         proc = subprocess.run(
-            ["uv", "run", "--script", str(script), project_id],
+            ["uv", "run", "--script", str(script), "--project", project_id, "--json"],
             cwd=str(Path(base_path).resolve()),
             capture_output=True,
             text=True,
