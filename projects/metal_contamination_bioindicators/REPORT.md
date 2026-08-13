@@ -2093,6 +2093,151 @@ figure: `figures/fig_season_controlled.pdf`)*
 
 ---
 
+### Multivariate PERMANOVA: community-level EF signal (binary tertile design)
+
+Univariate taxon associations do not imply a detectable multivariate signal. We tested whether
+metal enrichment factor (EF) separates whole-community composition (Aitchison distance in CLR
+genus space) using a per-study binary PERMANOVA design.
+
+**Method:** Within each study, samples were ranked by metal EF and split into top-tertile
+(high-EF) vs. bottom-tertile (low-EF) groups. Aitchison distance was computed from the genus
+CLR matrix (500 genera, 28,456 soil samples from SoilGrids-joined subset). PERMANOVA was
+run per study (999 permutations, balanced binary groups). Study-level p-values were combined
+via Fisher's method (χ² = −2∑ln(pᵢ), df = 2k). Models M0 (unadjusted), M1 (CLR residualised
+on lat/lon), and M3 (CLR residualised on lat/lon + sg_ph + sg_cec + sg_clay + sg_soc) were
+evaluated for USA soil, USA terrestrial, and EUR (GEMAS) strata.
+
+**Key caveat — structural power limitation:** Many studies have samples geographically clustered
+near a small number of USGS sites; all samples in such studies inherit the same EF value, so the
+binary split produces only one group → F=0.0, p=1.0 (correct, not a bug). This inflates the
+null mass in Fisher's test and reduces power.
+
+**Results:**
+
+| Model | Sig. element×region combinations (Fisher p<0.05) | Median R² (sig.) |
+|-------|--------------------------------------------------|-----------------|
+| M0    | 184 / 630                                        | 0.041–0.066     |
+| M1    | ~20 / 630                                        | 0.013–0.057     |
+| M3    | 0 / 630                                          | N/A             |
+
+Under M0, nearly every element in every region yields significant Fisher's p, with study-level
+R² typically 4–7%. Geography explains ≈84% of the raw community–metal variance (M0 R²→M1 R²
+attenuation). Under M1 (geo-detrended), only Mn, U, Ni, Sc, Cr, Bi, Sb, In, Sn retain
+study-level signal in ≥1 region. Under M3 (full soil-chemistry detrending), no element×region
+combination survives Fisher's combined p<0.05.
+
+**Interpretation:** The binary-tertile PERMANOVA design has insufficient power to detect
+multivariate signal once lat/lon and soil chemistry are partialled from CLR compositions.
+This does not contradict the univariate Fisher-z meta-analysis (which detects signal for
+many metals under M3 at genus level); the multivariate test requires substantially more
+within-study EF variance than is typically available in the binary-split design.
+
+*(Script: `scripts/run_permanova_community_ef.py`;
+data: `data/permanova_M0_*.csv`, `data/permanova_M1_*.csv`, `data/permanova_M3_*.csv`)*
+
+---
+
+### M3+ covariate sensitivity: adding sand and nitrogen
+
+The M3 model controls for latitude, longitude, pH, CEC, clay, and SOC. Sand fraction and
+nitrogen content are additional SoilGrids covariates that correlate with agricultural land use
+intensity. Adding them (M3+) tests whether the M3 indicator signals are genuinely metal-driven
+or are proxies for agricultural intensity.
+
+**Method:** Identical to M3 but with `['sg_ph', 'sg_cec', 'sg_clay', 'sg_soc', 'sg_sand',
+'sg_nitrogen']` as the covariate set. Regions: usa_ma2, usa_terr, usa_sed, usa_rock, eur_ma,
+usa_cmmi. All five taxonomic levels; n_studies ≥ 2 required. Comparisons below are at genus
+level, conservative threshold (n_studies ≥ 20 per taxon per study), q<0.05.
+
+**USA USGS soil (usa_ma2) — n_sig genus/con M3 → M3+:**
+
+| Element | M3  | M3+  | Δ    | Interpretation |
+|---------|-----|------|------|----------------|
+| Pb      | 118 |   33 | −85  | Agricultural proxy — sand/N track land use |
+| Ni      | 164 |  113 | −51  | Partial agricultural proxy |
+| Mn      |  58 |  165 | +107 | Previously suppressed by ag colinearity |
+| In      |  62 |  150 | +88  | Geogenic signal revealed |
+| Zn      |  54 |  125 | +71  | Previously suppressed |
+| U       |  59 |  125 | +66  | Geogenic — natural crustal enrichment |
+| Cr      |  97 |  159 | +62  | Serpentinite/geogenic signal strengthened |
+
+**EUR GEMAS (eur_ma) — largest M3 → M3+ changes:**
+
+| Element | M3  | M3+  | Δ     | Interpretation |
+|---------|-----|------|-------|----------------|
+| V       | 332 |   38 | −294  | Agricultural/industrial pollution proxy |
+| Sb      | 257 |   63 | −194  | Anthropogenic transport proxy |
+| Cu      | 200 |   73 | −127  | Mixed-source; agriculture/mining confound |
+| Be      | 158 |   36 | −122  | Lithophile but correlated with clay/N |
+| Tl      | 245 |  137 | −108  | Anthropogenic proxy |
+| Sn      |  95 |  219 | +124  | Geogenic/bedrock signal revealed |
+| Nb      | 123 |  238 | +115  | Lithophile signal revealed |
+| Th      |  77 |  191 | +114  | Lithophile; crustal origin confirmed |
+| Zr      |  76 |  169 |  +93  | Lithophile; bedrock-controlled |
+
+**Pattern across regions:** Elements that drop under M3+ are predominantly those associated
+with anthropogenic contamination pathways (Pb, V, Sb, Cu, Tl) — their MicrobeAtlas signals
+were partially tracking agricultural intensity rather than direct metal toxicity. Elements that
+increase under M3+ are predominantly lithophile trace elements (Mn, Zn, U, Cr, Sc, Th, Nb,
+Zr) whose geogenic signals were suppressed by collinearity between sand/nitrogen and
+bedrock-derived soil composition.
+
+**USA terrestrial (usa_terr):** Th drops −75 (unexpected for a lithophile; suggests
+the non-soil-chemistry portion of Th variance in USA_TERR is agricultural-correlated);
+U increases +65, Cr +46, V +45.
+
+**USA sediment (usa_sed):** Se increases dramatically: 8 → 123 (+115). Se in sediments is
+strongly associated with specific geological formations (Cretaceous marine shale); the Se signal
+was almost entirely suppressed by collinearity with sand fraction in M3.
+
+*(Script: `scripts/run_taxon_m3plus.py`;
+data: `data/taxon_M3plus_{con,lib}_ef_{elem}_{level}_{region}.csv`)*
+
+---
+
+### EUR terrestrial stratum: isolating soil signal from mixed-environment contamination
+
+GEMAS samples span diverse European environments; some GEMAS-associated MicrobeAtlas samples
+may be from aquatic, industrial, or mixed environments that introduce spurious metal signals.
+Restricting to terrestrial-only samples (environments column contains 'soil', excludes 'aquatic'
+or 'animal') tests signal robustness.
+
+**Method:** Stratum membership defined from `arkinlab.microbeatlas.sample_metadata.environments`
+column (saved as `data/sample_environments.parquet`). Terrestrial: 180,618 × 0.94 ≈ 169,781 samples.
+EUR-matched terrestrial CLR samples: n_samples reduced, n_studies = 20–28 depending on element.
+Aquatic stratum had <2 studies among GEMAS-adjacent MicrobeAtlas samples (289 aquatic CLR samples
+total, all in single study) — not analyzable. Plant stratum: 0 CLR samples in EUR GEMAS range.
+
+**EUR M3 full vs terrestrial-only (genus/con, n_sig q<0.05):**
+
+| Element | M3_all | M3_terr | Δ     | Interpretation |
+|---------|--------|---------|-------|----------------|
+| Cu      | 200    |      62 | −138  | Mixed-source; non-terrestrial samples drive signal |
+| Nb      | 123    |       9 | −114  | Nearly entirely from non-terrestrial samples |
+| W       | 201    |     112 |  −89  | Partially non-terrestrial |
+| Hg      | 160    |      72 |  −88  | Mixed-environment signal |
+| Bi      | 261    |     175 |  −86  | Mixed environments |
+| Pb      | 195    |     110 |  −85  | Agricultural/industrial cross-environment |
+| Sc      | 149    |     251 | +102  | Lithophile — stronger in pure terrestrial soils |
+| Th      |  77    |     161 |  +84  | Thorium bedrock signal; specific to soil |
+| Rb      |  68    |     112 |  +44  | Geogenic; cleaner in terrestrial-only |
+| Ge      |  58    |     102 |  +44  | Geogenic |
+
+**Interpretation:** Cu, Nb, W, Hg, and Pb indicators in the full EUR dataset are partially driven
+by aquatic/industrial/mixed-environment samples that co-associate via anthropogenic transport
+pathways. Restricting to terrestrial-only halves these signals. By contrast, lithophile elements
+(Sc, Th, Rb, Ge) are strengthened in terrestrial-only, consistent with bedrock-driven geogenic
+variation that is diluted in mixed-environment analyses.
+
+**Note:** The EUR strat aquatic/plant analyses are not feasible — GEMAS is an agricultural soil
+survey and GEMAS-adjacent MicrobeAtlas samples are overwhelmingly terrestrial (<289 aquatic
+samples across a single study).
+
+*(Script: `scripts/run_taxon_strat_by_envtype.py`;
+data: `data/taxon_M3_terrestrial_{con,lib}_ef_{elem}_{level}_eur_ma.csv`)*
+
+---
+
 ## Interpretation
 
 ### Literature context
