@@ -42,8 +42,12 @@ run_ingest(spark, minio_client, table_stats, schemas, schema_defs, namespace,
            delimiter, progress_key)
     Ingest all tables into Iceberg silver. Returns the (possibly reconnected) spark.
 
-verify_ingest(spark, namespace, table_stats, minio_client, bucket, progress_key)
-    Query row counts and compare against expected. Prints results.
+verify_ingest(spark, namespace, table_stats, minio_client, bucket, progress_key,
+              bronze_prefix=None)
+    Compare Iceberg row counts against the SOURCE data and print the results.
+    Text sources use the source-file line count; Parquet sources are counted
+    with spark.read.parquet against the uploaded bronze object, which is what
+    bronze_prefix locates. Without it, Parquet tables report UNVERIFIED.
 """
 
 from __future__ import annotations
