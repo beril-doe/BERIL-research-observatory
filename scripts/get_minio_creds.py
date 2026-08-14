@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -84,6 +85,34 @@ def _first(mapping: dict[str, Any], names: tuple[str, ...]) -> str | None:
         if value:
             return str(value)
     return None
+
+
+SHELL_NAME_PAIRS = (
+    ("S3_ACCESS_KEY", "MINIO_ACCESS_KEY"),
+    ("S3_SECRET_KEY", "MINIO_SECRET_KEY"),
+    ("S3_ENDPOINT_URL", "MINIO_ENDPOINT_URL"),
+)
+
+
+def shell_exports(creds: dict[str, str]) -> list[str]:
+    """Lines for ``eval "$(get_minio_creds.py --shell)"``.
+
+    Values go through :func:`shlex.quote` rather than being wrapped in literal
+    single quotes. A secret containing a quote, a newline, or a ``$`` would
+    otherwise produce a broken line at best and an injection at worst, and the
+    caller is an ``eval``.
+
+    Both spellings are exported. Callers that predate the MINIO_ to S3_ rename
+    (``scripts/configure_mc.sh``, and anything a user already has in a shell)
+    still read the old names.
+    """
+    lines: list[str] = []
+    for canonical, legacy in SHELL_NAME_PAIRS:
+        quoted = shlex.quote(creds[canonical])
+        lines.append(f"export {canonical}={quoted}")
+        lines.append(f"export {legacy}={quoted}")
+    lines.append(f"# source={creds['source']}")
+    return lines
 
 
 def _searched() -> str:
@@ -171,17 +200,7 @@ def main() -> int:
         return 1
 
     if args.shell:
-        # Export both spellings. Callers that predate the rename (for example
-        # scripts/configure_mc.sh, and anything a user already has in a shell)
-        # still read MINIO_*, so emitting only the canonical names would break them.
-        for canonical, legacy in (
-            ("S3_ACCESS_KEY", "MINIO_ACCESS_KEY"),
-            ("S3_SECRET_KEY", "MINIO_SECRET_KEY"),
-            ("S3_ENDPOINT_URL", "MINIO_ENDPOINT_URL"),
-        ):
-            print(f"export {canonical}='{creds[canonical]}'")
-            print(f"export {legacy}='{creds[canonical]}'")
-        print(f"# source={creds['source']}")
+        print("\n".join(shell_exports(creds)))
     else:
         print(json.dumps(creds, indent=2))
 

@@ -9,6 +9,7 @@ rejected credential.
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -102,6 +103,49 @@ def test_the_failure_message_names_every_variable_it_looked_for(creds):
 
     for name in ("S3_ACCESS_KEY", "S3_SECRET_KEY", "MINIO_ACCESS_KEY", "MINIO_SECRET_KEY"):
         assert name in searched
+
+
+HOSTILE = "a'b\"c$d`e;touch /tmp/should-not-exist\nf g"
+
+
+def _payload(secret: str) -> dict[str, str]:
+    return {
+        "S3_ACCESS_KEY": "ak",
+        "S3_SECRET_KEY": secret,
+        "S3_ENDPOINT_URL": "https://s3.example",
+        "source": "local-env",
+    }
+
+
+def test_shell_output_survives_eval_of_a_hostile_value(creds):
+    """The documented usage is eval "$(... --shell)", so a value containing a
+    quote, a $, a backtick, a semicolon or a newline must round-trip rather than
+    breaking the line or executing part of itself."""
+    script = "\n".join(creds.shell_exports(_payload(HOSTILE)))
+    result = subprocess.run(
+        ["sh", "-c", 'eval "$1"; printf %s "$S3_SECRET_KEY"', "sh", script],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == HOSTILE
+
+
+def test_both_spellings_receive_the_same_value(creds):
+    script = "\n".join(creds.shell_exports(_payload("s3cret")))
+    result = subprocess.run(
+        ["sh", "-c", 'eval "$1"; printf "%s|%s" "$S3_SECRET_KEY" "$MINIO_SECRET_KEY"',
+         "sh", script],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.stdout == "s3cret|s3cret"
+
+
+def test_shell_output_reports_the_source(creds):
+    assert "# source=local-env" in creds.shell_exports(_payload("x"))
 
 
 def test_remote_payload_uses_the_same_precedence(creds):
