@@ -273,8 +273,10 @@ def run_setup() -> int:
         print(
             "  To get a KBASE_AUTH_TOKEN: sign in at https://hub.berdl.kbase.us, spawn a\n"
             "  server, and in a notebook run:\n"
-            "      from berdl_notebook_utils import BERDLSettings\n"
-            "      print(BERDLSettings().KBASE_AUTH_TOKEN)\n"
+            "      import os\n"
+            "      print(os.environ.get('KBASE_AUTH_TOKEN'))\n"
+            "  Delete the cell output immediately after copying the token. Saved outputs\n"
+            "  live in the notebook file and can be shared or committed by accident.\n"
             "  The token lasts 14 days. Signing out of KBase revokes it immediately rather\n"
             "  than at its stated expiry, so do not sign out while a run is in flight.\n"
             "  Note: narrative.kbase.us shows a 'Developer Tokens' tab only to accounts\n"
