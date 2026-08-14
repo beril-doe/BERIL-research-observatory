@@ -125,8 +125,9 @@ def detect_environment() -> dict[str, Any]:
             result["checks"]["kbase_token_env"] = False
             result["next_steps"].append(
                 "⚠️ KBASE_AUTH_TOKEN not found in environment. "
-                "Get your token from https://narrative.kbase.us/#auth2/account "
-                "and add it to .env"
+                "Get your token by signing in at https://hub.berdl.kbase.us, spawning a "
+                "server, and running in a notebook: from berdl_notebook_utils import "
+                "BERDLSettings; print(BERDLSettings().KBASE_AUTH_TOKEN). Then add it to .env"
             )
     else:
         # Off-cluster (local machine)
@@ -141,8 +142,10 @@ def detect_environment() -> dict[str, Any]:
         if not token_in_env:
             result["next_steps"].append(
                 "❌ KBASE_AUTH_TOKEN missing from .env. "
-                "Get your token from https://narrative.kbase.us/#auth2/account "
-                "and add: KBASE_AUTH_TOKEN=\"your-token-here\""
+                "Get your token by signing in at https://hub.berdl.kbase.us, spawning a "
+                "server, and running in a notebook: from berdl_notebook_utils import "
+                "BERDLSettings; print(BERDLSettings().KBASE_AUTH_TOKEN). Then add: "
+                "KBASE_AUTH_TOKEN=\"your-token-here\""
             )
 
         # Check .venv-berdl

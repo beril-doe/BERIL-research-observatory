@@ -271,11 +271,15 @@ def run_setup() -> int:
     file_token = env_vars.get("KBASE_AUTH_TOKEN", "")
     if not file_token or file_token == "YOUR_AUTH_TOKEN_HERE":
         print(
-            "  To get a KBASE_AUTH_TOKEN: sign in at https://narrative.kbase.us/#auth2/account\n"
-            "  and open the 'Developer Tokens' tab. That tab only appears for approved KBase\n"
-            "  developers — if you don't see it, you don't have developer access yet; contact\n"
-            "  the BERIL team about requesting it. A generated token is shown only once, for\n"
-            "  about 5 minutes, so have this prompt ready before you generate one."
+            "  To get a KBASE_AUTH_TOKEN: sign in at https://hub.berdl.kbase.us, spawn a\n"
+            "  server, and in a notebook run:\n"
+            "      from berdl_notebook_utils import BERDLSettings\n"
+            "      print(BERDLSettings().KBASE_AUTH_TOKEN)\n"
+            "  The token lasts 14 days. Signing out of KBase revokes it immediately rather\n"
+            "  than at its stated expiry, so do not sign out while a run is in flight.\n"
+            "  Note: narrative.kbase.us shows a 'Developer Tokens' tab only to accounts\n"
+            "  holding the DevToken role, and BERDL uses Login tokens, so that page is not\n"
+            "  the route here."
         )
         token = _prompt("  Enter your KBASE_AUTH_TOKEN (leave blank to configure later)")
         if token:
