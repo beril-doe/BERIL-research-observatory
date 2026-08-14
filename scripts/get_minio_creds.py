@@ -116,8 +116,17 @@ def shell_exports(creds: dict[str, str]) -> list[str]:
 
 
 def _searched() -> str:
-    """The variable names a failure looked for, for use in error messages."""
-    return ", ".join(ACCESS_KEY_NAMES + SECRET_KEY_NAMES)
+    """The variable names a failure looked for, per role, for error messages.
+
+    Split by role rather than run together: only the access and secret keys can
+    cause the failure, while the endpoint has a default and never does.
+    """
+    return (
+        f"    access key: {' then '.join(ACCESS_KEY_NAMES)}\n"
+        f"    secret key: {' then '.join(SECRET_KEY_NAMES)}\n"
+        f"    endpoint (optional, defaults to {DEFAULT_ENDPOINT_URL}): "
+        f"{' then '.join(ENDPOINT_NAMES)}"
+    )
 
 
 def resolve_from_local_env() -> dict[str, str] | None:
@@ -189,7 +198,8 @@ def main() -> int:
     if creds is None:
         print(
             "Could not resolve object-store credentials.\n"
-            f"  Looked for, in this order: {_searched()}\n"
+            "  Variables looked for:\n"
+            f"{_searched()}\n"
             f"  Sources tried: {args.env_file}, the local environment, "
             "and berdl-remote.\n"
             "  On a BERDL pod the current names are S3_ACCESS_KEY and S3_SECRET_KEY; "

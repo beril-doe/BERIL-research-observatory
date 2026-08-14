@@ -105,7 +105,20 @@ def test_the_failure_message_names_every_variable_it_looked_for(creds):
         assert name in searched
 
 
-HOSTILE = "a'b\"c$d`e;touch /tmp/should-not-exist\nf g"
+def _special_chars(marker: Path) -> str:
+    """Every character that breaks naive quoting. Under `export VAR='<value>'`
+    this fails the parse, so the round-trip assertion is what catches it."""
+    return f"a'b\"c$d`e;touch {marker}\nf g"
+
+
+def _quote_breakout(marker: Path) -> str:
+    """A real injection: closes the naive quote, runs a command, reopens.
+
+    Verified against `export VAR='<value>'`, which creates the marker file. This
+    is the case that makes the marker assertion load-bearing rather than
+    decorative, and the reason both shapes are tested.
+    """
+    return f"x'; touch {marker}; :'y"
 
 
 def _payload(secret: str) -> dict[str, str]:
@@ -117,19 +130,29 @@ def _payload(secret: str) -> dict[str, str]:
     }
 
 
-def test_shell_output_survives_eval_of_a_hostile_value(creds):
-    """The documented usage is eval "$(... --shell)", so a value containing a
-    quote, a $, a backtick, a semicolon or a newline must round-trip rather than
-    breaking the line or executing part of itself."""
-    script = "\n".join(creds.shell_exports(_payload(HOSTILE)))
+@pytest.mark.parametrize("build", [_special_chars, _quote_breakout], ids=["special-chars", "quote-breakout"])
+def test_shell_output_survives_eval_of_a_hostile_value(creds, tmp_path, build):
+    """The documented usage is eval "$(... --shell)", so a hostile value must
+    round-trip rather than breaking the line or executing part of itself.
+
+    Two shapes, because neither assertion catches both failures. The special
+    character set breaks the parse, so only the round-trip check sees it. The
+    quote breakout preserves nothing and runs a command, so only the marker
+    check sees it.
+    """
+    marker = tmp_path / "injection-executed"
+    hostile = build(marker)
+
+    script = "\n".join(creds.shell_exports(_payload(hostile)))
     result = subprocess.run(
         ["sh", "-c", 'eval "$1"; printf %s "$S3_SECRET_KEY"', "sh", script],
         capture_output=True,
         text=True,
     )
 
+    assert not marker.exists(), "the embedded command executed during eval"
     assert result.returncode == 0, result.stderr
-    assert result.stdout == HOSTILE
+    assert result.stdout == hostile
 
 
 def test_both_spellings_receive_the_same_value(creds):
