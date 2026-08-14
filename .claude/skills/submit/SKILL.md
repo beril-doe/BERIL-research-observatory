@@ -365,9 +365,18 @@ Markers and `beril.yaml.submissions[]` are managed exclusively by this step. `su
    ```markdown
    This is an authorization block, not a credential or data problem. The archive
    destination defaults to `tenant-general-warehouse/microbialdiscoveryforge`. If you
-   have write access to another tenant path, set `BERIL_UPLOAD_TENANT_PATH` in `.env`
-   (bucket-relative, no trailing `projects`) and re-run `/submit`. The equivalent
-   one-off is `python tools/lakehouse_upload.py {project_id} --tenant-path <path>`.
+   have write access to another tenant path, either pass it directly:
+
+       python tools/lakehouse_upload.py {project_id} --tenant-path <path>
+
+   or export it before re-running `/submit`:
+
+       export BERIL_UPLOAD_TENANT_PATH=<path>
+
+   The path is bucket-relative and must not end in `projects`, which is appended.
+   `lakehouse_upload.py` reads the process environment and does not load `.env`, so a
+   value written only to `.env` has no effect on the upload.
+
    `--list` and `--validate` honour the same override, so you will still find the
    project yourself. Anyone who looks without that override set will not, which is why
    this keeps you working rather than resolving anything: also ask a steward of the
