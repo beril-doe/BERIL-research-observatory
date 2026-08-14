@@ -277,7 +277,7 @@ python tools/lakehouse_upload.py {project_id}
 
 The script archives all project files to `s3a://cdm-lake/tenant-general-warehouse/microbialdiscoveryforge/projects/{project_id}/`. If the `berdl-minio` `mc` alias isn't configured, set it up first:
 ```bash
-mc alias set berdl-minio $MINIO_ENDPOINT_URL $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+mc alias set berdl-minio $S3_ENDPOINT_URL $S3_ACCESS_KEY $S3_SECRET_KEY
 ```
 
 **Re-submission overwrite semantics**: the upload script pre-clears the remote prefix (`mc rm --recursive --force`) before `mc cp` whenever the prefix already has contents. This prevents stale files from a previous submission from contaminating the new archive when files are dropped or renamed between submissions. The brief mid-upload window during which the archive is empty is acceptable: a `complete + SUBMISSION_FAILED.md` state already signals "incomplete archive" to anyone consuming it. First-time submissions skip the clear because the remote prefix is empty.

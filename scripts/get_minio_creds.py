@@ -65,15 +65,41 @@ def parse_remote_json(stdout: str) -> dict[str, Any] | None:
     return None
 
 
+DEFAULT_ENDPOINT_URL = "https://minio.berdl.kbase.us"
+
+# BERDL renamed these from MINIO_* to S3_* and no consumer was updated, so every
+# lookup here tries the current name first and the historical one second. Verified
+# on a pod 2026-08-14: only S3_ACCESS_KEY, S3_SECRET_KEY, S3_ENDPOINT_URL and
+# S3_SECURE are present; no MINIO_* variable exists. The fallback is kept for
+# older pod images rather than for the current one.
+ACCESS_KEY_NAMES = ("S3_ACCESS_KEY", "MINIO_ACCESS_KEY")
+SECRET_KEY_NAMES = ("S3_SECRET_KEY", "MINIO_SECRET_KEY")
+ENDPOINT_NAMES = ("S3_ENDPOINT_URL", "MINIO_ENDPOINT_URL")
+
+
+def _first(mapping: dict[str, Any], names: tuple[str, ...]) -> str | None:
+    """Return the first non-empty value among ``names``, or None."""
+    for name in names:
+        value = mapping.get(name)
+        if value:
+            return str(value)
+    return None
+
+
+def _searched() -> str:
+    """The variable names a failure looked for, for use in error messages."""
+    return ", ".join(ACCESS_KEY_NAMES + SECRET_KEY_NAMES)
+
+
 def resolve_from_local_env() -> dict[str, str] | None:
-    access_key = os.getenv("MINIO_ACCESS_KEY")
-    secret_key = os.getenv("MINIO_SECRET_KEY")
-    endpoint_url = os.getenv("MINIO_ENDPOINT_URL", "https://minio.berdl.kbase.us")
+    access_key = _first(dict(os.environ), ACCESS_KEY_NAMES)
+    secret_key = _first(dict(os.environ), SECRET_KEY_NAMES)
+    endpoint_url = _first(dict(os.environ), ENDPOINT_NAMES) or DEFAULT_ENDPOINT_URL
     if access_key and secret_key:
         return {
-            "MINIO_ACCESS_KEY": access_key,
-            "MINIO_SECRET_KEY": secret_key,
-            "MINIO_ENDPOINT_URL": endpoint_url,
+            "S3_ACCESS_KEY": access_key,
+            "S3_SECRET_KEY": secret_key,
+            "S3_ENDPOINT_URL": endpoint_url,
             "source": "local-env",
         }
     return None
@@ -93,13 +119,12 @@ def resolve_from_berdl_remote(bootstrap_remote: bool) -> dict[str, str] | None:
             print(spawn_result.stderr.strip(), file=sys.stderr)
             return None
 
+    # Ask the pod for both spellings and decide here, so the precedence rule lives
+    # in one place rather than being duplicated into a remote one-liner.
+    wanted = list(ACCESS_KEY_NAMES + SECRET_KEY_NAMES + ENDPOINT_NAMES)
     code = (
         "import json, os; "
-        "print(json.dumps({"
-        "'MINIO_ACCESS_KEY': os.getenv('MINIO_ACCESS_KEY'), "
-        "'MINIO_SECRET_KEY': os.getenv('MINIO_SECRET_KEY'), "
-        "'MINIO_ENDPOINT_URL': os.getenv('MINIO_ENDPOINT_URL', 'https://minio.berdl.kbase.us')"
-        "}))"
+        f"print(json.dumps({{n: os.getenv(n) for n in {wanted!r}}}))"
     )
     result = run(["berdl-remote", "python", code])
     if result.returncode != 0:
@@ -110,16 +135,16 @@ def resolve_from_berdl_remote(bootstrap_remote: bool) -> dict[str, str] | None:
     if not payload:
         return None
 
-    access_key = payload.get("MINIO_ACCESS_KEY")
-    secret_key = payload.get("MINIO_SECRET_KEY")
-    endpoint_url = payload.get("MINIO_ENDPOINT_URL") or "https://minio.berdl.kbase.us"
+    access_key = _first(payload, ACCESS_KEY_NAMES)
+    secret_key = _first(payload, SECRET_KEY_NAMES)
+    endpoint_url = _first(payload, ENDPOINT_NAMES) or DEFAULT_ENDPOINT_URL
     if not access_key or not secret_key:
         return None
 
     return {
-        "MINIO_ACCESS_KEY": access_key,
-        "MINIO_SECRET_KEY": secret_key,
-        "MINIO_ENDPOINT_URL": endpoint_url,
+        "S3_ACCESS_KEY": access_key,
+        "S3_SECRET_KEY": secret_key,
+        "S3_ENDPOINT_URL": endpoint_url,
         "source": "berdl-remote",
     }
 
@@ -134,15 +159,28 @@ def main() -> int:
 
     if creds is None:
         print(
-            "Could not resolve MinIO credentials from local env or berdl-remote.",
+            "Could not resolve object-store credentials.\n"
+            f"  Looked for, in this order: {_searched()}\n"
+            f"  Sources tried: {args.env_file}, the local environment, "
+            "and berdl-remote.\n"
+            "  On a BERDL pod the current names are S3_ACCESS_KEY and S3_SECRET_KEY; "
+            "MINIO_* no longer exists there.\n"
+            "  This is a missing variable, not a rejected credential.",
             file=sys.stderr,
         )
         return 1
 
     if args.shell:
-        print(f"export MINIO_ACCESS_KEY='{creds['MINIO_ACCESS_KEY']}'")
-        print(f"export MINIO_SECRET_KEY='{creds['MINIO_SECRET_KEY']}'")
-        print(f"export MINIO_ENDPOINT_URL='{creds['MINIO_ENDPOINT_URL']}'")
+        # Export both spellings. Callers that predate the rename (for example
+        # scripts/configure_mc.sh, and anything a user already has in a shell)
+        # still read MINIO_*, so emitting only the canonical names would break them.
+        for canonical, legacy in (
+            ("S3_ACCESS_KEY", "MINIO_ACCESS_KEY"),
+            ("S3_SECRET_KEY", "MINIO_SECRET_KEY"),
+            ("S3_ENDPOINT_URL", "MINIO_ENDPOINT_URL"),
+        ):
+            print(f"export {canonical}='{creds[canonical]}'")
+            print(f"export {legacy}='{creds[canonical]}'")
         print(f"# source={creds['source']}")
     else:
         print(json.dumps(creds, indent=2))
