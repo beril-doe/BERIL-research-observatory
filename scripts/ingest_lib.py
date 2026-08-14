@@ -1255,6 +1255,40 @@ def run_ingest(
 
 # ── Verification ───────────────────────────────────────────────────────────────
 
+def _expected_from_source(spark, table_stats: dict, table: str,
+                          bucket: str, bronze_prefix: str | None):
+    """Expected row count for `table`, taken from the SOURCE data.
+
+    Returns ``(count, basis)``, or ``(None, reason)`` when the source cannot be
+    counted. `basis` is printed so an operator can see what was actually
+    compared rather than having to infer it.
+
+    Text sources: the line count is the row count, so `data_lines` is used
+    directly, as it was before the Parquet fix.
+
+    Parquet: `_count_lines` on binary content is meaningless, so the source is
+    counted with Spark's own reader against the uploaded bronze object. This
+    needs no new dependency, and deliberately does not fall back to the
+    progress log's `total_rows`: that value comes from the same run being
+    checked, so comparing it to Iceberg cannot detect the pipeline dropping
+    source rows.
+    """
+    stats = table_stats[table]
+    suffix = Path(str(stats["path"])).suffix
+
+    if suffix != ".parquet":
+        return stats["data_lines"], "source lines"
+
+    if not bronze_prefix:
+        return None, "parquet source not counted (bronze_prefix not supplied)"
+
+    uri = f"s3a://{bucket}/{bronze_prefix}/{table}{suffix}"
+    try:
+        return spark.read.parquet(uri).count(), "source parquet"
+    except Exception as exc:  # noqa: BLE001 - any reader failure is "unverifiable"
+        return None, f"parquet source unreadable at {uri}: {exc}"
+
+
 def verify_ingest(
     spark,
     namespace: str,
@@ -1262,14 +1296,23 @@ def verify_ingest(
     minio_client,
     bucket: str,
     progress_key: str,
+    bronze_prefix: str | None = None,
 ) -> None:
-    """Query row counts from Iceberg and compare against recorded row counts.
+    """Query Iceberg row counts and compare them against the SOURCE data.
 
-    The expected value comes from the ingest progress log's `total_rows` (the
-    rows actually written), not from the source-file line count. For Parquet
-    and other binary sources the line count is not the row count, so comparing
-    against it produced false MISMATCHes. Tables absent from the progress log
-    are flagged INCOMPLETE. Prints a pass/fail summary for each table.
+    The comparison is source-versus-destination, so it can catch the pipeline
+    silently dropping rows. Text sources use the source-file line count;
+    Parquet sources are counted with `spark.read.parquet` against the uploaded
+    bronze object, because a line count of binary content is meaningless and
+    produced false MISMATCHes before.
+
+    Checking against the progress log's `total_rows` instead would compare the
+    run's own report to its own output and could not detect row loss, which is
+    why `bronze_prefix` is needed rather than reusing the log.
+
+    Tables absent from the progress log are flagged INCOMPLETE. Tables whose
+    source cannot be counted are flagged UNVERIFIED with the reason, never
+    silently passed. Prints a pass/fail summary for each table.
     """
     print("=" * 60)
     print("VERIFICATION")
@@ -1283,12 +1326,21 @@ def verify_ingest(
     }
     all_match    = True
 
-    print("Row counts (Iceberg vs expected):")
+    print("Row counts (Iceberg vs source):")
     for table in table_stats:
         if table not in complete_from_log:
             print(f"  {table:<45s}  {'(not in progress log)':>32}  [INCOMPLETE]")
             all_match = False
             continue
+
+        expected, basis = _expected_from_source(
+            spark, table_stats, table, bucket, bronze_prefix
+        )
+        if expected is None:
+            print(f"  {table:<45s}  {basis:>32}  [UNVERIFIED]")
+            all_match = False
+            continue
+
         # Quote each segment of a (possibly dotted, multi-level Iceberg) namespace
         # separately — backtick-quoting the whole "tenant.dataset" as one identifier
         # makes Spark look for a schema literally named "tenant.dataset".
@@ -1296,11 +1348,11 @@ def verify_ingest(
         count    = spark.sql(
             f"SELECT COUNT(*) FROM {fqn}"
         ).collect()[0][0]
-        expected = complete_from_log[table]
         match    = "OK" if count == expected else "MISMATCH"
         if count != expected:
             all_match = False
-        print(f"  {table:<45s}  {count:>12,}  expected {expected:>12,}  [{match}]")
+        print(f"  {table:<45s}  {count:>12,}  expected {expected:>12,} "
+              f"({basis})  [{match}]")
 
     print("\nProgress log summary:")
     for e in progress_log:
