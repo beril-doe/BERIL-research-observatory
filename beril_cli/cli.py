@@ -5,10 +5,11 @@ from __future__ import annotations
 import argparse
 import sys
 
-from beril_cli import __version__
+from beril_cli import __version__, config
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """Construct the CLI parser. Split out from main() so it can be tested."""
     parser = argparse.ArgumentParser(
         prog="beril",
         description="BERIL Research Observatory — setup, check, and launch your research environment.",
@@ -27,7 +28,7 @@ def main(argv: list[str] | None = None) -> int:
     start_parser = sub.add_parser("start", help="Launch a coding agent")
     start_parser.add_argument(
         "--agent",
-        choices=["claude", "codex", "gemini"],
+        choices=list(config.SUPPORTED_AGENTS),
         default=None,
         help="Agent to launch (default: from config, or claude)",
     )
@@ -42,6 +43,12 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         metavar="VERSION",
         help="Pin to a specific release tag (e.g. v0.3.4.5). Defaults to the latest tag.",
+    )
+    start_parser.add_argument(
+        "--dev",
+        action="store_true",
+        default=False,
+        help="Only run the local BERIL without fetching the latest release. Overrides any value given in --version."
     )
 
     # user
@@ -74,12 +81,85 @@ def main(argv: list[str] | None = None) -> int:
         help="Emit machine-readable JSON (summary action)",
     )
 
+    # approve — the human witness for the plan-review checkpoint (records plan_approval)
+    approve_parser = sub.add_parser(
+        "approve",
+        help="Record human approval of a project's RESEARCH_PLAN.md",
+    )
+    approve_parser.add_argument("project", help="Project id under projects/")
+    approve_parser.add_argument(
+        "--relayed",
+        action="store_true",
+        default=False,
+        help="Assert the user approved in conversation; the CLI did not witness"
+        " it, and the record says so (via: agent-relayed)",
+    )
+
+    # auth
+    login_parser = sub.add_parser(
+        "login",
+        help = "Log in to the BERIL server with a personal access token",
+    )
+    login_parser.add_argument(
+        "--token",
+        default=None,
+        metavar="TOKEN",
+        help="Provide the token directly instead of the interactive prompt"
+    )
+    login_parser.add_argument(
+        "--status",
+        action="store_true",
+        default=False,
+        help="Show the current login status, including the current user"
+    )
+    login_parser.add_argument(
+        "--base-url",
+        default=None,
+        metavar="URL",
+        help="Server base URL for login; persisted to ~/.config/beril/config.toml (login only)",
+    )
+
+    sub.add_parser(
+        "logout",
+        help = "Log out of BERIL server, deletes local BERIL auth credentials"
+    )
+
+    # ov — link/inspect/export the OpenViking credential (login links it too)
+    ov_parser = sub.add_parser(
+        "ov",
+        help="Link, inspect, or export your OpenViking credential",
+    )
+    ov_sub = ov_parser.add_subparsers(dest="ov_action", required=True)
+    ov_setup = ov_sub.add_parser(
+        "setup",
+        help="Link OpenViking against your stored login (repair / rotation path)",
+    )
+    ov_setup.add_argument(
+        "--regenerate",
+        action="store_true",
+        default=False,
+        help="Mint a fresh OpenViking key, invalidating the old one",
+    )
+    ov_sub.add_parser(
+        "status",
+        help="Show the cached OpenViking credential and probe server health",
+    )
+    ov_sub.add_parser(
+        "print-env",
+        help='Emit OPENVIKING_URL / OPENVIKING_API_KEY (eval "$(beril ov print-env)")',
+    )
+
     # runtime-snapshot (settings.json SessionStart hook; reads the hook payload from stdin)
     sub.add_parser(
         "runtime-snapshot",
         help="Write/merge the active project's runtime.json (hook)",
     )
 
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args, remaining = parser.parse_known_args(argv)
 
     if args.command is None:
@@ -104,6 +184,7 @@ def main(argv: list[str] | None = None) -> int:
             extra_args=remaining,
             skip_onboard=args.skip_onboard,
             version=args.version,
+            dev_mode=args.dev,
         )
 
     if args.command == "user":
@@ -115,6 +196,22 @@ def main(argv: list[str] | None = None) -> int:
         from beril_cli.claims_cmd import run_claims
 
         return run_claims(args)
+
+    if args.command == "approve":
+        from beril_cli.approve_cmd import run_approve
+
+        return run_approve(args)
+    if args.command == "login":
+        from beril_cli.auth_cmd import run_login
+        return run_login(token=args.token, base_url=args.base_url, status=args.status)
+
+    if args.command == "logout":
+        from beril_cli.auth_cmd import run_logout
+        return run_logout()
+
+    if args.command == "ov":
+        from beril_cli.ov_cmd import run_ov
+        return run_ov(args)
 
     if args.command == "runtime-snapshot":
         from beril_cli.audit_cmd import run_runtime_snapshot

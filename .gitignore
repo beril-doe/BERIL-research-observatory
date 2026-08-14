@@ -89,6 +89,23 @@ projects/*/user_data/**/*.db
 projects/*/user_data/**/*.xlsx
 !projects/*/user_data/.gitkeep
 
+# Live dashboard — generated snapshot and launcher log, per project.
+# WORKLOG.md and plan_deviations.jsonl stay tracked: they are provenance.
+projects/*/dashboard.html
+# Session pin marker — see PROJECT.md "Telling the tools which project"
+projects/*/.beril-pin
+projects/*/.dash.log
+# Whether the agent is blocked on a human right now — true for seconds, and
+# only ever about the machine it was written on.
+projects/*/.agent-state.json
+projects/*/.agent-state.json.tmp
+# Passive per-session runtime history. Non-authoritative (see
+# docs/provenance-and-trust.md) and machine-local in content: shell user, ORCID,
+# session id, model. Never committed on any branch in this repo's history, so
+# ignoring it preserves the de-facto behaviour and stops a fresh clone showing an
+# untracked file after the SessionStart hook writes one.
+projects/*/runtime.json
+
 # UI application
 ui/data/cache.json
 ui/data/indexdir/
@@ -104,6 +121,7 @@ venv/
 
 # Python test results
 .coverage
+coverage.xml
 htmlcov/
 .pytest_cache/
 .ruff_cache/
@@ -116,3 +134,6 @@ knowledge/workspace
 knowledge/ov.conf
 knowledge/openviking/ov.conf
 knowledge/openviking/gcp-key.json
+
+# Superpowers brainstorm session artifacts
+.superpowers/

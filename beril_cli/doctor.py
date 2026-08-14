@@ -9,6 +9,17 @@ import subprocess
 import sys
 from pathlib import Path
 
+import httpx
+
+from beril_cli import auth_store, config
+
+# Public, unauthenticated health endpoints. `/health` is the BERIL webapp's own
+# check; `/ov/health` is the nginx proxy path that forwards to OpenViking's
+# `/health` (the "context manager" users interact with).
+_HEALTH_PATH = "/health"
+_OV_HEALTH_PATH = "/ov/health"
+_HTTP_TIMEOUT_SECONDS = 10.0
+
 
 def _find_repo_root() -> Path | None:
     """Walk up from cwd looking for PROJECT.md (repo marker)."""
@@ -48,6 +59,83 @@ def _run_silent(cmd: list[str], timeout: int = 10, env: dict | None = None) -> t
         return -1, "", f"{cmd[0]}: command not found"
     except subprocess.TimeoutExpired:
         return -1, "", f"{cmd[0]}: timed out"
+
+
+def _get_health(url: str) -> tuple[int | None, dict | None, str]:
+    """GET a public health endpoint. Returns (status_code, json_body, error).
+
+    ``status_code`` is None and ``error`` is populated when the server could
+    not be reached at all (DNS, connection, timeout). Otherwise ``status_code``
+    is the HTTP status and ``error`` is empty; ``json_body`` is the parsed body
+    when the response was JSON, else None.
+    """
+    try:
+        resp = httpx.get(url, timeout=_HTTP_TIMEOUT_SECONDS)
+    except httpx.TimeoutException:
+        return None, None, "timed out"
+    except httpx.HTTPError as exc:
+        return None, None, str(exc) or exc.__class__.__name__
+    try:
+        body = resp.json()
+    except ValueError:
+        body = None
+    return resp.status_code, body if isinstance(body, dict) else None, ""
+
+
+def _check_beril_login() -> tuple[str, str]:
+    """Return (status, detail) describing the stored BERIL login."""
+    record = auth_store.load()
+    if record is None:
+        return "WARN", "not logged in — run `beril login`"
+
+    name = record.display_name or record.orcid_id
+    # Validate the stored token so an expired/revoked login is caught, not just
+    # reported as "logged in" from a stale file.
+    url = record.base_url.rstrip("/") + "/api/user/whoami"
+    try:
+        resp = httpx.get(
+            url,
+            headers={"Authorization": f"Bearer {record.token}"},
+            timeout=_HTTP_TIMEOUT_SECONDS,
+        )
+    except httpx.HTTPError:
+        # Can't reach the server to validate — the login may still be fine.
+        return "WARN", f"{name} (stored token; server unreachable to verify)"
+
+    if resp.status_code in (401, 403):
+        return "FAIL", f"stored token rejected ({resp.status_code}) — run `beril login`"
+    if resp.status_code >= 400:
+        return "WARN", f"{name} (could not verify token: HTTP {resp.status_code})"
+    return "PASS", f"{name} ({record.orcid_id})"
+
+
+def _check_beril_webapp(base_url: str) -> tuple[str, str]:
+    """Return (status, detail) for the BERIL webapp's public /health endpoint."""
+    code, body, error = _get_health(base_url + _HEALTH_PATH)
+    if code is None:
+        return "FAIL", f"unreachable at {base_url} ({error})"
+    if code != 200:
+        return "FAIL", f"HTTP {code} from {base_url}{_HEALTH_PATH}"
+    health = (body or {}).get("status")
+    if health == "healthy":
+        return "PASS", f"healthy ({base_url})"
+    if health:
+        # e.g. "degraded" — reachable but a subservice (like the DB) is down.
+        return "WARN", f"{health} ({base_url})"
+    return "PASS", f"reachable ({base_url})"
+
+
+def _check_context_manager(base_url: str) -> tuple[str, str]:
+    """Return (status, detail) for OpenViking (the "context manager") via /ov/health."""
+    code, body, error = _get_health(base_url + _OV_HEALTH_PATH)
+    if code is None:
+        return "FAIL", f"unreachable ({error})"
+    if code != 200:
+        return "FAIL", f"HTTP {code} from {base_url}{_OV_HEALTH_PATH}"
+    status = (body or {}).get("status")
+    if status in ("ok", "healthy", None):
+        return "PASS", f"reachable ({base_url}{_OV_HEALTH_PATH})"
+    return "WARN", f"{status} ({base_url}{_OV_HEALTH_PATH})"
 
 
 def run_doctor() -> int:
@@ -111,15 +199,31 @@ def run_doctor() -> int:
 
     # 6. Agent CLIs
     agents_found = []
-    for agent in ("claude", "codex", "gemini"):
+    for agent in config.SUPPORTED_AGENTS:
         if shutil.which(agent):
             agents_found.append(agent)
     if agents_found:
         checks.append(("Agent CLIs", "PASS", ", ".join(agents_found)))
     else:
-        checks.append(("Agent CLIs", "WARN", "none found (claude, codex, gemini)"))
+        checks.append(
+            ("Agent CLIs", "WARN", f"none found ({', '.join(config.SUPPORTED_AGENTS)})")
+        )
 
-    # 7. BERDL environment
+    # 7. BERIL webapp: login state + service availability. These are
+    # informational (WARN, not FAIL) so a transient outage doesn't make doctor
+    # exit non-zero for an otherwise-fine local setup.
+    base_url = config.get_base_url()
+
+    status, detail = _check_beril_login()
+    checks.append(("BERIL login", status, detail))
+
+    status, detail = _check_beril_webapp(base_url)
+    checks.append(("BERIL webapp", status, detail))
+
+    status, detail = _check_context_manager(base_url)
+    checks.append(("Context manager", status, detail))
+
+    # 8. BERDL environment
     if repo_root:
         detect_script = repo_root / "scripts" / "detect_berdl_environment.py"
         if detect_script.exists():

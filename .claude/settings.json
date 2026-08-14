@@ -1,10 +1,11 @@
 {
+  "showThinkingSummaries": true,
   "permissions": {
     "defaultMode": "auto"
   },
   "statusLine": {
     "type": "command",
-    "command": "bash .claude/statusline.sh"
+    "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/statusline.sh\""
   },
   "hooks": {
     "SessionStart": [
@@ -12,7 +13,96 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/beril-runtime.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/beril-runtime.sh\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/plan-gate.py\"; exit 0'"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/plan-gate.py\"; exit 0'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/beril-runtime.sh\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'cd \"${CLAUDE_PROJECT_DIR:-.}\" 2>/dev/null; if ls projects/*/.agent-state.json >/dev/null 2>&1; then python3 .claude/hooks/agent_state.py; else cat >/dev/null; fi; exit 0'"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'cd \"${CLAUDE_PROJECT_DIR:-.}\" 2>/dev/null; python3 .claude/hooks/agent_state.py'"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'cd \"${CLAUDE_PROJECT_DIR:-.}\" 2>/dev/null; python3 .claude/hooks/agent_state.py'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'cd \"${CLAUDE_PROJECT_DIR:-.}\" 2>/dev/null; python3 .claude/hooks/agent_state.py'"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'cd \"${CLAUDE_PROJECT_DIR:-.}\" 2>/dev/null; python3 .claude/hooks/agent_state.py'"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'cd \"${CLAUDE_PROJECT_DIR:-.}\" 2>/dev/null; python3 .claude/hooks/dash_stop.py'"
           }
         ]
       }

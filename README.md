@@ -16,25 +16,44 @@ Through the Microbial Discovery Forge, users can:
 
 ## What is BERDL?
 
-The **KBase BER Data Lakehouse (K-BERDL)** is an Iceberg Lakehouse containing curated scientific datasets for computational biology research. It hosts more than 35 databases across tenants:
+The **KBase BER Data Lakehouse (K-BERDL)** is an Iceberg Lakehouse of curated
+scientific datasets for computational biology research. It holds dozens of
+databases across 20+ tenants (plus per-user scratch spaces), with individual
+tables ranging from thousands to well over a billion rows. New datasets are
+added over time, so treat the lakehouse itself as the source of truth for exact,
+current figures rather than the approximate volumes below (see
+[Discovering what's available](#discovering-whats-available)). Major tenants:
 
-| Tenant | Databases | Highlights |
-|--------|-----------|------------|
-| **KBase** | 9 | Pangenome (293K genomes, 1B genes), Genomes (253M proteins), Biochemistry (56K reactions), Phenotype, UniProt/UniRef, RefSeq Taxonomy  |
-| **KE Science** | 9 | AlphaFold (~241M structures), PDB (250K entries), Fitness Browser (48 organisms, 27M fitness scores), Web of Microbes (589 metabolites), BacDive (97K strains), Structural Biology |
-| **ENIGMA** | 1 | Environmental microbiology (3K taxa, 7K genomes, communities, strains) |
-| **NMDC** | 2 | Multi-omics (48 studies, 3M+ metabolomics records), harmonized BioSamples |
-| **PhageFoundry** | 5 | Species-specific genome browsers for phage research |
-| **PlanetMicrobe** | 2 | Marine microbial ecology (2K samples, 6K experiments) |
-| **PROTECT** | 1 | Pathogen genome browser |
+| Tenant | Highlights (approximate volumes) |
+|--------|----------------------------------|
+| **KBase** | Pangenome (293K genomes, 1B genes), Genomes (253M proteins), Biochemistry (56K reactions), Phenotype, UniProt/UniRef, RefSeq Taxonomy |
+| **KE Science** | AlphaFold (~241M structures), PDB (250K entries), Fitness Browser (48 organisms, 27M fitness scores), Web of Microbes (589 metabolites), BacDive (97K strains), structural biology |
+| **ENIGMA** | Environmental microbiology (3K taxa, 7K genomes, communities, strains) |
+| **NMDC** | Multi-omics: harmonized NCBI BioSamples (52M samples, 756M attributes), 1.8B+ KEGG annotation rows, 54M functional annotations, 3M+ metabolomics records |
+| **PhageFoundry** | Species-specific genome browsers for phage research |
+| **PlanetMicrobe** | Marine microbial ecology (2K samples, 6K experiments) |
+| **PROTECT** | Pathogen genome browser |
 
-Use the access-aware BERDL notebook helpers to discover the databases and
-tables available to your account. Schema documentation for commonly used
-collections lives in [docs/schemas/](docs/schemas/).
+This list is illustrative, not exhaustive. Additional tenants (for example
+ArkinLab, BERVO, PlantMicrobeInterfaces, Pangenome, RefData) are present, and the
+set grows over time.
 
-Access-sensitive discovery uses the BERDL notebook helpers. Queries run through
-Spark SQL, either directly on JupyterHub or through the local Spark wrapper when
-off-cluster.
+### Discovering what's available
+
+The lakehouse is authoritative for the current databases, tables, and row
+counts. To see what your account can access:
+
+- **In a BERDL notebook:** use the access-aware helpers (`get_databases()`,
+  `get_tables()`, `get_table_schema()`) or the `/berdl-discover` skill. See
+  [docs/getting_started.md](docs/getting_started.md).
+- **With Spark SQL:** `SHOW NAMESPACES`, `SHOW TABLES IN <namespace>`,
+  `DESCRIBE <namespace>.<table>`, and `SELECT COUNT(*) FROM <namespace>.<table>`,
+  via the `/berdl` skill on JupyterHub or `scripts/run_sql.py` off-cluster.
+- **Full inventory:** `scripts/berdl_inventory.py` writes a per-database report
+  to `data/berdl_inventory.md`.
+
+Table-level schema is best read live with `get_table_schema()` or `DESCRIBE`
+(above), since it tracks the lakehouse rather than a static doc.
 
 ## Running the AI agent
 
@@ -45,7 +64,7 @@ To use Claude Code you will need an API key. If you are Berkeley Lab staff, you 
 ### Prerequisites
 
 - A KBase account with BERDL access (see [Getting BERDL Access](#getting-berdl-access))
-- [Claude Code](https://claude.ai/claude-code) installed (or another supported agent e.g. codex)
+- [Claude Code](https://claude.ai/claude-code) installed (or another supported agent: `codex`, `gemini`, `omp`)
 - Python 3.11+
 - Git
 
@@ -88,7 +107,7 @@ cp .env.example .env
 # from .env automatically. If your token is ever exposed, delete it immediately
 # from the JupyterHub token management page and generate a new one.
 
-# 3. Open Claude Code in the repo
+# 3. Open your agent in the repo (claude, codex, gemini or omp)
 claude
 ```
 
@@ -138,7 +157,7 @@ Skills are invoked automatically based on context, or explicitly with `/skill-na
 | **LinkML Schema** | `/linkml-schema` | Generate LinkML schema from markdown, Excel, or plain text |
 | **Phenix** | `/phenix` | Structural biology workflows — AlphaFold, X-ray, cryo-EM, MolProbity |
 
-BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environment management outside the agent session. Multi-agent support (Codex, Gemini) is planned.
+BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environment management outside the agent session. `beril start --agent <name>` launches Claude Code, Codex, Gemini CLI or omp.
 
 ---
 

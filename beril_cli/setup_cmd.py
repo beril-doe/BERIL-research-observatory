@@ -8,8 +8,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from beril_cli import config
+from beril_cli import auth_store, config
+from beril_cli.auth_cmd import run_login
 from beril_cli.detect import detect_user_identity, print_jupyterhub_path_hint
+from beril_cli.start import claude_defaults
 
 
 def _find_repo_root() -> Path | None:
@@ -42,6 +44,159 @@ def _step(number: int, label: str) -> None:
     print(f"\n{'─' * 50}")
     print(f"  Step {number}: {label}")
     print(f"{'─' * 50}")
+
+
+def _dashboard_api(repo_root: Path):
+    """Borrow the dashboard's own proxy probe rather than reimplementing it.
+
+    `tools/dashboard.py` is stdlib-only and cannot import from here — it runs under
+    a bare `python3` in the pod — so the dependency goes this way round. It also
+    means the wizard checks live mode with exactly the function the dashboard gates
+    on, so "setup worked" and "the dashboard will start" cannot disagree.
+    """
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    try:
+        from tools.dashboard import RESTART_STEPS, jupyter_python, proxy_enabled
+    except Exception:
+        return None, None, ()
+    return proxy_enabled, jupyter_python, RESTART_STEPS
+
+
+def _install_server_proxy(repo_root: Path, assume_yes: bool = False) -> int:
+    """Install and enable jupyter-server-proxy for this user, then say what next.
+
+    Targets ``--user`` (``~/.local``) deliberately. On this image ``/opt/conda``
+    is an *overlay* mount — writable, and reverted on every pod restart — while
+    ``$HOME`` is a persistent volume. So ``--user`` is both the only target that
+    survives and the only one a non-admin should be writing to. It also means
+    this is a once-per-*user* cost, not once per pod.
+
+    Never run implicitly. It mutates the user's environment and its last step
+    restarts their server, so it only ever happens because someone typed it.
+    """
+    proxy_enabled, jupyter_python, restart_steps = _dashboard_api(repo_root)
+    if proxy_enabled is None:
+        print("  Could not read tools/dashboard.py in this checkout — skipping.")
+        return 1
+
+    if proxy_enabled():
+        print("jupyter-server-proxy is already enabled — nothing to do.")
+        print("If live mode still is not working, restart your server:")
+        for step in restart_steps:
+            print(f"  - {step}")
+        return 0
+
+    python = jupyter_python()
+    if python is None:
+        print(
+            "Could not find the interpreter your Jupyter server runs on: no "
+            "`jupyter` on PATH.\nRun this from a terminal inside JupyterHub, where "
+            "it resolves to the server's own environment.",
+            file=sys.stderr,
+        )
+        return 1
+
+    steps = [
+        [python, "-m", "pip", "install", "--user", "jupyter-server-proxy"],
+        # Usually redundant: the pip install drops its own enable file into
+        # <userbase>/etc/jupyter/jupyter_server_config.d/. Kept because it is
+        # cheap and it covers the case where that drop-in did not land.
+        [shutil.which("jupyter") or "jupyter", "server", "extension", "enable",
+         "--user", "jupyter_server_proxy"],
+    ]
+
+    print("This will run, as your user:\n")
+    for step in steps:
+        print(f"  {' '.join(step)}")
+    print("\nThen you will need to:\n")
+    for item in restart_steps:
+        print(f"  - {item}")
+
+    if not assume_yes:
+        if not sys.stdin.isatty():
+            print("\nNot a terminal — re-run with --yes to proceed non-interactively.")
+            return 1
+        if input("\n  Proceed? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("  Skipped — the dashboard stays a snapshot. Re-run `beril setup`")
+            print("  any time to turn it on.")
+            return 1
+
+    for step in steps:
+        print(f"\n$ {' '.join(step)}")
+        try:
+            result = subprocess.run(step, check=False)
+        except OSError as exc:
+            print(f"could not run {step[0]}: {exc}", file=sys.stderr)
+            return 1
+        if result.returncode != 0:
+            print(f"\nFailed: {' '.join(step)}", file=sys.stderr)
+            return result.returncode
+
+    # Verified through the same probe the dashboard gates on, so "setup worked"
+    # and "the dashboard will start" cannot disagree.
+    if not proxy_enabled():
+        print(
+            "\nInstalled, but the extension still does not read as enabled.\n"
+            "Report this with the output above — it is not a case we have seen.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print("\n" + "=" * 64)
+    print("Installed and enabled. Two steps left, and this is the only time:")
+    for item in restart_steps:
+        print(f"  - {item}")
+    print("=" * 64)
+    return 0
+
+
+
+
+def _run_login_step() -> None:
+    """Log in to BERIL (which also links OpenViking) as part of setup.
+
+    Best-effort, mirroring how ``beril login`` treats its own OpenViking
+    linking: setup must complete even if login is skipped or fails, so a bad
+    token, an unreachable server, or a non-interactive shell only warns. The
+    user can always run ``beril login`` later.
+
+    Skips entirely when a valid login already exists — re-running setup should
+    not force a re-auth of someone who is already logged in.
+    """
+    base_url = config.get_base_url()
+
+    record = auth_store.load()
+    if record is not None:
+        name = record.display_name or record.orcid_id
+        print(f"  Already logged in as {name} on {record.base_url}.")
+        print("  Run `beril login` any time to re-authenticate or switch servers.")
+        return
+
+    print(f"  Log in to BERIL ({base_url}) — this also links OpenViking so the")
+    print("  knowledge-context tools work without extra setup.")
+
+    # run_login() with no token prompts via getpass, which needs a real
+    # terminal. Off a TTY (CI, piped input) that would hang, so point the user
+    # at the manual command and move on.
+    if not sys.stdin.isatty():
+        print("  Not a terminal — run `beril login` yourself once setup finishes.")
+        return
+
+    if not _confirm("  Log in now?"):
+        print("  Skipped — run `beril login` later to enable OpenViking.")
+        return
+
+    # run_login handles its own prompting, validation, and OV linking, and
+    # prints its own success/failure lines. A non-zero return is not fatal to
+    # setup — just note it and continue.
+    try:
+        rc = run_login()
+    except (EOFError, KeyboardInterrupt):
+        print("\n  Login cancelled — run `beril login` later.")
+        return
+    if rc != 0:
+        print("  Login did not complete — run `beril login` later to finish.")
 
 
 def run_setup() -> int:
@@ -132,8 +287,12 @@ def run_setup() -> int:
     else:
         print("  KBASE_AUTH_TOKEN is set.")
 
-    # ── Step 3: BERDL environment ───────────────────
-    _step(3, "BERDL environment")
+    # ── Step 3: BERIL login (+ OpenViking) ──────────
+    _step(3, "BERIL login")
+    _run_login_step()
+
+    # ── Step 4: BERDL environment ───────────────────
+    _step(4, "BERDL environment")
 
     on_cluster = False
     detect_script = repo_root / "scripts" / "detect_berdl_environment.py"
@@ -155,14 +314,14 @@ def run_setup() -> int:
     else:
         print("  Detection script not found, skipping.")
 
-    # ── Step 4: Virtual environment ─────────────────
+    # ── Step 5: Virtual environment ─────────────────
     # .venv-berdl is only needed off-cluster (for spark_connect_remote, pproxy, etc.)
     # On-cluster (JupyterHub), Spark is directly available.
     if on_cluster:
-        _step(4, "BERDL client environment")
+        _step(5, "BERDL client environment")
         print("  On-cluster — .venv-berdl not needed (Spark is directly available).")
     else:
-        _step(4, "BERDL client environment")
+        _step(5, "BERDL client environment")
 
         venv_path = repo_root / ".venv-berdl"
         bootstrap_script = repo_root / "scripts" / "bootstrap_client.sh"
@@ -185,8 +344,8 @@ def run_setup() -> int:
         else:
             print("  Bootstrap script not found, skipping.")
 
-    # ── Step 5: GitHub CLI ──────────────────────────
-    _step(5, "GitHub CLI")
+    # ── Step 6: GitHub CLI ──────────────────────────
+    _step(6, "GitHub CLI")
 
     rc = subprocess.run(
         ["gh", "auth", "status"],
@@ -202,8 +361,8 @@ def run_setup() -> int:
         print("  gh is not installed.")
         print("  Install: https://cli.github.com/")
 
-    # ── Step 6: Profile (optional) ──────────────────
-    _step(6, "Profile (optional — press Enter to skip)")
+    # ── Step 7: Profile (optional) ──────────────────
+    _step(7, "Profile (optional — press Enter to skip)")
 
     existing_cfg = config.load()
     user_cfg = existing_cfg.get("user", {})
@@ -227,18 +386,18 @@ def run_setup() -> int:
     if orcid:
         user_cfg["orcid"] = orcid
 
-    # ── Step 7: Agent selection ─────────────────────
-    _step(7, "Coding agent")
+    # ── Step 8: Agent selection ─────────────────────
+    _step(8, "Coding agent")
 
     agents_found: list[str] = []
-    for agent in ("claude", "codex", "gemini"):
+    for agent in config.SUPPORTED_AGENTS:
         if shutil.which(agent):
             agents_found.append(agent)
 
     if agents_found:
         print(f"  Detected: {', '.join(agents_found)}")
     else:
-        print("  No agents detected (claude, codex, gemini).")
+        print(f"  No agents detected ({', '.join(config.SUPPORTED_AGENTS)}).")
         print("  Install one and re-run setup, or use beril start --agent <name>.")
 
     default_agent = existing_cfg.get("defaults", {}).get("agent", "")
@@ -250,16 +409,16 @@ def run_setup() -> int:
         if chosen not in agents_found:
             print(f"  Warning: '{chosen}' was not detected on PATH.")
     else:
-        chosen = default_agent or "claude"
+        chosen = default_agent or config.DEFAULT_AGENT
 
-    # ── Step 8: BERIL Anthropic key (Google Vertex) ──
+    # ── Step 9: BERIL Anthropic key (Google Vertex) ──
     vertex_cfg: dict = {}
     _VERTEX_CREDENTIALS = Path("/global_share/BERIL-setup/20260507_hackathon.json")
     _VERTEX_PROJECT_ID = "beril-hackathon-2026"
     _VERTEX_REGION = "global"
 
     if chosen == "claude" and _VERTEX_CREDENTIALS.exists():
-        _step(8, "BERIL Anthropic key (Google Vertex)")
+        _step(9, "BERIL Anthropic key (Google Vertex)")
         print("  A shared BERIL Anthropic API key is available via Google Vertex.")
         print("  This lets you use Claude without a personal API key or subscription.")
         if _confirm("  Use the BERIL Anthropic key?"):
@@ -273,7 +432,7 @@ def run_setup() -> int:
         else:
             print("  Skipped — Claude will use your personal API key / subscription.")
     elif chosen == "claude":
-        _step(8, "BERIL Anthropic key (Google Vertex)")
+        _step(9, "BERIL Anthropic key (Google Vertex)")
         print("  Shared Vertex credentials not found at expected location.")
         print("  Claude will use your personal API key / subscription.")
 
@@ -287,8 +446,17 @@ def run_setup() -> int:
     config.save(cfg)
     print(f"\n  Config saved to {config.CONFIG_PATH}")
 
-    # ── Step 9: Launch ──────────────────────────────
-    _step(9, "Launch")
+    # ── Step 10: Live dashboard ─────────────────────
+    _step(10, "Live dashboard (optional)")
+
+    print("  While a project runs, the status line links to a dashboard page.")
+    print("  Without jupyter-server-proxy that page is a snapshot: it renders")
+    print("  fully but does not update itself. Installing it is once per user —")
+    print("  $HOME persists, so it survives every later pod restart.")
+    _install_server_proxy(repo_root)
+
+    # ── Step 11: Launch ─────────────────────────────
+    _step(11, "Launch")
 
     if agents_found and _confirm(f"  Launch {chosen} now?"):
         print(f"\n  Starting {chosen} with /berdl_start...\n")
@@ -304,7 +472,8 @@ def run_setup() -> int:
                 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = vertex_cfg.get("credentials_file", "")
                 os.environ["VERTEX_REGION_CLAUDE_HAIKU_4_5"] = "us-east5"
                 os.environ["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = "claude-haiku-4-5@20251001"
-            os.execvp(binary, [chosen, "--model", "opus", "/berdl_start"])
+            flags = claude_defaults(chosen, [])
+            os.execvp(binary, [chosen, *flags, "/berdl_start"])
         else:
             print(f"  Error: '{chosen}' not found on PATH.", file=sys.stderr)
             return 1
