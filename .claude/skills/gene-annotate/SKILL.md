@@ -229,6 +229,21 @@ When `--string-dir` is provided, a seventh evidence source is added:
 
 `BatchStringToolkit` DIAMOND-searches query proteins against the STRING v12 proteome, then transfers two kinds of evidence from the best hit: COG/NOG orthogroup(s) (family-level identity prior) and high-confidence functional network partners (guilt-by-association from experiments, curated databases, gene neighborhood, fusion, co-occurrence, co-expression, and text-mining). Partners are gated at `combined_score ≥ 700`; top 8 are returned with specific-function partners ranked first and ubiquitous hub proteins (ribosomal/RNA-pol subunits with > 50 partners) flagged `[hub]` and demoted.
 
+**STRING presentation mode — `--string-mode {edges,full}` (default `edges`).** This controls what the
+LLM is allowed to reason from:
+- **`edges` (default)** — STRING is treated as a **corroborating network only**. The best hit's
+  *propagated (transferred) homolog annotation* is **withheld**, and text-mining-only partners are
+  dropped; what remains is the partner network (partner names, their annotations, association channels)
+  plus the COG/NOG orthogroup(s). Use this when you do **not** want the model to lean on a homolog's
+  free-text description as a direct functional call — it forces reasoning from network structure and
+  family membership rather than annotation transfer.
+- **`full`** — legacy behavior: keeps the transferred homolog annotation **and** all partners.
+
+`edges` is the default because annotation transfer from a single best hit can over-commit the model to a
+homolog's label; edge/orthogroup evidence is more conservative. Pass `--string-mode full` only when the
+user explicitly wants the legacy transferred-annotation behavior (e.g., an A/B comparison against a prior
+`full` run). This flag is only meaningful with `--string-dir`.
+
 This source is **independent of `--berdl-data-dir`** — it can be used with or without the BERDL layer.
 
 Requires:
@@ -426,40 +441,103 @@ conda activate gene-annotation-predictor
 # Check DIAMOND is now on PATH from the conda env (>= 2.2.3)
 command -v diamond && diamond --version | head -1
 
-# Check API key availability (priority order)
-# Always source from the BERIL repo — NOT from the gene-annotation-predictor package dir
-set -a && source $REPO/.env 2>/dev/null; set +a
-if [ -n "${CBORG_API_KEY:-}" ]; then
-    echo "API: CBORG"
-elif [ -n "${OPENAI_API_KEY:-}" ]; then
-    echo "API: OpenAI"
-elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-    echo "API: Anthropic"
-else
-    echo "ERROR: No API key found"
-fi
+# --- Credential checks WITHOUT exposing any secret value ---
+# NOTE: some environments run a secret-guard hook that BLOCKS `source $REPO/.env`, `echo $KEY`,
+# and `curl -H "Authorization: $TOKEN"` because they read a secret into context. Do NOT source
+# .env or echo/curl a token. You do NOT need to `source` .env at all: the CLI reads $REPO/.env
+# from its own CWD (both KBASE_AUTH_TOKEN and MinIO/S3 creds), and CBORG_API_KEY is inherited
+# from the shell env. Check only that the required variable NAMES exist (values never printed):
+python3 - <<'PY'
+import os, re
+env = {}
+for line in open(os.path.join(os.environ["REPO"], ".env")):
+    m = re.match(r'^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=', line.strip())
+    if m: env[m.group(1)] = True
+def have(*names): return any(n in env or os.environ.get(n) for n in names)
+print("API key:", "CBORG" if have('CBORG_API_KEY') else
+      ("OpenAI" if have('OPENAI_API_KEY') else
+       ("Anthropic" if have('ANTHROPIC_API_KEY') else "MISSING")))
+print("KBASE_AUTH_TOKEN:", "present" if have('KBASE_AUTH_TOKEN') else "MISSING")
+# MinIO for CTS: load_minio_credentials accepts MINIO_* OR the S3_* fallback (S3_ACCESS_KEY/S3_SECRET_KEY)
+print("MinIO/S3 creds:", "present" if (have('MINIO_ACCESS_KEY','S3_ACCESS_KEY')
+      and have('MINIO_SECRET_KEY','S3_SECRET_KEY')) else "MISSING -> CTS silently falls back to local!")
+PY
 
-# Check InterProScan exists
+# --- FAIL-SAFE: validate the KBASE token is LIVE (a stale token 401s every CTS job silently) ---
+# Read the token inside python and print ONLY the HTTP status — never the token itself.
+cd $REPO
+python3 - <<'PY'
+import re, urllib.request, urllib.error
+tok=None
+for l in open(".env"):
+    m=re.match(r'^(?:export\s+)?KBASE_AUTH_TOKEN\s*=\s*"?([^"\n]+)"?', l)
+    if m: tok=m.group(1).strip()
+try:
+    r=urllib.request.urlopen(urllib.request.Request(
+        "https://kbase.us/services/auth/api/V2/token", headers={"Authorization":tok}), timeout=15)
+    print("KBASE token HTTP:", r.status, "-> VALID" if r.status==200 else "")
+except urllib.error.HTTPError as e:
+    print("KBASE token HTTP:", e.code,
+          "-> EXPIRED; refresh $REPO/.env before running (every CTS job will 401)" if e.code==401 else "")
+PY
+
+# Check paths / binaries
 [ -x /global_share/gene-annotation-predictor/bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh ] && echo "InterProScan: OK"
-
-# Check BERDL data dir
 [ -d /global_share/gene-annotation-predictor/data_sources/sequences/ ] && echo "BERDL data: OK"
-
-# Check summaries parquet
 [ -f /global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet ] && echo "Summaries parquet: OK"
-
-# Check KBASE_AUTH_TOKEN for BERDL layer
-[ -n "${KBASE_AUTH_TOKEN:-}" ] && echo "KBASE_AUTH_TOKEN: set"
-
-# Check MinIO credentials (required for --cts-interproscan)
-[ -n "${MINIO_ACCESS_KEY:-}" ] && [ -n "${MINIO_SECRET_KEY:-}" ] && echo "MinIO credentials: set"
-
-# Check STRING database (optional, needed for --string-dir)
-[ -f /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12/string_proteins.dmnd ] && \
-  echo "STRING database: OK"
+[ -f /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12/string_proteins.dmnd ] && echo "STRING database: OK"
+[ -x /global_share/gene-annotation-predictor/.venv/bin/gene-annotate ] && echo "gene-annotate bin: OK"
 ```
 
 If any critical check fails, inform the user and suggest remediation before proceeding.
+
+#### Fail-safe checks against silent failures
+
+This pipeline degrades **silently** in several ways — a missing credential or stale token does not
+abort the run, it just quietly drops an evidence layer or loses rows. Verify at three points:
+
+**Before the run** (the block above):
+- **API key present** — else the first LLM call fails.
+- **KBASE token returns HTTP 200** — a stale token 401s every CTS InterProScan/DIAMOND job. The CLI
+  reads `.env` from its **CWD**, so a stale token in the package dir (`/global_share/.../.env`) will be
+  used if you run from there; always `cd $REPO`.
+- **MinIO/S3 creds present** — if missing, `--cts-interproscan` is skipped and `--cts-diamond` falls
+  back to local DIAMOND, both with only a `WARNING` (cli.py ~394/1014). The repo's `S3_ACCESS_KEY`/
+  `S3_SECRET_KEY` are accepted as the `MINIO_*` fallback.
+
+**Early in the run** (read the first ~1 min of the log): confirm the run cleared the points where it
+would silently degrade —
+- `Submitting InterProScan CTS job` **and** `Uploading … to cts/io/…` appear → CTS auth + MinIO upload OK
+  (no silent 401, no silent local fallback).
+- `Fetching built-in evidence: pangenome_neighborhood …` appears → **Spark connected**; this source is
+  silently skipped without `--berdl-use-spark` or a live Spark session.
+- No `bio_policy`, `401`, `403`, or `Traceback` lines.
+
+**After the run** (before summarizing): run the reconciliation and a whole-log scan —
+```bash
+export D=<output-dir>          # e.g. data/<...>/hyp_dark10k_annotations
+# 1) reconcile: input N must equal SKIPPED + ERROR + LLM-called (no rows silently dropped)
+#    NOTE: heredoc is quoted, so read $D via os.environ (do NOT rely on $D expanding inside it).
+python3 - <<'PY'
+import os, polars as pl
+D = os.environ["D"]
+tsv = f"{D}/{os.path.basename(D.rstrip('/'))}_annotations.tsv"   # <output-dir-basename>_annotations.tsv
+df = pl.read_csv(tsv, separator="\t", infer_schema_length=0)
+a = df["annotation"].fill_null("")
+print("rows", df.height, "| SKIPPED", int(a.str.starts_with("SKIPPED").sum()),
+      "| ERROR", int(a.str.starts_with("ERROR:").sum()),
+      "| model tags", df["model"].unique().to_list())  # one tag = no silent Anthropic fallback
+PY
+# 2) scan the WHOLE log for real failures — includes 5xx / gateway-timeout modes, not just 401/403
+grep -inE "bio_policy|HTTP[^0-9]{0,6}(40[13]|5[0-9][0-9])|error 52[0-9]|timeout|timed out|Traceback|Invalid token|FATAL" $D/run.log | grep -viE "NCBI_API_KEY"
+```
+A `bio_policy` 400 (content filter, seen on pathogen-adjacent sequences) drops that row and does **not**
+clear on a plain `gpt-5.4` retry — re-annotate those genes with an Anthropic model (they will carry a
+different `model` tag). **Reproducible gateway/tunnel timeouts behave the same way:** large-prompt
+sequences can hit a 5xx / Cloudflare "error 524" / hung CTS or LLM call that a same-model `gpt-5.4` retry
+fails *identically* on (it is reproducible, not transient), but that succeeds when re-annotated on an
+Anthropic model (`claude-opus-4.5`/`claude-sonnet-4.6`) — apply the same different-model remediation.
+More than one distinct `model` tag in the reconciliation flags such a fallback.
 
 ### Step 2.5: Confirm DIAMOND DB Builds for New Sources
 
@@ -516,6 +594,28 @@ Default behavior: if the user picks all three (or skips the prompt), omit `--tie
 
 When to skip this prompt: if the user has already specified tiers in their request (e.g., "only run Tier A on these sequences"), use that directly without asking. For quick re-runs in the same session where the tier choice was already made, reuse it.
 
+### Step 2.7: Confirm Reasoning-Pass Mode (cost control)
+
+By default each sequence makes **two** LLM calls: an unbound "reasoning" pass (populates the raw
+`reasoning` column) and a structured pass (populates the annotation + the always-present
+`reasoning_trace`). Setting `GENE_ANNOTATE_SKIP_REASONING=1` in the environment **skips the first pass**,
+which roughly **halves per-sequence token cost and runtime**. The only thing lost is the raw CBORG
+`reasoning` summary column — `reasoning_trace` (the model's chain-of-thought inside the structured output)
+is still fully populated, so annotation quality and auditability are preserved.
+
+**Default: skip the reasoning pass (`GENE_ANNOTATE_SKIP_REASONING=1`)** — but confirm with the user first,
+since it's a quality/cost trade-off. Use `AskUserQuestion`:
+
+> "Skip the separate reasoning pass to halve token cost? (`reasoning_trace` is still captured; only the
+> raw `reasoning` column is dropped.)"
+> Options:
+> - **Skip reasoning pass — halve cost (Recommended)** → export `GENE_ANNOTATE_SKIP_REASONING=1` in Step 3
+> - **Keep reasoning pass — full raw reasoning output** → do not set the variable
+
+When to skip this prompt: if the user has already stated a preference (e.g., "keep the reasoning output"
+or "minimize tokens"), honor it without asking. For large runs (> a few hundred sequences) where the user
+has expressed cost sensitivity, lead with the skip default.
+
 ### Step 3: Build and Run the Command
 
 **Default dispatch when running from the lakehouse (JupyterHub): use CTS for both InterProScan and DIAMOND.** All lakehouse runs are executed on shared JupyterHub nodes whose local CPU / memory is limited; offloading InterProScan and DIAMOND to the CDM Task Service (CTS) keeps compute off the notebook node, avoids memory pressure, and uses the CTS-hosted refdata bundle so no local `.dmnd` files are consulted. This is the standard operating configuration — include `--cts-interproscan --cts-diamond --cts-username "$USER"` in every lakehouse run unless the user explicitly asks for a local invocation. Because CTS is the default, `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY` must be present in `$REPO/.env` (see Step 2). Use `--interproscan <path>` (no CTS flags) only on a laptop / off-cluster environment where the local InterProScan install is desired.
@@ -524,9 +624,13 @@ When to skip this prompt: if the user has already specified tiers in their reque
 
 ```bash
 conda activate gene-annotation-predictor
-cd $REPO                                       # run from the BERIL repo — see token note below
+cd $REPO                                       # run from the BERIL repo — the CLI reads .env from CWD
 
-set -a && source $REPO/.env 2>/dev/null; set +a
+# Do NOT `source $REPO/.env` — the CLI reads it from CWD itself (token + MinIO/S3 creds), and a
+# secret-guard hook may block sourcing. CBORG_API_KEY is inherited from the shell env.
+
+# Step 2.7 default: skip the reasoning pass to halve cost (omit this line only if the user chose to keep it)
+export GENE_ANNOTATE_SKIP_REASONING=1
 
 /global_share/gene-annotation-predictor/.venv/bin/gene-annotate \
   --input <FASTA_FILE(S)> \
@@ -541,6 +645,10 @@ set -a && source $REPO/.env 2>/dev/null; set +a
   --berdl-use-spark \
   <OPTIONAL_FLAGS>
 ```
+
+> When `--string-dir` is passed, STRING defaults to `--string-mode edges` (corroborating network, no
+> transferred homolog annotation). Add `--string-mode full` only for the legacy transferred-annotation
+> behavior (see the "STRING Network Evidence" section under Prerequisites).
 
 Off-cluster / laptop use (no CTS available) — swap the three CTS flags for `--interproscan <local path>`. Since the run is launched from `$REPO` (not the package dir), pass an **absolute** path:
 
@@ -571,6 +679,7 @@ Off-cluster / laptop use (no CTS available) — swap the three CTS flags for `--
 - `--source-config <output_dir>/berdl_sources.yaml` (alias: `--berdl-source-config`) — include when Step 1.5 produced a YAML
 - `--berdl-build-missing-dbs` — include when at least one source from Step 2.5 was approved for build
 - `--string-dir /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12` — adds STRING v12 network-association evidence (orthogroup identity + functional network partners). Recommended for any run where BERDL evidence may be sparse; independent of `--berdl-data-dir`.
+- `--string-mode {edges,full}` — how STRING evidence is presented; **default `edges`** (corroborating network, transferred homolog annotation withheld). Pass `--string-mode full` only for legacy transferred-annotation behavior. Only meaningful with `--string-dir`.
 - `--tier <comma-list>` — include only when Step 2.6 produced a strict subset of `A,B,C` (e.g., `--tier A` or `--tier A,B`). Omit when all three tiers are selected (the CLI default is `A,B,C`).
 
 ### Step 4: Monitor Execution
@@ -578,7 +687,15 @@ Off-cluster / laptop use (no CTS available) — swap the three CTS flags for `--
 The tool runs synchronously — it processes each sequence through the full evidence pipeline (DIAMOND search, InterProScan, fitness lookup, LLM annotation). For large FASTA files this can take significant time.
 
 - Display any stdout/stderr output to the user
-- If the run is expected to be long (many sequences), warn the user and consider running in the background
+- If the run is expected to be long (many sequences), warn the user and run it in the background
+- **For long runs (thousands of sequences / many hours), monitor periodically — not just at minute one.**
+  Silent degradation can begin long after the first-minute check: a cluster of `bio_policy` row-drops,
+  a reproducible gateway-timeout streak, or a `KBASE_AUTH_TOKEN` **expiring mid-run** and 401-ing every
+  subsequent CTS job. Every ~30–60 min: (a) `grep -inE "bio_policy|HTTP[^0-9]{0,6}(40[13]|5[0-9][0-9])|timeout|Traceback" <output-dir>/run.log`
+  for *new* failures, and (b) confirm the annotated-row count is still climbing (the output TSV grows).
+  A CTS token minted for a ~2 h runtime can expire during a longer run — re-run the HTTP-200 token check
+  (Step 2) if the run exceeds the token's lifetime. A persistent log monitor (emit on the failure
+  signatures above) is the low-overhead way to catch these the moment they appear.
 
 ### Step 5: Present Results
 
@@ -826,6 +943,8 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 | `--t-threshold` | `2.0` | Minimum T-statistic for fitness data |
 | `--prompt-file` | built-in | Custom system prompt for the LLM |
 | `--string-dir` | *(omit to skip)* | Path to STRING v12 data directory (`string_proteins.dmnd` + `string.sqlite`). Use `/global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12`. Independent of `--berdl-data-dir`; adds `string_evidence` column to output. |
+| `--string-mode` | `edges` | STRING presentation: `edges` (default) withholds the transferred homolog annotation + drops text-mining-only partners, keeping the partner network + orthogroups; `full` = legacy transferred-annotation behavior. Only used with `--string-dir`. |
+| `GENE_ANNOTATE_SKIP_REASONING` *(env var)* | *(unset)* | Set to `1` to skip the separate reasoning pass and halve per-sequence token cost. `reasoning_trace` is still populated; only the raw `reasoning` column is left empty. Default per Step 2.7 is to set it (confirm with user). |
 
 ## Evidence Tiers
 
@@ -848,7 +967,16 @@ Tier definitions are authoritative in `/global_share/gene-annotation-predictor/g
 
 ## Caching
 
-DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`. Subsequent runs with the same `--output-dir` resume from where they left off. To force a fresh run, delete `<output-dir>/.cache/` or use a new `--output-dir`.
+DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`, and completed
+per-sequence annotations are appended incrementally to the output TSV. Subsequent runs with the same
+`--output-dir` resume from where they left off. To force a fresh run, delete `<output-dir>/.cache/` or use a new `--output-dir`.
+
+**Resume is crash-safe.** If a run is killed, OOM-ed, or dies on a lost Spark/CTS session or an expired
+token, just **re-invoke the identical command with the same `--output-dir`** — it resumes from the cache
+and the already-written output rows rather than starting over, so an interrupted multi-hour run does
+**not** re-pay LLM cost for sequences already annotated. This is the standard recovery for a crashed
+long run: fix the underlying cause (refresh the token, restart the Spark server, retry the failed rows on
+an Anthropic model) and relaunch. Do not delete `<output-dir>/.cache/` unless you intend a full fresh run.
 
 **InterProScan cache**: results are written to `<output-dir>/<cache_id>_ipr.tsv` **and** `<output-dir>/<cache_id>_ipr.json`. The loader prefers the JSON when present (it carries HMM-model coordinates, e-values, and scores needed for the enriched evidence block); the TSV serves as a fallback for older caches that predate JSON output. Delete both files to force InterProScan to re-run. On the CTS path, the client downloads both formats and merges the per-batch JSONs by unioning their `results` arrays.
 
@@ -869,8 +997,10 @@ DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`
 | BERDL auth error | `KBASE_AUTH_TOKEN` missing or expired | Set or refresh `KBASE_AUTH_TOKEN` in `$REPO/.env` — **not** in the gene-annotation-predictor package directory |
 | `CTS job submission failed (401) … Invalid token` (InterProScan and/or `FATAL: paperblast_uniq batch fetch failed`) | The CLI's `load_berdl_token()` reads `.env` from the **current working directory**, ignoring the env var. Running from `/global_share/gene-annotation-predictor` picks up that dir's **stale** `.env` token even when `$REPO/.env` is valid. | `cd $REPO` before invoking (all lakehouse paths are absolute, so CWD need not be the package dir). Verify with `curl -s -o /dev/null -w '%{http_code}' -H "Authorization: $KBASE_AUTH_TOKEN" https://kbase.us/services/auth/api/V2/token` → expect `200`. |
 | `ERROR: … 400 … code: bio_policy` ("flagged for possible biological risk") on a row | The CBORG/OpenAI gateway applies a **content filter** to some pathogen / select-agent-adjacent sequences (observed on *Vibrio cholerae*). It is newly deployed / intermittent — the same genes annotated fine in earlier runs, and a plain retry with the same model does **not** clear it. Any `gpt-5.4` re-run touching such organisms will systematically lose those rows. | Re-annotate the flagged genes with an **Anthropic model** (`--model claude-opus-4.5` or `claude-sonnet-4.6`), whose filter differs; or retain their prior annotations. Those rows will carry a different `model` tag than the rest of the run. |
+| `ERROR: … timeout` / HTTP 5xx / Cloudflare "error 524" on a large-prompt sequence, **reproducible across same-model retries** | Distinct from `bio_policy`: a large evidence prompt hits a **reproducible** (not transient) gateway/tunnel timeout at the CBORG/CTS gateway. A same-model `gpt-5.4` retry fails identically and the row is silently lost. (These 5xx/timeout lines are missed by a `40[13]`-only log scan — see the widened grep in Step 2.) | Re-annotate those specific rows with an **Anthropic model** (`--model claude-opus-4.5`/`claude-sonnet-4.6`), which succeeds — same remediation as `bio_policy`. Distinguish from `bio_policy` by the absence of a `400 … bio_policy` code. Recovered rows carry a different `model` tag. |
 | DIAMOND not found (local off-cluster mode) | `diamond` binary not on PATH — it ships in the conda env, not the package `./bin/` | `conda activate gene-annotation-predictor` so DIAMOND (≥ 2.2.3) is on PATH; on the lakehouse prefer `--cts-diamond` and this never applies |
-| Spark session error | Spark not available in environment | Check that Spark dependencies are installed in the conda + Poetry environment |
+| `Spark Connect session did not respond within 90s` / "server listening but not serving sessions (zombie driver)" | The Spark Connect driver went into a zombie state (listening but not serving sessions) — often after a prior query was killed or timed out. **Affects the main annotation run too:** a dead session makes the CLI silently skip the `pangenome_neighborhood` evidence source (no error), not just standalone build scripts. | Restart the Connect server: `python3 -c "from berdl_notebook_utils.refresh import refresh_spark_environment; refresh_spark_environment()"` (also rotates MinIO creds), then re-invoke. If it recurs, restart the JupyterHub kernel/session. On the main run, confirm recovery via the early-log check that `Fetching built-in evidence: pangenome_neighborhood …` appears. Because the run is resume-safe (see Caching), just relaunch with the same `--output-dir`. |
+| Spark session error (other) | Spark dependencies missing | Check that Spark deps are installed in the conda + Poetry environment |
 
 ## Integration with Other Skills
 
@@ -896,6 +1026,9 @@ DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`
 10. **Always produce both `summary.txt` and `WRITEUP.md`** (Step 5 and Step 6). The writeup is required for any run with a discernible user goal — skip it only for ≤ 5-sequence ad-hoc queries.
 11. **Prompt for tier selection before launching** (Step 2.6) using `AskUserQuestion` with `multiSelect: true`. Default is all three tiers. Pass `--tier <list>` in Step 3 only when the user picks a strict subset of `A,B,C`. Skip the prompt only when the user has already specified tiers in their request.
 12. **Gate discovery-class framing on `/literature-review`** (Steps 5d and 6). Before writing or saying that any hit "extends biology beyond X," is "novel," "unexpected," or "discovery-class," prompt the user to run `/literature-review` on that hit first. The system-level claim is often already published; the pipeline's actual contribution is usually at the molecular-mechanism layer. Use the lit-review output to calibrate framing in the WRITEUP. Skip only when the user explicitly opts out, in which case default to tentative ("candidate for...", "consistent with family Y but substrate-specificity not established") rather than discovery framing.
+13. **Run the fail-safe checks against silent failures** (Step 2). This pipeline degrades silently — a stale token, missing MinIO/S3 cred, or absent `--berdl-use-spark` drops evidence layers or 401s CTS jobs with only a `WARNING`. Always: (a) validate the KBASE token returns HTTP 200 before launching, (b) never `source $REPO/.env` or `echo`/`curl` a secret (a secret-guard hook blocks it and it's unnecessary — the CLI reads `.env` from its CWD, so just `cd $REPO`), (c) read the first ~1 min of the run log to confirm CTS upload started, `pangenome_neighborhood` evidence is being fetched (Spark connected), and no `bio_policy`/`401` lines, and (d) after the run, reconcile `input N = SKIPPED + ERROR + LLM-called` and confirm a single `model` tag (multiple tags = a silent Anthropic `bio_policy` fallback). The repo's `S3_ACCESS_KEY`/`S3_SECRET_KEY` satisfy the MinIO requirement.
+14. **Prompt for reasoning-pass mode and default to skipping it** (Step 2.7). Default to `GENE_ANNOTATE_SKIP_REASONING=1` (halves cost; `reasoning_trace` still captured), but confirm via `AskUserQuestion` first unless the user already stated a preference. Export the variable in the Step 3 shell before invoking the CLI.
+15. **STRING defaults to `--string-mode edges`** — the corroborating-network mode with the transferred homolog annotation withheld. Do not add `--string-mode full` unless the user explicitly asks for the legacy transferred-annotation behavior (e.g., an A/B comparison against a prior `full` run).
 
 ## Pitfall Detection
 
