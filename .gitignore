@@ -12,6 +12,13 @@
 docs/plans/
 docs/superpowers/
 
+# Vendored packages captured from a BERDL pod (see issue #316).
+# berdl_remote and spark_connect_remote are pinned from github.com/BERDataLakehouse,
+# which returns 404, so these local copies cannot be re-fetched. They are third-party
+# code and this repository is public: never commit them.
+vendor/
+*.tgz
+
 # Large data files
 *.npy
 *.pkl
