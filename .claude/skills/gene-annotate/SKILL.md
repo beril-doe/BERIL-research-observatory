@@ -532,11 +532,12 @@ PY
 grep -inE "bio_policy|HTTP[^0-9]{0,6}(40[13]|5[0-9][0-9])|error 52[0-9]|timeout|timed out|Traceback|Invalid token|FATAL" $D/run.log | grep -viE "NCBI_API_KEY"
 ```
 A `bio_policy` 400 (content filter, seen on pathogen-adjacent sequences) drops that row and does **not**
-clear on a plain `gpt-5.4` retry — re-annotate those genes with an Anthropic model (they will carry a
-different `model` tag). **Reproducible gateway/tunnel timeouts behave the same way:** large-prompt
-sequences can hit a 5xx / Cloudflare "error 524" / hung CTS or LLM call that a same-model `gpt-5.4` retry
-fails *identically* on (it is reproducible, not transient), but that succeeds when re-annotated on an
-Anthropic model (`claude-opus-4.5`/`claude-sonnet-4.6`) — apply the same different-model remediation.
+clear on a plain same-model (any gpt-5.x, including `gpt-5.6-terra-high`) retry — re-annotate those genes
+with an Anthropic model (they will carry a different `model` tag). **Reproducible gateway/tunnel timeouts
+behave the same way:** large-prompt sequences can hit a 5xx / Cloudflare "error 524" / hung CTS or LLM call
+that a same-model retry fails *identically* on (it is reproducible, not transient), but that succeeds when
+re-annotated on an Anthropic model (`claude-opus-4.5`/`claude-sonnet-4.6`) — apply the same different-model
+remediation.
 More than one distinct `model` tag in the reconciliation flags such a fallback.
 
 ### Step 2.5: Confirm DIAMOND DB Builds for New Sources
@@ -594,7 +595,7 @@ Default behavior: if the user picks all three (or skips the prompt), omit `--tie
 
 When to skip this prompt: if the user has already specified tiers in their request (e.g., "only run Tier A on these sequences"), use that directly without asking. For quick re-runs in the same session where the tier choice was already made, reuse it.
 
-### Step 2.7: Confirm Reasoning-Pass Mode (cost control)
+### Step 2.7: Reasoning-Pass Mode (cost control)
 
 By default each sequence makes **two** LLM calls: an unbound "reasoning" pass (populates the raw
 `reasoning` column) and a structured pass (populates the annotation + the always-present
@@ -603,18 +604,14 @@ which roughly **halves per-sequence token cost and runtime**. The only thing los
 `reasoning` summary column — `reasoning_trace` (the model's chain-of-thought inside the structured output)
 is still fully populated, so annotation quality and auditability are preserved.
 
-**Default: skip the reasoning pass (`GENE_ANNOTATE_SKIP_REASONING=1`)** — but confirm with the user first,
-since it's a quality/cost trade-off. Use `AskUserQuestion`:
+**Firm default: skip the reasoning pass (`GENE_ANNOTATE_SKIP_REASONING=1`).** This is the validated
+default — no need to ask. A 100-protein head-to-head on the reannotation benchmark (`gpt-5.6-terra-high`,
+reasoning-on vs reasoning-off, graded on the correctness rubric) found **no regression from skipping**:
+mean 4.29 (off) vs 4.22 (on), 10 wins / 67 ties / 6 losses, and equal-or-higher rates at every threshold —
+while halving cost and runtime. Set the variable in Step 3 by default.
 
-> "Skip the separate reasoning pass to halve token cost? (`reasoning_trace` is still captured; only the
-> raw `reasoning` column is dropped.)"
-> Options:
-> - **Skip reasoning pass — halve cost (Recommended)** → export `GENE_ANNOTATE_SKIP_REASONING=1` in Step 3
-> - **Keep reasoning pass — full raw reasoning output** → do not set the variable
-
-When to skip this prompt: if the user has already stated a preference (e.g., "keep the reasoning output"
-or "minimize tokens"), honor it without asking. For large runs (> a few hundred sequences) where the user
-has expressed cost sensitivity, lead with the skip default.
+Only **keep** the reasoning pass (do not set the variable) if the user explicitly asks for the full raw
+`reasoning` output, or is running a deliberate A/B against a prior reasoning-on run.
 
 ### Step 3: Build and Run the Command
 
@@ -629,12 +626,12 @@ cd $REPO                                       # run from the BERIL repo — the
 # Do NOT `source $REPO/.env` — the CLI reads it from CWD itself (token + MinIO/S3 creds), and a
 # secret-guard hook may block sourcing. CBORG_API_KEY is inherited from the shell env.
 
-# Step 2.7 default: skip the reasoning pass to halve cost (omit this line only if the user chose to keep it)
+# Step 2.7 firm default: skip the reasoning pass to halve cost (omit this line only if the user asked to keep it)
 export GENE_ANNOTATE_SKIP_REASONING=1
 
 /global_share/gene-annotation-predictor/.venv/bin/gene-annotate \
   --input <FASTA_FILE(S)> \
-  --model gpt-5.4 \
+  --model gpt-5.6-terra-high \
   --berdl-data-dir /global_share/gene-annotation-predictor/data_sources/sequences/ \
   --summaries-parquet /global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet \
   --cts-interproscan \
@@ -660,7 +657,7 @@ Off-cluster / laptop use (no CTS available) — swap the three CTS flags for `--
 
 **`--description-is-organism`**: Include this flag when organism names were placed in the FASTA description lines during input preparation (Step 1). Omit when no organism information is available for any sequence.
 
-**`--model` is a required CLI flag** — always include it. Use `gpt-5.4` (matching prior pilots) unless the user requests a different model. The CLI has no compiled-in default and will exit with an error if omitted. Do not prefix with `openai/` — the CLI accepts the short form only (`gpt-5.4`, not `openai/gpt-5.4`); the CBORG gateway adds the provider prefix internally.
+**`--model` is a required CLI flag** — always include it. **Default: `gpt-5.6-terra-high`** — the current validated model (matches gpt-5.4 on the correctness benchmark: Δ−0.05 mean, 9W/9T/9L, and better-calibrated than the `luna` variant), and the model the OpenAI-route credit exhaustion that stalled `gpt-5.4` does not affect. Use `gpt-5.4` instead only to preserve byte-exact consistency with a prior gpt-5.4 pilot you are extending. The CLI has no compiled-in default and will exit with an error if omitted. Do not prefix with `openai/` — the CLI accepts the short form only (`gpt-5.6-terra-high`, not `openai/gpt-5.6-terra-high`); the CBORG gateway adds the provider prefix internally, and for the gpt-5.6 variants the `openai/`-prefixed form is rejected with a `429 credit_balance_exhausted` (they route only under the bare name).
 
 **InterProScan mode — one of the following is required** (mutually exclusive):
 - `--cts-interproscan` — **preferred on the lakehouse.** Submits InterProScan to the CDM Task Service. Requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` in `$REPO/.env`. Companion flags: `--cts-username <user>` (default: `$USER`), `--cts-cpus <N>` (default: 8), `--cts-memory <MEM>` (default: 16GB), `--cts-runtime <ISO8601>` (default: PT2H). Pairs naturally with `--cts-diamond` so the notebook node stays idle.
@@ -924,7 +921,7 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--model` | *(required)* | LLM model — valid choices: `gpt-5.1`, `gpt-5.2`, `gpt-5.3`, `gpt-5.4`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `claude-opus-4.5`. Use `gpt-5.4` to match prior pilots. |
+| `--model` | *(required)* | LLM model — valid choices: `gpt-5.1`, `gpt-5.2`, `gpt-5.3`, `gpt-5.4`, `gpt-5.6-terra-high`, `gpt-5.6-luna-high`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `claude-opus-4.5`. **Default `gpt-5.6-terra-high`** (bare name only — no `openai/` prefix). Use `gpt-5.4` only to match a prior gpt-5.4 pilot. |
 | `--interproscan` | *(one required)* | Path to local `interproscan.sh`. Mutually exclusive with `--cts-interproscan`. |
 | `--cts-interproscan` | *(one required)* | Run InterProScan remotely via CTS. Needs `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`. |
 | `--cts-username` | `$USERNAME` | KBase username for CTS S3 path construction (used with `--cts-interproscan`). |
@@ -944,7 +941,7 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 | `--prompt-file` | built-in | Custom system prompt for the LLM |
 | `--string-dir` | *(omit to skip)* | Path to STRING v12 data directory (`string_proteins.dmnd` + `string.sqlite`). Use `/global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12`. Independent of `--berdl-data-dir`; adds `string_evidence` column to output. |
 | `--string-mode` | `edges` | STRING presentation: `edges` (default) withholds the transferred homolog annotation + drops text-mining-only partners, keeping the partner network + orthogroups; `full` = legacy transferred-annotation behavior. Only used with `--string-dir`. |
-| `GENE_ANNOTATE_SKIP_REASONING` *(env var)* | *(unset)* | Set to `1` to skip the separate reasoning pass and halve per-sequence token cost. `reasoning_trace` is still populated; only the raw `reasoning` column is left empty. Default per Step 2.7 is to set it (confirm with user). |
+| `GENE_ANNOTATE_SKIP_REASONING` *(env var)* | *(unset)* | Set to `1` to skip the separate reasoning pass and halve per-sequence token cost. `reasoning_trace` is still populated; only the raw `reasoning` column is left empty. **Firm default per Step 2.7: set it** (validated no-regression; only leave unset if the user asks to keep the raw reasoning output). |
 
 ## Evidence Tiers
 
@@ -996,8 +993,8 @@ an Anthropic model) and relaunch. Do not delete `<output-dir>/.cache/` unless yo
 | Summaries parquet not found | File missing from data_sources | Verify `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet` exists |
 | BERDL auth error | `KBASE_AUTH_TOKEN` missing or expired | Set or refresh `KBASE_AUTH_TOKEN` in `$REPO/.env` — **not** in the gene-annotation-predictor package directory |
 | `CTS job submission failed (401) … Invalid token` (InterProScan and/or `FATAL: paperblast_uniq batch fetch failed`) | The CLI's `load_berdl_token()` reads `.env` from the **current working directory**, ignoring the env var. Running from `/global_share/gene-annotation-predictor` picks up that dir's **stale** `.env` token even when `$REPO/.env` is valid. | `cd $REPO` before invoking (all lakehouse paths are absolute, so CWD need not be the package dir). Verify with `curl -s -o /dev/null -w '%{http_code}' -H "Authorization: $KBASE_AUTH_TOKEN" https://kbase.us/services/auth/api/V2/token` → expect `200`. |
-| `ERROR: … 400 … code: bio_policy` ("flagged for possible biological risk") on a row | The CBORG/OpenAI gateway applies a **content filter** to some pathogen / select-agent-adjacent sequences (observed on *Vibrio cholerae*). It is newly deployed / intermittent — the same genes annotated fine in earlier runs, and a plain retry with the same model does **not** clear it. Any `gpt-5.4` re-run touching such organisms will systematically lose those rows. | Re-annotate the flagged genes with an **Anthropic model** (`--model claude-opus-4.5` or `claude-sonnet-4.6`), whose filter differs; or retain their prior annotations. Those rows will carry a different `model` tag than the rest of the run. |
-| `ERROR: … timeout` / HTTP 5xx / Cloudflare "error 524" on a large-prompt sequence, **reproducible across same-model retries** | Distinct from `bio_policy`: a large evidence prompt hits a **reproducible** (not transient) gateway/tunnel timeout at the CBORG/CTS gateway. A same-model `gpt-5.4` retry fails identically and the row is silently lost. (These 5xx/timeout lines are missed by a `40[13]`-only log scan — see the widened grep in Step 2.) | Re-annotate those specific rows with an **Anthropic model** (`--model claude-opus-4.5`/`claude-sonnet-4.6`), which succeeds — same remediation as `bio_policy`. Distinguish from `bio_policy` by the absence of a `400 … bio_policy` code. Recovered rows carry a different `model` tag. |
+| `ERROR: … 400 … code: bio_policy` ("flagged for possible biological risk") on a row | The CBORG/OpenAI gateway applies a **content filter** to some pathogen / select-agent-adjacent sequences (observed on *Vibrio cholerae*). It is newly deployed / intermittent — the same genes annotated fine in earlier runs, and a plain retry with the same model does **not** clear it. Any same-model gpt-5.x re-run (including `gpt-5.6-terra-high`) touching such organisms will systematically lose those rows. | Re-annotate the flagged genes with an **Anthropic model** (`--model claude-opus-4.5` or `claude-sonnet-4.6`), whose filter differs; or retain their prior annotations. Those rows will carry a different `model` tag than the rest of the run. |
+| `ERROR: … timeout` / HTTP 5xx / Cloudflare "error 524" on a large-prompt sequence, **reproducible across same-model retries** | Distinct from `bio_policy`: a large evidence prompt hits a **reproducible** (not transient) gateway/tunnel timeout at the CBORG/CTS gateway. A same-model retry (any gpt-5.x, including `gpt-5.6-terra-high`) fails identically and the row is silently lost. (These 5xx/timeout lines are missed by a `40[13]`-only log scan — see the widened grep in Step 2.) | Re-annotate those specific rows with an **Anthropic model** (`--model claude-opus-4.5`/`claude-sonnet-4.6`), which succeeds — same remediation as `bio_policy`. Distinguish from `bio_policy` by the absence of a `400 … bio_policy` code. Recovered rows carry a different `model` tag. |
 | DIAMOND not found (local off-cluster mode) | `diamond` binary not on PATH — it ships in the conda env, not the package `./bin/` | `conda activate gene-annotation-predictor` so DIAMOND (≥ 2.2.3) is on PATH; on the lakehouse prefer `--cts-diamond` and this never applies |
 | `Spark Connect session did not respond within 90s` / "server listening but not serving sessions (zombie driver)" | The Spark Connect driver went into a zombie state (listening but not serving sessions) — often after a prior query was killed or timed out. **Affects the main annotation run too:** a dead session makes the CLI silently skip the `pangenome_neighborhood` evidence source (no error), not just standalone build scripts. | Restart the Connect server: `python3 -c "from berdl_notebook_utils.refresh import refresh_spark_environment; refresh_spark_environment()"` (also rotates MinIO creds), then re-invoke. If it recurs, restart the JupyterHub kernel/session. On the main run, confirm recovery via the early-log check that `Fetching built-in evidence: pangenome_neighborhood …` appears. Because the run is resume-safe (see Caching), just relaunch with the same `--output-dir`. |
 | Spark session error (other) | Spark dependencies missing | Check that Spark deps are installed in the conda + Poetry environment |
@@ -1027,7 +1024,7 @@ an Anthropic model) and relaunch. Do not delete `<output-dir>/.cache/` unless yo
 11. **Prompt for tier selection before launching** (Step 2.6) using `AskUserQuestion` with `multiSelect: true`. Default is all three tiers. Pass `--tier <list>` in Step 3 only when the user picks a strict subset of `A,B,C`. Skip the prompt only when the user has already specified tiers in their request.
 12. **Gate discovery-class framing on `/literature-review`** (Steps 5d and 6). Before writing or saying that any hit "extends biology beyond X," is "novel," "unexpected," or "discovery-class," prompt the user to run `/literature-review` on that hit first. The system-level claim is often already published; the pipeline's actual contribution is usually at the molecular-mechanism layer. Use the lit-review output to calibrate framing in the WRITEUP. Skip only when the user explicitly opts out, in which case default to tentative ("candidate for...", "consistent with family Y but substrate-specificity not established") rather than discovery framing.
 13. **Run the fail-safe checks against silent failures** (Step 2). This pipeline degrades silently — a stale token, missing MinIO/S3 cred, or absent `--berdl-use-spark` drops evidence layers or 401s CTS jobs with only a `WARNING`. Always: (a) validate the KBASE token returns HTTP 200 before launching, (b) never `source $REPO/.env` or `echo`/`curl` a secret (a secret-guard hook blocks it and it's unnecessary — the CLI reads `.env` from its CWD, so just `cd $REPO`), (c) read the first ~1 min of the run log to confirm CTS upload started, `pangenome_neighborhood` evidence is being fetched (Spark connected), and no `bio_policy`/`401` lines, and (d) after the run, reconcile `input N = SKIPPED + ERROR + LLM-called` and confirm a single `model` tag (multiple tags = a silent Anthropic `bio_policy` fallback). The repo's `S3_ACCESS_KEY`/`S3_SECRET_KEY` satisfy the MinIO requirement.
-14. **Prompt for reasoning-pass mode and default to skipping it** (Step 2.7). Default to `GENE_ANNOTATE_SKIP_REASONING=1` (halves cost; `reasoning_trace` still captured), but confirm via `AskUserQuestion` first unless the user already stated a preference. Export the variable in the Step 3 shell before invoking the CLI.
+14. **Skip the reasoning pass by default** (Step 2.7). Export `GENE_ANNOTATE_SKIP_REASONING=1` in the Step 3 shell before invoking the CLI — this is the validated firm default (halves cost; `reasoning_trace` still captured; no grade regression). Do not ask; only leave it unset if the user explicitly wants the raw `reasoning` output.
 15. **STRING defaults to `--string-mode edges`** — the corroborating-network mode with the transferred homolog annotation withheld. Do not add `--string-mode full` unless the user explicitly asks for the legacy transferred-annotation behavior (e.g., an A/B comparison against a prior `full` run).
 
 ## Pitfall Detection
