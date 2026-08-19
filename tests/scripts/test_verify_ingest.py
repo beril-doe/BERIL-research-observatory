@@ -145,7 +145,7 @@ def test_dropped_source_rows_are_caught(monkeypatch, capsys):
                        source_counts={URI: 12345})
 
     assert "[MISMATCH]" in out
-    assert "mismatch detected" in out.lower()
+    assert "verification failed" in out.lower()
     assert result["verified"] is False
     assert result["tables"][0]["status"] == "mismatch"
 
@@ -154,7 +154,7 @@ def test_text_mismatch_is_flagged(monkeypatch, capsys):
     out, _ = _run(monkeypatch, capsys, _tsv(12345), [COMPLETE], {"biosample": 12000})
 
     assert "[MISMATCH]" in out
-    assert "mismatch detected" in out.lower()
+    assert "verification failed" in out.lower()
 
 
 def test_parquet_without_a_bronze_prefix_is_unverified_not_ok(monkeypatch, capsys):
@@ -166,7 +166,7 @@ def test_parquet_without_a_bronze_prefix_is_unverified_not_ok(monkeypatch, capsy
     assert "[UNVERIFIED]" in out
     assert "bronze_prefix not supplied" in out
     assert "[OK]" not in out
-    assert "mismatch detected" in out.lower()
+    assert "verification failed" in out.lower()
     assert result["tables"][0]["status"] == "unverified"
 
 
@@ -176,7 +176,7 @@ def test_an_unreadable_parquet_source_is_unverified(monkeypatch, capsys):
 
     assert "[UNVERIFIED]" in out
     assert "unreadable" in out
-    assert "mismatch detected" in out.lower()
+    assert "verification failed" in out.lower()
 
 
 def test_table_missing_from_log_is_incomplete(monkeypatch, capsys):
@@ -184,5 +184,5 @@ def test_table_missing_from_log_is_incomplete(monkeypatch, capsys):
                        {"orphan": {"path": "/work/orphan.tsv", "data_lines": 5}}, [], {})
 
     assert "[INCOMPLETE]" in out
-    assert "mismatch detected" in out.lower()
+    assert "verification failed" in out.lower()
     assert result["tables"][0]["status"] == "incomplete"

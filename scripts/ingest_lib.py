@@ -1412,7 +1412,7 @@ def verify_ingest(
         print("All row counts match. Ingest successful.")
         print(f"Namespace : {namespace}   (query this in BERDL)")
     else:
-        print("Row count mismatch detected.")
+        print("Verification failed; see per-table statuses above.")
         print(f"  Namespace    : {namespace}")
         print(f"  Progress log : s3a://{bucket}/{progress_key}")
 
