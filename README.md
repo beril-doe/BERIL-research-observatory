@@ -159,6 +159,10 @@ Skills are invoked automatically based on context, or explicitly with `/skill-na
 
 BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environment management outside the agent session. `beril start --agent <name>` launches Claude Code, Codex, Gemini CLI or omp.
 
+For automation, [the Parquet staging CLI](docs/parquet-staging-cli.md) provides
+a plan-first, non-interactive upload, ingest, and source-verification path. It
+stages data only; canonical promotion remains a separate authorized operation.
+
 ---
 
 ### Getting BERDL Access

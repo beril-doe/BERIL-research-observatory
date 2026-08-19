@@ -85,7 +85,7 @@ class _FakeSpark:
 def _run(monkeypatch, capsys, table_stats, progress_log, iceberg_counts,
          source_counts=None, unreadable=(), bronze_prefix="bronze/nmdc"):
     monkeypatch.setattr(ingest_lib, "_load_progress_log", lambda *a, **k: progress_log)
-    ingest_lib.verify_ingest(
+    result = ingest_lib.verify_ingest(
         _FakeSpark(iceberg_counts, source_counts, unreadable),
         "nmdc.metadata",
         table_stats,
@@ -94,7 +94,7 @@ def _run(monkeypatch, capsys, table_stats, progress_log, iceberg_counts,
         "progress_key",
         bronze_prefix=bronze_prefix,
     )
-    return capsys.readouterr().out
+    return capsys.readouterr().out, result
 
 
 def _tsv(data_lines):
@@ -110,18 +110,26 @@ URI = "s3a://bucket/bronze/nmdc/biosample.parquet"
 
 
 def test_text_source_compares_against_line_count(monkeypatch, capsys):
-    out = _run(monkeypatch, capsys, _tsv(12345), [COMPLETE], {"biosample": 12345})
+    out, result = _run(monkeypatch, capsys, _tsv(12345), [COMPLETE], {"biosample": 12345})
 
     assert "[OK]" in out
     assert "source lines" in out
     assert "All row counts match" in out
+    assert result["verified"] is True
+    assert result["tables"] == [{
+        "table": "biosample",
+        "status": "verified",
+        "source_rows": 12345,
+        "destination_rows": 12345,
+        "source_basis": "source lines",
+    }]
 
 
 def test_parquet_source_is_counted_with_spark_not_line_counted(monkeypatch, capsys):
     """The original bug: data_lines for Parquet is binary garbage (999 here),
     so using it reported MISMATCH on a correct ingest."""
-    out = _run(monkeypatch, capsys, _parquet(), [COMPLETE], {"biosample": 12345},
-               source_counts={URI: 12345})
+    out, _ = _run(monkeypatch, capsys, _parquet(), [COMPLETE], {"biosample": 12345},
+                  source_counts={URI: 12345})
 
     assert "[OK]" in out
     assert "MISMATCH" not in out
@@ -133,15 +141,17 @@ def test_dropped_source_rows_are_caught(monkeypatch, capsys):
     """The reason this compares against the source rather than the run's own
     report. The pipeline wrote 12,000 of 12,345 source rows; a report-based
     check would have compared 12,000 to 12,000 and passed."""
-    out = _run(monkeypatch, capsys, _parquet(), [COMPLETE], {"biosample": 12000},
-               source_counts={URI: 12345})
+    out, result = _run(monkeypatch, capsys, _parquet(), [COMPLETE], {"biosample": 12000},
+                       source_counts={URI: 12345})
 
     assert "[MISMATCH]" in out
     assert "mismatch detected" in out.lower()
+    assert result["verified"] is False
+    assert result["tables"][0]["status"] == "mismatch"
 
 
 def test_text_mismatch_is_flagged(monkeypatch, capsys):
-    out = _run(monkeypatch, capsys, _tsv(12345), [COMPLETE], {"biosample": 12000})
+    out, _ = _run(monkeypatch, capsys, _tsv(12345), [COMPLETE], {"biosample": 12000})
 
     assert "[MISMATCH]" in out
     assert "mismatch detected" in out.lower()
@@ -150,18 +160,19 @@ def test_text_mismatch_is_flagged(monkeypatch, capsys):
 def test_parquet_without_a_bronze_prefix_is_unverified_not_ok(monkeypatch, capsys):
     """Degrading to the progress log here would silently restore the weaker
     check, so an uncountable source is reported rather than assumed good."""
-    out = _run(monkeypatch, capsys, _parquet(), [COMPLETE], {"biosample": 12345},
-               bronze_prefix=None)
+    out, result = _run(monkeypatch, capsys, _parquet(), [COMPLETE], {"biosample": 12345},
+                       bronze_prefix=None)
 
     assert "[UNVERIFIED]" in out
     assert "bronze_prefix not supplied" in out
     assert "[OK]" not in out
     assert "mismatch detected" in out.lower()
+    assert result["tables"][0]["status"] == "unverified"
 
 
 def test_an_unreadable_parquet_source_is_unverified(monkeypatch, capsys):
-    out = _run(monkeypatch, capsys, _parquet(), [COMPLETE], {"biosample": 12345},
-               source_counts={}, unreadable={URI})
+    out, _ = _run(monkeypatch, capsys, _parquet(), [COMPLETE], {"biosample": 12345},
+                  source_counts={}, unreadable={URI})
 
     assert "[UNVERIFIED]" in out
     assert "unreadable" in out
@@ -169,8 +180,9 @@ def test_an_unreadable_parquet_source_is_unverified(monkeypatch, capsys):
 
 
 def test_table_missing_from_log_is_incomplete(monkeypatch, capsys):
-    out = _run(monkeypatch, capsys,
-               {"orphan": {"path": "/work/orphan.tsv", "data_lines": 5}}, [], {})
+    out, result = _run(monkeypatch, capsys,
+                       {"orphan": {"path": "/work/orphan.tsv", "data_lines": 5}}, [], {})
 
     assert "[INCOMPLETE]" in out
     assert "mismatch detected" in out.lower()
+    assert result["tables"][0]["status"] == "incomplete"

@@ -44,7 +44,8 @@ run_ingest(spark, minio_client, table_stats, schemas, schema_defs, namespace,
 
 verify_ingest(spark, namespace, table_stats, minio_client, bucket, progress_key,
               bronze_prefix=None)
-    Compare Iceberg row counts against the SOURCE data and print the results.
+    Compare Iceberg row counts against the SOURCE data, print the results, and
+    return a structured verification outcome.
     Text sources use the source-file line count; Parquet sources are counted
     with spark.read.parquet against the uploaded bronze object, which is what
     bronze_prefix locates. Without it, Parquet tables report UNVERIFIED.
@@ -547,25 +548,32 @@ def build_table_stats(
             schemas[table] = ", ".join(f"{c} STRING" for c in cols)
             print(f"  {table}: no schema found — defaulting all {len(cols)} columns to STRING")
 
-    print(f"Analyzing {len(source_files)} table(s) — counting lines...")
+    print(f"Analyzing {len(source_files)} table(s)...")
     for f in source_files:
         table      = f.stem
         size_bytes = f.stat().st_size
         size_gb    = size_bytes / 1e9
-        wait_note  = "  (large file — may take several minutes)" if size_gb > 10 else ""
-        print(f"  {f.name}: {size_gb:.1f} GB{wait_note}", end=" ", flush=True)
-        total_lines = _count_lines(f)
-        data_lines  = max(total_lines - 1, 0)   # exclude header
-
-        # Parquet uses Spark's native reader — pandas chunking is not supported.
         if f.suffix == ".parquet":
-            chunk_size, n_chunks = data_lines, 1
-        elif chunked_ingest and size_bytes > chunk_target_bytes and data_lines > 0:
-            chunk_size = max(1, round(data_lines * chunk_target_bytes / size_bytes))
-            n_chunks   = math.ceil(data_lines / chunk_size)
+            # A newline count over binary Parquet content is neither a row count
+            # nor useful planning evidence. The uploaded source is counted with
+            # Spark during verification instead.
+            data_lines = None
+            chunk_size, n_chunks = None, 1
+            print(f"  {f.name}: {size_gb:.1f} GB -> rows verified after upload")
         else:
-            chunk_size = data_lines
-            n_chunks   = 1
+            wait_note = "  (large file — may take several minutes)" if size_gb > 10 else ""
+            print(f"  {f.name}: {size_gb:.1f} GB{wait_note}", end=" ", flush=True)
+            total_lines = _count_lines(f)
+            data_lines = max(total_lines - 1, 0)   # exclude header
+            if chunked_ingest and size_bytes > chunk_target_bytes and data_lines > 0:
+                chunk_size = max(1, round(data_lines * chunk_target_bytes / size_bytes))
+                n_chunks = math.ceil(data_lines / chunk_size)
+            else:
+                chunk_size = data_lines
+                n_chunks = 1
+            note = (f"{n_chunks} chunks x ~{chunk_size:,} lines"
+                    if n_chunks > 1 else "single ingest")
+            print(f"-> {data_lines:,} data lines  [{note}]")
 
         table_stats[table] = {
             "path":       f,
@@ -575,9 +583,6 @@ def build_table_stats(
             "n_chunks":   n_chunks,
             "chunked":    n_chunks > 1,
         }
-        note = (f"{n_chunks} chunks x ~{chunk_size:,} lines"
-                if n_chunks > 1 else "single ingest")
-        print(f"-> {data_lines:,} data lines  [{note}]")
 
     return table_stats
 
@@ -692,6 +697,7 @@ def print_preflight_plan(
     progress_key: str,
     confirmed: bool,
     user_namespace: str | None = None,
+    plan_only: bool = False,
 ) -> None:
     """Print the upload and ingest plan.
 
@@ -726,12 +732,18 @@ def print_preflight_plan(
             print(f"  {table:<45s}  {s['n_chunks']} chunks x ~{s['chunk_size']:,} lines"
                   f"  (~{chunk_gb:.1f} GB each)  [CHUNKED]")
         else:
-            print(f"  {table:<45s}  {s['data_lines']:,} lines  [single ingest]")
+            rows = s["data_lines"]
+            detail = (f"{rows:,} lines" if rows is not None
+                      else "rows verified after upload")
+            print(f"  {table:<45s}  {detail}  [single ingest]")
 
     print(f"\nProgress log : s3a://{bucket}/{progress_key}")
     print(f"Ingest mode  : {mode}")
     print("=" * W)
 
+    if plan_only:
+        print("PLAN ONLY — no upload or ingest operation was performed.")
+        return
     if not confirmed:
         raise RuntimeError(
             "\nReview the plan above.\n"
@@ -1175,7 +1187,9 @@ def run_ingest(
         print("=" * 60)
         print(f"Ingesting {len(pending_non_chunked)} non-chunked table(s) via pipeline:")
         for t, s in pending_non_chunked.items():
-            print(f"  {t}: {s['data_lines']:,} rows | {s['size_bytes'] / 1e9:.1f} GB")
+            rows = s["data_lines"]
+            row_summary = f"{rows:,} rows" if rows is not None else "rows pending verification"
+            print(f"  {t}: {row_summary} | {s['size_bytes'] / 1e9:.1f} GB")
 
         cfg = _build_dataset_config(
             tenant, dataset, bucket, bronze_prefix,
@@ -1201,9 +1215,15 @@ def run_ingest(
             table     = tbl_result["name"]
             # Record the ingest result for progress and resume decisions. Independent
             # verification below derives its expected count from the source instead.
-            # The fallback preserves the historical progress format when an older
-            # pipeline result omits `rows_written`.
-            rows_done = tbl_result.get("rows_written", table_stats[table]["data_lines"])
+            # Text sources preserve the historical line-count fallback for an older
+            # pipeline that omits `rows_written`; binary sources must report the count.
+            rows_done = tbl_result.get("rows_written")
+            if rows_done is None:
+                rows_done = table_stats[table]["data_lines"]
+            if rows_done is None:
+                raise RuntimeError(
+                    f"ingest() omitted rows_written for binary source table {table}"
+                )
             _append_progress(minio_client, bucket, progress_key, {
                 "table": table, "chunk": 0,
                 "start_line": 1, "end_line": rows_done,
@@ -1288,8 +1308,10 @@ def _expected_from_source(spark, table_stats: dict, table: str,
     uri = f"s3a://{bucket}/{bronze_prefix}/{table}{suffix}"
     try:
         return spark.read.parquet(uri).count(), "source parquet"
-    except Exception as exc:  # noqa: BLE001 - any reader failure is "unverifiable"
-        return None, f"parquet source unreadable at {uri}: {exc}"
+    except Exception:  # noqa: BLE001 - any reader failure is "unverifiable"
+        # Do not copy provider diagnostics into the credential-free outcome or
+        # console. The URI is reconstructable from the declared plan.
+        return None, "source parquet unreadable"
 
 
 def verify_ingest(
@@ -1300,7 +1322,7 @@ def verify_ingest(
     bucket: str,
     progress_key: str,
     bronze_prefix: str | None = None,
-) -> None:
+) -> dict:
     """Query Iceberg row counts and compare them against the SOURCE data.
 
     The comparison is source-versus-destination, so it can catch the pipeline
@@ -1327,13 +1349,21 @@ def verify_ingest(
         for e in progress_log
         if e.get("status") == "complete" and "total_rows" in e
     }
-    all_match    = True
+    all_match = True
+    table_results = []
 
     print("Row counts (Iceberg vs source):")
     for table in table_stats:
         if table not in complete_from_log:
             print(f"  {table:<45s}  {'(not in progress log)':>32}  [INCOMPLETE]")
             all_match = False
+            table_results.append({
+                "table": table,
+                "status": "incomplete",
+                "source_rows": None,
+                "destination_rows": None,
+                "source_basis": None,
+            })
             continue
 
         expected, basis = _expected_from_source(
@@ -1342,6 +1372,13 @@ def verify_ingest(
         if expected is None:
             print(f"  {table:<45s}  {basis:>32}  [UNVERIFIED]")
             all_match = False
+            table_results.append({
+                "table": table,
+                "status": "unverified",
+                "source_rows": None,
+                "destination_rows": None,
+                "source_basis": basis,
+            })
             continue
 
         # Quote each segment of a (possibly dotted, multi-level Iceberg) namespace
@@ -1354,6 +1391,13 @@ def verify_ingest(
         match    = "OK" if count == expected else "MISMATCH"
         if count != expected:
             all_match = False
+        table_results.append({
+            "table": table,
+            "status": "verified" if count == expected else "mismatch",
+            "source_rows": expected,
+            "destination_rows": count,
+            "source_basis": basis,
+        })
         print(f"  {table:<45s}  {count:>12,}  expected {expected:>12,} "
               f"({basis})  [{match}]")
 
@@ -1371,3 +1415,9 @@ def verify_ingest(
         print("Row count mismatch detected.")
         print(f"  Namespace    : {namespace}")
         print(f"  Progress log : s3a://{bucket}/{progress_key}")
+
+    return {
+        "verified": all_match,
+        "namespace": namespace,
+        "tables": table_results,
+    }
