@@ -213,6 +213,19 @@ Metal concentrations and forest cover are empirically **near-orthogonal** at thi
 
 **Sanity check via null hits:** FDR-null pairs have median pr2_metal = 0.029 (vs 0.278 for FDR-significant pairs; 9.6× enrichment). All 6,186 FDR-sig hits have pr2_metal > 0.10. The metal signal is robustly above the noise floor set by pH (median pr2_pH = 0.023 among FDR-sig hits; pr2_metal/pr2_pH ≈ 12.3×).
 
+### Within-forest-stratum Pb sensitivity (2026-08-19)
+
+For the 48 FDR-significant Pb KOs, fitted a stripped model (cwm ~ log₁₀(Pb) + pH) within each forest-cover quartile. Survival rate (p<0.05) by stratum:
+
+| Forest stratum | n sites | KOs tested | p<0.05 | % surviving | Expected by chance |
+|---|---|---|---|---|---|
+| Q1: 0–4% (urban/agric) | 152 | 48 | 15 | **31.2%** | ~2.4 |
+| Q2: 4–20% | 137 | 48 | 7 | **14.6%** | ~2.4 |
+| Q3: 20–73% | 146 | 48 | 5 | **10.4%** | ~2.4 |
+| Q4: 73–100% (forested) | 143 | 48 | 2 | 4.2% | ~2.4 |
+
+The signal is strongest at low-forest sites (agricultural/urban), where anthropogenic Pb contamination is highest. Q4 (dense forest, pristine) is near chance — expected, as these sites have little Pb variation. This gradient is the **opposite** of what a forest-collinearity artifact would predict (artifact would be strongest in Q4, where forest drives the most CWM variance). The ecology is coherent: Pb is an anthropogenic metal, and its community effect concentrates where anthropogenic Pb loading is highest.
+
 ---
 
 ## Organic Pollutant Control (Model Extension)
