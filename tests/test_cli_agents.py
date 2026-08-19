@@ -203,12 +203,28 @@ def test_omp_defaults_returns_nothing_for_other_agents(agent, tmp_path):
     assert start.omp_defaults(agent, [], tmp_path) == []
 
 
-def test_omp_defaults_points_at_the_checkout(tmp_path):
-    """The directory is derived from the repo root, not from the operator's home."""
-    assert start.omp_defaults("omp", [], tmp_path) == [
-        "--session-dir",
-        str(tmp_path / start.OMP_SESSION_DIR),
-    ]
+def test_omp_defaults_points_under_home_not_into_the_checkout(tmp_path):
+    """BERDL pods are ephemeral and $HOME persists, so the transcript lives in $HOME.
+
+    Asserted against the literal layout, not against `omp_session_dir` -- comparing the
+    constant to itself would pass however the path were renamed, and nothing else pins it.
+    """
+    (flag, value), = [start.omp_defaults("omp", [], tmp_path)[i : i + 2] for i in (0,)]
+    assert flag == "--session-dir"
+    path = Path(value)
+    assert path.parent == Path.home() / ".beril" / "omp-sessions"
+    assert path.name.startswith(f"{tmp_path.resolve().name}-")
+    # Nothing is written into the checkout.
+    assert not any(tmp_path.iterdir())
+
+
+def test_two_checkouts_with_one_name_get_different_directories(tmp_path):
+    """Keyed by resolved path: two clones of the same repo must not share sessions."""
+    a, b = tmp_path / "one" / "BERIL", tmp_path / "two" / "BERIL"
+    for d in (a, b):
+        d.mkdir(parents=True)
+    assert start.omp_session_dir(a) != start.omp_session_dir(b)
+    assert start.omp_session_dir(a) == start.omp_session_dir(a)  # stable across runs
 
 
 @pytest.mark.parametrize(
@@ -228,15 +244,27 @@ def test_has_flag_matches_both_spellings():
 
 
 def test_start_gives_omp_a_session_dir_and_still_onboards(tmp_path, monkeypatch):
-    """The regression this exists to prevent.
+    """On the default path the operator gets both.
 
-    The onboarding guard is `if not skip_onboard and not extra_args`, so an operator
-    who passed --session-dir by hand silently lost /berdl_start. Injecting the flag
-    on BERIL's side keeps both.
+    The onboarding guard is `if not skip_onboard and not extra_args`, so an operator who
+    passed --session-dir by hand lost /berdl_start. Injecting on BERIL's side sidesteps
+    that -- it does not repair the guard, which still drops onboarding for *any* forwarded
+    flag. See test_any_forwarded_flag_still_costs_onboarding.
     """
     argv = _launch(tmp_path, monkeypatch, agent="omp")
-    expected = str(tmp_path / "repo" / start.OMP_SESSION_DIR)
+    expected = str(start.omp_session_dir(tmp_path / "repo"))
     assert argv == ["omp", "--session-dir", expected, "/berdl_start"]
+
+
+def test_any_forwarded_flag_still_costs_onboarding(tmp_path, monkeypatch):
+    """Pre-existing and NOT fixed here: the guard cannot tell a flag from a prompt.
+
+    Pinned rather than left implicit so the limitation is visible, and so a later fix has
+    a test to change deliberately.
+    """
+    argv = _launch(tmp_path, monkeypatch, agent="omp", extra_args=["--thinking", "high"])
+    assert "/berdl_start" not in argv
+    assert "--session-dir" in argv  # the session dir is still injected
 
 
 def test_start_lets_the_operator_override_the_session_dir(tmp_path, monkeypatch):
@@ -248,12 +276,23 @@ def test_start_lets_the_operator_override_the_session_dir(tmp_path, monkeypatch)
     assert argv == ["omp", "--session-dir", "/elsewhere"]
 
 
-def test_start_creates_and_announces_the_omp_session_dir(tmp_path, monkeypatch, capsys):
-    """A collector needs the path, so it is printed -- and it exists when printed."""
+def test_start_announces_the_omp_session_dir_without_creating_it(tmp_path, monkeypatch):
+    """A collector needs the path, so it is printed. omp creates the directory itself.
+
+    Creating it here would run between "Launching omp..." and execvp, where a path occupied
+    by a file raises and the agent never starts.
+    """
     argv = _launch(tmp_path, monkeypatch, agent="omp")
-    session_dir = Path(argv[2])
-    assert session_dir.is_dir()
-    assert str(session_dir) in capsys.readouterr().out
+    assert str(start.omp_session_dir(tmp_path / "repo")) == argv[2]
+
+
+def test_announce_does_not_touch_the_filesystem(tmp_path, capsys):
+    """Pinned against a path that cannot be created: a plain file where the dir would go."""
+    blocked = tmp_path / "blocked"
+    blocked.write_text("")  # a FILE, so mkdir here would raise FileExistsError
+    start.announce_omp_session(["--session-dir", str(blocked / "nested")])
+    assert str(blocked / "nested") in capsys.readouterr().out
+    assert blocked.is_file()
 
 
 def test_claude_is_unaffected_by_the_omp_session_dir(tmp_path, monkeypatch):
@@ -261,3 +300,13 @@ def test_claude_is_unaffected_by_the_omp_session_dir(tmp_path, monkeypatch):
     argv = _launch(tmp_path, monkeypatch, agent="claude")
     assert "--session-dir" not in argv
     assert "--model" in argv and "opus[1m]" in argv
+
+
+def test_a_caller_supplied_model_with_equals_is_not_doubled(tmp_path, monkeypatch):
+    """End-to-end for the `--model=x` fix: `"--model" not in extra_args` misses this form.
+
+    The helper test alone let a revert to the old membership check pass the whole suite.
+    """
+    argv = _launch(tmp_path, monkeypatch, agent="claude", extra_args=["--model=sonnet"])
+    assert argv.count("--model") == 0  # the default was withheld
+    assert argv == ["claude", "--permission-mode", "auto", "--model=sonnet"]

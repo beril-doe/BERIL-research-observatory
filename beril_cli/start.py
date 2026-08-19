@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -17,10 +18,28 @@ from beril_cli.detect import print_jupyterhub_path_hint
 
 GITHUB_API_TIMEOUT_SECONDS = 10
 
-#: Where omp is told to keep session transcripts, relative to the repo root. Gitignored:
-#: a transcript is machine-local and holds whatever the agent read, the same reasoning
-#: that keeps ``projects/*/runtime.json`` out of the tree.
-OMP_SESSION_DIR = ".omp-sessions"
+#: Where omp is told to keep session transcripts: under $HOME, one directory per checkout.
+#:
+#: Not inside the checkout, for two reasons and the first is BERIL's own deployment. BERDL
+#: compute nodes are ephemeral pods (PROJECT.md) while ``$HOME`` persists -- `beril setup`
+#: says so itself -- so a transcript in the working tree is the copy that does not survive a
+#: pod restart, and one under $HOME is the copy that does. Second, a session transcript is
+#: the entire conversation including whatever the agent read, which is a different privacy
+#: weight from `projects/*/runtime.json`; keeping it out of a public repo's tree means it
+#: cannot be reached by an ignore rule drifting, a `git add -f`, or a Docker build context.
+OMP_SESSION_ROOT = Path.home() / ".beril" / "omp-sessions"
+
+
+def omp_session_dir(repo_root: Path) -> Path:
+    """The session directory for one checkout, stable across runs and unique to it.
+
+    Keyed by the resolved path, not the directory name: two clones both called
+    ``BERIL-research-observatory`` are different checkouts whose sessions must not mix. The
+    name is kept as a prefix so the directory is still recognisable to a person listing it.
+    """
+    resolved = Path(repo_root).resolve()
+    digest = hashlib.sha256(str(resolved).encode("utf-8")).hexdigest()[:8]
+    return OMP_SESSION_ROOT / f"{resolved.name}-{digest}"
 
 
 def _sync_auth_token(env_path: Path) -> None:
@@ -201,22 +220,21 @@ def omp_defaults(agent: str, extra_args: list[str], repo_root: Path) -> list[str
     """
     if agent != "omp" or _has_flag(extra_args, "--session-dir"):
         return []
-    return ["--session-dir", str(repo_root / OMP_SESSION_DIR)]
+    return ["--session-dir", str(omp_session_dir(repo_root))]
 
 
 def announce_omp_session(session_flags: list[str]) -> None:
-    """Create the session directory and tell the operator where it is.
+    """Tell the operator where the transcript will land. A no-op for any other agent.
 
-    A no-op for anything but omp, so both launch sites can call it unconditionally.
-    Created here rather than left to omp, so the path printed has something behind it
-    even when the launch then fails -- an operator sent to an absent directory cannot
-    tell "the agent wrote nothing" from "I was told the wrong place".
+    Deliberately does not create the directory. omp creates it itself, recursively, when it
+    opens the session -- verified against the shipped binary -- so a `mkdir` here buys
+    nothing and can only fail. It would run *between* "Launching omp..." and `execvp`, where
+    a path occupied by a file, a read-only mount or a full disk raises and the agent never
+    starts, having told the operator it was starting.
     """
     if not session_flags:
         return
-    session_dir = Path(session_flags[1])
-    session_dir.mkdir(parents=True, exist_ok=True)
-    print(f"omp transcripts: {session_dir} (this session is the newest *.jsonl)")
+    print(f"omp transcripts: {session_flags[1]} (this session is the newest *.jsonl)")
 
 
 def run_start(

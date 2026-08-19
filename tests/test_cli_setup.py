@@ -558,9 +558,10 @@ class TestRunSetupOrchestrator:
         setup_cmd.run_setup()
 
         _binary, argv = execvp.call_args.args
-        expected = str(happy_setup.repo / start.OMP_SESSION_DIR)
+        expected = str(start.omp_session_dir(happy_setup.repo))
         assert argv == ["omp", "--session-dir", expected, "/berdl_start"]
-        assert (happy_setup.repo / start.OMP_SESSION_DIR).is_dir()
+        # Under $HOME, so nothing is written into the checkout.
+        assert not (happy_setup.repo / ".omp-sessions").exists()
 
     def test_vertex_env_injected_before_launch(self, happy_setup, monkeypatch):
         # When Vertex is enabled and claude launches, the Vertex env vars are set
