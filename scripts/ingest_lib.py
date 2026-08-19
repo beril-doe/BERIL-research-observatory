@@ -1199,11 +1199,10 @@ def run_ingest(
         now = datetime.now(timezone.utc).isoformat()
         for tbl_result in (result or {}).get("tables", []):
             table     = tbl_result["name"]
-            # `rows_written` is the authoritative count that verify_ingest checks
-            # against. If the pipeline omits it, this falls back to the source-file
-            # line count (`data_lines`); for binary sources (Parquet, etc.) that is
-            # not the row count, so verify_ingest can then report a false MISMATCH
-            # for the table. The fallback only triggers when `rows_written` is absent.
+            # Record the ingest result for progress and resume decisions. Independent
+            # verification below derives its expected count from the source instead.
+            # The fallback preserves the historical progress format when an older
+            # pipeline result omits `rows_written`.
             rows_done = tbl_result.get("rows_written", table_stats[table]["data_lines"])
             _append_progress(minio_client, bucket, progress_key, {
                 "table": table, "chunk": 0,
@@ -1324,7 +1323,7 @@ def verify_ingest(
 
     progress_log = _load_progress_log(minio_client, bucket, progress_key)
     complete_from_log = {
-        e["table"]: e["total_rows"]
+        e["table"]
         for e in progress_log
         if e.get("status") == "complete" and "total_rows" in e
     }

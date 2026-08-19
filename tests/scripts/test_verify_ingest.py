@@ -21,7 +21,7 @@ import types
 def _stub_if_missing(name, attr):
     try:
         __import__(name)
-    except Exception:
+    except (ImportError, ModuleNotFoundError):
         mod = types.ModuleType(name)
         setattr(mod, attr, lambda *a, **k: None)
         sys.modules[name] = mod
