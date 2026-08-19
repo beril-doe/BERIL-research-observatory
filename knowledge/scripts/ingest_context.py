@@ -186,7 +186,6 @@ def main() -> None:
         raise SystemExit(run_mirror(args.project))
 
     config = ContextConfig.from_env()
-    print(config)
     if args.project is not None:
         try:
             resolve_project_dir(config, args.project)
