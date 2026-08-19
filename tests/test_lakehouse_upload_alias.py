@@ -24,6 +24,7 @@ def test_a_configured_alias_passes(monkeypatch):
 
 
 def test_a_missing_alias_fails_and_names_the_s3_variables(monkeypatch, capsys):
+    monkeypatch.setattr(lakehouse_upload, "MC_ALIAS", "test-alias")
     monkeypatch.setattr(
         lakehouse_upload, "_mc", lambda *a, **k: (1, "", "alias not found")
     )
@@ -35,6 +36,7 @@ def test_a_missing_alias_fails_and_names_the_s3_variables(monkeypatch, capsys):
     # The remedy has to be runnable. configure_mc.sh resolves the credentials,
     # and the manual form must name the variables a pod actually sets.
     assert "scripts/configure_mc.sh" in err
+    assert "mc alias set test-alias" in err
     for name in ("S3_ENDPOINT_URL", "S3_ACCESS_KEY", "S3_SECRET_KEY"):
         assert name in err
     # The schemes it used to name, neither of which exists on a current pod.
