@@ -297,6 +297,58 @@ K18672 (dacA) is significantly depleted at high-La (q=0.016), Ce (q=0.026), and 
 
 All 8 xoxF-family KOs (K16255–K16259, K23995, K17066, K17067) show NO FDR-significant associations with any REE in the CWM analysis. Best raw p-value: Nd×K17067 p=0.077 (q=0.61). This null result is informative: despite the H4 support in the xoxF-specific isolate/gene-level analysis (NB01–NB07 at sites with pH control), xoxF functional capacity does not shift detectably at the community CWM level along REE concentration gradients. The lanthanide-xoxF signal operates at strain-level physiology or gene expression, not community composition.
 
+### pH sensitivity analysis — no-pH vs V3 model (all 56 elements, 2026-08-19)
+
+**Question:** Is pH a confounder, mediator, or suppressor for each element?
+
+**Design:** Compare BH-FDR significant hits in the no-pH model (`gam_results_noph_all.csv`, 71 elements pooled) vs the V3 full-control model (54 elements done, same pooled FDR). For each element: count hits in each model, compute overlap, and correlate log₁₀(metal) with pH at 634 sites.
+
+**Overall result:**
+
+- No-pH model: 31,232 FDR-sig pairs across 56 elements (median per-element hits: 207)
+- V3 model: 6,380 FDR-sig pairs across 54 elements (median per-element hits: 15)
+- **Median noph-to-V3 survival rate: 0.6%** — pH control collapses most of the no-pH signal
+- Only **4/56 elements** are pH-robust (>10% survival rate): **Mn** (55%), **P** (67%), **Ce** (11%), **Eu** (17%*)
+
+*Eu: 62% of sites at detection limit — "robust" signal is detected vs not-detected contrast.
+
+**pH role by element type:**
+
+| Element class | r_pH (range) | No-pH hits | V3 hits | Survival | pH role |
+|---|---|---|---|---|---|
+| Alkaline earths (Ca, Mg, Sr, Ba, K) | +0.46 to +0.67 | 600–1721 | 12–49 | <2% | **Confounder** (calcareous rock → neutral pH + high Ca/Mg + Actinobacteria, all simultaneous) |
+| Acidophilic metals (Hg, Zr, Ti, Ta) | −0.46 to −0.32 | 71–271 | 4–28 | <1% | **Confounder** (acidic soil → high Hg accumulation + acid-tolerant community) |
+| Contamination metals (Pb, As, Cr, Cu) | −0.11 to +0.13 | 58–353 | 1–88 | 1–4% | **Mediator/suppressor** (geology → pH + metal mobility → community; see within-stratum test) |
+| Macronutrients (Mn, P) | −0.11, +0.10 | 1,347; 535 | 2,137; 2,405 | 55%, 67% | **Direct metabolic effect** (pH-robust; no mediation) |
+| REEs (Ce, La, Nd) | −0.02 to +0.09 | 198–362 | 37–151 | 0–11% | **Mixed**: pH mediates part; residual signal is metal-specific |
+
+**Largest pH-confounded signals (hits that disappear with pH control):**
+
+| Element | No-pH | V3 | Collapsed | r_pH | Notes |
+|---|---|---|---|---|---|
+| Sr | 1731 | 22 | 1715 | +0.47 | Alkaline earth — pure confounder |
+| Mg | 1721 | 12 | 1716 | +0.51 | Alkaline earth |
+| Na | 1598 | 23 | 1597 | +0.23 | Mobile cation, pH proxy |
+| Ga | 1481 | 14 | 1479 | +0.17 | Follows Al/Fe weathering (pH-dependent) |
+| Mn | 1347 | 2137 | 607 | −0.11 | **Only robust element**; 55% survive + 1,397 new (suppressor) |
+
+**Mn and P are exceptional:** Both show MORE V3 hits than no-pH hits (Mn: 2,137 vs 1,347; P: 2,405 vs 535). This means pH was SUPPRESSING biological metal signals for these macronutrients — controlling pH reveals genuine Mn/P-specific community effects that were masked by pH-dominated variance.
+
+**The 6 KO×metal pairs robust to both no-pH and V3 (pH-invariant core):**
+
+| Metal | KO | Dir | pr2_metal | Description |
+|---|---|---|---|---|
+| As | K00621 | ↓ | 0.384 | GNPNAT1; glucosamine-phosphate N-acetyltransferase |
+| As | K01163 | ↓ | 0.203 | uncharacterized |
+| Hg | K02082 | ↑ | 0.427 | agaS; D-galactosamine 6-phosphate deaminase |
+| Pb | **K16256** | ↓ | 0.193 | **xoxF2; methanol dehydrogenase XoxF2** |
+| Pb | K16874 | ↓ | 0.192 | hmfF; 2,5-furandicarboxylate decarboxylase |
+| Pb | K19622 | ↓ | 0.572 | phcR; two-component system response regulator PhcR |
+
+K16256 (xoxF2) × Pb is one of the most stable associations in the dataset — depleted at high-Pb sites in both models. Communities at Pb-contaminated sites lose xoxF2 methylotrophic capacity independent of pH. Note: this is xoxF2 × Pb, not xoxF × La as in the isolate-level lanthanide project.
+
+**Output:** `data/usa_cwm/ph_sensitivity_all_elements.csv` — per-element noph/V3/overlap/r_ph table.
+
 ---
 
 ## Organic Pollutant Control (Model Extension)
