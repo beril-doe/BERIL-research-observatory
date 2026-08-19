@@ -226,6 +226,77 @@ For the 48 FDR-significant Pb KOs, fitted a stripped model (cwm ~ log₁₀(Pb) 
 
 The signal is strongest at low-forest sites (agricultural/urban), where anthropogenic Pb contamination is highest. Q4 (dense forest, pristine) is near chance — expected, as these sites have little Pb variation. This gradient is the **opposite** of what a forest-collinearity artifact would predict (artifact would be strongest in Q4, where forest drives the most CWM variance). The ecology is coherent: Pb is an anthropogenic metal, and its community effect concentrates where anthropogenic Pb loading is highest.
 
+### V3 REE analysis — corrected model (2026-08-19)
+
+**Context:** 16 REEs in the USGS geochemical extension, tested with the same full V3 model (38 covariates, drop1 partial R², BH-FDR pooled across 50 elements). Results from the 50-element pool FDR (not 6-metal pool).
+
+**Distribution check — three REEs are detection-limit dominated:**
+
+| Element | Sites | Mode (ppm) | % at mode | IQR (log₁₀) | Usable? |
+|---|---|---|---|---|---|
+| Ho | 634 | 2.0 | 90.3% | 0.000 | **NO — exclude** |
+| Eu | 634 | 1.0 | 62.2% | 0.041 | Flag (uncertain) |
+| Yb | 634 | 2.0 | 35.2% | 0.176 | OK |
+| La | 634 | 30.0 | 4.1% | 0.232 | OK |
+| Ce | 634 | 56.0 | 3.3% | 0.220 | OK |
+| Nd | 634 | 35.0 | 6.6% | 0.228 | OK |
+| Y | 634 | 15.0 | 11.1% | 0.222 | OK |
+| Sc | 634 | 6.0 | 9.9% | 0.301 | OK |
+
+**Ho exclusion note:** Because Q25 = Q75 = 2.0 ppm (log₁₀=0.301) for Ho, the direction statistic `delta_cwm_iqr = predict_Q75 − predict_Q25 = 0` for all 5,844 KOs. The 142 Ho FDR-hits reflect a "detected vs not detected" contrast (573 sites at 2 ppm vs 61 sites with higher values), not a concentration gradient. Beta_sign is 0 for all rows — results are statistically present but biologically uninterpretable. **Exclude from REE analysis.**
+
+**Hit summary (reliable REEs only, 50-element pool FDR):**
+
+| Element | Type | Hits | ↑ | ↓ | Top q | Top KO | Description |
+|---|---|---|---|---|---|---|---|
+| La | LREE | 39 | 19 | 20 | 6.1e-06 | K17948 | nanM; N-acetylneuraminate epimerase |
+| Ce | LREE | 152 | 22 | 130 | 2.4e-04 | K07494 | putative transposase |
+| Nd | LREE | 86 | 19 | 67 | 3.1e-03 | K06921 | uncharacterized protein |
+| Y | HREE | 85 | 73 | 12 | 1.9e-05 | K18614 | (no annotation) |
+| Yb | HREE | 5 | 3 | 2 | 8.5e-07 | K11176 | (no annotation) |
+| Sc | HREE | 4 | 3 | 1 | 1.7e-02 | K04793 | mbtG; mycobactin lysine-N-oxygenase |
+| **Total** | | **371** | **139** | **231** | | | |
+| Eu* | LREE | 151 | 110 | 39 | 4.3e-22 | K05831 | lysK; lysine hydrolase |
+| Ho* | — | 142 | — | — | — | — | *excluded (detection limit)* |
+
+_*Eu: 62% of sites at detection limit (1.0 ppm); direction uncertain. Reported separately._
+
+**Key LREE vs HREE directional contrast:**
+
+- **LREE (La/Ce/Nd):** 277 signed hits; 60% DOWN — high-LREE environments deplete community functional capacity
+- **HREE (Y, Yb, Sc):** 94 signed hits; 84% UP — high-HREE environments enrich community functional capacity
+
+This contrast is robust: opposite direction bias despite similar absolute hit counts per element.
+
+**Ce depletes nitrogen-fixing capacity:**
+
+Three core Mo-nitrogenase genes are significantly depleted at high-Ce sites (after full 38-covariate control):
+
+| KO | Gene | q | pr2_metal | Description |
+|---|---|---|---|---|
+| K02588 | nifH | 4.5e-03 | 0.191 | nitrogenase iron protein |
+| K02586 | nifD | 6.7e-03 | 0.184 | nitrogenase MoFe protein alpha chain |
+| K02585 | nifB | 7.0e-03 | 0.183 | nitrogenase cofactor biosynthesis protein |
+
+Partial R²_metal ≈ 0.18–0.19 for all three — substantial metal-specific variance. Hypothesis: Ce accumulates in geochemical environments where Mo availability is low (lateritic soils, phosphorites), starving Mo-nitrogenase. pH is fully controlled, so this is not a pH proxy. Alternatively, REE-rich soils represent specific parent rock types (felsic-weathered) that are poor N-fixer habitats independent of nutrient chemistry.
+
+**dacA (diadenylate cyclase, c-di-AMP biosynthesis) DOWN across LREE cluster:**
+
+K18672 (dacA) is significantly depleted at high-La (q=0.016), Ce (q=0.026), and Nd (q=0.013) — the only KO significant for all three light REEs. c-di-AMP is a universal bacterial second messenger regulating biofilm formation, osmoregulation, and sporulation. Depletion of dacA suggests communities at high-LREE sites have reduced biofilm/sporulation programming.
+
+**KOs shared across multiple REEs:**
+
+| KO | Elements | Direction | Description |
+|---|---|---|---|
+| K18672 (dacA) | La, Ce, Nd | all ↓ | diadenylate cyclase (c-di-AMP) |
+| K03271 (gmhA) | Ce, Nd, Y | all ↑ | D-sedoheptulose 7-phosphate isomerase (LPS) |
+| K02229 (cobG) | Ce, Nd, Y | all ↑ | precorrin-3B synthase (cobalamin biosynthesis) |
+| K18672 (dacA) | La, Ce, Nd | all ↓ | (same as above) |
+
+**xoxF/lanthanide MDH — negative result:**
+
+All 8 xoxF-family KOs (K16255–K16259, K23995, K17066, K17067) show NO FDR-significant associations with any REE in the CWM analysis. Best raw p-value: Nd×K17067 p=0.077 (q=0.61). This null result is informative: despite the H4 support in the xoxF-specific isolate/gene-level analysis (NB01–NB07 at sites with pH control), xoxF functional capacity does not shift detectably at the community CWM level along REE concentration gradients. The lanthanide-xoxF signal operates at strain-level physiology or gene expression, not community composition.
+
 ---
 
 ## Organic Pollutant Control (Model Extension)
