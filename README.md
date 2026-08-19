@@ -157,7 +157,7 @@ Skills are invoked automatically based on context, or explicitly with `/skill-na
 | **LinkML Schema** | `/linkml-schema` | Generate LinkML schema from markdown, Excel, or plain text |
 | **Phenix** | `/phenix` | Structural biology workflows — AlphaFold, X-ray, cryo-EM, MolProbity |
 
-BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environment management outside the agent session. `beril start --agent <name>` launches Claude Code, Codex, Gemini CLI or omp.
+BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environment management outside the agent session. `beril start --agent <name>` launches Claude Code, Codex, Gemini CLI or omp. With `--agent omp`, session transcripts are written to `.omp-sessions/` in the checkout (gitignored) and the path is printed at launch, so a session can be handed to a transcript reader afterwards.
 
 ---
 

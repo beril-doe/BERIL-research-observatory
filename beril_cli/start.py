@@ -17,6 +17,11 @@ from beril_cli.detect import print_jupyterhub_path_hint
 
 GITHUB_API_TIMEOUT_SECONDS = 10
 
+#: Where omp is told to keep session transcripts, relative to the repo root. Gitignored:
+#: a transcript is machine-local and holds whatever the agent read, the same reasoning
+#: that keeps ``projects/*/runtime.json`` out of the tree.
+OMP_SESSION_DIR = ".omp-sessions"
+
 
 def _sync_auth_token(env_path: Path) -> None:
     """Sync KBASE_AUTH_TOKEN from live environment into .env if available."""
@@ -149,6 +154,16 @@ def _checkout_release(repo_root: Path, requested_version: str | None) -> int:
     return 0
 
 
+def _has_flag(extra_args: list[str], name: str) -> bool:
+    """Whether the caller already passed ``name``, in either form.
+
+    Both ``--flag value`` and ``--flag=value`` count. Plain membership misses the
+    second, and re-adding a default the caller already set hands the agent the same
+    flag twice with two different values.
+    """
+    return any(arg == name or arg.startswith(f"{name}=") for arg in extra_args)
+
+
 def claude_defaults(agent: str, extra_args: list[str]) -> list[str]:
     """Default flags for Claude: Opus with the 1M context window, auto permissions.
 
@@ -157,11 +172,51 @@ def claude_defaults(agent: str, extra_args: list[str]) -> list[str]:
     if agent != "claude":
         return []
     flags: list[str] = []
-    if "--model" not in extra_args:
+    if not _has_flag(extra_args, "--model"):
         flags += ["--model", "opus[1m]"]
-    if "--permission-mode" not in extra_args:
+    if not _has_flag(extra_args, "--permission-mode"):
         flags += ["--permission-mode", "auto"]
     return flags
+
+
+def omp_defaults(agent: str, extra_args: list[str], repo_root: Path) -> list[str]:
+    """Default flags for omp: a session directory inside the checkout.
+
+    Returns nothing for other agents, and skips the flag if the caller already set it.
+
+    omp writes its transcript to ``~/.omp/agent/sessions/<encoded-cwd>/`` under a name
+    it picks -- a timestamp and a UUID -- so the path is knowable only after the fact.
+    Because ``beril start`` launches from the repo root, every project on a machine
+    also shares one such directory. Nothing downstream can name a session file, and
+    naming one is exactly what a transcript reader needs: evalome's ``collect`` takes
+    ``--transcript <path>``, and unlike Claude Code, omp fires no SessionStart hook to
+    supply it.
+
+    Pointing omp at the checkout fixes the directory without inventing the filename.
+    The newest ``.jsonl`` under it is the session just launched, printed at launch so
+    the operator can hand it straight to a collector.
+
+    Repo-root, not per-project: ``/berdl_start`` scaffolds the project *during* the
+    session, so at launch there is no project directory to write into yet.
+    """
+    if agent != "omp" or _has_flag(extra_args, "--session-dir"):
+        return []
+    return ["--session-dir", str(repo_root / OMP_SESSION_DIR)]
+
+
+def announce_omp_session(session_flags: list[str]) -> None:
+    """Create the session directory and tell the operator where it is.
+
+    A no-op for anything but omp, so both launch sites can call it unconditionally.
+    Created here rather than left to omp, so the path printed has something behind it
+    even when the launch then fails -- an operator sent to an absent directory cannot
+    tell "the agent wrote nothing" from "I was told the wrong place".
+    """
+    if not session_flags:
+        return
+    session_dir = Path(session_flags[1])
+    session_dir.mkdir(parents=True, exist_ok=True)
+    print(f"omp transcripts: {session_dir} (this session is the newest *.jsonl)")
 
 
 def run_start(
@@ -222,9 +277,13 @@ def run_start(
                     file=sys.stderr,
                 )
 
-    extra_args = [*claude_defaults(agent, extra_args), *extra_args]
+    # Computed from the operator's own args, so this runs after the onboarding default
+    # above and never itself counts as "the user already passed a prompt".
+    session_flags = omp_defaults(agent, extra_args, repo_root)
+    extra_args = [*claude_defaults(agent, extra_args), *session_flags, *extra_args]
 
     print(f"Launching {agent}...")
+    announce_omp_session(session_flags)
     print_jupyterhub_path_hint(repo_root)
     # Replace the current process with the agent
     os.execvp(binary, [agent, *extra_args])

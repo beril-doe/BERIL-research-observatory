@@ -112,6 +112,10 @@ projects/*/.agent-state.json.tmp
 # ignoring it preserves the de-facto behaviour and stops a fresh clone showing an
 # untracked file after the SessionStart hook writes one.
 projects/*/runtime.json
+# omp session transcripts, when `beril start --agent omp` points omp at the checkout
+# (beril_cli/start.py::omp_defaults). Same genus as runtime.json: machine-local, and
+# the full conversation including whatever the agent happened to read.
+.omp-sessions/
 
 # UI application
 ui/data/cache.json
