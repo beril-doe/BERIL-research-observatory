@@ -203,6 +203,13 @@ def test_mixed_source_directory_is_rejected(parquet_dir):
         ingest_dataset.run(_args(parquet_dir))
 
 
+def test_uppercase_parquet_extension_is_rejected(tmp_path):
+    (tmp_path / "biosample_set.PARQUET").write_bytes(b"PAR1")
+
+    with pytest.raises(ingest_dataset.ConfigurationError, match="lowercase .parquet"):
+        ingest_dataset.run(_args(tmp_path))
+
+
 def test_outcome_is_immutable(parquet_dir, tmp_path, monkeypatch):
     outcome = tmp_path / "outcome.json"
     outcome.write_text("existing", encoding="utf-8")

@@ -96,9 +96,11 @@ def _validate_inputs(args: argparse.Namespace) -> tuple[Path, str]:
             "Parquet staging does not accept mixed tabular source formats: "
             + ", ".join(other_sources)
         )
-    parquet = sorted(path for path in files if path.suffix.lower() == ".parquet")
+    parquet = sorted(path for path in files if path.suffix == ".parquet")
     if not parquet:
-        raise ConfigurationError("data directory contains no Parquet tables")
+        raise ConfigurationError(
+            "data directory contains no files with the lowercase .parquet extension"
+        )
     if any(path.is_symlink() for path in parquet):
         raise ConfigurationError("Parquet inputs must be ordinary files, not symlinks")
     if len({path.stem for path in parquet}) != len(parquet):
