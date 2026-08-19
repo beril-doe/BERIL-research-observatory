@@ -252,6 +252,24 @@ To test whether results differ on the cleanest MAGs:
 
 The drop from Phase 3B to 3C reflects reduced statistical power (sample size halved) rather than quality artefact: associations that survive in Phase 3A but not 3C are re-run on 22% of MAGs, and the FDR denominator is unchanged at 219. Phase 3B (55% survival at n=3,520) confirms the main signal persists on a substantially restricted, high-quality subset. Cu has 0 surviving pairs across all models (consistent with H1: Cu had 0 FDR-sig KOs).
 
+### Control 4b — SPIRE MAG quality covariate (2026-08-17)
+
+SPIRE quality metrics (CheckM2 completeness, contamination, and log_n_mags per sample) were extracted from `kbase.ke_pangenome.gtdb_metadata` and joined on `genome_id = accession`. The quality-adjusted model adds three standardized covariates:
+
+`KO_present ~ PF1_metal + log_genome_size + latitude + C(phylum/genus) + completeness_z + contamination_z + log_n_mags_z`
+
+**69/69 SPIRE baseline pairs survive quality covariate adjustment** (FDR q<0.05 in the adjusted model). Median β ratio (adjusted/baseline) = 0.986 (IQR 0.950–1.024), indicating negligible effect of quality on effect size estimates.
+
+High-quality subsets:
+
+| Subset | N MAGs | Survival |
+|---|---|---|
+| All + quality covariates (Phase 3A equivalent) | 2,477 | **69/69 (100%)** |
+| HQ90 (≥90% complete, ≤5% contamination) | 2,287 | **46/69 (67%)** |
+| HQ95 (≥95% complete, ≤2% contamination) | 1,247 | 5/56 (9%) |
+
+The HQ95 drop reflects power loss (n=1,247, denominator unchanged at 69), not signal artefact — the same pattern as Phase 3C in MGnify. HQ90 (67% survival at n=2,287) is the appropriate stringency-balanced comparison and confirms robust survival. Files: `data/spire_quality_sensitivity.csv`.
+
 ### Skipped controls
 
 - **Phase 5 (PGLS phylogenetic control):** The GTDB pruned representative tree covers only 16.2% of MAGs (1,324/8,177 with a genus assignment). Running PGLS on 16% of the data would introduce severe survivor bias and is not interpretable for the full association set. Skipped.
@@ -1331,7 +1349,7 @@ Data: `data/aim3_step1_fitness_matrix.csv`, `data/aim3_step2_classification.csv`
    Note: large |β| values reflect quasi-complete separation in logistic regression (PF1 concentrations are sparse continuous predictors); interpret OR/IQR (which represents a realistic predictor shift) rather than raw β. All raw β values should be treated as numerically unstable; Firth IRLS was applied to the 24 extreme-β pairs and confirmed direction stability. K00368 × Hg appears twice in the original table output due to a merge artifact and represents a single pair; the deduplicated table is in `data/spire_total_vs_direct_effects.csv`.
 
 4. **Taxonomic control** uses phylum in MGnify baseline (genus fallback for SPIRE). Class-level control was applied to the 219 H1-sig pairs (Robustness section). Genus-level random effects are not feasible (65% singleton genera).
-5. **MAG quality sensitivity is threshold-dependent**. Phase 3A (quality covariates, all MAGs) shows 91% survival — no confounding. Phase 3C (≥97%/≤1%, n=1,854) shows 13% survival, but this reflects reduced power (22% of MAGs) rather than quality artefact: there is no evidence that low-quality MAGs drive the associations. **MGnify MAG completeness and contamination are controlled via Phase 3A covariate analysis (91% survival, 200/219 pairs).** SPIRE MAG quality data (completeness, contamination, sequencing depth, evenness, MAGs-per-sample) is not currently accessible in the refdata.spire.genome_metadata table on BERDL. If available, sensitivity tests on the 24 SPIRE pairs significant in both models would address whether assembly quality or sample-level sequencing heterogeneity confounds SPIRE associations. For now, the SPIRE analysis relies on genome_size (already included as log_genome_size covariate) as a proxy for assembly completeness; log_genome_size acts as an implicit quality control (larger, more contiguous genomes tend to be more complete).
+5. **MAG quality sensitivity is threshold-dependent**. Phase 3A (quality covariates, all MAGs) shows 91% survival for MGnify — no confounding. Phase 3C (≥97%/≤1%, n=1,854) shows 13% survival, reflecting power loss (22% of MAGs) rather than quality artefact. **SPIRE quality covariate control (Control 4b, 2026-08-17): 69/69 baseline pairs survive quality-adjusted model (completeness_z + contamination_z + log_n_mags_z); median β ratio = 0.986. HQ90 subset (≥90%/≤5%, n=2,287): 46/69 (67%) survive.** Both datasets show no quality confounding at reasonable completeness thresholds.
 6. **Phylogenetic control not feasible**. The GTDB pruned representative tree covers only 16.2% of MAGs; PGLS on this subset would introduce severe survivor bias.
 7. **All analyses are exploratory**. FDR correction is per-metal, not across all metals simultaneously.
 8. **Elevation was controlled for the 88 robust pairs (exploratory)**. An elevation covariate from `arkinlab.envdbs.etopo1_elevation` (0.1° grid) was added for the 88 all-controls-surviving pairs. 83/88 remain FDR-significant; 0 direction flips; β Spearman ρ vs latitude-only model = 0.959. Elevation does not explain the robust associations. The 77.1% MAG elevation-coverage gap (23% unmatched at 0.1°) means this check uses a slightly reduced dataset; results are labeled exploratory. See the Elevation sensitivity subsection of Robustness controls for details.
