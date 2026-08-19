@@ -160,7 +160,7 @@ def _mc(*args, capture=True):
 
 def _check_mc_alias():
     """Verify the berdl-minio mc alias is configured."""
-    rc, out, err = _mc("alias", "list", MC_ALIAS)
+    rc, _out, _err = _mc("alias", "list", MC_ALIAS)
     if rc != 0:
         print(f"ERROR: mc alias '{MC_ALIAS}' not configured.", file=sys.stderr)
         print("Run: mc alias set berdl-minio $MINIO_ENDPOINT_URL $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY", file=sys.stderr)
@@ -175,14 +175,14 @@ def _get_git_info(base_path):
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=base_path, text=True, stderr=subprocess.DEVNULL,
         ).strip()
-    except Exception:
+    except Exception:  # noqa: BLE001
         branch = "unknown"
     try:
         commit = subprocess.check_output(
             ["git", "rev-parse", "HEAD"],
             cwd=base_path, text=True, stderr=subprocess.DEVNULL,
         ).strip()
-    except Exception:
+    except Exception:  # noqa: BLE001
         commit = "unknown"
     return branch, commit
 
@@ -483,7 +483,7 @@ def upload_all_projects(base_path):
             results.append(result)
 
     print(f"\n{'='*60}")
-    print(f"UPLOAD COMPLETE")
+    print("UPLOAD COMPLETE")
     print(f"{'='*60}")
     print(f"  Projects: {len(results)}")
     total_files = sum(r["remote_files"] for r in results)
