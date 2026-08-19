@@ -33,9 +33,11 @@ print_preflight_plan(table_stats, namespace, mode, bucket, bronze_prefix,
                      progress_key, confirmed, user_namespace=None)
     Print upload/ingest plan. Shows user_namespace when provided. Raises if confirmed=False.
 
-upload_files(minio_client, bucket, table_stats, bronze_prefix, file_ext)
+upload_files(minio_client, bucket, table_stats, bronze_prefix, file_ext,
+             force=False, verify_sha256=False)
     Upload data files to MinIO bronze. Chunked tables are skipped here —
-    their chunk files are uploaded one-by-one during ingest.
+    their chunk files are uploaded one-by-one during ingest. The guarded
+    automation path forces replacement and verifies stored SHA-256 digests.
 
 run_ingest(spark, minio_client, table_stats, schemas, schema_defs, namespace,
            tenant, dataset, bucket, bronze_prefix, mode, file_ext,
@@ -54,6 +56,7 @@ verify_ingest(spark, namespace, table_stats, minio_client, bucket, progress_key,
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import logging
@@ -765,6 +768,28 @@ def _minio_object_size(minio_client, bucket: str, key: str) -> int:
         raise
 
 
+def _sha256_file(path: Path) -> str:
+    """Return a streaming SHA-256 digest without loading a source into memory."""
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(8 * 1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _sha256_object(minio_client, bucket: str, key: str) -> str:
+    """Stream one stored object and return its SHA-256 digest."""
+    response = minio_client.get_object(bucket, key)
+    digest = hashlib.sha256()
+    try:
+        while chunk := response.read(8 * 1024 * 1024):
+            digest.update(chunk)
+    finally:
+        response.close()
+        response.release_conn()
+    return digest.hexdigest()
+
+
 def _verify_chunk_upload(
     minio_client,
     bucket: str,
@@ -844,12 +869,19 @@ def upload_files(
     table_stats: dict,
     bronze_prefix: str,
     file_ext: str,
-) -> None:
+    force: bool = False,
+    verify_sha256: bool = False,
+) -> dict[str, str]:
     """Upload all data files to MinIO bronze.
 
     Skips any file whose size already matches the remote object, so re-running
-    after a partial upload only uploads what is missing.
+    after a partial upload only uploads what is missing. ``force`` plus
+    ``verify_sha256`` is the guarded automation path: it replaces every object,
+    streams it back from object storage, and returns the verified SHA-256 digest.
     """
+    if verify_sha256 and not force:
+        raise ValueError("SHA-256 verification requires forced object replacement")
+    verified_digests: dict[str, str] = {}
     print("Checking / uploading data files...")
     for table, s in table_stats.items():
         if s["chunked"]:
@@ -860,10 +892,12 @@ def upload_files(
         local_size  = s["size_bytes"]
         remote_size = _minio_object_size(minio_client, bucket, key)
 
-        if remote_size == local_size:
+        if remote_size == local_size and not force:
             print(f"  {table}: {local_size / 1e9:.1f} GB — already in MinIO, skipping")
             continue
-        if remote_size != -1:
+        if force and remote_size != -1:
+            print(f"  {table}: replacing existing {remote_size:,} B object")
+        elif remote_size != -1:
             print(f"  {table}: size mismatch "
                   f"(local {local_size:,} B vs MinIO {remote_size:,} B) — re-uploading")
         else:
@@ -872,7 +906,19 @@ def upload_files(
         minio_client.fput_object(bucket, key, str(s["path"]))
         print(f"done  -> s3a://{bucket}/{key}")
 
+        if verify_sha256:
+            local_digest = _sha256_file(s["path"])
+            observed = _sha256_object(minio_client, bucket, key)
+            if observed != local_digest:
+                raise RuntimeError(
+                    f"[verify] SHA-256 mismatch for s3a://{bucket}/{key}; "
+                    "the stored object does not match the selected source"
+                )
+            verified_digests[table] = observed
+            print(f"  [verify] s3a://{bucket}/{key}  SHA-256 OK")
+
     print("\nUpload complete.")
+    return verified_digests
 
 
 # ── Progress log ───────────────────────────────────────────────────────────────

@@ -60,13 +60,15 @@ python scripts/ingest_dataset.py \
 Execution proceeds through four declared phases:
 
 1. initialize the existing remote Spark and object-store clients;
-2. upload or resume the manifest-selected Parquet files;
+2. replace every selected bronze Parquet object and stream-hash its stored bytes;
 3. ingest into the explicit staging namespace; and
 4. compare every catalog table count with Spark's count of its uploaded source
    Parquet object.
 
 The outcome file is created atomically and is never replaced. It records the
-destination and a credential-free result for every table. The command exits
+destination and the object-storage-verified source SHA-256 for every table, so
+downstream automation can bind catalog verification to exact reviewed bytes.
+The command exits
 nonzero for an incomplete progress record, unreadable source, count mismatch,
 upload or ingest failure, or an existing outcome path. Provider exceptions are
 reduced to their type in the outcome so credentials and records cannot be

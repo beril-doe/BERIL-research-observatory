@@ -195,8 +195,14 @@ def run(args: argparse.Namespace) -> int:
     try:
         spark, minio_client = initialize()
         phase = "upload"
-        upload_files(
-            minio_client, args.bucket, table_stats, args.bronze_prefix, file_ext
+        source_sha256 = upload_files(
+            minio_client,
+            args.bucket,
+            table_stats,
+            args.bronze_prefix,
+            file_ext,
+            force=True,
+            verify_sha256=True,
         )
         phase = "ingest"
         spark = run_ingest(
@@ -226,6 +232,8 @@ def run(args: argparse.Namespace) -> int:
             args.progress_key,
             bronze_prefix=args.bronze_prefix,
         )
+        for table in verification["tables"]:
+            table["source_sha256"] = source_sha256[table["table"]]
         outcome = {
             "schema_version": "1.0.0",
             "status": "verified" if verification["verified"] else "failed",
