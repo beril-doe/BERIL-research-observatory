@@ -1,8 +1,8 @@
 # Definitive Causal Inference Analysis: Metal–KO Associations
 ## USA 634-sample spatially-thinned dataset
 
-**Date:** 2026-08-16 (updated 2026-08-17)  
-**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) complete for 6 original metals; 71-element USGS extension running (2026-08-19). **Car operon × Cr signal does not survive gNATSGO correction — see V3 Results section below.**
+**Date:** 2026-08-16 (updated 2026-08-19)  
+**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) complete for 6 original metals; 71-element USGS extension running (as of 2026-08-19). **Car operon × Cr signal does not survive gNATSGO correction — see V3 Results section below. Forest coverage dominance explained — see Covariate Attribution section.**
 
 ---
 
@@ -191,6 +191,27 @@ Pb dominates (48/75 = 64%). Top hit: **K20489 × Cr** (q=4.4e-10, ΔR²=0.118) �
 ### V3 covariate attribution (drop1 partial R²)
 
 The v3 run adds per-covariate Type II partial R² via `drop1()` base R for every KO×metal fit. Full attribution results available once the 71-element run completes (~2026-08-19 21:30 UTC). Output: `data/usa_cwm/gam_results_v3_all.csv` with `pr2_metal`, `pr2_ph_use`, `pr2_clay_pct`, `pr2_organic_matter`, `pr2_cec`, `pr2_drainage_class`, `pr2_lith_class`, `pr2_shannon`, `pr2_log10_mine`, `pr2_log10_epa`, `pr2_lc_forest_pct`, etc.
+
+### Forest coverage dominance — interpretation (2026-08-19)
+
+Among 6,186 FDR-significant hits pooled across available v3 elements: median partial R²(forest) ≈ 0.63 vs median partial R²(metal) ≈ 0.28. This pattern requires explanation because the high forest partial R² could appear to signal collinearity between metal and forest.
+
+**Empirical test of collinearity:** Spearman correlations between log₁₀(metal) and lc_forest_pct at the 634 sample sites are near-zero for all six metals:
+
+| Metal | r(log-metal, forest) | r² | Indep. variance | r(log-metal, urban) |
+|---|---|---|---|---|
+| Pb | −0.017 | 0.000 | 1.000 | +0.205 |
+| As | −0.080 | 0.006 | 0.994 | +0.051 |
+| Cr | +0.133 | 0.018 | 0.982 | +0.096 |
+| Cu | +0.057 | 0.003 | 0.997 | +0.058 |
+| Hg | +0.257 | 0.066 | 0.934 | +0.156 |
+| Cd | +0.002 | 0.000 | 1.000 | +0.055 |
+
+Metal concentrations and forest cover are empirically **near-orthogonal** at this spatial scale (max r² = 0.066). Pb is slightly correlated with urbanisation (r = +0.205), consistent with its anthropogenic sources, but not with forest.
+
+**Why forest partial R² is higher than metal partial R²:** Forest vs. non-forest ecosystem type is the single largest driver of soil microbial community composition globally (functional turnover from forest → grassland → cropland). CWM values reflecting functional community composition therefore covary strongly with forest fraction. Metal concentrations vary independently of ecosystem type (forest sites span the full metal concentration range; non-forest sites likewise), so the model cleanly partitions forest-driven and metal-driven CWM variance. The high pr2_forest is a biological reality about microbial ecology, not evidence of collinearity.
+
+**Sanity check via null hits:** FDR-null pairs have median pr2_metal = 0.029 (vs 0.278 for FDR-significant pairs; 9.6× enrichment). All 6,186 FDR-sig hits have pr2_metal > 0.10. The metal signal is robustly above the noise floor set by pH (median pr2_pH = 0.023 among FDR-sig hits; pr2_metal/pr2_pH ≈ 12.3×).
 
 ---
 
