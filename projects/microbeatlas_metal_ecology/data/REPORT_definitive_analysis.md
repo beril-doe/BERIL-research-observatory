@@ -2,7 +2,7 @@
 ## USA 634-sample spatially-thinned dataset
 
 **Date:** 2026-08-16 (updated 2026-08-20)  
-**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) **complete for all 71 elements** (2026-08-20). Final pooled results: `gam_results_v3_all.csv` (456,397 rows; 6,223 FDR<0.05 full model; 6-metal conservative pool = **75 hits**; 6-metal in 71-element pool = **131 hits**). **Car operon × Cr null in v3 (gNATSGO artifact). Forest ⊥ metals (r²<0.07) — see Covariate Attribution. EUR/AUS v2 (covariate-harmonized, 2026-08-20): 0/75 USA hits replicate; EUR 4 independent hits; AUS 4 independent hits; K15896×Cr cross-regional (EUR q=0.045, AUS q=0.025, both β<0).**
+**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) **complete for all 71 elements** (2026-08-20). Final pooled results: `gam_results_v3_all.csv` (456,397 rows; 6,223 FDR<0.05 full model; 6-metal conservative pool = **75 hits**; 6-metal in 71-element pool = **131 hits**). **Car operon × Cr null in v3 (gNATSGO artifact). Forest ⊥ metals (r²<0.07) — see Covariate Attribution. EUR/AUS v2 (covariate-harmonized, 2026-08-20): 0/75 USA hits replicate; EUR 4 hits; AUS 4 hits. EUR/AUS v3 (lat/lon-controlled, 2026-08-20): 3/8 v2 hits survive; K27191×Cr/Cu AUS sign reverses (+→−, DsrC, SRB suppression by metal); K15896×Cr EUR stable β<0 (surface polysaccharide biosynthesis).**
 
 ---
 
@@ -669,7 +669,7 @@ Metal partial R² (0.286) is 12.4× pH partial R² (0.023) among FDR-significant
 
 **Purpose:** Independent validation of 75 USA V3 hits using European (GEMAS) and Australian (NGSA) measured metal data joined to MicrobeAtlas community composition.
 
-**Scripts:** `scripts/cwm_eur_aus_replication.py` (v1 data assembly); `scripts/extend_eur_aus_covariates.py` (v2 covariate harmonization)
+**Scripts:** `scripts/cwm_eur_aus_replication.py` (v1 data assembly); `scripts/extend_eur_aus_covariates.py` (v2 covariate harmonization); `scripts/eur_aus_latlon_model.py` (v3 lat/lon-controlled)
 
 ### V1 model (2026-08-20, limited covariate set)
 
@@ -737,6 +737,49 @@ The null replication reflects power limitations: EUR has 133–220 complete-case
 **Cross-regional finding:** K15896 × Cr is FDR-significant in **both** EUR (q=0.045, δR²=0.087, β<0) and AUS (q=0.025, δR²=0.166, β<0) — consistent negative direction. This KO is not among the 75 USA hits (USA K15896×Cr: q=0.988, p=0.600 — entirely null). K15896 is a notable EUR/AUS-specific signal. In USA, K15896 is strongly associated with P (q=0.0008, β>0) and Zn (q=0.004, β>0), suggesting region-specific geochemical context mediates which element drives K15896 CWM. The EUR+AUS Cr negative direction (more Cr → lower K15896 CWM) is coherent: elevated Cr suppresses K15896-carrying taxa in both European and Australian soils but not in USA soils where Cr co-varies differently with the community.
 
 **K27191 × Cr/Cu (AUS only):** Strongest AUS hit (δR²=0.335 for Cr — larger than any USA Cr hit). USA K27191 is strongly negative for Cs/Rb/K (q<10⁻⁶), reflecting K-uptake biology. The AUS K27191 × Cr positive association (more Cr → more K27191 CWM, β>0) suggests a distinct AUS Cr-ecology context.
+
+### V3 model (2026-08-20, lat/lon spatial control)
+
+**Motivation:** Diagnostic analysis revealed that metal-latitude gradients are **reversed between regions** for Cr, As, Cu (e.g. Cr: ρ_lat USA=+0.25 vs EUR=−0.15 vs AUS=−0.20). Any microbial feature correlated with latitude will produce opposite apparent metal effects across regions. To separate direct metal effects from spatial confounding, `sp_lat` and `sp_lon` were added to the v2 shared covariate set (the R script includes all `sp_*` columns in the linear predictor automatically).
+
+**Spatial confounding summary (r² of log10(metal) ~ lat+lon):**
+
+| Metal | Region | r²(lat+lon) | ρ_lat | ρ_lon |
+|-------|--------|-------------|-------|-------|
+| Cr | USA | 0.141 | +0.253 | −0.284 |
+| Cr | EUR | 0.067 | −0.147 | +0.113 |
+| Cr | AUS | 0.098 | −0.198 | +0.355 |
+| As | EUR | 0.136 | −0.311 | −0.282 |
+| Hg | AUS | 0.203 | −0.442 | +0.344 |
+
+Cr is most abundant at HIGH latitudes in USA but LOW latitudes in EUR/AUS — opposite spatial polarity. USA-EUR and USA-AUS Cr lat-gradients are anti-correlated. This alone can produce apparent association sign reversals between regions without any real biological difference.
+
+**V3 hit summary (3/8 v2 hits survive, 0 new):**
+
+| Region | KO | Metal | q_BH (v3) | δR² | β sign | v2 β | Note |
+|--------|-----|-------|-----------|-----|--------|-------|------|
+| AUS | K27191 | Cr | 0.0021 | 0.322 | **−** | **+** | **Sign reversal vs v2** |
+| AUS | K27191 | Cu | 0.034  | 0.262 | **−** | **+** | **Sign reversal vs v2** |
+| EUR | K15896 | Cr | 0.034  | 0.091 | −     | −     | Stable; slightly strengthens |
+
+K27191 encodes DsrC ([DsrC]-trisulfide reductase, sulfur metabolism, map00920). Sulfate-reducing bacteria carrying DsrC are well-documented to be inhibited by Cu and Cr. The v2 positive association was driven by eastern Australia's co-distribution of mafic Cr/Cu geology and higher SRB abundance; after removing the east–west spatial gradient, the true partial effect reverses to negative (high Cr/Cu sites have less K27191).
+
+K15896 (UDP-4-amino-4,6-dideoxy-N-acetyl-beta-L-altrosamine N-acetyltransferase; surface polysaccharide biosynthesis, map00541) shows a stable negative Cr association in EUR that strengthens slightly with lat/lon control (δR² 0.087 → 0.091; p 0.0002 → 0.0001), indicating it is not a spatial confound.
+
+**Dropped by lat/lon control (5/8):**
+- AUS K15896×Cr: p=0.0007 in v3 (consistent direction, narrowly missed FDR in 12-pool)
+- EUR K18355×Cr: p=0.0011 in v3 (phenylglyoxylate dehydrogenase; narrowly missed FDR)
+- AUS K25985×As (n=47): marginal, spatial confound
+- EUR K00621×As: linear effect non-significant (p=0.70); spline artifact in v2
+- EUR K24694×Cd: linear effect marginal (p=0.072); drops in v3
+
+**Output files:**
+```
+data/eur_aus_cwm/latlon_model/
+  lm_input_{EUR,AUS}_v3_*.csv     Per-metal lm inputs with sp_lat/sp_lon
+  lm_out_{EUR,AUS}_v3_*.csv       R model results v3
+  gam_results_eur_aus_v3.csv      Pooled BH-FDR across 12 region×metal
+```
 
 **Spatial Effective Sample Size (pESS):**
 
