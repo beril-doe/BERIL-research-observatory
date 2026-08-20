@@ -698,12 +698,17 @@ Hg-positive hits span TCA cycle (K00177 2-oxoglutarate ferredoxin oxidoreductase
 
 ### Cross-dataset comparison: CWM vs SPIRE per-KO hits
 
-| Dataset | Approach | FDR<0.05 hits | Overlap |
-|---------|---------|---------------|---------|
-| CWM (this analysis) | Community-weighted mean ~ measured metal, lm() | 75 KO×metal | — |
-| SPIRE (NB04, per-KO) | KO binary presence ~ PF1 modeled metal, Firth logistic | 56 KO×metal | 0 |
+| Dataset | Approach | FDR<0.05 hits | KO×metal overlap | KO-level overlap |
+|---------|---------|---------------|---------|---------|
+| CWM (this analysis) | Community-weighted mean ~ measured USGS metal, lm() | 75 KO×metal | — | — |
+| SPIRE NB14 (measured metals) | KO binary presence ~ measured USGS metal, Firth logistic, pH-adj | 476 KO×metal | **2** | **7** |
+| SPIRE NB04 (PF1 modeled — invalid comparison) | KO binary presence ~ Qi et al. 2025 PF1 predictions | 56 KO×metal | 0 | 0 |
 
-**Zero KO-level overlap** (same gene appearing as a hit in both datasets, for any metal). This is consistent with the interpretation that CWM captures **community turnover** (which taxa dominate in high-metal environments) while SPIRE captures **gene-level selection** (which genes are gained or lost across lineages along the metal gradient). Their orthogonality at the KO level supports Adam's reframe: the primary mechanism linking community functional composition to metal concentration is **taxonomic community replacement**, not within-lineage gene gain, at the scale of these soil surveys. The two methods also differ in metal source (measured vs. Qi et al. 2025 modeled predictions) and dataset (amplicon CWM vs. SPIRE MAGs), which may contribute to the discordance independently of the biological mechanism.
+**NB14 comparison (valid, same metal source):** NB14 applies Firth logistic regression to SPIRE MAG binary KO presence/absence against the same USGS measured metals used for CWM, with pH adjustment (37,254 total tests; As=32, Cd=224, Cr=58, Cu=49, Hg=16, Pb=97 FDR<0.05 hits). The two exact KO×metal overlaps are K12264×Pb (sign concordant: CWM β+, SPIRE β+) and K22373×Pb (sign discordant: CWM β−, SPIRE β+). Expected overlap under null ≈ 75 × 476 / 37,254 ≈ 1.0 pairs — the observed 2 is within noise. The 7 KO-level overlaps across any metal are likewise near-chance (expected ≈ 75 × n_SPIRE_KOs / 6,432; most shared KOs associate with *different* metals in each dataset).
+
+**Interpretation:** The near-zero overlap, achieved here with matching metal sources, reflects a genuine biological difference between the two tests. CWM captures *community turnover* — which genera dominate at high-metal sites, weighted by their KO content (a 16S-based inference). SPIRE captures *gene-level selection within the MAG pool* — whether MAGs carrying a given KO are enriched at high-metal sites (a metagenomic read). These two mechanisms are not expected to share the same gene targets: community composition can shift via differential genus abundances without any change in within-genus gene content, and vice versa. The near-zero overlap supports community turnover as the dominant signal in the CWM data, consistent with Adam's reframing of the hypothesis.
+
+**Remaining caveat (amplicon vs. metagenomic sampling):** CWM uses MicrobeAtlas 16S genera (all V-regions, OTU-level), while SPIRE uses metagenome-assembled genomes. The two datasets partially overlap geographically but sample microbial diversity through different biases — gene-rich but rare lineages may appear in SPIRE but be amplicon-invisible, and vice versa. This difference in community capture means the near-zero overlap cannot be fully attributed to mechanism alone. However, the result is consistent across PF1-based and measured-metal SPIRE comparisons, making a methodological artefact unlikely as the sole explanation.
 
 ---
 
