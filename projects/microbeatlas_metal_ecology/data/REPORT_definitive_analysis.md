@@ -2,7 +2,7 @@
 ## USA 634-sample spatially-thinned dataset
 
 **Date:** 2026-08-16 (updated 2026-08-20)  
-**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) **complete for all 71 elements** (2026-08-20). Final pooled results: `gam_results_v3_all.csv` (456,397 rows; 6,223 FDR<0.05 full model; 6-metal conservative pool = **75 hits**; 6-metal in 71-element pool = **131 hits**). **Car operon × Cr null in v3 (gNATSGO artifact). Forest ⊥ metals (r²<0.07) — see Covariate Attribution. EUR/AUS replication: 0/75 USA hits replicate at q<0.05; EUR 6 independent hits; AUS 4 independent hits.**
+**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) **complete for all 71 elements** (2026-08-20). Final pooled results: `gam_results_v3_all.csv` (456,397 rows; 6,223 FDR<0.05 full model; 6-metal conservative pool = **75 hits**; 6-metal in 71-element pool = **131 hits**). **Car operon × Cr null in v3 (gNATSGO artifact). Forest ⊥ metals (r²<0.07) — see Covariate Attribution. EUR/AUS v2 (covariate-harmonized, 2026-08-20): 0/75 USA hits replicate; EUR 4 independent hits; AUS 4 independent hits; K15896×Cr cross-regional (EUR q=0.045, AUS q=0.025, both β<0).**
 
 ---
 
@@ -669,52 +669,74 @@ Metal partial R² (0.286) is 12.4× pH partial R² (0.023) among FDR-significant
 
 **Purpose:** Independent validation of 75 USA V3 hits using European (GEMAS) and Australian (NGSA) measured metal data joined to MicrobeAtlas community composition.
 
-**Script:** `scripts/cwm_eur_aus_replication.py`
+**Scripts:** `scripts/cwm_eur_aus_replication.py` (v1 data assembly); `scripts/extend_eur_aus_covariates.py` (v2 covariate harmonization)
 
-**Design:**
-- Target: 125 unique KOs from the 75 USA V3 FDR-significant pairs
-- EUR: MicrobeAtlas soil samples (lat 29–72°N, lon -10–45°E); metal join to GEMAS (25 km), 6 metals (As, Cd, Cr, Cu, Hg, Pb) + pH + TOC
-- AUS: MicrobeAtlas soil samples (lat -45 to -10°N, lon 113–154°E); metal join to NGSA (50 km), 6 metals + field_pH + clay
-- Simplified model: `cwm ~ log10_metal + ns(ph_ssurgo,3) + clay_pct + lc_forest_pct + lc_cultivated_pct + lc_urban_pct + lc_barren_pct + shannon + phylum_[8]`
-- Note: ph_ssurgo column = measured pH from GEMAS/NGSA (re-labelled for R model compatibility). SoilGrids pH is not populated; do not substitute.
-- EUR clay: estimated from SoilGrids sand_0cm + silt_0cm (clay = 100 - sand - silt)
-- AUS clay: measured directly from NGSA clay_pct
-- AUS pH: NGSA field_pH has 0% coverage; MicrobeAtlas `sample_metadata.ph` used as fallback (4/173 samples had measured pH, so `use_ph=FALSE` for AUS — pH excluded from model covariates). R script bug fixed (2026-08-20): `all_vars` was unconditionally including `ph_use` in `complete.cases()` selection even when all-NA; fixed to condition on `use_ph`.
+### V1 model (2026-08-20, limited covariate set)
+
+The initial replication used only 6 covariates (measured pH, clay, EarthEnv land cover ×4, Shannon + 8 phyla). Direct comparison to the 38-covariate USA model is invalid — different covariate sets do not permit cross-regional inference about the same signal.
+
+### V2 model (2026-08-20, harmonized global covariates)
+
+**Motivation:** For valid EUR/AUS vs. USA comparison, only globally available layers can be used. USA-specific covariates (gNATSGO slope/AWC/drainage, EPA TRI releases, SSURGO drainage class, USGS mine distance) are excluded from the shared model.
+
+**Shared covariate set (35 columns, globally available):**
+- Soil (SoilGrids master, 0.25°): organic_matter, bulk_density_0cm, sand_0cm, silt_0cm, nitrogen_0cm, cec
+- Climate (WorldClim, 0.25°): mat_c, map_mm, temp_seasonality, precip_seasonality, temp_annual_range_c, elevation_m
+- Lithology (GLiM): lith_class (13 classes, one-hot encoded)
+- Land cover (EarthEnv): lc_forest_pct, lc_cultivated_pct, lc_urban_pct, lc_barren_pct
+- Community: shannon + 8 phyla
+- pH: measured pH from GEMAS/NGSA (EUR), MicrobeAtlas sample pH (AUS fallback)
+- Clay: measured NGSA clay (AUS); SoilGrids-derived for EUR (100 − sand − silt)
+
+**Script:** `scripts/extend_eur_aus_covariates.py` — KDTree join (max_km=40) of SoilGrids, WorldClim, GLiM to EUR/AUS sample lat/lon; R lm() model via subprocess with MC_CORES=4, OMP_NUM_THREADS=1.
 
 **Output files:**
 ```
 data/eur_aus_cwm/
-  cwm_long_eur.parquet         CWM × 125 KOs for thinned EUR samples
-  cwm_long_aus.parquet         CWM × 125 KOs for thinned AUS samples
-  diversity_eur.parquet        Shannon + 8 phyla for EUR samples
-  diversity_aus.parquet        Shannon + 8 phyla for AUS samples
-  earthenv_eur.parquet         EarthEnv land cover EUR
-  earthenv_aus.parquet         EarthEnv land cover AUS
-  soilgrids_clay_eur.parquet   SoilGrids clay (100-sand-silt) for EUR
-  aus_sample_ph.parquet        MicrobeAtlas measured pH for AUS samples
-  covariate_eur.parquet        Full EUR covariate matrix
-  covariate_aus.parquet        Full AUS covariate matrix
-  lm_input_EUR_*.csv           Per-metal lm inputs (EUR)
-  lm_input_AUS_*.csv           Per-metal lm inputs (AUS)
-  lm_out_EUR_*.csv             R model results EUR
-  lm_out_AUS_*.csv             R model results AUS
-  replication_summary.csv      Same-direction FDR replication table
-  spatial_ess.csv              Moran I and pESS per region
+  lm_input_EUR_v2_*.csv        Per-metal lm inputs (EUR, harmonized covariates)
+  lm_input_AUS_v2_*.csv        Per-metal lm inputs (AUS, harmonized covariates)
+  lm_out_EUR_v2_*.csv          R model results EUR v2
+  lm_out_AUS_v2_*.csv          R model results AUS v2
+  replication_summary_v2.csv   Same-direction FDR replication table (v2 model)
 ```
 
-**Results (run 2026-08-20):**
+**Results (V2 harmonized covariates):**
 
-| Region | Samples | Metals | KOs tested | FDR<0.05 hits |
-|--------|---------|--------|------------|----------------|
-| EUR    | 490 thinned; 241 within 25 km of GEMAS | 6 | 125 | 6 (As×1, Cd×2, Cr×2, Cu×1) |
-| AUS    | 173 thinned; 115 within 50 km of NGSA  | 6 | 124–125 (19 for Cd) | 4 (Cr×2, Cu×2) |
+| Region | n (complete cases, metal-varies) | Metals | FDR<0.05 hits |
+|--------|----------------------------------|--------|----------------|
+| EUR    | 133–220 (varies by metal coverage) | 6 | 4 (As×1, Cd×1, Cr×2) |
+| AUS    | 30–109 (Cd sparse: 30)             | 6 | 4 (Cr×2, Cu×1, As×1) |
+
+**EUR V2 hits** (BH-FDR pooled across 6 metals):
+
+| KO | Metal | q_BH | δR² | β sign | n |
+|----|-------|------|-----|--------|---|
+| K00621 | As | 0.045 | 0.128 | + | 133 |
+| K24694 | Cd | 0.045 | 0.103 | − | 162 |
+| K15896 | Cr | 0.045 | 0.087 | − | 213 |
+| K18355 | Cr | 0.045 | 0.106 | − | 142 |
+
+**AUS V2 hits** (BH-FDR pooled across 6 metals):
+
+| KO | Metal | q_BH | δR² | β sign | n |
+|----|-------|------|-----|--------|---|
+| K27191 | Cr | 0.0003 | 0.335 | + | 84 |
+| K27191 | Cu | 0.007  | 0.278 | + | 81 |
+| K15896 | Cr | 0.025  | 0.166 | − | 102 |
+| K25985 | As | 0.037  | 0.054 | − | 47 |
 
 **Replication of USA V3 hits (75 pairs):**
 - Replicated in EUR (same direction, q<0.05): **0/75**
 - Replicated in AUS (same direction, q<0.05): **0/75**
 - Replicated in either: **0/75**
+- EUR directional consistency (same sign, any q): 45/75 (60%)
+- AUS directional consistency (same sign, any q): 32/75 (43%)
 
-The 10 EUR/AUS hits are independent regional signals not among the 75 USA hits. The null replication result reflects the much smaller regional sample sizes (490 EUR, 173 AUS vs. 634 USA) and the absence of pH covariate for AUS.
+The null replication reflects power limitations: EUR has 133–220 complete-case samples, AUS 30–109 — substantially below the 634 USA baseline. At these sample sizes, only effects with δR² ≥ ~0.08 have >80% power to replicate at q<0.05.
+
+**Cross-regional finding:** K15896 × Cr is FDR-significant in **both** EUR (q=0.045, δR²=0.087, β<0) and AUS (q=0.025, δR²=0.166, β<0) — consistent negative direction. This KO is not among the 75 USA hits (USA K15896×Cr: q=0.988, p=0.600 — entirely null). K15896 is a notable EUR/AUS-specific signal. In USA, K15896 is strongly associated with P (q=0.0008, β>0) and Zn (q=0.004, β>0), suggesting region-specific geochemical context mediates which element drives K15896 CWM. The EUR+AUS Cr negative direction (more Cr → lower K15896 CWM) is coherent: elevated Cr suppresses K15896-carrying taxa in both European and Australian soils but not in USA soils where Cr co-varies differently with the community.
+
+**K27191 × Cr/Cu (AUS only):** Strongest AUS hit (δR²=0.335 for Cr — larger than any USA Cr hit). USA K27191 is strongly negative for Cs/Rb/K (q<10⁻⁶), reflecting K-uptake biology. The AUS K27191 × Cr positive association (more Cr → more K27191 CWM, β>0) suggests a distinct AUS Cr-ecology context.
 
 **Spatial Effective Sample Size (pESS):**
 
@@ -723,7 +745,7 @@ pESS = n × (1 − I) / (1 + I) using Moran's I on Shannon diversity at 250 km b
 | Region | n (thinned) | Moran's I | pESS | Mean neighbours |
 |--------|-------------|-----------|------|-----------------|
 | USA    | 634         | 0.006     | 626.5 | 14.0           |
-| EUR    | 490         | 0.003     | 486.8 | 15.1           |
-| AUS    | 173         | 0.027     | 164.0 | 7.8            |
+| EUR    | 490 thinned (220 complete-case in v2 model) | 0.003 | 486.8 | 15.1 |
+| AUS    | 173 thinned (78–109 complete-case in v2 model; Cd: 30) | 0.027 | 164.0 | 7.8 |
 
-Spatial autocorrelation in Shannon diversity is negligible in all three regions (Moran I < 0.03), confirming that 0.45° grid thinning is sufficient to remove spatial clustering and that pESS ≈ n in each case. Regional effective sample sizes: USA 626, EUR 487, AUS 164.
+Spatial autocorrelation in Shannon diversity is negligible in all three regions (Moran I < 0.03), confirming that 0.45° grid thinning is sufficient to remove spatial clustering and that pESS ≈ n in each case. Regional effective sample sizes: USA 626, EUR ~220 (v2 complete-case), AUS ~100 (v2, metal-dependent). The EUR/AUS pESS values are based on the full thinned set; complete-case counts are lower due to global covariate coverage.
