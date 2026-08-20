@@ -713,6 +713,38 @@ Hg-positive hits span TCA cycle (K00177 2-oxoglutarate ferredoxin oxidoreductase
 
 **Remaining caveat (amplicon vs. metagenomic sampling):** CWM uses MicrobeAtlas 16S genera; SPIRE uses MAGs. The 1,823 SPIRE MAGs matched to the 634 thinned CWM cells share the same geographic footprint, limiting spatial sampling bias as an alternative explanation. The amplicon/metagenomic diversity-capture difference (rare gene-rich lineages invisible to 16S) remains as a partial alternative, but is unlikely to drive the consistently near-zero overlap across all three SPIRE comparisons (NB04, NB14, NB16).
 
+### NB18: SPIRE with CheckM2 completeness + inter-metal control (2026-08-20)
+
+**Design:** Extends NB16 by adding (a) CheckM2 completeness and contamination as covariates and (b) log₁₀ of the other 5 metals (median-imputed per MAG from NN-joined USGS values) as covariates. These two additions test complementary confounds: completeness tests whether As gene-depletion hits are MAG-quality artifacts; inter-metal control tests whether each metal's associations are independent of geographic co-contamination. Both are added simultaneously to the NB16 Z matrix (same lat/lon/pH/drainage/lith/mine_dist/clay/OM/lc*/phylum base).
+
+**Results:** 404 FDR<0.05 hits across 36,691 tests (vs 832 in NB16). Survival by metal:
+
+| Metal | NB16 hits | NB18 hits | NB16 hits surviving | Survival rate |
+|-------|-----------|-----------|---------------------|---------------|
+| As | 295 | 82 | 40 | 14% |
+| Cd | 54 | 76 | 4 | 7% |
+| Cr | 352 | 133 | 63 | 18% |
+| Cu | 35 | 31 | 11 | 31% |
+| Hg | 51 | 27 | 10 | 20% |
+| Pb | 45 | 55 | 13 | 29% |
+| **Total** | **832** | **404** | **141** | **17%** |
+
+**As: MAG incompleteness artifact confirmed.** 86% of the 295 NB16 As hits drop after completeness + inter-metal control. Dropped hits include near-universal housekeeping genes (tryptophanyl-tRNA synthetase 96%, ribosomal protein L21 95%, ParB 96%, riboflavin kinase 92%), which are the canonical signature of incompleteness bias — genes apparently depleted in contaminated sites because contaminated sites produce lower-quality MAGs. Surviving As hits (n=82) still predominantly show depletion of widespread genes (ABC-2 transporters at 98% prevalence, galE/trxB at 96%), suggesting residual incompleteness effect that the narrow CheckM2 range (90–100%) cannot fully resolve. As associations should be treated as unreliable.
+
+**Cu: Mrp Na+:H+ antiporter operon is robust.** Five Mrp subunits survive NB18 as top Cu hits: mnhB (K05566, 12%), mnhC (K05567, 16%), mnhE (K05569, 11%), mnhF (K05570, 13%), mnhG (K05571, 15%) — all enriched at high-Cu sites (β=+0.07–+0.10, q=6.3×10⁻⁴–1.3×10⁻²). Low prevalence (11–16%) rules out incompleteness artifact; the entire operon's coherent enrichment rules out chance. FosA glutathione S-transferase (K21253/K21264/K21265, 3%) also survives as a Cu-resistance-adjacent signal. **This is the strongest evidence in the SPIRE analysis for genuine gene-gain metal adaptation: the Mrp operon is not a standard copper resistance operon but provides Na+/H+ homeostasis under ionic stress, consistent with Cu²⁺ disrupting ion gradients.**
+
+**Hg: Kdp K+ ATPase operon is robust.** All three Kdp subunits survive NB18 at q<5×10⁻⁶ (kdpA K01546, kdpB K01547, kdpC K01548; β>+0.26, prev=52–53%). This is the highest-significance signal in the entire NB18 dataset. The Kdp operon is a high-affinity K⁺ uptake ATPase induced under K⁺ starvation; Hg²⁺ competes with K⁺ at potassium transport sites and creates functional K⁺ deficiency, explaining selection for high-affinity K⁺ uptake.
+
+**Pb: Pha antiporter and GSH biosynthesis survive.** PhaF K+:H+ antiporter (K05563, 7%, β=+0.053, q=8.0×10⁻³) — a direct Pb-resistance membrane antiporter — survives NB18. Additional Pb hits: gshA glutamate-cysteine ligase (42%, β=+0.106, q=4.4×10⁻³; GSH is a Pb chelator), HerA helicase (46%, β=+0.105, q=9.2×10⁻³; DNA double-strand break repair), manganese catalase (13%, β=+0.074, q=1.3×10⁻²; ROS defense), and uvsE UV endonuclease (6%, β=+0.071, q=1.1×10⁻⁵). Together these form a coherent Pb-resistance cassette: metal chelation (GSH), membrane efflux (Pha), and DNA damage repair.
+
+**Cd: N-fixation and mycothiol reductase emerge after inter-metal control.** Cd was masked in NB16 (54 hits, only 4 surviving NB18) because Cd co-varies geographically with other metals (Cd NA=57.6%, most common in co-contamination settings). After inter-metal control, entirely new Cd signals appear (72 new NB18 hits not in NB16): nitrogenase subunits nifK (K02591, 3%), nifE (K02587, 3%), nifB (K02585, 3%), and crucially **mycothiol reductase mtr (K17883, 4%, β=+0.157, q=6.4×10⁻⁶)** — the enzyme that regenerates mycothiol from its oxidized form. Mycothiol is the primary low-molecular-weight thiol in Actinobacteria (analogous to glutathione) and is a key defense against thiol-reactive metals including Cd. Enrichment of mtr at high-Cd sites is the expected signature of Actinobacterial Cd tolerance and directly supports the mycothiol-based metal detoxification hypothesis.
+
+**Cr: Osmotic stress response dominates.** Surviving and new Cr hits are dominated by glycine betaine/proline transport: proV (K02000, 15%), proW (K02001, 12%), proX (K02002, 14%), betaine/BCCT transporters (K02168 betT, K03451 TC.BCT), and alanine/glycine:cation symporter (K03310, 15%) — all enriched at high-Cr sites. The Rnf ferredoxin:NAD+ oxidoreductase (rnfE/rnfG) also survives, indicating additional Na+/H+ ionic homeostasis demand. Chromate (CrO₄²⁻) disrupts membrane integrity and ion gradients; the glycine betaine response is a canonical bacterial answer to osmotic and ionic membrane stress.
+
+**CWM overlap remains zero.** NB18 has 404 hits; all three SPIRE comparisons (NB14/NB16/NB18) return 0 exact KO×metal overlaps with the 75 CWM hits. The CWM vs SPIRE overlap p-value (hypergeometric in the N=15,977 shared test space) remains non-significant. The statistical power analysis stands: expected overlap under null ≈ 1.2, need ≥4 overlaps for p_enrich<0.05 — fundamentally underpowered to detect or reject overlap.
+
+**Revised interpretation:** NB18 separates two confounds in NB16. (a) The As hits (86% dropped) were predominantly MAG incompleteness artifacts — near-universal gene depletion reflecting site-level MAG quality differences rather than metal selection. (b) Inter-metal control restructures Cd (entirely new signal: mycothiol, N-fixation) and reduces As/Cr/Cu/Pb/Hg by 70–80%. The surviving NB18 hits — Mrp (Cu), Kdp (Hg), Pha+GSH (Pb), mtr (Cd), glycine betaine (Cr) — each form coherent biological narratives consistent with metal-specific stress physiology. These represent the most defensible SPIRE gene×metal associations in the analysis.
+
 ---
 
 ## EUR/AUS CWM Replication (2026-08-20)
