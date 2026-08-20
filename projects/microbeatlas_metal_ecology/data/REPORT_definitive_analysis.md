@@ -2,7 +2,7 @@
 ## USA 634-sample spatially-thinned dataset
 
 **Date:** 2026-08-16 (updated 2026-08-20)  
-**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) **complete for all 71 elements** (as of 2026-08-20). Final pooled results: `gam_results_v3_all.csv` (456,397 rows; 6,223 FDR<0.05 full model, 6-metal pool = 75 hits). **Car operon × Cr signal does not survive gNATSGO correction — see V3 Results section below. Forest coverage dominance explained — see Covariate Attribution section. EUR/AUS replication run 2026-08-20 — see EUR/AUS section at end (0/75 USA hits replicate in same direction at q<0.05; EUR 6 independent hits; AUS 4 independent hits).**
+**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) **complete for all 71 elements** (2026-08-20). Final pooled results: `gam_results_v3_all.csv` (456,397 rows; 6,223 FDR<0.05 full model; 6-metal conservative pool = **75 hits**; 6-metal in 71-element pool = **131 hits**). **Car operon × Cr null in v3 (gNATSGO artifact). Forest ⊥ metals (r²<0.07) — see Covariate Attribution. EUR/AUS replication: 0/75 USA hits replicate at q<0.05; EUR 6 independent hits; AUS 4 independent hits.**
 
 ---
 
@@ -190,7 +190,48 @@ Pb dominates (48/75 = 64%). Top hit: **K20489 × Cr** (q=4.4e-10, ΔR²=0.118) �
 
 ### V3 covariate attribution (drop1 partial R²)
 
-The v3 run adds per-covariate Type II partial R² via `drop1()` base R for every KO×metal fit. Full attribution results available once the 71-element run completes (~2026-08-19 21:30 UTC). Output: `data/usa_cwm/gam_results_v3_all.csv` with `pr2_metal`, `pr2_ph_use`, `pr2_clay_pct`, `pr2_organic_matter`, `pr2_cec`, `pr2_drainage_class`, `pr2_lith_class`, `pr2_shannon`, `pr2_log10_mine`, `pr2_log10_epa`, `pr2_lc_forest_pct`, etc.
+The v3 run adds per-covariate Type II partial R² via `drop1()` base R for every KO×metal fit. **COMPLETE as of 2026-08-20** (all 71 elements). Output: `data/usa_cwm/gam_results_v3_all.csv` (456,397 rows; 351,124 valid tests with n≥30; 6,223 FDR<0.05 pooled across 71 elements). Columns include `pr2_metal`, `pr2_ph_use`, `pr2_clay_pct`, `pr2_organic_matter`, `pr2_cec`, `pr2_drainage_class`, `pr2_lith_class`, `pr2_shannon`, `pr2_log10_mine`, `pr2_log10_epa`, `pr2_lc_forest_pct`, etc.
+
+### Final 71-element V3 results (2026-08-20)
+
+Pooled BH-FDR across all 71 USGS elements (351,124 valid KO×element tests). Note: the BH threshold in the 71-element pool is **looser** than in the 6-metal-only pool (more discoveries at q→0 from P/Mn inflate the rank threshold), so the 6-metal hit counts below (131) exceed the 6-metal-only pool result (75). Both are reported; the 6-metal-only pool is the conservative estimate.
+
+**Hits by category:**
+
+| Category | Elements | FDR-sig hits |
+|---|---|---|
+| Macronutrients/major | P(2,374) Mn(2,112) S(114) Al(57) Fe(53) K(46) Na(23) Ca(14) Mg(12) C(8) Si(4) | 4,817 |
+| Rare earth elements | Eu(141) Ce(140) Ho(125) Nd(65) Sm(35) La(31) Tb(38) Dy(14) Lu(18) Er(1) Yb(4) Tm(3) Gd(2) | 617 |
+| Other trace metals | Cs(97) Sn(92) Rb(73) Ta(40) Zn(38) V(22) F(23) W(20) Tl(18) Li(21) Sr(21) Ti(11) Au(11) Ag(10) Ni(13) Ba(14) Corg(12) Ga(12) In(7) Hf(6) Te(5) Pd(4) U(4) Bi(3) Sc(3) Sb(3) Th(3) Se(2) Mo(2) CCO3(2) CO2(2) Zr(2) Nb(1) B(1) Be(1) Co(1) Pt(1) | 658 |
+| **Anthropogenic metals (6)** | **Pb(79) Hg(28) Cr(17) As(6) Cu(1) Cd(0)** | **131** |
+
+**6-metal hit counts (71-element vs 6-metal-only BH-FDR):**
+
+| Metal | 6-metal pool (conservative) | 71-element pool | Difference |
+|---|---|---|---|
+| Pb | 48 | **79** | +31 |
+| Hg | 12 | **28** | +16 |
+| Cr | 12 | **17** | +5 |
+| As | 2 | **6** | +4 |
+| Cu | 1 | **1** | 0 |
+| Cd | 0 | **0** | — |
+| **Total** | **75** | **131** | **+56** |
+
+The additional hits in the 71-element pool are driven by a higher BH threshold (p-threshold ≈ 8.9×10⁻⁴ vs ≈ 1.9×10⁻⁴ in the 6-metal pool). Biologically, both analyses support the same conclusion: Pb dominates, Hg and Cr have moderate signals, As/Cu are weak, Cd is absent.
+
+**Top hits for the 6 original metals (71-element pooled q):**
+
+| Element | KO | q_BH_pooled | ΔR²_full | pr2_metal | Description |
+|---|---|---|---|---|---|
+| Cr | K20489 | <1e-6 | 0.118 | 0.802 | Putative metalloprotein |
+| Pb | K23086 | <1e-6 | 0.062 | 0.419 | Uncharacterized |
+| Pb | K03388 | <1e-6 | 0.038 | 0.844 | gloB; lactoylglutathione lyase |
+| Cr | K17474 | <1e-6 | 0.029 | 0.423 | — |
+| Pb | K01598 | <1e-6 | 0.093 | 0.553 | dmpH/xylH; 2-oxopent-4-enoate hydratase |
+| Hg | K00757 | 1.1e-4 | 0.078 | 0.655 | thrB; homoserine kinase |
+| As | K07550 | 1.4e-4 | 0.027 | 0.317 | glpF; aquaglyceroporin |
+
+**Elements with zero FDR-sig hits:** Cd, Ge, Pr, Re.
 
 ### Forest coverage dominance — interpretation (2026-08-19)
 
