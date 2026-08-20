@@ -127,7 +127,7 @@ def main() -> int:
                                        "'mamillerpa' or 'dkishore') -- deliberately NOT a real name, since "
                                        "Langfuse's Sessions/Users views are a re-identification surface")
     ap.add_argument("--dry-run", action="store_true", help="parse and print turn summary, do not call Langfuse")
-    ap.add_argument("--force", action="store_true", help="ignore an existing .retro_loaded.json marker")
+    ap.add_argument("--force", action="store_true", help="ignore an existing marker in ~/.retro_load_markers/")
     args = ap.parse_args()
 
     transcript_path = args.transcript.expanduser().resolve()
@@ -174,11 +174,19 @@ def main() -> int:
     if args.user_id:
         propagate_kwargs["user_id"] = args.user_id
 
+    # emit_turn() stores str(transcript_path) verbatim into Langfuse metadata. The real
+    # resolved path can carry real filesystem structure -- including, for the frozen
+    # workshop corpus, another account's username where it's symlinked from -- which
+    # undermines the pseudonymization this tool is otherwise careful about. Pass a
+    # synthetic path built from session_id (already the trace's own identifier) instead
+    # of the real one.
+    safe_transcript_path = Path(f"{session_id}.jsonl")
+
     emitted = 0
     for i, t in enumerate(turns, 1):
         try:
             with propagate_attributes(**propagate_kwargs):
-                emit_turn(langfuse, session_id, i, t, transcript_path)
+                emit_turn(langfuse, session_id, i, t, safe_transcript_path)
             emitted += 1
         except Exception as e:
             print(f"  ! turn {i} failed: {type(e).__name__}: {e}", file=sys.stderr)

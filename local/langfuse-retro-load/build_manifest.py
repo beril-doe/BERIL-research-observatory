@@ -34,7 +34,7 @@ def find_jsonl_files(find_root: str) -> list[Path]:
     if not root.exists():
         print(f"  ! find_root does not exist, skipping: {root}")
         return []
-    r = subprocess.run(["find", str(root), "-maxdepth", "2", "-name", "*.jsonl"],
+    r = subprocess.run(["find", str(root), "-maxdepth", "2", "-type", "f", "-name", "*.jsonl"],
                         capture_output=True, text=True)
     if r.returncode != 0:
         print(f"  ! find failed under {root}: {r.stderr.strip()}")
@@ -44,7 +44,9 @@ def find_jsonl_files(find_root: str) -> list[Path]:
 
 def dry_run_summary(path: Path, event_day: str) -> dict:
     """Run retro_load.py --dry-run on one file; return turn count + whether
-    any turn's timestamp falls on event_day. Never reads message content.
+    any turn's timestamp falls on event_day. Parses the transcript to do this,
+    but never prints message content, and this function only ever sees this
+    process's own stdout/stderr, never the transcript itself.
 
     Handles two distinct --dry-run output shapes: a fresh file prints a
     per-turn timestamp listing; an already-loaded file (has a marker --

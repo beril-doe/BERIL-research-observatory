@@ -29,7 +29,7 @@ from retro_load import already_loaded  # noqa: E402
 def resolve_path(find_root: str, session_id: str) -> Path | None:
     root = Path(find_root).expanduser()
     r = subprocess.run(
-        ["find", str(root), "-name", f"{session_id}.jsonl"],
+        ["find", str(root), "-type", "f", "-name", f"{session_id}.jsonl"],
         capture_output=True, text=True,
     )
     if r.returncode != 0:
