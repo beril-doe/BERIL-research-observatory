@@ -47,7 +47,10 @@ def resolve_path(find_root: str, session_id: str) -> Path | None:
 
 
 def compute_tags(entry: dict, batch_tag: str) -> list[str]:
-    tags = ["claude-code", "retro-load", f"source:{entry['source']}", batch_tag]
+    # "claude-code" and "retro-load" are NOT included here: retro_load.py's own main()
+    # already prepends them unconditionally to whatever --tag values it's given, so
+    # adding them here too would duplicate them in every emitted trace.
+    tags = [f"source:{entry['source']}", batch_tag]
     if entry.get("consent_bin"):
         tags.append(f"consent:{entry['consent_bin']}")
     if entry.get("event_day"):
@@ -89,7 +92,8 @@ def main() -> int:
         if args.dry_run:
             prior = already_loaded(path)
             status = f"ALREADY LOADED ({prior['turns_emitted']} turns)" if prior else "would load"
-            print(f"{sid}: {status} | user_id={user_id} | tags={tags}")
+            # retro_load.py prepends claude-code/retro-load itself; show the real full set.
+            print(f"{sid}: {status} | user_id={user_id} | tags={['claude-code', 'retro-load'] + tags}")
             planned.append(sid)
             continue
 

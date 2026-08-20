@@ -63,8 +63,6 @@ except SystemExit:
           file=sys.stderr)
     sys.exit(1)
 
-MARKER_SUFFIX = ".retro_loaded.json"
-
 
 def load_all_jsonl(transcript_path: Path):
     msgs = []

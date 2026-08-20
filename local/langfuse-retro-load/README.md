@@ -8,7 +8,7 @@ only capturing new sessions going forward.
 
 The source transcripts live on the BERDL pod, and some of them (the frozen
 2026-05-07 hackathon corpus) are other people's data. **Never copy raw
-`.jsonl` off the pod** — it can contain anything anyone pasted into a
+`.jsonl` off the pod**: it can contain anything anyone pasted into a
 session. Every script here reads transcripts and talks to Langfuse's API
 directly from wherever it runs; it never needs to move a transcript
 anywhere. Push these files to the pod (`labctl pod put`, or however you
@@ -16,24 +16,24 @@ transfer files there) and run everything from a pod terminal.
 
 ## The four pieces
 
-- **`langfuse_hook_official.py`** — Langfuse's own official Claude Code
+- **`langfuse_hook_official.py`**: Langfuse's own official Claude Code
   integration hook, vendored unmodified from
   [their integration page](https://langfuse.com/integrations/developer-tools/claude-code).
   Does the actual turn-reconstruction and timestamp-backdating. Depends on
   `langfuse>=4.0,<5` internals (`_otel_tracer`,
-  `_create_observation_from_otel_span`) that aren't in the public SDK API —
-  pin the version; a future major release could rename them.
-- **`retro_load.py`** — loads one transcript file, given its path directly.
+  `_create_observation_from_otel_span`) that aren't in the public SDK API,
+  so pin the version: a future major release could rename them.
+- **`retro_load.py`**: loads one transcript file, given its path directly.
   `--dry-run` prints turn count and per-turn timestamps only, never message
-  content — safe to run against anyone's data, including the frozen corpus.
+  content, so it's safe to run against anyone's data, including the frozen corpus.
   Real runs write an idempotency marker to `~/.retro_load_markers/` (keyed
-  by a hash of the resolved source path, not a sibling file — the frozen
+  by a hash of the resolved source path, not a sibling file, since the frozen
   corpus isn't writable by any individual account) so re-running against an
   already-loaded file reports "already retro-loaded" instead of duplicating
   it in Langfuse.
-- **`people.json`** — the only file you edit to add a new person or source.
+- **`people.json`**: the only file you edit to add a new person or source.
   See below.
-- **`build_manifest.py`** / **`run_manifest.py`** — `build_manifest.py`
+- **`build_manifest.py`** / **`run_manifest.py`**: `build_manifest.py`
   reads `people.json`, discovers every session under each source's
   `find_root`, and runs `retro_load.py --dry-run` on each to work out turn
   counts and tags automatically, writing `manifest.json`. `run_manifest.py`
@@ -63,7 +63,7 @@ entry per place their traces live:
 ```
 
 `consent_bin` should reflect a real, checked consent status
-(`opt_in`/`opt_out`/`no_reply`/`team`) — see the coverage-gaps issue below
+(`opt_in`/`opt_out`/`no_reply`/`team`): see the coverage-gaps issue below
 before adding anyone whose consent hasn't actually been verified.
 `force_event_day` is a list of session IDs to count as the 2026-05-07
 event day even if the session started the day before (see issue #392 for
@@ -71,7 +71,7 @@ why that's a real, non-hypothetical case). `role`/`group` come from the
 workshop invite-list sheet if applicable; leave them `null` for sources
 where that doesn't apply (e.g. someone's own ongoing pod-home work).
 
-`user_id` is deliberately the pod account name, never a real name — Langfuse
+`user_id` is deliberately the pod account name, never a real name. Langfuse
 Sessions/Users views are a re-identification surface, and consent was
 tracked pseudonymously. Don't change that without a real reason.
 
@@ -103,21 +103,20 @@ curl -s "$LANGFUSE_HOST/api/public/observations?tag=<your-batch-tag>&limit=1" \
 
 ## Known gaps (tracked as issues, not fixed here)
 
-- [#391](https://github.com/kbaseincubator/BERIL-research-observatory/issues/391) —
+- [#391](https://github.com/kbaseincubator/BERIL-research-observatory/issues/391):
   which LLM backend (direct Anthropic / CBORG / Vertex) served a given
   trace isn't recoverable from the transcript itself.
-- [#393](https://github.com/kbaseincubator/BERIL-research-observatory/issues/393) —
+- [#393](https://github.com/kbaseincubator/BERIL-research-observatory/issues/393):
   loading someone's traces only covers what's in `people.json`; the other
   ~80 hackathon participants have directories in the corpus with no
   consent checked. Don't read "we loaded the corpus" as "we loaded
   everyone."
 - A live `.credentials.json` was found swept into the shared frozen corpus
   for every participant during this work. Not this tool's problem to fix,
-  but flagged so it isn't lost — ask before assuming it's been handled.
+  but flagged so it isn't lost: ask before assuming it's been handled.
 
-Full session-by-session history, including two real bugs found building
-this the first time (a capture-group indexing error and an idempotency
-marker that didn't survive a later fix), lives in
-`~/Desktop/markdown/beril-langfuse-retro-load-2026-08-20.md` on Mark's
-machine — not committed here since it's a working log, not documentation,
-but worth asking for if you want the full story behind a decision.
+A full session-by-session working log exists outside this repo (not
+committed here, since it's a working log rather than documentation). Ask a
+maintainer for it if you want the full story behind a decision, including
+two real bugs found building this the first time (a capture-group indexing
+error and an idempotency marker that didn't survive a later fix).
