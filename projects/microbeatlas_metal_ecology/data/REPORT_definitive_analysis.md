@@ -665,6 +665,48 @@ Metal partial R² (0.286) is 12.4× pH partial R² (0.023) among FDR-significant
 
 ---
 
+## Functional Characterization of 75 Conservative Hits (2026-08-20)
+
+**Script:** `scripts/characterize_75_hits.py` → `data/usa_cwm/hits_75_annotated.csv`, `figures/fig_cwm_75hits_characterization.pdf`
+
+KO annotations retrieved via KEGG REST. 75 KO×metal pairs assigned to 9 functional categories. Metal-specific biological themes:
+
+### Functional category breakdown
+
+| Category | β < 0 (depleted) | β > 0 (enriched) | Total | Primary metal |
+|----------|-----------------|-----------------|-------|---------------|
+| Carbon/energy | 8 | 7 | 15 | Pb (9), Hg (5) |
+| Aromatic degradation | 11 | 0 | 11 | Pb (10), As (1) |
+| Anaerobic/methanogen | 7 | 3 | 10 | Pb (8), Cr (1), As (1) |
+| Uncharacterized | 8 | 2 | 10 | Pb (8), Hg (2) |
+| Surface/EPS | 3 | 5 | 8 | Hg (1), Cr (2), Cu (1), Pb (4) |
+| Secondary metabolite | 2 | 6 | 8 | Cr (5), Pb (3) |
+| Stress/regulatory | 4 | 2 | 6 | Cr (3), Pb (3) |
+| Transport | 3 | 2 | 5 | Hg (2), Pb (3) |
+| DNA/RNA | 0 | 2 | 2 | Hg (2) |
+
+### Three metal-specific biological themes
+
+**Pb — Aromatic carbon degradation and anaerobic metabolism depleted (34 of 41 Pb hits, β<0):**
+Pb-rich soils are systematically depleted in organisms capable of (a) aromatic compound degradation — 10 of 11 aromatic degradation hits are Pb-negative, covering benzoate (K01615, K07537, K07539), vanillate/aminobenzoate (K15063, K15066, K22553), phenylalanine catabolism (K18355, K18357), toluene (K07550), and furan (K16874) pathways; and (b) strict anaerobic metabolism — 8 Pb-negative anaerobic/methanogen hits including heterodisulfide reductase (K03388), formate/CO dehydrogenases (K15022, K00198), TMAO reductase (K03532), selenate reductase (K12529), hydrogenase (K00436), and hydroxylamine dehydrogenase (K10535). Together, aromatic degradation + anaerobic metabolism account for 18 of 34 Pb-negative hits. Pb geochemically concentrates in oxidized, lower-OM environments; both aromatic degraders and strict anaerobes are disadvantaged under such conditions. Whether the association reflects Pb toxicity, shared environmental drivers (high O₂/low OM), or both cannot be resolved from cross-sectional data — the model controls for drainage class and organic matter but these proxies may be incomplete.
+
+**Cr — Secondary metabolite producers and surface-modified organisms enriched (9 of 12 Cr hits, β>0):**
+Cr-rich soils are enriched for organisms producing secondary metabolites — 5 Cr-positive hits in antibiotic/polyketide biosynthesis (K18652, K18653 glucose-6-phosphate antibiotic sugar pathway; K17474 pulcherriminic acid synthase; K20489 lantibiotic immunity; K25985 sulfoacetaldehyde reductase/taurine) — and surface polysaccharide modification (K13684 colanic acid glycosyltransferase WcaC, K13677 glycerolipid glucosyltransferase). This is consistent with Cr toxicity selecting for organisms with secondary metabolite production (competitive advantage, metal complexation) and EPS metal binding. The 3 Cr-negative hits include aromatic degradation (K07539) and stress response (K02241 competence, K21884 CRP/FNR regulator).
+
+**Hg — Active central metabolism, transport, and DNA maintenance enriched (all 12 Hg hits, β>0):**
+Hg-positive hits span TCA cycle (K00177 2-oxoglutarate ferredoxin oxidoreductase), thiamine biosynthesis (K14153), sugar metabolism (K22233 5-keto-L-gluconate epimerase, K15916 mannose-6-phosphate isomerase), DNA repair (K03573 MutH mismatch repair), rRNA modification (K03212 23S methyltransferase), and ABC transporters (K10108, K17327/K17328). High-Hg sites are enriched for metabolically active, growth-oriented organisms. This is consistent with Hg methylation being carried out by metabolically active sulfate-reducers and Fe-reducers, which may be enriched at geogenic Hg sites (Hg is primarily geogenic at concentrations in this dataset).
+
+### Cross-dataset comparison: CWM vs SPIRE per-KO hits
+
+| Dataset | Approach | FDR<0.05 hits | Overlap |
+|---------|---------|---------------|---------|
+| CWM (this analysis) | Community-weighted mean ~ measured metal, lm() | 75 KO×metal | — |
+| SPIRE (NB04, per-KO) | KO binary presence ~ PF1 modeled metal, Firth logistic | 56 KO×metal | 0 |
+
+**Zero KO-level overlap** (same gene appearing as a hit in both datasets, for any metal). This is consistent with the interpretation that CWM captures **community turnover** (which taxa dominate in high-metal environments) while SPIRE captures **gene-level selection** (which genes are gained or lost across lineages along the metal gradient). Their orthogonality at the KO level supports Adam's reframe: the primary mechanism linking community functional composition to metal concentration is **taxonomic community replacement**, not within-lineage gene gain, at the scale of these soil surveys. The two methods also differ in metal source (measured vs. Qi et al. 2025 modeled predictions) and dataset (amplicon CWM vs. SPIRE MAGs), which may contribute to the discordance independently of the biological mechanism.
+
+---
+
 ## EUR/AUS CWM Replication (2026-08-20)
 
 **Purpose:** Independent validation of 75 USA V3 hits using European (GEMAS) and Australian (NGSA) measured metal data joined to MicrobeAtlas community composition.
