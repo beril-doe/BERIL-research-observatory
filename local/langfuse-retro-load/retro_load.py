@@ -112,9 +112,9 @@ def main() -> int:
     ap.add_argument("transcript", type=Path, help="path to a Claude Code .jsonl transcript")
     ap.add_argument("--session-id", help="override session id (default: derived from filename stem)")
     ap.add_argument("--tag", action="append", default=[], help="extra tag to attach (repeatable)")
-    ap.add_argument("--user-id", help="pseudonymous user_id for Langfuse (e.g. pod user_dir like 'mamillerpa' or "
-                                       "'dkishore') -- deliberately NOT a real name, see the metadata policy in "
-                                       "beril-langfuse-retro-load-2026-08-20.md")
+    ap.add_argument("--user-id", help="pseudonymous user_id for Langfuse (the pod account name, e.g. "
+                                       "'mamillerpa' or 'dkishore') -- deliberately NOT a real name, since "
+                                       "Langfuse's Sessions/Users views are a re-identification surface")
     ap.add_argument("--dry-run", action="store_true", help="parse and print turn summary, do not call Langfuse")
     ap.add_argument("--force", action="store_true", help="ignore an existing .retro_loaded.json marker")
     args = ap.parse_args()

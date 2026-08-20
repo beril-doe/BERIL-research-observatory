@@ -6,8 +6,9 @@ per-file commands (the gap issue #390 was filed for).
 
 Resolves each entry's actual transcript path via `find <find_root> -name
 '<session_id>.jsonl'` (same pattern already proven working all session),
-then calls into retro_load.py's own functions directly -- one Python
-process, not 111 subprocess spawns.
+then subprocess-calls retro_load.py once per entry, reusing its exact CLI
+(credentials, tag/user_id handling, marker-writing) rather than
+re-implementing that logic here.
 
 Usage (run on the pod, next to retro_load.py / langfuse_hook_official.py):
     python3 run_manifest.py --dry-run          # prints planned tags, no Langfuse calls
@@ -21,9 +22,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from retro_load import (  # noqa: E402
-    already_loaded, load_all_jsonl, build_turns, write_marker, marker_path,
-)
+from retro_load import already_loaded  # noqa: E402
 
 
 def resolve_path(find_root: str, session_id: str) -> Path | None:
