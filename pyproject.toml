@@ -8,7 +8,7 @@ dependencies = [
   "boto3",
   "certifi",
   "httpx",
-  "openviking",
+  "openviking==0.4.15",
   "pyyaml",
   "rich",
 ]
