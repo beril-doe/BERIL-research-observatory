@@ -23,10 +23,10 @@ live hook:
     against the same transcript does not duplicate traces in Langfuse, since
     Langfuse itself has no create-time dedupe
 
-Dev/test usage (local transcripts only — see governance note in the BERIL
-fragile-points memory before ever pointing this at a pod-resident
-transcript: retro-loading pod .jsonl requires running THIS SCRIPT ON THE
-POD, never copying the raw file off it):
+Dev/test usage (local transcripts only -- see README.md's governance section
+before ever pointing this at a pod-resident transcript: retro-loading pod
+.jsonl requires running THIS SCRIPT ON THE POD, never copying the raw file
+off it):
 
     export LANGFUSE_PUBLIC_KEY=pk-lf-...
     export LANGFUSE_SECRET_KEY=sk-lf-...
@@ -46,11 +46,22 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")  # must run before langfuse is imported anywhere
 
 sys.path.insert(0, str(Path(__file__).parent))
-from langfuse_hook_official import (  # noqa: E402
-    build_turns,
-    emit_turn,
-    parse_ts,
-)
+try:
+    from langfuse_hook_official import (  # noqa: E402
+        build_turns,
+        emit_turn,
+        parse_ts,
+    )
+except SystemExit:
+    # The vendored hook does sys.exit(0) on import if langfuse/opentelemetry aren't
+    # installed (its own "fail-open" design, since it runs as a best-effort Claude Code
+    # hook where silence is preferred over breaking a session). That's the wrong default
+    # here: a silent 0 exit is indistinguishable from a real, successful --dry-run, and
+    # would defeat build_manifest.py's return-code check on this script. Turn it loud.
+    print("langfuse_hook_official.py failed to import (likely missing the langfuse/"
+          "opentelemetry packages) -- treating that as a hard failure, not a silent no-op.",
+          file=sys.stderr)
+    sys.exit(1)
 
 MARKER_SUFFIX = ".retro_loaded.json"
 
@@ -100,7 +111,9 @@ def write_marker(transcript_path: Path, session_id: str, turn_count: int, tags: 
                 "session_id": session_id,
                 "turns_emitted": turn_count,
                 "tags": tags,
-                "loaded_at_utc": None,  # intentionally not stamped from script clock; see README note
+                "loaded_at_utc": None,  # not stamped from the script's own clock: it says nothing
+                                         # about when the underlying conversation happened, which
+                                         # is the whole point of a marker for a *retroactive* load
             },
             indent=2,
         )

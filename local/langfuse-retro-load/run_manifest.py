@@ -74,7 +74,7 @@ def main() -> int:
     if args.limit:
         manifest = manifest[: args.limit]
 
-    not_found, already, planned, emitted_total, failed = [], [], [], 0, []
+    not_found, already, planned, files_emitted, failed = [], [], [], 0, []
 
     for entry in manifest:
         sid = entry["session_id"]
@@ -114,14 +114,14 @@ def main() -> int:
         if not ok:
             failed.append((sid, r.stdout[-500:], r.stderr[-500:]))
         else:
-            emitted_total += 1
+            files_emitted += 1
 
     print()
     print(f"summary: {len(manifest)} manifest entries")
     if args.dry_run:
         print(f"  {len(planned)} resolved and would run, {len(not_found)} not found on disk")
     else:
-        print(f"  {emitted_total} emitted, {len(already)} already loaded (skipped), "
+        print(f"  {files_emitted} files emitted, {len(already)} already loaded (skipped), "
               f"{len(not_found)} not found, {len(failed)} failed")
     if not_found:
         print("  NOT FOUND:", not_found)

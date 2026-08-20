@@ -70,14 +70,25 @@ def dry_run_summary(path: Path, event_day: str) -> dict:
         saw_event_day = f"event_day:{event_day}" in already.group(2)
         return {"turns": turns, "event_day": saw_event_day, "failed": False}
 
+    saw_summary_line = False
     for line in r.stdout.splitlines():
         m = re.match(r"^\S+\.jsonl: \d+ jsonl lines -> (\d+) turns", line)
         if m:
             turns = int(m.group(1))
+            saw_summary_line = True
             continue
         m2 = re.search(r"turn \d+: (\d{4}-\d{2}-\d{2})T", line)
         if m2 and m2.group(1) == event_day:
             saw_event_day = True
+
+    if not saw_summary_line:
+        # A 0 exit code alone isn't proof the dry-run actually did anything -- neither
+        # expected output shape showed up, so don't let this look like "0 turns" and
+        # get treated the same as a genuinely empty transcript.
+        print(f"  ! dry-run for {path} exited 0 but produced no recognizable output: "
+              f"{r.stdout.strip()[-300:] or '(empty stdout)'}")
+        return {"turns": 0, "event_day": False, "failed": True}
+
     return {"turns": turns, "event_day": saw_event_day, "failed": False}
 
 

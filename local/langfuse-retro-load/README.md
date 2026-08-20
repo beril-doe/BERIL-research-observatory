@@ -94,7 +94,11 @@ python3 run_manifest.py --dry-run
 nohup python3 run_manifest.py > full_load_run.txt 2>&1 &
 
 # 5. Verify independently against Langfuse's own API, not just this
-#    script's own "OK" output -- see the design doc for exactly how.
+#    script's own "OK" output. Compare the run's own emitted-file count against
+#    Langfuse directly, e.g. for one tag:
+curl -s "$LANGFUSE_HOST/api/public/observations?tag=<your-batch-tag>&limit=1" \
+  -u "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" | python3 -c \
+  "import json,sys; print(json.load(sys.stdin)['meta']['totalItems'])"
 ```
 
 ## Known gaps (tracked as issues, not fixed here)
