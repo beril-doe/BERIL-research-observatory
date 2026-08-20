@@ -196,7 +196,9 @@ def main() -> int:
 
     if emitted < len(turns):
         print(f"FAILED: only {emitted}/{len(turns)} turns emitted to {host} as session_id={session_id}; "
-              f"not writing a marker so a re-run will retry the missing turns", file=sys.stderr)
+              f"not writing a marker so this counts as not-yet-loaded. A re-run re-emits all "
+              f"turns from scratch (no per-turn state is kept, and Langfuse has no create-time "
+              f"dedupe), it does not retry only the missing ones.", file=sys.stderr)
         return 1
 
     write_marker(transcript_path, session_id, emitted, tags)

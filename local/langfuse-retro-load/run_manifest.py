@@ -74,7 +74,7 @@ def main() -> int:
     args = ap.parse_args()
 
     manifest = json.loads(Path(args.manifest).read_text())
-    if args.limit:
+    if args.limit is not None:
         manifest = manifest[: args.limit]
 
     not_found, already, planned, files_emitted, failed = [], [], [], 0, []
