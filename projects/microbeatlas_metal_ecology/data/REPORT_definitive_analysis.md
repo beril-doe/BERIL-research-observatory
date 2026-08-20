@@ -1,8 +1,8 @@
 # Definitive Causal Inference Analysis: Metal–KO Associations
 ## USA 634-sample spatially-thinned dataset
 
-**Date:** 2026-08-16 (updated 2026-08-19)  
-**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) complete for 6 original metals; 71-element USGS extension running (as of 2026-08-19). **Car operon × Cr signal does not survive gNATSGO correction — see V3 Results section below. Forest coverage dominance explained — see Covariate Attribution section.**
+**Date:** 2026-08-16 (updated 2026-08-20)  
+**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) **complete for all 71 elements** (as of 2026-08-20). Final pooled results: `gam_results_v3_all.csv` (456,397 rows; 6,223 FDR<0.05 full model, 6-metal pool = 75 hits). **Car operon × Cr signal does not survive gNATSGO correction — see V3 Results section below. Forest coverage dominance explained — see Covariate Attribution section. EUR/AUS replication script written — see EUR/AUS section at end.**
 
 ---
 
@@ -562,3 +562,100 @@ Notable non-REE, non-macronutrient hits: **Ni (37)**, **Zn (38)**, **Co (63)**, 
 - pH: SSURGO in-situ measurements (primary, 86% coverage); calibrated SoilGrids imputation for remainder (R²=0.641); combined coverage 99.3%
 - Runtime: ~6 min for original 6 metals; ~3 hours for 71-metal USGS extension
 - BH-FDR: pooled across all metals simultaneously (35,913 tests for original 6; 456,397 for 71-metal extension)
+
+---
+
+## V3 Final Results — All 71 Elements (2026-08-20)
+
+All 71/71 elements complete. Pooled BH-FDR across 456,397 valid pairs.
+
+| Metric | Value |
+|---|---|
+| Elements tested | 71 |
+| Valid pairs (n≥30, full model) | ~456,397 |
+| FDR<0.05 full model (71-element pool) | **6,223** |
+| FDR<0.05 base model (71-element pool) | 10,040 |
+| 6-metal pool FDR<0.05 | **75** (unchanged) |
+
+### Top 20 elements by full-model hits (71-element pool)
+
+| Element | Hits | Notes |
+|---|---|---|
+| P | 2,374 | Macronutrient — direct metabolic |
+| Mn | 2,112 | Macronutrient — direct metabolic |
+| Eu | 141 | REE flagged — 62% at detection limit |
+| Ce | 140 | LREE — 60% DOWN |
+| Ho | 125 | **EXCLUDE** — 90% at detection limit (IQR=0, beta_sign=0) |
+| S | 114 | |
+| Cs | 97 | Alkali metal |
+| Sn | 92 | |
+| Pb | 79 | Contamination metal — 6-metal pool |
+| Rb | 73 | Alkali metal |
+| Nd | 65 | LREE |
+| Al | 57 | |
+| Y | 57 | HREE |
+| Fe | 53 | |
+| K | 46 | Macronutrient |
+| Ta | 40 | REE |
+| Tb | 38 | REE |
+| Zn | 38 | |
+| Sm | 35 | REE |
+| La | 31 | LREE |
+
+**P and Mn dominate (4,486/6,223 = 72%)** — direct metabolic associations that survive pH control (pH-robust class). Confirmed by pH sensitivity analysis: Mn 55% survival, P 67% (all other elements <5%).
+
+### Covariate partial R² (median, FDR-sig full model)
+
+| Covariate | Median pr2 |
+|---|---|
+| lc_forest_pct | 0.629 |
+| metal | **0.286** |
+| hydrologic_group | 0.088 |
+| drainage_class | 0.064 |
+| elevation_m | 0.060 |
+| phylum_proteobacteria | 0.059 |
+| lith_class | 0.039 |
+| flood_freq | 0.031 |
+| phylum_acidobacteria | 0.026 |
+| mat_c | 0.025 |
+| ph_use | 0.023 |
+
+Metal partial R² (0.286) is 12.4× pH partial R² (0.023) among FDR-significant hits.
+
+---
+
+## EUR/AUS CWM Replication (2026-08-20)
+
+**Purpose:** Independent validation of 75 USA V3 hits using European (GEMAS) and Australian (NGSA) measured metal data joined to MicrobeAtlas community composition.
+
+**Script:** `scripts/cwm_eur_aus_replication.py`
+
+**Design:**
+- Target: 125 unique KOs from the 75 USA V3 FDR-significant pairs
+- EUR: MicrobeAtlas soil samples (lat 29–72°N, lon -10–45°E); metal join to GEMAS (25 km), 6 metals (As, Cd, Cr, Cu, Hg, Pb) + pH + TOC
+- AUS: MicrobeAtlas soil samples (lat -45 to -10°N, lon 113–154°E); metal join to NGSA (50 km), 6 metals + field_pH + clay
+- Simplified model: `cwm ~ log10_metal + ns(ph_ssurgo,3) + clay_pct + lc_forest_pct + lc_cultivated_pct + lc_urban_pct + lc_barren_pct + shannon + phylum_[8]`
+- Note: ph_ssurgo column = measured pH from GEMAS/NGSA (re-labelled for R model compatibility). SoilGrids pH is not populated; do not substitute.
+- EUR clay: estimated from SoilGrids sand_0cm + silt_0cm (clay = 100 - sand - silt)
+- AUS clay: measured directly from NGSA clay_pct
+
+**Output files:**
+```
+data/eur_aus_cwm/
+  cwm_long_eur.parquet         CWM × 125 KOs for thinned EUR samples
+  cwm_long_aus.parquet         CWM × 125 KOs for thinned AUS samples
+  diversity_eur.parquet        Shannon + 8 phyla for EUR samples
+  diversity_aus.parquet        Shannon + 8 phyla for AUS samples
+  earthenv_eur.parquet         EarthEnv land cover EUR
+  earthenv_aus.parquet         EarthEnv land cover AUS
+  soilgrids_clay_eur.parquet   SoilGrids clay (100-sand-silt) for EUR
+  covariate_eur.parquet        Full EUR covariate matrix
+  covariate_aus.parquet        Full AUS covariate matrix
+  lm_input_EUR_*.csv           Per-metal lm inputs (EUR)
+  lm_input_AUS_*.csv           Per-metal lm inputs (AUS)
+  lm_out_EUR_*.csv             R model results EUR
+  lm_out_AUS_*.csv             R model results AUS
+  replication_summary.csv      Same-direction FDR replication table
+```
+
+**Not yet run** — script written 2026-08-20, pending Spark execution in JupyterHub.
