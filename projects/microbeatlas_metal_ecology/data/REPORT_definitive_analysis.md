@@ -2,7 +2,7 @@
 ## USA 634-sample spatially-thinned dataset
 
 **Date:** 2026-08-16 (updated 2026-08-20)  
-**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) **complete for all 71 elements** (as of 2026-08-20). Final pooled results: `gam_results_v3_all.csv` (456,397 rows; 6,223 FDR<0.05 full model, 6-metal pool = 75 hits). **Car operon × Cr signal does not survive gNATSGO correction — see V3 Results section below. Forest coverage dominance explained — see Covariate Attribution section. EUR/AUS replication script written — see EUR/AUS section at end.**
+**Status:** COMPLETE — base model, full model, organic extension, 71-metal USGS extension all done. V3 (corrected gNATSGO MURASTER join, EPA TRI imputed, CEC gap-filled, covariate attribution via drop1) **complete for all 71 elements** (as of 2026-08-20). Final pooled results: `gam_results_v3_all.csv` (456,397 rows; 6,223 FDR<0.05 full model, 6-metal pool = 75 hits). **Car operon × Cr signal does not survive gNATSGO correction — see V3 Results section below. Forest coverage dominance explained — see Covariate Attribution section. EUR/AUS replication run 2026-08-20 — see EUR/AUS section at end (0/75 USA hits replicate in same direction at q<0.05; EUR 6 independent hits; AUS 4 independent hits).**
 
 ---
 
@@ -638,6 +638,7 @@ Metal partial R² (0.286) is 12.4× pH partial R² (0.023) among FDR-significant
 - Note: ph_ssurgo column = measured pH from GEMAS/NGSA (re-labelled for R model compatibility). SoilGrids pH is not populated; do not substitute.
 - EUR clay: estimated from SoilGrids sand_0cm + silt_0cm (clay = 100 - sand - silt)
 - AUS clay: measured directly from NGSA clay_pct
+- AUS pH: NGSA field_pH has 0% coverage; MicrobeAtlas `sample_metadata.ph` used as fallback (4/173 samples had measured pH, so `use_ph=FALSE` for AUS — pH excluded from model covariates). R script bug fixed (2026-08-20): `all_vars` was unconditionally including `ph_use` in `complete.cases()` selection even when all-NA; fixed to condition on `use_ph`.
 
 **Output files:**
 ```
@@ -649,6 +650,7 @@ data/eur_aus_cwm/
   earthenv_eur.parquet         EarthEnv land cover EUR
   earthenv_aus.parquet         EarthEnv land cover AUS
   soilgrids_clay_eur.parquet   SoilGrids clay (100-sand-silt) for EUR
+  aus_sample_ph.parquet        MicrobeAtlas measured pH for AUS samples
   covariate_eur.parquet        Full EUR covariate matrix
   covariate_aus.parquet        Full AUS covariate matrix
   lm_input_EUR_*.csv           Per-metal lm inputs (EUR)
@@ -656,6 +658,31 @@ data/eur_aus_cwm/
   lm_out_EUR_*.csv             R model results EUR
   lm_out_AUS_*.csv             R model results AUS
   replication_summary.csv      Same-direction FDR replication table
+  spatial_ess.csv              Moran I and pESS per region
 ```
 
-**Not yet run** — script written 2026-08-20, pending Spark execution in JupyterHub.
+**Results (run 2026-08-20):**
+
+| Region | Samples | Metals | KOs tested | FDR<0.05 hits |
+|--------|---------|--------|------------|----------------|
+| EUR    | 490 thinned; 241 within 25 km of GEMAS | 6 | 125 | 6 (As×1, Cd×2, Cr×2, Cu×1) |
+| AUS    | 173 thinned; 115 within 50 km of NGSA  | 6 | 124–125 (19 for Cd) | 4 (Cr×2, Cu×2) |
+
+**Replication of USA V3 hits (75 pairs):**
+- Replicated in EUR (same direction, q<0.05): **0/75**
+- Replicated in AUS (same direction, q<0.05): **0/75**
+- Replicated in either: **0/75**
+
+The 10 EUR/AUS hits are independent regional signals not among the 75 USA hits. The null replication result reflects the much smaller regional sample sizes (490 EUR, 173 AUS vs. 634 USA) and the absence of pH covariate for AUS.
+
+**Spatial Effective Sample Size (pESS):**
+
+pESS = n × (1 − I) / (1 + I) using Moran's I on Shannon diversity at 250 km binary weights (Griffith 2005).
+
+| Region | n (thinned) | Moran's I | pESS | Mean neighbours |
+|--------|-------------|-----------|------|-----------------|
+| USA    | 634         | 0.006     | 626.5 | 14.0           |
+| EUR    | 490         | 0.003     | 486.8 | 15.1           |
+| AUS    | 173         | 0.027     | 164.0 | 7.8            |
+
+Spatial autocorrelation in Shannon diversity is negligible in all three regions (Moran I < 0.03), confirming that 0.45° grid thinning is sufficient to remove spatial clustering and that pESS ≈ n in each case. Regional effective sample sizes: USA 626, EUR 487, AUS 164.

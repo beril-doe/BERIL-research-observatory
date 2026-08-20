@@ -143,12 +143,13 @@ available_linear <- available_linear[sapply(available_linear, function(v) {
 cat(sprintf("Confounders selected: %s\n",
     paste(c(available_linear, available_factors), collapse = ", ")))
 
-# All variables needed for complete-case selection per KO
-all_vars <- c("cwm", "log10_metal", "ph_use", available_linear, available_factors)
-
 # ── Formulas (fixed) ──────────────────────────────────────────────────────────
 conf_terms <- c(available_linear, available_factors)
 use_ph <- sum(!is.na(d$ph_use)) >= THRESH && length(unique(na.omit(d$ph_use))) >= 4
+
+# All variables needed for complete-case selection per KO
+# ph_use excluded when use_ph=FALSE: all-NA pH included in complete.cases drops all rows
+all_vars <- c("cwm", "log10_metal", if (use_ph) "ph_use", available_linear, available_factors)
 
 null_terms <- if (use_ph) c(sprintf("ns(ph_use, df=%d)", NS_DF), conf_terms) else conf_terms
 full_terms  <- c(sprintf("ns(log10_metal, df=%d)", NS_DF), null_terms)

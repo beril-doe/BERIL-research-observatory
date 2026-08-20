@@ -70,14 +70,9 @@ print(f"Target KOs: {len(TARGET_KOS)}")
 # =============================================================================
 # SECTION 1 — Spark session
 # =============================================================================
-try:
-    from pyspark.sql import SparkSession
-    spark = SparkSession.builder.getOrCreate()
-    print("Spark session: connected (existing)")
-except Exception:
-    from arkinlab.spark import get_spark_session
-    spark = get_spark_session()
-    print("Spark session: new")
+import berdl_notebook_utils
+spark = berdl_notebook_utils.get_spark_session()
+print(f"Spark {spark.version} connected")
 
 
 # =============================================================================
@@ -252,11 +247,13 @@ def get_earthenv_lc(spark, sample_df, region_name, cache_path, lat_col='lat', lo
 
     lc_spark = spark.sql(f"""
         SELECT lat, lon,
-               landcover_class_1_pct + landcover_class_2_pct
-                 + landcover_class_3_pct + landcover_class_4_pct AS lc_forest_pct,
-               landcover_class_7_pct AS lc_cultivated_pct,
-               landcover_class_9_pct AS lc_urban_pct,
-               landcover_class_11_pct AS lc_barren_pct
+               CAST(landcover_class_1_pct AS DOUBLE)
+                 + CAST(landcover_class_2_pct AS DOUBLE)
+                 + CAST(landcover_class_3_pct AS DOUBLE)
+                 + CAST(landcover_class_4_pct AS DOUBLE) AS lc_forest_pct,
+               CAST(landcover_class_7_pct AS DOUBLE) AS lc_cultivated_pct,
+               CAST(landcover_class_9_pct AS DOUBLE) AS lc_urban_pct,
+               CAST(landcover_class_11_pct AS DOUBLE) AS lc_barren_pct
         FROM arkinlab.envdbs.earthenv_master
         WHERE lat BETWEEN {lat_min} AND {lat_max}
           AND lon BETWEEN {lon_min} AND {lon_max}
@@ -308,7 +305,9 @@ def get_soilgrids_clay(spark, sample_df, region_name, cache_path, lat_col='lat',
     lon_max = float(sample_df[lon_col].max()) + 0.25
 
     sg_spark = spark.sql(f"""
-        SELECT lat, lon, sand_0cm, silt_0cm
+        SELECT lat, lon,
+               CAST(sand_0cm AS DOUBLE) AS sand_0cm,
+               CAST(silt_0cm AS DOUBLE) AS silt_0cm
         FROM arkinlab.envdbs.soilgrids_master
         WHERE lat BETWEEN {lat_min} AND {lat_max}
           AND lon BETWEEN {lon_min} AND {lon_max}
@@ -391,6 +390,28 @@ aus_metals_cols = ['Cu_ppm','Pb_ppm','Cr_ppm','As_ppm','Cd_ppm','Hg_ppm',
 aus_metals = join_nearest_metal(
     aus_thin, ngsa, aus_metals_cols, metal_lat='lat', metal_lon='lon', max_km=50.0)
 
+# AUS pH — NGSA field_pH has 0% coverage; use MicrobeAtlas measured sample pH instead
+aus_ids_sql = "('" + "','".join(aus_thin['sample_id'].tolist()) + "')"
+CACHE_AUS_PH = OUTDIR / "aus_sample_ph.parquet"
+if CACHE_AUS_PH.exists():
+    print("AUS pH: loading from cache")
+    aus_ph = pd.read_parquet(CACHE_AUS_PH)
+else:
+    aus_ph_spark = spark.sql(f"""
+        SELECT sample_id, CAST(ph AS DOUBLE) AS ph_ssurgo
+        FROM arkinlab.microbeatlas.sample_metadata
+        WHERE sample_id IN {aus_ids_sql}
+          AND ph IS NOT NULL
+    """)
+    aus_ph = aus_ph_spark.toPandas()
+    aus_ph.attrs = {}
+    aus_ph.to_parquet(CACHE_AUS_PH, index=False)
+n_aus_ph = aus_ph['ph_ssurgo'].notna().sum()
+print(f"AUS MicrobeAtlas pH: {n_aus_ph}/{len(aus_thin)} samples have measured pH")
+
+# Merge MicrobeAtlas pH into aus_metals (overrides NGSA field_pH which is all-NA)
+aus_metals = aus_metals.merge(aus_ph, on='sample_id', how='left')
+
 
 # =============================================================================
 # SECTION 8 — Assemble covariate matrices
@@ -447,7 +468,8 @@ eur_base, eur_full = assemble_covariate(
 
 aus_base, aus_full = assemble_covariate(
     aus_thin, aus_cwm, aus_div, aus_lc, aus_metals,
-    ph_col='field_pH', clay_col='clay_pct', region_name='AUS')
+    ph_col='ph_ssurgo', clay_col='clay_pct', region_name='AUS',
+    extra_clay_df=None)
 
 eur_base.attrs = {}; eur_base.to_parquet(OUTDIR / "covariate_eur.parquet", index=False)
 aus_base.attrs = {}; aus_base.to_parquet(OUTDIR / "covariate_aus.parquet", index=False)
@@ -601,14 +623,14 @@ def pool_fdr(df, p_col='p_metal_full', q_col='q_BH', min_n=30):
 
 if len(eur_res) > 0:
     eur_res = pool_fdr(eur_res)
-    eur_sig = eur_res[eur_res.get('q_BH', pd.Series([1])) < 0.05]
+    eur_sig = eur_res[eur_res['q_BH'].fillna(1) < 0.05]
     print(f"\nEUR FDR<0.05: {len(eur_sig)} hits")
     if len(eur_sig) > 0:
         print(eur_sig.groupby('metal')['ko_id'].count())
 
 if len(aus_res) > 0:
     aus_res = pool_fdr(aus_res)
-    aus_sig = aus_res[aus_res.get('q_BH', pd.Series([1])) < 0.05]
+    aus_sig = aus_res[aus_res['q_BH'].fillna(1) < 0.05]
     print(f"AUS FDR<0.05: {len(aus_sig)} hits")
     if len(aus_sig) > 0:
         print(aus_sig.groupby('metal')['ko_id'].count())
@@ -662,4 +684,99 @@ any_rep = rep[rep['any_rep']].sort_values(['metal','ko_id'])
 if len(any_rep) > 0:
     print(any_rep[['metal','ko_id','usa_beta_sign','EUR_q','AUS_q']].to_string(index=False))
 print(f"\nSaved: {OUTDIR / 'replication_summary.csv'}")
-print("Done.")
+
+
+# =============================================================================
+# SECTION 12 — Spatial effective sample size (pESS) per region
+# =============================================================================
+# pESS corrects for spatial autocorrelation among geographic sites.
+# Formula: n_eff = n × (1 - I) / (1 + I) [Griffith 2005, similar to Clifford 1989]
+# Moran's I computed on Shannon diversity using binary spatial weights (W = 1 within
+# 250 km, 0 beyond); row-standardised. Shannon used as proxy for community composition
+# rather than computing per-KO — this gives the site-level spatial independence.
+
+def compute_spatial_ess(sample_df, div_df, var_col='shannon', threshold_km=250.0,
+                        lat_col='lat', lon_col='lon', label=''):
+    """
+    Compute spatial ESS (pESS) using Moran's I on a continuous community variable.
+    Returns dict with n, Moran_I, n_eff, n_neighbours_mean.
+    """
+    from scipy.spatial import cKDTree
+
+    merged = sample_df[['sample_id', lat_col, lon_col]].merge(
+        div_df[['sample_id', var_col]], on='sample_id', how='inner').dropna(subset=[var_col])
+    n = len(merged)
+    if n < 4:
+        return {'label': label, 'n': n, 'moran_I': np.nan, 'n_eff': np.nan}
+
+    coords_rad = np.radians(merged[[lat_col, lon_col]].values)
+    # Convert threshold to radians on sphere
+    thresh_rad = threshold_km / 6371.0
+
+    tree = cKDTree(coords_rad)
+    pairs = tree.query_pairs(thresh_rad, output_type='ndarray')
+
+    if len(pairs) == 0:
+        return {'label': label, 'n': n, 'moran_I': 0.0, 'n_eff': n}
+
+    z = merged[var_col].values - merged[var_col].mean()
+    z2 = (z ** 2).sum()
+
+    # Build row-standardised weight matrix as sparse accumulation
+    W_row = np.zeros(n)  # row sums for standardisation
+    WZ = np.zeros(n)     # Σ_j w_ij * z_j (to be row-standardised)
+
+    for i, j in pairs:
+        W_row[i] += 1
+        W_row[j] += 1
+    W_row = np.where(W_row == 0, 1, W_row)  # avoid /0 for isolated points
+
+    for i, j in pairs:
+        WZ[i] += z[j] / W_row[i]
+        WZ[j] += z[i] / W_row[j]
+
+    S0 = len(pairs) * 2  # sum of all weights before row-standardisation
+    moran_I = (n / S0) * (z @ WZ) / z2
+
+    n_eff = n * (1 - moran_I) / (1 + moran_I)
+    n_eff = max(1.0, min(n_eff, n))
+
+    n_nbrs_mean = (W_row * (W_row != 1)).mean()  # restore to raw counts
+    # Re-fetch raw neighbour counts (W_row was raw counts before masking)
+    raw_Wrow = np.zeros(n)
+    for i, j in pairs:
+        raw_Wrow[i] += 1; raw_Wrow[j] += 1
+    n_nbrs_mean = raw_Wrow.mean()
+
+    print(f"  {label}: n={n}, Moran I={moran_I:.3f}, n_eff={n_eff:.1f}, "
+          f"mean neighbours={n_nbrs_mean:.1f}")
+    return {'label': label, 'n': n, 'moran_I': round(moran_I, 4),
+            'n_eff': round(n_eff, 1), 'n_neighbours_mean': round(n_nbrs_mean, 1)}
+
+
+print("\n=== SPATIAL EFFECTIVE SAMPLE SIZE (pESS) ===")
+pess_rows = []
+# USA (634 thinned sites — compute from usa_cwm covariate matrix which has Shannon)
+usa_cov = pd.read_csv(USADIR / "covariate_matrix_634_v2.csv")
+usa_cov_thin = usa_cov[['sample_id','lat','lon','shannon']].dropna(subset=['shannon'])
+pess_usa = compute_spatial_ess(
+    usa_cov_thin, usa_cov_thin.rename(columns={'shannon':'shannon'}),
+    var_col='shannon', threshold_km=250, label='USA')
+pess_rows.append(pess_usa)
+
+# EUR
+pess_eur = compute_spatial_ess(eur_thin, eur_div, var_col='shannon',
+                                threshold_km=250, label='EUR')
+pess_rows.append(pess_eur)
+
+# AUS
+pess_aus = compute_spatial_ess(aus_thin, aus_div, var_col='shannon',
+                                threshold_km=250, label='AUS')
+pess_rows.append(pess_aus)
+
+pess_df = pd.DataFrame(pess_rows)
+pess_df.attrs = {}
+pess_df.to_csv(OUTDIR / "spatial_ess.csv", index=False)
+print(f"\nSaved: {OUTDIR / 'spatial_ess.csv'}")
+print(pess_df.to_string(index=False))
+print("\nDone.")
