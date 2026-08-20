@@ -26,14 +26,20 @@ from retro_load import already_loaded  # noqa: E402
 
 
 def resolve_path(find_root: str, session_id: str) -> Path | None:
-    root = Path(find_root.replace("~", str(Path.home())))
-    hit = subprocess.run(
+    root = Path(find_root).expanduser()
+    r = subprocess.run(
         ["find", str(root), "-name", f"{session_id}.jsonl"],
         capture_output=True, text=True,
-    ).stdout.strip()
-    if not hit:
+    )
+    if r.returncode != 0:
+        print(f"  ! find failed under {root}: {r.stderr.strip()}", file=sys.stderr)
         return None
-    return Path(hit).resolve()
+    hits = [line for line in r.stdout.splitlines() if line.strip()]
+    if not hits:
+        return None
+    if len(hits) > 1:
+        print(f"  ! {session_id}: {len(hits)} matches under {root}, using the first: {hits}", file=sys.stderr)
+    return Path(hits[0]).resolve()
 
 
 def compute_tags(entry: dict) -> list[str]:
@@ -94,7 +100,7 @@ def main() -> int:
             cmd += ["--tag", t]
         cmd.append(str(path))
         r = subprocess.run(cmd, capture_output=True, text=True)
-        ok = "emitted" in r.stdout
+        ok = r.returncode == 0
         print(f"{sid}: {'OK' if ok else 'FAILED'}")
         if not ok:
             failed.append((sid, r.stdout[-500:], r.stderr[-500:]))
