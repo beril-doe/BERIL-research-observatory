@@ -23,19 +23,23 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).parent
 
 
 def find_jsonl_files(find_root: str) -> list[Path]:
-    root = Path(find_root.replace("~", str(Path.home())))
+    root = Path(find_root).expanduser()
     if not root.exists():
         print(f"  ! find_root does not exist, skipping: {root}")
         return []
-    out = subprocess.run(["find", str(root), "-maxdepth", "2", "-name", "*.jsonl"],
-                          capture_output=True, text=True).stdout
-    return sorted(Path(p) for p in out.splitlines() if p.strip())
+    r = subprocess.run(["find", str(root), "-maxdepth", "2", "-name", "*.jsonl"],
+                        capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"  ! find failed under {root}: {r.stderr.strip()}")
+        return []
+    return sorted(Path(p) for p in r.stdout.splitlines() if p.strip())
 
 
 def dry_run_summary(path: Path, event_day: str) -> dict:
@@ -51,7 +55,7 @@ def dry_run_summary(path: Path, event_day: str) -> dict:
     the previously-recorded tags in that same line, not from re-scanning
     timestamps that were never re-printed.
     """
-    r = subprocess.run(["python3", str(HERE / "retro_load.py"), "--dry-run", str(path)],
+    r = subprocess.run([sys.executable, str(HERE / "retro_load.py"), "--dry-run", str(path)],
                         capture_output=True, text=True)
     if r.returncode != 0:
         print(f"  ! dry-run failed for {path}: {r.stderr.strip()[-300:]}")

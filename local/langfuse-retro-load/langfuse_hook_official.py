@@ -2,6 +2,9 @@
 """
 Claude Code -> Langfuse hook
 
+Vendored unmodified from Langfuse's official Claude Code integration,
+https://langfuse.com/integrations/developer-tools/claude-code, retrieved
+2026-08-20. Update by re-fetching from that page, not by hand-editing here.
 """
 
 import json

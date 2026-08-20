@@ -39,12 +39,15 @@ def resolve_path(find_root: str, session_id: str) -> Path | None:
     if not hits:
         return None
     if len(hits) > 1:
-        print(f"  ! {session_id}: {len(hits)} matches under {root}, using the first: {hits}", file=sys.stderr)
+        # Guessing which hit is right risks loading the wrong person's transcript into
+        # Langfuse -- unacceptable for a consent-sensitive corpus. Refuse instead.
+        print(f"  ! {session_id}: {len(hits)} matches under {root}, refusing to guess: {hits}", file=sys.stderr)
+        return None
     return Path(hits[0]).resolve()
 
 
-def compute_tags(entry: dict) -> list[str]:
-    tags = ["claude-code", "retro-load", f"source:{entry['source']}", "full-load-2026-08-20"]
+def compute_tags(entry: dict, batch_tag: str) -> list[str]:
+    tags = ["claude-code", "retro-load", f"source:{entry['source']}", batch_tag]
     if entry.get("consent_bin"):
         tags.append(f"consent:{entry['consent_bin']}")
     if entry.get("event_day"):
@@ -62,6 +65,9 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--batch-tag", default="full-load-2026-08-20",
+                     help="tag identifying this run as a batch, so it's filterable/auditable later "
+                          "(default matches the 2026-08-20 full load; override for any later run)")
     args = ap.parse_args()
 
     manifest = json.loads(Path(args.manifest).read_text())
@@ -77,7 +83,7 @@ def main() -> int:
             not_found.append(sid)
             continue
 
-        tags = compute_tags(entry)
+        tags = compute_tags(entry, args.batch_tag)
         user_id = entry["user_id"]
 
         if args.dry_run:
