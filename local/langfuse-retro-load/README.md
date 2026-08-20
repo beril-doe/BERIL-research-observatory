@@ -114,6 +114,11 @@ curl -s "$LANGFUSE_HOST/api/public/observations?tag=<your-batch-tag>&limit=1" \
 - A live `.credentials.json` was found swept into the shared frozen corpus
   for every participant during this work. Not this tool's problem to fix,
   but flagged so it isn't lost: ask before assuming it's been handled.
+- [#397](https://github.com/kbaseincubator/BERIL-research-observatory/issues/397):
+  the real load run before this fix may have written a real filesystem
+  path (not just the pseudonymous parts of it) into already-loaded traces'
+  metadata. Fixed going forward; the historical data hasn't been checked
+  or corrected.
 
 A full session-by-session working log exists outside this repo (not
 committed here, since it's a working log rather than documentation). Ask a
