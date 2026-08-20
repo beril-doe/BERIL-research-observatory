@@ -745,6 +745,53 @@ Hg-positive hits span TCA cycle (K00177 2-oxoglutarate ferredoxin oxidoreductase
 
 **Revised interpretation:** NB18 separates two confounds in NB16. (a) The As hits (86% dropped) were predominantly MAG incompleteness artifacts — near-universal gene depletion reflecting site-level MAG quality differences rather than metal selection. (b) Inter-metal control restructures Cd (entirely new signal: mycothiol, N-fixation) and reduces As/Cr/Cu/Pb/Hg by 70–80%. The surviving NB18 hits — Mrp (Cu), Kdp (Hg), Pha+GSH (Pb), mtr (Cd), glycine betaine (Cr) — each form coherent biological narratives consistent with metal-specific stress physiology. These represent the most defensible SPIRE gene×metal associations in the analysis.
 
+### CWM inter-metal control + genus-gene coherence test (2026-08-20)
+
+**Motivation:** NB18 added inter-metal control to SPIRE; the same control was applied to CWM to make the comparison symmetric, and to ask whether the genera enriched at high-metal sites are the same genera that carry the SPIRE-enriched genes.
+
+**Design (Part A — CWM inter-metal control):** Vectorized OLS score test on the 634-sample CWM matrix, using the same 28-covariate Z matrix (lat, lon, pH, drainage, lith, mine_dist, clay, OM, land-cover, Shannon, 8 phylum RAs) plus log₁₀ of the other 5 metals (median-imputed), exactly mirroring NB18's approach. Total tests: ~38,592 (6,432 KOs × 6 metals, filtered to n≥30).
+
+**Part A results:**
+
+| Metal | n sites | CWM inter-metal hits | Original 75 surviving |
+|-------|---------|----------------------|-----------------------|
+| As | 549 | 39 | 0/14 |
+| Cd | 266 | 1 | 0/0 |
+| Cr | 611 | 0 | 0/15 |
+| Cu | 608 | 32 | 0/1 |
+| Hg | 412 | 166 | 0/27 |
+| Pb | 589 | 135 | 0/18 |
+| **Total** | — | **373** | **0/75 (0%)** |
+
+**All 75 original CWM hits drop under inter-metal control.** Every one of the 75 CWM hits (from the R GAM full-covariate model) collapses to q>0.45 after adding the other 5 metals as covariates. The inter-metal q-values cluster near 1.0 for most (median q≈0.92), indicating the original hits were entirely attributable to metal co-contamination rather than the focal metal. **The original CWM 75 hits should be interpreted as a joint metal-contamination signal, not individual metal associations.**
+
+**CWM inter-metal hits (373 new) vs NB18 overlap: 1 pair — K17883×Cd (opposite directions).** The new inter-metal CWM hits are largely uncharacterized KOs enriched in high-Hg/Pb environments (likely wetland/anaerobic-gradient confounders at the ecosystem level). Only 1 pair (K17883 mycothiol reductase × Cd) overlaps between CWM-inter-metal hits and NB18 hits — but with **opposite effect directions**: CWM β=−0.004 (mtr-carrying genera depleted in high-Cd communities), NB18 β=+0.157 (MAGs at high-Cd sites more likely to carry mtr). Hypergeometric p_enrich=0.74 (not significant; consistent with chance).
+
+**Design (Part B — genus-gene coherence test):** For each NB18-sig KO×metal pair (n=237 tested in both datasets), compute the OLS partial correlation of CWM with the focal metal using the base 28-covariate Z (no inter-metal control). Test whether NB18 β direction agrees with CWM partial correlation direction — agreement indicates the SPIRE-enriched gene is carried by the same genera that dominate high-metal CWM sites.
+
+**Part B results: directional ANTI-correlation (40.9% agreement, p=0.006 vs 50% null).**
+
+| Metal | NB18 hits | CWM agreement | % |
+|-------|-----------|---------------|---|
+| As | 46 | 27/46 | 59% |
+| Cd | 52 | 18/52 | 35% |
+| Cr | 74 | 29/74 | 39% |
+| Cu | 15 | 9/15 | 60% |
+| Hg | 14 | 7/14 | 50% |
+| Pb | 36 | 7/36 | 19% |
+| **Total** | **237** | **97/237** | **40.9%** |
+
+Overall directional agreement is significantly BELOW 50% (binomial p=0.006). The SPIRE-enriched genes are enriched in MAGs from high-metal sites, but the genera that carry those same genes are systematically DEPLETED in the community composition at high-metal sites. For Pb the disagreement is strongest (only 19% agreement): the genera carrying the Pb-survival genes (PhaF, GSH, HerA) are the ones displaced from Pb-contaminated communities.
+
+**Critical discovery: Mrp antiporter absent from CWM entirely.** The five Mrp Na+:H+ antiporter subunits (K05566/K05567/K05569/K05570/K05571) — the strongest Cu survival signal in NB18 — are completely absent from the 6,432-KO CWM dataset. This is because these KOs have insufficient prevalence in ke_pangenome genera to generate CWM values. MAG-level prevalence of 11–16% per MAG does not translate to genus-level prevalence high enough to contribute to CWM. The entire Cu adaptation story in SPIRE is invisible to CWM, mechanistically because the Mrp-carrying organisms are rare accessory genome carriers not captured by genus-level 16S-based CWM.
+
+**Mechanistic interpretation of the anti-correlation:** The genera that dominate high-metal communities (as captured by CWM/16S) tend to be metal-tolerant **generalists** — organisms with high abundance but low prevalence of specialized resistance genes. The gene-gain signal in SPIRE operates in a DIFFERENT, rarer sub-population (MAG-detectable but 16S-invisible). Two distinct ecological strata are responding to metal stress simultaneously:
+
+1. **Community-visible stratum (16S):** dominant genera shift (turnover), but the abundant taxa at high-metal sites carry FEWER resistance genes (negative CWM direction for resistance KOs). The community becomes simpler and dominated by metal-tolerant but resistance-gene-poor organisms.
+2. **Rare MAG stratum (metagenomics):** a numerically small but metabolically specialized sub-population carries resistance genes enriched at high-metal sites (positive SPIRE direction). These organisms are too rare to drive 16S signal.
+
+The mtr×Cd finding crystallizes this: at high-Cd sites, the total abundance of Actinobacteria (mtr-carrying genera) decreases (CWM depletes), but among Actinobacteria that persist, the fraction carrying mtr increases (SPIRE enriches). Community turnover removes the resistant lineage from dominance, while within that lineage, gene-level selection enriches the resistance gene in the survivors. **Turnover and gene-gain are not mutually exclusive — they co-occur in different ecological strata of the same community.**
+
 ---
 
 ## EUR/AUS CWM Replication (2026-08-20)
