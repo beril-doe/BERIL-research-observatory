@@ -5,6 +5,11 @@ Claude Code -> Langfuse hook
 Vendored unmodified from Langfuse's official Claude Code integration,
 https://langfuse.com/integrations/developer-tools/claude-code, retrieved
 2026-08-20. Update by re-fetching from that page, not by hand-editing here.
+
+License: the integration page itself states no separate license for this
+code sample. It's published as part of the langfuse/langfuse-docs
+repository, which GitHub records as MIT-licensed
+(https://github.com/langfuse/langfuse-docs, checked 2026-08-20).
 """
 
 import json
