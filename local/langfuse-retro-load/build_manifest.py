@@ -35,7 +35,7 @@ def find_jsonl_files(find_root: str) -> list[Path]:
         return []
     out = subprocess.run(["find", str(root), "-maxdepth", "2", "-name", "*.jsonl"],
                           capture_output=True, text=True).stdout
-    return [Path(p) for p in out.splitlines() if p.strip()]
+    return sorted(Path(p) for p in out.splitlines() if p.strip())
 
 
 def dry_run_summary(path: Path, event_day: str) -> dict:
@@ -53,6 +53,10 @@ def dry_run_summary(path: Path, event_day: str) -> dict:
     """
     r = subprocess.run(["python3", str(HERE / "retro_load.py"), "--dry-run", str(path)],
                         capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"  ! dry-run failed for {path}: {r.stderr.strip()[-300:]}")
+        return {"turns": 0, "event_day": False, "failed": True}
+
     turns = 0
     saw_event_day = False
 
@@ -60,7 +64,7 @@ def dry_run_summary(path: Path, event_day: str) -> dict:
     if already:
         turns = int(already.group(1))
         saw_event_day = f"event_day:{event_day}" in already.group(2)
-        return {"turns": turns, "event_day": saw_event_day}
+        return {"turns": turns, "event_day": saw_event_day, "failed": False}
 
     for line in r.stdout.splitlines():
         m = re.match(r"^\S+\.jsonl: \d+ jsonl lines -> (\d+) turns", line)
@@ -70,7 +74,7 @@ def dry_run_summary(path: Path, event_day: str) -> dict:
         m2 = re.search(r"turn \d+: (\d{4}-\d{2}-\d{2})T", line)
         if m2 and m2.group(1) == event_day:
             saw_event_day = True
-    return {"turns": turns, "event_day": saw_event_day}
+    return {"turns": turns, "event_day": saw_event_day, "failed": False}
 
 
 def main() -> int:
@@ -83,6 +87,7 @@ def main() -> int:
 
     people = json.loads(Path(args.people).read_text())
     manifest = []
+    n_failed = 0
 
     for person in people:
         for source in person["sources"]:
@@ -91,6 +96,8 @@ def main() -> int:
             for path in files:
                 sid = path.stem
                 summary = dry_run_summary(path, args.event_day)
+                if summary["failed"]:
+                    n_failed += 1
                 event_day = summary["event_day"] or sid in source.get("force_event_day", [])
                 manifest.append({
                     "session_id": sid,
@@ -100,13 +107,18 @@ def main() -> int:
                     "user_id": person["user_id"],
                     "consent_bin": source.get("consent_bin"),
                     "event_day": event_day if source.get("consent_bin") or source["type"] == "workshop-frozen-corpus" else None,
+                    "event_day_date": args.event_day,
                     "role": person.get("role"),
                     "group": person.get("group"),
                     "turns_expected": summary["turns"],
+                    "dry_run_failed": summary["failed"],
                 })
 
     Path(args.out).write_text(json.dumps(manifest, indent=2))
     print(f"\n{len(manifest)} entries written to {args.out}")
+    if n_failed:
+        print(f"  ! {n_failed} entries had a failed dry-run (turns_expected=0 is not trustworthy for "
+              f"these -- see dry_run_failed in {args.out})")
     by_source = {}
     for e in manifest:
         by_source.setdefault((e["person"], e["source"]), []).append(e)

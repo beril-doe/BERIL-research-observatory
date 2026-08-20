@@ -175,6 +175,11 @@ def main() -> int:
     langfuse.flush()
     langfuse.shutdown()
 
+    if emitted < len(turns):
+        print(f"FAILED: only {emitted}/{len(turns)} turns emitted to {host} as session_id={session_id}; "
+              f"not writing a marker so a re-run will retry the missing turns", file=sys.stderr)
+        return 1
+
     write_marker(transcript_path, session_id, emitted, tags)
     print(f"emitted {emitted}/{len(turns)} turns to {host} as session_id={session_id}, tags={tags}")
     print(f"marker written: {marker_path(transcript_path)}")

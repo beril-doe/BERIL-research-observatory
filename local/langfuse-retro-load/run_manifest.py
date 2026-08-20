@@ -5,8 +5,9 @@ tags/user_id automatically from its manifest record instead of hand-typed
 per-file commands (the gap issue #390 was filed for).
 
 Resolves each entry's actual transcript path via `find <find_root> -name
-'<session_id>.jsonl'` (same pattern already proven working all session),
-then subprocess-calls retro_load.py once per entry, reusing its exact CLI
+'<session_id>.jsonl'` (the same lookup the real load already used
+successfully), then subprocess-calls retro_load.py once per entry, reusing
+its exact CLI
 (credentials, tag/user_id handling, marker-writing) rather than
 re-implementing that logic here.
 
@@ -47,7 +48,7 @@ def compute_tags(entry: dict) -> list[str]:
     if entry.get("consent_bin"):
         tags.append(f"consent:{entry['consent_bin']}")
     if entry.get("event_day"):
-        tags.append("event_day:2026-05-07")
+        tags.append(f"event_day:{entry.get('event_day_date', '2026-05-07')}")
     if entry.get("role"):
         tags.append(f"role:{entry['role']}")
     if entry.get("group"):
@@ -98,6 +99,8 @@ def main() -> int:
                "--user-id", user_id]
         for t in tags:
             cmd += ["--tag", t]
+        if args.force:
+            cmd.append("--force")
         cmd.append(str(path))
         r = subprocess.run(cmd, capture_output=True, text=True)
         ok = r.returncode == 0
