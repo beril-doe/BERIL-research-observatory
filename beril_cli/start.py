@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -16,6 +17,29 @@ from beril_cli.config import get_default_agent, get_vertex_config
 from beril_cli.detect import print_jupyterhub_path_hint
 
 GITHUB_API_TIMEOUT_SECONDS = 10
+
+#: Where omp is told to keep session transcripts: under $HOME, one directory per checkout.
+#:
+#: Not inside the checkout, for two reasons and the first is BERIL's own deployment. BERDL
+#: compute nodes are ephemeral pods (PROJECT.md) while ``$HOME`` persists -- `beril setup`
+#: says so itself -- so a transcript in the working tree is the copy that does not survive a
+#: pod restart, and one under $HOME is the copy that does. Second, a session transcript is
+#: the entire conversation including whatever the agent read, which is a different privacy
+#: weight from `projects/*/runtime.json`; keeping it out of a public repo's tree means it
+#: cannot be reached by an ignore rule drifting, a `git add -f`, or a Docker build context.
+OMP_SESSION_ROOT = Path.home() / ".beril" / "omp-sessions"
+
+
+def omp_session_dir(repo_root: Path) -> Path:
+    """The session directory for one checkout, stable across runs and unique to it.
+
+    Keyed by the resolved path, not the directory name: two clones both called
+    ``BERIL-research-observatory`` are different checkouts whose sessions must not mix. The
+    name is kept as a prefix so the directory is still recognisable to a person listing it.
+    """
+    resolved = Path(repo_root).resolve()
+    digest = hashlib.sha256(str(resolved).encode("utf-8")).hexdigest()[:8]
+    return OMP_SESSION_ROOT / f"{resolved.name}-{digest}"
 
 
 def _sync_auth_token(env_path: Path) -> None:
@@ -149,6 +173,16 @@ def _checkout_release(repo_root: Path, requested_version: str | None) -> int:
     return 0
 
 
+def _has_flag(extra_args: list[str], name: str) -> bool:
+    """Whether the caller already passed ``name``, in either form.
+
+    Both ``--flag value`` and ``--flag=value`` count. Plain membership misses the
+    second, and re-adding a default the caller already set hands the agent the same
+    flag twice with two different values.
+    """
+    return any(arg == name or arg.startswith(f"{name}=") for arg in extra_args)
+
+
 def claude_defaults(agent: str, extra_args: list[str]) -> list[str]:
     """Default flags for Claude: Opus with the 1M context window, auto permissions.
 
@@ -157,11 +191,50 @@ def claude_defaults(agent: str, extra_args: list[str]) -> list[str]:
     if agent != "claude":
         return []
     flags: list[str] = []
-    if "--model" not in extra_args:
+    if not _has_flag(extra_args, "--model"):
         flags += ["--model", "opus[1m]"]
-    if "--permission-mode" not in extra_args:
+    if not _has_flag(extra_args, "--permission-mode"):
         flags += ["--permission-mode", "auto"]
     return flags
+
+
+def omp_defaults(agent: str, extra_args: list[str], repo_root: Path) -> list[str]:
+    """Default flags for omp: a session directory inside the checkout.
+
+    Returns nothing for other agents, and skips the flag if the caller already set it.
+
+    omp writes its transcript to ``~/.omp/agent/sessions/<encoded-cwd>/`` under a name
+    it picks -- a timestamp and a UUID -- so the path is knowable only after the fact.
+    Because ``beril start`` launches from the repo root, every project on a machine
+    also shares one such directory. Nothing downstream can name a session file, and
+    naming one is exactly what a transcript reader needs: evalome's ``collect`` takes
+    ``--transcript <path>``, and unlike Claude Code, omp fires no SessionStart hook to
+    supply it.
+
+    Pointing omp at the checkout fixes the directory without inventing the filename.
+    The newest ``.jsonl`` under it is the session just launched, printed at launch so
+    the operator can hand it straight to a collector.
+
+    Repo-root, not per-project: ``/berdl_start`` scaffolds the project *during* the
+    session, so at launch there is no project directory to write into yet.
+    """
+    if agent != "omp" or _has_flag(extra_args, "--session-dir"):
+        return []
+    return ["--session-dir", str(omp_session_dir(repo_root))]
+
+
+def announce_omp_session(session_flags: list[str]) -> None:
+    """Tell the operator where the transcript will land. A no-op for any other agent.
+
+    Deliberately does not create the directory. omp creates it itself, recursively, when it
+    opens the session -- verified against the shipped binary -- so a `mkdir` here buys
+    nothing and can only fail. It would run *between* "Launching omp..." and `execvp`, where
+    a path occupied by a file, a read-only mount or a full disk raises and the agent never
+    starts, having told the operator it was starting.
+    """
+    if not session_flags:
+        return
+    print(f"omp transcripts: {session_flags[1]} (this session is the newest *.jsonl)")
 
 
 def run_start(
@@ -222,9 +295,13 @@ def run_start(
                     file=sys.stderr,
                 )
 
-    extra_args = [*claude_defaults(agent, extra_args), *extra_args]
+    # Computed from the operator's own args, so this runs after the onboarding default
+    # above and never itself counts as "the user already passed a prompt".
+    session_flags = omp_defaults(agent, extra_args, repo_root)
+    extra_args = [*claude_defaults(agent, extra_args), *session_flags, *extra_args]
 
     print(f"Launching {agent}...")
+    announce_omp_session(session_flags)
     print_jupyterhub_path_hint(repo_root)
     # Replace the current process with the agent
     os.execvp(binary, [agent, *extra_args])
