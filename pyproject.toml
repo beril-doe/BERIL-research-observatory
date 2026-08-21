@@ -4,23 +4,24 @@ version = "0.0.6"
 description = "BERIL Research Observatory — CLI launcher and environment manager"
 requires-python = ">=3.11"
 license = "MIT"
-dependencies = ["httpx", "certifi"]
-
-[project.scripts]
-beril = "beril_cli.cli:main"
-
-[dependency-groups]
-test = [
-  "mistune>=3",
-  "pytest>=8.0.0",
-  "pytest-cov>=5.0.0",
-]
-knowledge = [
+dependencies = [
+  "boto3",
+  "certifi",
+  "httpx",
   "openviking",
   "pyyaml",
   "rich",
-  "boto3",
 ]
+
+[dependency-groups]
+dev = [
+    "mistune>=3",
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+]
+
+[project.scripts]
+beril = "beril_cli.cli:main"
 
 [build-system]
 requires = ["hatchling"]
