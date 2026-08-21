@@ -81,11 +81,11 @@ def test_http_health_parses_json_body(monkeypatch):
         status_code = 200
 
         def json(self):
-            return {"healthy": True, "version": "0.3.24"}
+            return {"healthy": True, "version": "0.4.15"}
 
     monkeypatch.setattr(oc.httpx, "get", lambda url, timeout: _Resp())
     body = oc._http_health("https://x/ov", 1.0)
-    assert body["version"] == "0.3.24"
+    assert body["version"] == "0.4.15"
 
 
 def test_http_health_non_200_is_none(monkeypatch):
@@ -129,9 +129,9 @@ def test_format_diagnosis_shows_remedy_and_server_meta():
         True,
         detail="needs a key",
         remedy="do X",
-        server={"version": "0.3.24", "auth_mode": "api_key"},
+        server={"version": "0.4.15", "auth_mode": "api_key"},
     )
     text = oc.format_diagnosis(diag)
     assert "NO API KEY" in text
     assert "do X" in text
-    assert "version 0.3.24" in text
+    assert "version 0.4.15" in text
