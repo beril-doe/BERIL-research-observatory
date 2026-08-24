@@ -52,11 +52,16 @@ def lakehouse_projects_key(
 def s3_settings() -> dict[str, str | None]:
     """Resolve S3 endpoint + credentials for the object store from the env.
 
-    Reads the vendor-neutral ``S3_*`` names, which is what BERDL sets on a pod.
-    Verified there 2026-08-14: only ``S3_ACCESS_KEY``, ``S3_SECRET_KEY``,
-    ``S3_ENDPOINT_URL`` and ``S3_SECURE`` exist, and no ``MINIO_*`` variable
-    does. Any missing value is ``None`` (caller then falls back to
-    ``berdl-remote`` or treats the tier as unavailable).
+    Returns the three values boto3 needs: ``S3_ENDPOINT_URL``, ``S3_ACCESS_KEY``
+    and ``S3_SECRET_KEY``. Any missing one is ``None``, and the caller then falls
+    back to ``berdl-remote`` or treats the tier as unavailable.
+
+    Only the vendor-neutral ``S3_*`` names are read. BERDL renamed these from
+    ``MINIO_*`` and sets the new names on a pod; verified there 2026-08-14 that
+    ``S3_ACCESS_KEY``, ``S3_SECRET_KEY``, ``S3_ENDPOINT_URL`` and ``S3_SECURE``
+    are present and no ``MINIO_*`` variable is. ``S3_SECURE`` is named here only
+    to record what the pod sets. It is not part of the returned settings; TLS is
+    implied by the ``https`` scheme in the endpoint.
     """
     endpoint = os.getenv("S3_ENDPOINT_URL") or DEFAULT_S3_ENDPOINT_URL
     return {
