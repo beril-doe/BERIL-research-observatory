@@ -68,30 +68,27 @@ def parse_remote_json(stdout: str) -> dict[str, Any] | None:
 
 DEFAULT_ENDPOINT_URL = "https://minio.berdl.kbase.us"
 
-# BERDL renamed these from MINIO_* to S3_* and no consumer was updated, so every
-# lookup here tries the current name first and the historical one second. Verified
-# on a pod 2026-08-14: only S3_ACCESS_KEY, S3_SECRET_KEY, S3_ENDPOINT_URL and
-# S3_SECURE are present; no MINIO_* variable exists. The fallback is kept for
-# older pod images rather than for the current one.
-ACCESS_KEY_NAMES = ("S3_ACCESS_KEY", "MINIO_ACCESS_KEY")
-SECRET_KEY_NAMES = ("S3_SECRET_KEY", "MINIO_SECRET_KEY")
-ENDPOINT_NAMES = ("S3_ENDPOINT_URL", "MINIO_ENDPOINT_URL")
+# BERDL renamed these from MINIO_* to S3_* and no consumer was updated, which is
+# what this script fixes. Verified on a pod 2026-08-14: only S3_ACCESS_KEY,
+# S3_SECRET_KEY, S3_ENDPOINT_URL and S3_SECURE are present; no MINIO_* variable
+# exists. Per @mikacashman on #380, pods cycle, so there is no image left to be
+# backwards compatible with and carrying a fallback only implies otherwise.
+ACCESS_KEY = "S3_ACCESS_KEY"
+SECRET_KEY = "S3_SECRET_KEY"
+ENDPOINT = "S3_ENDPOINT_URL"
 
 
-def _first(mapping: dict[str, Any], names: tuple[str, ...]) -> str | None:
-    """Return the first non-empty value among ``names``, or None."""
-    for name in names:
-        value = mapping.get(name)
-        if value:
-            return str(value)
-    return None
+def _value(mapping: dict[str, Any], name: str) -> str | None:
+    """Return the variable's value, or None when unset or empty.
+
+    An exported-but-empty variable is a common .env artifact and must read as
+    absent rather than as a credential.
+    """
+    value = mapping.get(name)
+    return str(value) if value else None
 
 
-SHELL_NAME_PAIRS = (
-    ("S3_ACCESS_KEY", "MINIO_ACCESS_KEY"),
-    ("S3_SECRET_KEY", "MINIO_SECRET_KEY"),
-    ("S3_ENDPOINT_URL", "MINIO_ENDPOINT_URL"),
-)
+SHELL_NAMES = (ACCESS_KEY, SECRET_KEY, ENDPOINT)
 
 
 def shell_exports(creds: dict[str, str]) -> list[str]:
@@ -102,15 +99,12 @@ def shell_exports(creds: dict[str, str]) -> list[str]:
     otherwise produce a broken line at best and an injection at worst, and the
     caller is an ``eval``.
 
-    Both spellings are exported. Callers that predate the MINIO_ to S3_ rename
-    (``scripts/configure_mc.sh``, and anything a user already has in a shell)
-    still read the old names.
+    Only the S3_* names are exported. ``scripts/configure_mc.sh`` reads those, and
+    the MINIO_* spelling no longer exists on any pod.
     """
     lines: list[str] = []
-    for canonical, legacy in SHELL_NAME_PAIRS:
-        quoted = shlex.quote(creds[canonical])
-        lines.append(f"export {canonical}={quoted}")
-        lines.append(f"export {legacy}={quoted}")
+    for name in SHELL_NAMES:
+        lines.append(f"export {name}={shlex.quote(creds[name])}")
     lines.append(f"# source={creds['source']}")
     return lines
 
@@ -122,17 +116,17 @@ def _searched() -> str:
     cause the failure, while the endpoint has a default and never does.
     """
     return (
-        f"    access key: {' then '.join(ACCESS_KEY_NAMES)}\n"
-        f"    secret key: {' then '.join(SECRET_KEY_NAMES)}\n"
-        f"    endpoint (optional, defaults to {DEFAULT_ENDPOINT_URL}): "
-        f"{' then '.join(ENDPOINT_NAMES)}"
+        f"    access key: {ACCESS_KEY}\n"
+        f"    secret key: {SECRET_KEY}\n"
+        f"    endpoint (optional, defaults to {DEFAULT_ENDPOINT_URL}): {ENDPOINT}"
     )
 
 
 def resolve_from_local_env() -> dict[str, str] | None:
-    access_key = _first(dict(os.environ), ACCESS_KEY_NAMES)
-    secret_key = _first(dict(os.environ), SECRET_KEY_NAMES)
-    endpoint_url = _first(dict(os.environ), ENDPOINT_NAMES) or DEFAULT_ENDPOINT_URL
+    env = dict(os.environ)
+    access_key = _value(env, ACCESS_KEY)
+    secret_key = _value(env, SECRET_KEY)
+    endpoint_url = _value(env, ENDPOINT) or DEFAULT_ENDPOINT_URL
     if access_key and secret_key:
         return {
             "S3_ACCESS_KEY": access_key,
@@ -159,7 +153,7 @@ def resolve_from_berdl_remote(bootstrap_remote: bool) -> dict[str, str] | None:
 
     # Ask the pod for both spellings and decide here, so the precedence rule lives
     # in one place rather than being duplicated into a remote one-liner.
-    wanted = list(ACCESS_KEY_NAMES + SECRET_KEY_NAMES + ENDPOINT_NAMES)
+    wanted = list(SHELL_NAMES)
     code = (
         "import json, os; "
         f"print(json.dumps({{n: os.getenv(n) for n in {wanted!r}}}))"
@@ -173,9 +167,9 @@ def resolve_from_berdl_remote(bootstrap_remote: bool) -> dict[str, str] | None:
     if not payload:
         return None
 
-    access_key = _first(payload, ACCESS_KEY_NAMES)
-    secret_key = _first(payload, SECRET_KEY_NAMES)
-    endpoint_url = _first(payload, ENDPOINT_NAMES) or DEFAULT_ENDPOINT_URL
+    access_key = _value(payload, ACCESS_KEY)
+    secret_key = _value(payload, SECRET_KEY)
+    endpoint_url = _value(payload, ENDPOINT) or DEFAULT_ENDPOINT_URL
     if not access_key or not secret_key:
         return None
 

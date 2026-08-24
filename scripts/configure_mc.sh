@@ -17,12 +17,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# BERDL renamed these from MINIO_* to S3_*. Current name first, historical second,
-# so this keeps working on older pod images. Verified on a pod 2026-08-14: only the
-# S3_* names exist there.
-ENDPOINT_URL="${ENDPOINT_URL:-${S3_ENDPOINT_URL:-${MINIO_ENDPOINT_URL:-https://minio.berdl.kbase.us}}}"
-ACCESS_KEY="${S3_ACCESS_KEY:-${MINIO_ACCESS_KEY:-}}"
-SECRET_KEY="${S3_SECRET_KEY:-${MINIO_SECRET_KEY:-}}"
+# BERDL renamed these from MINIO_* to S3_*. Verified on a pod 2026-08-14: only the
+# S3_* names exist there, and pods cycle, so there is no older image to support.
+ENDPOINT_URL="${ENDPOINT_URL:-${S3_ENDPOINT_URL:-https://minio.berdl.kbase.us}}"
+ACCESS_KEY="${S3_ACCESS_KEY:-}"
+SECRET_KEY="${S3_SECRET_KEY:-}"
 
 if [[ -n "${BERDL_PROXY}" ]]; then
   export https_proxy="${https_proxy:-http://127.0.0.1:8123}"
@@ -36,8 +35,8 @@ fi
 
 if [[ -z "${ACCESS_KEY}" || -z "${SECRET_KEY}" ]]; then
   echo "No object-store credentials in the environment." >&2
-  echo "  Looked for: S3_ACCESS_KEY or MINIO_ACCESS_KEY, and S3_SECRET_KEY or MINIO_SECRET_KEY." >&2
-  echo "  On a BERDL pod the current names are S3_*; MINIO_* no longer exists there." >&2
+  echo "  Looked for: S3_ACCESS_KEY and S3_SECRET_KEY." >&2
+  echo "  A BERDL pod injects these; MINIO_* is the old spelling and no longer exists." >&2
   echo "  Load them with: eval \"\$(python scripts/get_minio_creds.py --shell)\"" >&2
   exit 1
 fi

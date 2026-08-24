@@ -1,9 +1,10 @@
 """Credential-name resolution in scripts/get_minio_creds.py.
 
 BERDL renamed the object-store variables from MINIO_* to S3_* and no consumer was
-updated, which is #366. These tests pin the precedence so a future rename does not
-silently reintroduce the failure: a missing variable must never be reported as a
-rejected credential.
+updated, which is #366. Per @mikacashman on #380 the fallback was dropped: pods
+cycle, so no image is left that sets MINIO_*, and carrying a fallback only implies
+one exists. These tests pin that the S3_* names are read, that MINIO_* is ignored,
+and that a missing variable is never reported as a rejected credential.
 """
 
 from __future__ import annotations
@@ -50,24 +51,14 @@ def test_reads_the_s3_names_a_current_pod_actually_sets(creds, monkeypatch):
     }
 
 
-def test_falls_back_to_the_legacy_minio_names(creds, monkeypatch):
-    """Older pod images still carry MINIO_*, so they must keep working."""
+def test_the_legacy_minio_names_are_ignored(creds, monkeypatch):
+    """The fallback was deliberately removed (#380). MINIO_* alone resolves to
+    nothing, rather than quietly succeeding and implying the old names are still
+    a supported configuration."""
     monkeypatch.setenv("MINIO_ACCESS_KEY", "old-ak")
     monkeypatch.setenv("MINIO_SECRET_KEY", "old-sk")
 
-    resolved = creds.resolve_from_local_env()
-
-    assert resolved["S3_ACCESS_KEY"] == "old-ak"
-    assert resolved["S3_SECRET_KEY"] == "old-sk"
-
-
-def test_s3_wins_when_both_spellings_are_present(creds, monkeypatch):
-    monkeypatch.setenv("S3_ACCESS_KEY", "new")
-    monkeypatch.setenv("S3_SECRET_KEY", "new-sk")
-    monkeypatch.setenv("MINIO_ACCESS_KEY", "old")
-    monkeypatch.setenv("MINIO_SECRET_KEY", "old-sk")
-
-    assert creds.resolve_from_local_env()["S3_ACCESS_KEY"] == "new"
+    assert creds.resolve_from_local_env() is None
 
 
 def test_endpoint_defaults_when_neither_spelling_is_set(creds, monkeypatch):
@@ -78,12 +69,12 @@ def test_endpoint_defaults_when_neither_spelling_is_set(creds, monkeypatch):
 
 
 def test_an_empty_value_is_treated_as_absent(creds, monkeypatch):
-    """An exported-but-empty variable is a common .env artifact and must not win."""
+    """An exported-but-empty variable is a common .env artifact and must read as
+    missing rather than as a credential."""
     monkeypatch.setenv("S3_ACCESS_KEY", "")
-    monkeypatch.setenv("MINIO_ACCESS_KEY", "old-ak")
     monkeypatch.setenv("S3_SECRET_KEY", "sk")
 
-    assert creds.resolve_from_local_env()["S3_ACCESS_KEY"] == "old-ak"
+    assert creds.resolve_from_local_env() is None
 
 
 def test_returns_none_when_no_credentials_exist(creds):
@@ -101,8 +92,10 @@ def test_the_failure_message_names_every_variable_it_looked_for(creds):
     permissions problem and sent at least one person hunting a stale key."""
     searched = creds._searched()
 
-    for name in ("S3_ACCESS_KEY", "S3_SECRET_KEY", "MINIO_ACCESS_KEY", "MINIO_SECRET_KEY"):
+    for name in ("S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_ENDPOINT_URL"):
         assert name in searched
+    # Naming a variable the code no longer reads would send someone to set it.
+    assert "MINIO_" not in searched
 
 
 def _special_chars(marker: Path) -> str:
@@ -155,27 +148,28 @@ def test_shell_output_survives_eval_of_a_hostile_value(creds, tmp_path, build):
     assert result.stdout == hostile
 
 
-def test_both_spellings_receive_the_same_value(creds):
+def test_shell_output_exports_only_the_s3_names(creds):
+    """configure_mc.sh reads S3_*, and exporting a MINIO_* alias would resurrect a
+    spelling nothing sets."""
     script = "\n".join(creds.shell_exports(_payload("s3cret")))
     result = subprocess.run(
-        ["sh", "-c", 'eval "$1"; printf "%s|%s" "$S3_SECRET_KEY" "$MINIO_SECRET_KEY"',
+        ["sh", "-c", 'eval "$1"; printf "%s|%s" "$S3_SECRET_KEY" "${MINIO_SECRET_KEY:-unset}"',
          "sh", script],
         capture_output=True,
         text=True,
     )
 
-    assert result.stdout == "s3cret|s3cret"
+    assert result.stdout == "s3cret|unset"
 
 
 def test_shell_output_reports_the_source(creds):
     assert "# source=local-env" in creds.shell_exports(_payload("x"))
 
 
-def test_remote_payload_uses_the_same_precedence(creds):
-    """The pod is asked for both spellings and the choice is made locally, so the
-    rule is not duplicated into a remote one-liner that can drift."""
-    payload = {"S3_ACCESS_KEY": "new", "MINIO_ACCESS_KEY": "old"}
-
-    assert creds._first(payload, creds.ACCESS_KEY_NAMES) == "new"
-    assert creds._first({"MINIO_ACCESS_KEY": "old"}, creds.ACCESS_KEY_NAMES) == "old"
-    assert creds._first({}, creds.ACCESS_KEY_NAMES) is None
+def test_remote_payload_is_read_with_the_same_rule(creds):
+    """The pod's reply goes through the same accessor as the local environment, so
+    the two paths cannot drift apart."""
+    assert creds._value({"S3_ACCESS_KEY": "new"}, creds.ACCESS_KEY) == "new"
+    assert creds._value({"MINIO_ACCESS_KEY": "old"}, creds.ACCESS_KEY) is None
+    assert creds._value({"S3_ACCESS_KEY": ""}, creds.ACCESS_KEY) is None
+    assert creds._value({}, creds.ACCESS_KEY) is None
