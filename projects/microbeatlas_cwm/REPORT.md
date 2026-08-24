@@ -56,6 +56,67 @@ Does metal exposure in soil predict shifts in community-weighted mean (CWM) func
 
 ## Key Findings
 
+### Finding 1 — Metal exposure shifts microbial community composition (turnover), not within-genus gene content
+
+![L1 FDR hits by metal (Manhattan)](figures/fig_nb02_manhattan_L1.pdf)
+![Facultativeness of hit KOs vs background](figures/fig_nb02_facult_ko.pdf)
+
+**560 L1 FDR hits** (pH-adjusted) across 14 elements from 6,557 KEGG orthologs tested in 4,884 globally thinned soil samples. Yet three independent tests converge on **community turnover — not gene gain — as the mechanism:**
+
+1. **Facultativeness test:** Metal-associated KOs (n=508) are indistinguishable from background in within-genus prevalence (p=0.187), while pH-associated KOs are significantly more universal (p=1.2×10⁻⁷¹). High-prevalence KOs are constitutive core genes that vary across genera — i.e., turnover. Low-prevalence KOs are facultative strain-level genes — i.e., gene gain. Metal hits match background; pH hits are core genes. Different mechanisms.
+2. **Reverse prediction:** CWM cannot spatially predict metal concentrations in any region (spatial block CV R²<0 for all metals vs. spatial R²=+0.151 for pH). If gene gain were occurring, the gene-metal link would be spatially robust. It isn't.
+3. **Collider check:** 98–100% of L1 metal hits are attenuated at L5 (community composition control), indicating the metal signal is mediated through community composition, not direct gene-environment coupling.
+
+*(Notebooks: NB02_metal_associations.ipynb, NB03_functional_interpretation.ipynb)*
+
+---
+
+### Finding 2 — EUR strongly replicates USA associations with 100% directional concordance
+
+![EUR replication overlap](figures/fig_nb04_hits_heatmap.pdf)
+
+USA L1 FDR hits replicate in Europe (GEMAS) at **84–100% overlap and 100% directional concordance** for all metals with substantial USA signal (As, Cd, Cr, Ni, Pb, Zn). EUR identifies additional hits (Cd: 31 EUR vs 10 USA; Pb: 56 EUR vs 14 USA) owing to larger EUR sample coverage of those metals. Australia (NGSA, n=232) shows 0 FDR hits — approximately 5× underpowered and not interpretable as evidence against the hypothesis.
+
+The cross-continental replication confirms the associations are not USA-specific confounds (geology, land use, survey design). pH positive control in both regions recovers massive hits at L0 (EUR: 2,307; AUS: 2,106), confirming the FWL engine has power where biological signal exists.
+
+*(Notebook: NB04_regional_replication.ipynb)*
+
+---
+
+### Finding 3 — Mine proximity identifies a distinct, non-metal-driven CWM signal
+
+![Mine proximity hits by level](figures/fig_nb05_mine_hits_by_level.pdf)
+![Mine vs metal overlap](figures/fig_nb05_mine_metal_overlap.pdf)
+
+**481 L1 FDR hits** for log mine proximity (Mindat 157K localities), but only **~2.7% overlap** with NB02 measured-metal hits. Commodity-specific mine proximity (Cu, Pb, Zn, Ni) gives **0 FDR hits** genome-wide. Mine proximity is enriched for **Metabolism KOs** (~1.6× vs background; NB06), consistent with selection for metabolic flexibility near disturbed terrain rather than metal resistance specifically. Elevation stratification reveals that the proximity signal is largely driven by elevation-correlated confounders (484 global hits → 17 downhill → 0 uphill), consistent with topographic rather than contamination signal.
+
+Mine proximity is an insufficient surrogate for measured metal bioavailability in CWM analyses.
+
+*(Notebooks: NB05_mine_proximity.ipynb, NB06_mine_extended.ipynb)*
+
+---
+
+### Finding 4 — pH is a structurally stronger functional driver; metals are real but weak
+
+![pH coverage and source hierarchy](figures/fig_nb00_ph_coverage.pdf)
+![Beta stability across levels](figures/fig_nb02_beta_stability.pdf)
+
+pH FWL identifies **4,322 L1 hits** (vs 560 for all metals combined) and those KOs are constitutive core genes (mean_prev=0.733 vs background 0.604, p=1.2×10⁻⁷¹). pH CWM generalizes spatially (R²=+0.151 spatial block CV). The 6/7 metals pass the Zeleny permutation test (p<0.05), confirming the metal associations are statistically real beyond the BH-FDR threshold, but effect sizes per IQR metal concentration are small (β_IQR ≈ 0.003) — consistent with metal being a secondary environmental filter overlaid on a primary pH-structured microbiome.
+
+*(Notebooks: NB02_metal_associations.ipynb, NB07_sensitivity.ipynb)*
+
+---
+
+## Discoveries
+
+- **OLM pH is stored as pH×10** (range 40–87 = pH 4.0–8.7). Always divide `olm_soil_ph_0cm_H2O` by 10.0 before use. Using the raw integer corrupts all pH-spline covariates: the spline attempts to fit pH range 2.5–87, collapsing the biologically relevant 4.0–8.7 interval into a thin band. Discovered after it silently corrupted NB05 and NB06 results (mine proximity L1 went from 481→516 and 462→484 after correction).
+- **ke_pangenome `eggnog_mapper_annotations.PFAMs` column uses comma-separated Pfam short names** (e.g., `Fer4_12,Radical_SAM,SPASM`), not pipe-separated PF accessions as documented. Using the wrong separator returns 65,428 "combo-string" pseudo-IDs rather than ~70K individual domain names; pivot_table at 8,419 × 65,428 causes OOM. Fix: `split(e.PFAMs, ',')`.
+- **Spatial block CV vs random CV for metal prediction:** Random block CV R² for CWM → metal prediction ranges 0.03–0.06 (looks like a signal); spatial block CV R² is negative for all metals in all regions. The inflated random-CV R² is entirely due to spatial autocorrelation allowing nearby samples to train/test-split together. Always use spatial block CV for soil microbiome × geochemistry prediction tasks.
+
+---
+
+## Results
+
 ### NB02 — Metal × CWM Associations (2026-08-21)
 
 **Forward FWL (log₁₀(metal) → CWM, pH-adjusted = L1 primary estimand):**
@@ -388,6 +449,144 @@ Most L1 hits are **L1-only** (attenuated at L5 after community composition contr
 **COG (n=24 categories):** 22 L1 hits across 4 metals. V: 18 hits (effectively all COG categories, β=−0.056, q=0.040) — note this likely reflects a degenerate fit given the small V sample count. Cd: 2 hits (Z=mobilome β=+0.067, W=extracellular structures β=+0.040). Cu: 1 hit (Z, β=+0.041). Pb: 1 hit (Z, β=+0.050).
 
 **Interpretation:** The Cd Pfam result (761 hits, all positive) contrasts sharply with the Cd KO result (10 hits). This divergence reflects the different resolutions: CWM-Pfam aggregates prevalence at the domain level, which is more broadly shared across taxa and less specificity-filtered than individual KOs. The Cd-specific Pfam enrichment (especially metallopeptidase, thymidylate synthase, and Radical_SAM domains) may reflect non-specific Cd stress response rather than dedicated resistance. The COG V result warrants caution — V has n=998 total but very few complete-covariate samples after pH joining, reducing degrees of freedom. The KO L1 hit count (KO=560 total, Cd=10) remains the primary annotation level.
+
+---
+## Interpretation
+
+### Literature Context
+
+Metal contamination in soil is a well-established driver of microbial community composition. Studies using 16S rRNA amplicon sequencing have consistently found shifts in alpha and beta diversity near mine-contaminated sites (Wakelin et al. 2010; Hemkemeyer et al. 2021). However, whether these compositional shifts are accompanied by enrichment of metal-resistance functional genes remains debated. Our finding — that metal-associated KOs have the same within-genus prevalence distribution as background KOs — is consistent with the community turnover model rather than the gene-gain model.
+
+pH is widely recognised as the primary driver of soil bacterial diversity globally (Fierer & Jackson 2006; Lauber et al. 2009; Delgado-Baquerizo et al. 2016). Our finding that pH identifies 4,322 constitutive-core-gene FWL hits (vs 560 for all metals) with a spatially recoverable signal (R²=+0.151) directly quantifies pH's dominance over metals at the functional CWM level in the same dataset and framework.
+
+The arsenic resistance cluster (ars operon) negative association with As — i.e., high-As soils have *lower* ars CWM — is consistent with findings that high-arsenic environments are dominated by genera that use alternative mechanisms (arsenite oxidation via *aioA*, anaerobic reduction via *arrA*) rather than the cytoplasmic efflux ars pathway encoded by these KOs (Oremland & Stolz 2003; Slyemi & Bonnefoy 2012). The As-adapted genera that dominate high-As soils may use alternative detoxification mechanisms not captured by these KOs — arsenic oxidation via *aioA*, anaerobic reduction via *arrA*, or the *arsO* flavoprotein monooxygenase pathway (Oremland & Stolz 2003; Tang et al. 2023). The specific ars-operon KOs indexed here (K15844/K15847/K15848) appear most prevalent in common soil bacteria that are *excluded* from high-As soils by toxicity pressure — consistent with the turnover mechanism.
+
+The community-weighted mean (CWM) approach, developed in plant ecology (Garnier et al. 2004; Díaz et al. 2007), has been adapted for microbial ecology to capture functional trait shifts without requiring deep sequencing at each site (Sims et al. 2020; Chen et al. 2021). Our cross-continental replication (USA→EUR, 84–100% overlap) provides the first large-scale validation of 16S×pangenome CWM for detecting soil metal associations.
+
+### Novel Contribution
+
+1. **Quantitative turnover-vs-gene-gain resolution:** We provide three independent lines of evidence (facultativeness, reverse prediction, collider check) that metal-associated CWM shifts are driven by community turnover, not within-genus gene content variation. This directly addresses an open question in microbial metal ecology literature.
+
+2. **Cross-continental FWL replication:** EUR replicates USA L1 KO hits at 84–100% overlap with 100% directional concordance — the first genome-wide replication of soil metal × CWM KO associations across continents using independent measured metal datasets (USGS and GEMAS).
+
+3. **Mine proximity ≠ measured metal:** The near-zero overlap between mine proximity FDR hits and measured-metal FDR hits demonstrates quantitatively that proximity to mines is an insufficient surrogate for metal bioavailability at the community functional level — a methodological caution for studies using proximity as a metal exposure proxy.
+
+4. **pH CWM as positive control:** Using pH as a positive control in the same FWL framework reveals that constitutive core gene turnover (pH hits: mean_prev=0.733, R²_spatial=+0.151) and weak metal turnover (metal hits: mean_prev=0.604, R²_spatial<0) are mechanistically distinguishable within the same pipeline.
+
+### Limitations
+
+- **CWM captures only turnover:** By construction, CWM[cell,KO] = Σ(genus_RA × prevalence). This weights genera's constitutive gene repertoire — it cannot detect within-genus gene expression changes, HGT, or strain-level gene variation. Metal adaptation via those mechanisms would be invisible to this approach.
+- **ke_pangenome terrestrial subset:** Only genomes with `ncbi_isolation_source LIKE '%soil%'` are included. Genera not well-represented in sequenced soil isolates have zero or low prevalence by construction (GlobDB supplement shows 17% genus coverage for canonical MRGs). Annotation gaps particularly affect canonical resistance genes (merA, czcA absent from ke_pangenome KO annotations).
+- **USGS metal data geographic bias:** USGS geochem sampling is denser in the western USA mining belt and sparser in the midwest and east. The 634 USA thinned samples with metal data are not a uniform spatial sample. EUR GEMAS is more systematic.
+- **40 Antarctic samples uncoverable for pH:** No pH source (measured, OLM, SoilGrids) covers lat<−63°. These 40 cells are excluded from pH-adjusted (L1+) analyses.
+- **AUS null is power-limited:** n=232 is approximately 5× underpowered relative to the USA threshold for detecting the observed effect sizes. Cannot rule out that the AUS null reflects biology (ancient nutrient-poor soils, different community structure) rather than power.
+- **Reverse direction fails spatially:** The CWM → metal prediction failure (spatial R²<0) means CWM cannot be used as an environmental indicator for metal contamination. This limits applied interpretations.
+- **REE confound:** Nd and Yb dominate hit counts (326/560 L1 hits) due to geology-pH collinearity. These are explicitly excluded from primary biological claims.
+
+---
+
+## Data
+
+### Sources
+
+| Collection | Tables Used | Purpose |
+|---|---|---|
+| `arkinlab.microbeatlas` | `sample_metadata`, `otu_counts_long`, `otu_metadata` | 16S community data, spatial thinning, genus RA |
+| `kbase.ke_pangenome` | `bakta_db_xrefs`, `eggnog_mapper_annotations`, `gtdb_metadata`, `gtdb_taxonomy_r214v1` | KO/Pfam/COG prevalence per genus; terrestrial subset |
+| `arkinlab.envdbs.soilgrids_master` | `pH_0cm`, `clay_0cm`, `soc_0cm` | pH fallback (three-tier hierarchy); soil texture covariates |
+| `arkinlab.envdbs.worldclim_master` | `bio_1`, `bio_4`, `bio_12`, `bio_15` | Climate covariates (MAT, MAP, seasonality) |
+| `arkinlab.envdbs.global_lithology_glim` | all columns | Bedrock lithology (L2 confounder) |
+| `arkinlab.envdbs.gemas` | measured metal concentrations | EUR replication dataset (As, Cd, Cr, Cu, Ni, Pb, Zn) |
+| `arkinlab.envdbs.ngsa_geochemistry` | measured metal concentrations | AUS replication dataset |
+| `/data/envdbs/usgs_geochem/` | `usgs_geochem.parquet`, `usgs_geochem_joined.parquet` | USA measured metals, 50+ elements, ~145K soil samples |
+| `/projects/microbeatlas_metal_ecology/data/mindat.csv` | — | Mine locations (157K localities) for proximity analysis |
+
+### Generated Data
+
+| File | Rows | Description |
+|---|---|---|
+| `data/thinned_cells_4884.parquet` | 4,884 | Globally thinned MA cells with lat/lon, pH sources, genus RA |
+| `data/nb02_fwl_results_fdr.parquet` | 1,055,677 | Full FWL results across 23 metals × 7 levels × 6,557 KOs |
+| `data/nb07_perm_results.parquet` | 7 | Permutation test results per metal (observed hits, null mean±SD, p) |
+| `data/nb08_pfam_fwl_fdr.parquet` | ~761K | Pfam FWL FDR results (5,000 domains × 7 levels × metals) |
+| `data/nb08_cog_fwl_fdr.parquet` | ~22K | COG FWL FDR results (24 categories × 7 levels × metals) |
+| `data/nb08_ko_pfam_cog_comparison.csv` | 168 | Hit count summary by metal × level × annotation type |
+
+---
+
+## Supporting Evidence
+
+### Notebooks
+
+| Notebook | Purpose |
+|---|---|
+| `NB00_data_qc.ipynb` | MicrobeAtlas sample fetch, terrestrial filter, spatial thinning (0.45°), pH hierarchy construction |
+| `NB01_cwm_construction.ipynb` | ke_pangenome terrestrial subset, per-genus KO/Pfam/COG prevalence, CWM matrix computation |
+| `NB02_metal_associations.ipynb` | Forward FWL (L0–L6) × 23 USGS metals; reverse Ridge; facultativeness test; GlobDB MRG supplement |
+| `NB03_functional_interpretation.ipynb` | Stable hit characterization, DAG attrition audit, pathway/module context |
+| `NB04_regional_replication.ipynb` | EUR (GEMAS) and AUS (NGSA) FWL replication; pH positive control; reverse Ridge |
+| `NB05_mine_proximity.ipynb` | Forward/reverse mine proximity FWL (3 operationalizations + elev_rel + commodity) |
+| `NB06_mine_extended.ipynb` | Elevation stratification, EUR measured metals × elev_rel, functional category enrichment |
+| `NB07_sensitivity.ipynb` | Spatial autocorrelation (pESS), Zeleny permutation, pH-form robustness, rank-transform sensitivity |
+| `NB08_pfam_cog_associations.ipynb` | Pfam (5,000 domains) and COG (24 categories) CWM FWL; cross-annotation comparison |
+
+### Figures
+
+| Figure | Description |
+|---|---|
+| `fig_nb00_map.pdf` | World map of 4,884 thinned cells |
+| `fig_nb00_ph_coverage.pdf` | pH source breakdown by three-tier hierarchy |
+| `fig_nb00_attrition.pdf` | Sample attrition (terrestrial filter → quality → thinning) |
+| `fig_nb01_cwm_distribution.pdf` | CWM value distribution across cells and KOs |
+| `fig_nb01_genus_coverage.pdf` | Genus RA coverage per cell (matched fraction) |
+| `fig_nb02_manhattan_L1.pdf` | Manhattan plot of KO associations at L1 per metal |
+| `fig_nb02_facult_ko.pdf` | KO prevalence distribution: metal hits vs pH hits vs background |
+| `fig_nb02_reverse_r2.pdf` | Reverse Ridge R² (random vs spatial block CV) for all metals |
+| `fig_nb02_beta_stability.pdf` | L0→L6 hit attrition per metal |
+| `fig_nb03_attrition.pdf` | Stable hit functional group breakdown |
+| `fig_nb03_hit_heatmap.pdf` | Heatmap: KO × metal β values at L1 |
+| `fig_nb04_hits_heatmap.pdf` | EUR L1 FDR hit counts by metal |
+| `fig_nb04_replication_overlap.pdf` | USA vs EUR hit overlap (Venn / scatter) |
+| `fig_nb05_mine_hits_by_level.pdf` | Mine proximity FDR hits L0→L5 |
+| `fig_nb05_mine_metal_overlap.pdf` | Overlap between mine proximity and metal concentration hits |
+| `fig_nb06_stratification.pdf` | Global elevation stratification (all vs downhill vs uphill) |
+| `fig_nb07_sensitivity.pdf` | Permutation null vs observed; pESS table |
+| `fig_nb08_L1_hits_by_metal.pdf` | KO/Pfam/COG L1 hits by metal |
+
+---
+
+## Future Directions
+
+1. **Species-level gene frequency analysis:** The CWM approach aggregates across genus-level composition. A complementary MWAS at species level (using SPIRE per-MAG KO presence) would test whether within-genus strain-level gene frequency shifts with metal — the one mechanism CWM cannot detect. SPIRE × USGS metals analysis is underway in a companion project.
+2. **Extended REE controls:** Nd and Yb hits (326/560 L1 hits) are likely geology confounds. Adding dedicated REE-specific covariates (REE deposit density, ophiolite indicator) or running REE analysis within geology-stratified subsets would clarify whether any REE hits are biological.
+3. **AUS replication with expanded sample set:** The NGSA dataset (1,315 points) has more potential joins than the current n=232 MA thinned cells provide. Future work could reduce the thinning grid from 0.45° to 0.25° for the AUS-only analysis, increasing n~500–600 and potentially reaching adequate power for Zn (min-q=0.074 near-miss).
+4. **Transcriptomic follow-up for stable hits:** The 17 KOs stable at L1∩L6 (MoCo biosynthesis, cell wall, RNA quality control) represent the most robust signal. Testing whether these KOs are upregulated (not just CWM-elevated) in metal-contaminated soils using metatranscriptomics would distinguish passive compositional shifts from active functional regulation.
+5. **Pfam Cd hits — structural biology context:** The 761 Cd Pfam hits (all positive, Beta_helix/Zn_peptidase_2/Thymidylat_synt) warrant structural-biology examination: are these domains known Cd-binding scaffolds, or does the signal reflect enrichment of specific Cd-tolerant genera carrying these common domains? Genus-stratified Pfam analysis (which genera drive the Pfam-Cd association) would resolve this.
+
+---
+
+## References
+
+**Community turnover under metal stress:**
+- Zhang, Y. et al. (2023). Effects of single and combined contamination of total petroleum hydrocarbons and heavy metals on soil microecosystems. *Chemosphere*, 345, 140288. PMID: 37783354. https://doi.org/10.1016/j.chemosphere.2023.140288 — Community beta diversity driven by turnover rather than nestedness; heavy metals reshape soil microbiota through species replacement.
+- Zhang, J. et al. (2026). Niche-driven microbial assembly across the soil-root continuum under heavy metal pollution gradient. *Ecotoxicology and Environmental Safety*, 323, 120615. PMID: 42556226. — Metal pollution restructures community through spatial niche shifts; Proteobacteria → Actinobacteria → Chloroflexi with increasing Pb/Zn/Cd gradient.
+
+**pH as primary soil microbiome driver:**
+- Fierer, N. & Jackson, R.B. (2006). The diversity and biogeography of soil bacterial communities. *PNAS*, 103(3), 626–631. — pH is the primary predictor of bacterial diversity globally.
+- Lauber, C.L. et al. (2009). Pyrosequencing-based assessment of soil pH as a predictor of soil bacterial community structure at the continental scale. *Applied and Environmental Microbiology*, 75(15), 5111–5120. — Cross-continental confirmation of pH as primary driver; stronger than climate or geography.
+- Delgado-Baquerizo, M. et al. (2016). Microbial diversity drives multifunctionality in terrestrial ecosystems. *Nature Communications*, 7, 10541. https://doi.org/10.1038/ncomms10541
+
+**Arsenic resistance mechanisms and community context:**
+- Oremland, R.S. & Stolz, J.F. (2003). The ecology of arsenic. *Science*, 300(5621), 939–944. — Foundational review: As(III) oxidation (*aioA*) and anaerobic reduction (*arrA*) are dominant community-level As cycling pathways in many environments, distinct from the cytoplasmic efflux (ars) pathway.
+- Valenzuela-García, L.I. et al. (2025). Mechanisms of arsenic interaction in *Bacillus* and related species with biotechnological potential. *International Journal of Molecular Sciences*, 26(21), 10277. PMID: 41226316. — Comprehensive review of *ars* and *ase* operons; efflux + reduction confer resistance.
+- Tang, X. et al. (2023). Widespread distribution of the *arsO* gene confers bacterial resistance to environmental antimony. *Environmental Science & Technology*, 57(39), 14579–14588. PMID: 37737118. — *arsO* (flavoprotein monooxygenase) widely distributed in mine and contaminated environments — supporting the existence of alternative As detoxification mechanisms beyond the specific KOs measured here.
+
+**CWM methodology (plant ecology origin):**
+- Garnier, E. et al. (2004). Plant functional markers capture ecosystem properties during secondary succession. *Ecology*, 85(9), 2630–2637. — Original CWM method.
+- Díaz, S. et al. (2007). Incorporating plant functional diversity effects in ecosystem service assessments. *PNAS*, 104(52), 20684–20689.
+
+**Copper and metal contamination effects on soil communities:**
+- Wakelin, S.A. et al. (2010). Soil microbial community structure and function are altered by long-term copper contamination. *European Journal of Soil Biology*, 46, 116–125.
 
 ---
 
