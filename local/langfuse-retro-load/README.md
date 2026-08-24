@@ -111,9 +111,10 @@ curl -s "$LANGFUSE_HOST/api/public/observations?tag=<your-batch-tag>&limit=1" \
   ~80 hackathon participants have directories in the corpus with no
   consent checked. Don't read "we loaded the corpus" as "we loaded
   everyone."
-- A live `.credentials.json` was found swept into the shared frozen corpus
+- [#400](https://github.com/kbaseincubator/BERIL-research-observatory/issues/400):
+  a live `.credentials.json` was found swept into the shared frozen corpus
   for every participant during this work. Not this tool's problem to fix,
-  but flagged so it isn't lost: ask before assuming it's been handled.
+  but tracked so it isn't lost.
 - [#397](https://github.com/kbaseincubator/BERIL-research-observatory/issues/397):
   the real load run before this fix may have written a real filesystem
   path (not just the pseudonymous parts of it) into already-loaded traces'
