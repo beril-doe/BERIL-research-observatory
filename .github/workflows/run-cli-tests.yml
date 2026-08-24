@@ -23,11 +23,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --group test
+          uv sync
 
       - name: Run CLI tests
         run: |
-          uv run pytest tests/ --cov=beril_cli --cov=tools --cov-report=xml
+          uv run pytest tests/ --cov=beril_cli --cov=tools --cov=knowledge --cov=observatory_context --cov-report=xml
 
       - name: Send to Codecov
         uses: codecov/codecov-action@v5
