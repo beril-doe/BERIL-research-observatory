@@ -50,7 +50,7 @@ Does metal exposure in soil predict shifts in community-weighted mean (CWM) func
 | NB05_mine_proximity | **Bidirectional:** forward (mine proximity → CWM, 3 operationalizations + elev_rel) + reverse + commodity all-KOs | **COMPLETE** — log_prox/log_dist L1: 481/462 FDR hits (corrected pH scale); binary: 0; commodity genome-wide: 0; reverse R²<0; elev_rel mean=−39 m (23% downhill) |
 | NB06_mine_extended | Extended mine proximity: global tertile stratification, EUR measured metals × elev_rel, functional interpretation | **COMPLETE** — global all=484 L1, uphill=0, downhill=17; EUR Cu uphill=188 vs all=3; Metabolism enriched 1.6× in commodity hits |
 | NB07_sensitivity | Zeleny permutation, pESS, collider sensitivity, robustness checks | **COMPLETE** — 6/7 metals pass permutation test (Pb p=0.084 NS); pH form robust (96–100% overlap); rank transform reduces hits 75–97% |
-| NB08_pfam_cog | Pfam domain + COG category CWM FWL (L0–L6); cross-annotation comparison | **IN PROGRESS** — COG complete (22 L1 hits; V=18, Cd=2, Pb=1, Cu=1); Pfam query running (top-5000 by prevalence) |
+| NB08_pfam_cog | Pfam domain + COG category CWM FWL (L0–L6); cross-annotation comparison | **COMPLETE** — Pfam: 5,000 domains tested, 761 L1 hits (all Cd; top: Beta_helix, Zn_peptidase_2, Thymidylat_synt); COG: 22 L1 hits (V=18 β=−0.056, Cd=2, Cu=1, Pb=1); KO L1=560 for comparison |
 
 ---
 
@@ -363,6 +363,31 @@ Substantial spatial autocorrelation (Moran I 0.35–0.48). Effective sample size
 Most L1 hits are **L1-only** (attenuated at L5 after community composition control), consistent with metal→community turnover→CWM mediation. **Zero L5-only hits** rules out collider artifacts from community composition. Cr and Pb have 1–2 robust hits (L1∩L5), identifying KOs with direct metal associations not mediated through community composition.
 
 **Overall verdict:** NB02's measured-metal CWM associations are statistically robust (6/7 metals pass permutation test), not sensitive to pH modeling form, but sensitive to metal transformation (log₁₀ >> rank-normal). The dominant pattern (L1-only, attenuation at L5) is consistent with metal effects mediated through community turnover rather than within-genus gene gain.
+
+---
+
+### NB08 — Pfam Domain and COG Category Associations (2026-08-24)
+
+**Design:** Extends NB02’s KO FWL to Pfam domain prevalence (functional domain level) and COG functional categories (pathway level), using the same CWM framework. Pfam: top 5,000 domains by mean genus prevalence. COG: all 24 categories. Same FWL+BH-FDR pipeline (L0–L6 causal levels, 4,884 thinned samples, three-tier pH).
+
+**L1 hit counts by annotation type:**
+
+| Metal | KO hits (NB02) | Pfam hits | COG hits |
+|---|---|---|---|
+| Cd | 10 | 761 | 2 |
+| V | 6 | 0 | 18 |
+| Cu | 0 | 0 | 1 |
+| Pb | 14 | 0 | 1 |
+| As | 41 | 0 | 0 |
+| Cr | 38 | 0 | 0 |
+| Ni | 38 | 0 | 0 |
+| Zn | 76 | 0 | 0 |
+
+**Pfam (n=5,000 domains tested):** 761 L1 FDR hits, all specific to Cd. Top Pfam hits by q-value: Beta_helix (β=+0.086, q=0.0006), Zn_peptidase_2 (β=+0.062, q=0.004), Thymidylat_synt (β=+0.095, q=0.005), SprT-like (β=+0.071, q=0.005), DUF5122/DUF2851. All Cd Pfam hits have positive β (higher Cd → more domain prevalence). No significant Pfam hits for As, Cr, Ni, Zn, Cu, or Pb at L1.
+
+**COG (n=24 categories):** 22 L1 hits across 4 metals. V: 18 hits (effectively all COG categories, β=−0.056, q=0.040) — note this likely reflects a degenerate fit given the small V sample count. Cd: 2 hits (Z=mobilome β=+0.067, W=extracellular structures β=+0.040). Cu: 1 hit (Z, β=+0.041). Pb: 1 hit (Z, β=+0.050).
+
+**Interpretation:** The Cd Pfam result (761 hits, all positive) contrasts sharply with the Cd KO result (10 hits). This divergence reflects the different resolutions: CWM-Pfam aggregates prevalence at the domain level, which is more broadly shared across taxa and less specificity-filtered than individual KOs. The Cd-specific Pfam enrichment (especially metallopeptidase, thymidylate synthase, and Radical_SAM domains) may reflect non-specific Cd stress response rather than dedicated resistance. The COG V result warrants caution — V has n=998 total but very few complete-covariate samples after pH joining, reducing degrees of freedom. The KO L1 hit count (KO=560 total, Cd=10) remains the primary annotation level.
 
 ---
 
