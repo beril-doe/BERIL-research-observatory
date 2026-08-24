@@ -27,9 +27,8 @@ LAKEHOUSE_TENANT_PATH = "tenant-general-warehouse/microbialdiscoveryforge"
 LAKEHOUSE_PROJECTS_PREFIX = "projects"
 
 # Default S3 endpoint for the object store. MinIO today; the lakehouse is moving
-# to Ceph (RADOS Gateway), which speaks the same S3 API — so the endpoint is
-# resolved from the environment (``S3_ENDPOINT_URL`` first, then the legacy
-# ``MINIO_ENDPOINT_URL``) and the Ceph cutover is an env change, not a code edit.
+# to Ceph (RADOS Gateway), which speaks the same S3 API, so the endpoint is read
+# from ``S3_ENDPOINT_URL`` and the Ceph cutover is an env change, not a code edit.
 DEFAULT_S3_ENDPOINT_URL = "https://minio.berdl.kbase.us"
 
 
@@ -53,21 +52,17 @@ def lakehouse_projects_key(
 def s3_settings() -> dict[str, str | None]:
     """Resolve S3 endpoint + credentials for the object store from the env.
 
-    Endpoint and key lookups both prefer the vendor-neutral ``S3_*`` names
-    (Ceph-ready) and fall back to the legacy ``MINIO_*`` names, so the Ceph
-    cutover is an env change rather than a code edit. Any missing value is
-    ``None`` (caller then falls back to ``berdl-remote`` or treats the tier as
-    unavailable).
+    Reads the vendor-neutral ``S3_*`` names, which is what BERDL sets on a pod.
+    Verified there 2026-08-14: only ``S3_ACCESS_KEY``, ``S3_SECRET_KEY``,
+    ``S3_ENDPOINT_URL`` and ``S3_SECURE`` exist, and no ``MINIO_*`` variable
+    does. Any missing value is ``None`` (caller then falls back to
+    ``berdl-remote`` or treats the tier as unavailable).
     """
-    endpoint = (
-        os.getenv("S3_ENDPOINT_URL")
-        or os.getenv("MINIO_ENDPOINT_URL")
-        or DEFAULT_S3_ENDPOINT_URL
-    )
+    endpoint = os.getenv("S3_ENDPOINT_URL") or DEFAULT_S3_ENDPOINT_URL
     return {
         "endpoint_url": endpoint,
-        "access_key": os.getenv("S3_ACCESS_KEY") or os.getenv("MINIO_ACCESS_KEY"),
-        "secret_key": os.getenv("S3_SECRET_KEY") or os.getenv("MINIO_SECRET_KEY"),
+        "access_key": os.getenv("S3_ACCESS_KEY"),
+        "secret_key": os.getenv("S3_SECRET_KEY"),
     }
 
 
