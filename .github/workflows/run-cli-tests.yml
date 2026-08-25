@@ -11,15 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Repo checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v10
 
       - name: Install dependencies
         run: |
@@ -30,7 +30,7 @@ jobs:
           uv run pytest tests/ --cov=beril_cli --cov=tools --cov=knowledge --cov=observatory_context --cov-report=xml
 
       - name: Send to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
             token: ${{ secrets.CODECOV_TOKEN }}
             files: ./coverage.xml
