@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Search — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Search</h1>
+  <p class="page-description">Semantic search across BERIL projects, powered by OpenViking.</p>
+</div>
+
+{#
+  React search island. The component owns the form and results; there is no SSR
+  fallback beyond the no-JS notice since results are inherently interactive.
+#}
+<div id="search-island-root" data-endpoint="/api/search"></div>
+<noscript>
+  <p class="text-muted">Search requires JavaScript to be enabled.</p>
+</noscript>
+
+<script type="module">
+  // Bootstrap: await the bundle so `window.BERILSearch` is installed before we
+  // read it. Dynamic import (vs a separate <script>) sequences the load.
+  (async function () {
+    const root = document.getElementById('search-island-root');
+    if (!root) return;
+
+    try {
+      await import('/static/search/search.js');
+    } catch (err) {
+      console.error('Failed to load search component bundle:', err);
+      root.innerHTML =
+        '<p style="color:#ff6b6b;">Search component failed to load. See console for details.</p>';
+      return;
+    }
+
+    if (!window.BERILSearch) {
+      console.error(
+        'Search bundle loaded but window.BERILSearch is undefined — rebuild may be stale.'
+      );
+      return;
+    }
+
+    window.BERILSearch.mount(root, {
+      searchEndpoint: root.dataset.endpoint,
+    });
+  })();
+</script>
+{% endblock %}

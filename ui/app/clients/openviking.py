@@ -22,6 +22,9 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(10.0)
+# Semantic search runs an embedding + vector lookup server-side and is slower
+# than the admin/provisioning calls, so it gets its own, longer budget.
+_SEARCH_TIMEOUT = httpx.Timeout(30.0)
 
 
 class OpenVikingError(RuntimeError):
@@ -41,6 +44,16 @@ class OpenVikingError(RuntimeError):
 
 def _admin_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {get_settings().ov_admin_key}"}
+
+
+def _user_headers(user_key: str) -> dict[str, str]:
+    """Auth headers for a *data* call made as a specific OV user.
+
+    Data endpoints (search/find) authenticate with the user's own ``user_key``
+    via ``X-API-Key`` — distinct from :func:`_admin_headers`, which sends the
+    account ADMIN Bearer token used only for account/user provisioning.
+    """
+    return {"X-API-Key": user_key}
 
 
 def _parse_result(response: httpx.Response) -> dict:
@@ -76,6 +89,37 @@ async def ov_health() -> dict:
             return response.json()
     except httpx.HTTPError as exc:
         raise OpenVikingError(f"OpenViking health check failed: {exc}") from exc
+
+
+async def ov_search(
+    user_key: str,
+    query: str,
+    *,
+    target_uri: str,
+    limit: int,
+) -> dict:
+    """Run a semantic search (``find``) as the OV user holding ``user_key``.
+
+    Returns the OV ``result`` payload — an object with ``memories``,
+    ``resources``, ``skills`` lists plus ``total`` (the buckets other than the
+    one matching ``target_uri`` are empty). Raises :class:`OpenVikingError` on a
+    transport error or an error envelope; a rejected key surfaces as
+    ``status_code`` 401/403 so callers can distinguish auth failures.
+    """
+    settings = get_settings()
+    body = {"query": query, "target_uri": target_uri, "limit": limit}
+    try:
+        async with httpx.AsyncClient(
+            base_url=settings.ov_url, timeout=_SEARCH_TIMEOUT
+        ) as client:
+            # Endpoint is /api/v1/search/search: the search router has prefix
+            # /api/v1/search AND a /search route (/api/v1/search alone 404s).
+            response = await client.post(
+                "/api/v1/search/search", json=body, headers=_user_headers(user_key)
+            )
+    except httpx.HTTPError as exc:
+        raise OpenVikingError(f"OpenViking search request failed: {exc}") from exc
+    return _parse_result(response)
 
 
 async def register_ov_user(ov_user_id: str, role: str = "user") -> dict:
