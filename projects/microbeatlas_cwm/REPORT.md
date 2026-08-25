@@ -61,7 +61,7 @@ Does metal exposure in soil predict shifts in community-weighted mean (CWM) func
 ![L1 FDR hits by metal (Manhattan)](figures/fig_nb02_manhattan_L1.pdf)
 ![Facultativeness of hit KOs vs background](figures/fig_nb02_facult_ko.pdf)
 
-**560 L1 FDR hits** (pH-adjusted) across 14 elements from 6,557 KEGG orthologs tested in 4,884 globally thinned soil samples. Yet three independent tests converge on **community turnover — not gene gain — as the mechanism:**
+**225 non-REE L1 FDR hits** across 9 elements (560 total including Nd=235, Yb=91, La=9 flagged as geology confounds) from 6,557 KEGG orthologs tested in 4,884 globally thinned soil samples. Yet three independent tests converge on **community turnover — not gene gain — as the mechanism:**
 
 1. **Facultativeness test:** Metal-associated KOs (n=508) are indistinguishable from background in within-genus prevalence (p=0.187), while pH-associated KOs are significantly more universal (p=1.2×10⁻⁷¹). High-prevalence KOs are constitutive core genes that vary across genera — i.e., turnover. Low-prevalence KOs are facultative strain-level genes — i.e., gene gain. Metal hits match background; pH hits are core genes. Different mechanisms.
 2. **Reverse prediction:** CWM cannot spatially predict metal concentrations in any region (spatial block CV R²<0 for all metals vs. spatial R²=+0.151 for pH). If gene gain were occurring, the gene-metal link would be spatially robust. It isn't.
@@ -101,11 +101,14 @@ Mine proximity is an insufficient surrogate for measured metal bioavailability i
 ![pH coverage and source hierarchy](figures/fig_nb00_ph_coverage.pdf)
 ![Beta stability across levels](figures/fig_nb02_beta_stability.pdf)
 
-pH FWL identifies **4,322 L1 hits** (vs 560 for all metals combined) and those KOs are constitutive core genes (mean_prev=0.733 vs background 0.604, p=1.2×10⁻⁷¹). pH CWM generalizes spatially (R²=+0.151 spatial block CV). The 6/7 metals pass the Zeleny permutation test (p<0.05), confirming the metal associations are statistically real beyond the BH-FDR threshold, but effect sizes per IQR metal concentration are small (β_IQR ≈ 0.003) — consistent with metal being a secondary environmental filter overlaid on a primary pH-structured microbiome.
+pH FWL identifies **4,322 L1 hits** (vs 225 non-REE for metals) and those KOs are constitutive core genes (mean_prev=0.733 vs background 0.604, p=1.2×10⁻⁷¹). pH CWM generalizes spatially (R²=+0.151 spatial block CV). The **5/7 metals pass the Zeleny permutation test** (As, Cr, Cu, Ni, Zn at p<0.05; Cd p=0.064 and Pb p=0.088 fail), confirming the passing associations are statistically real beyond the BH-FDR threshold. Effect sizes per IQR metal concentration are small (β_IQR ≈ 0.003, partial R²<0.03) — consistent with metal being a secondary environmental filter overlaid on a primary pH-structured microbiome.
 
 *(Notebooks: NB02_metal_associations.ipynb, NB07_sensitivity.ipynb)*
 
 ---
+
+
+**Effect sizes are statistically significant but small.** Partial R² at L1 (computed from FWL t-statistics: f² = t²/(n-k-1), partial R² = f²/(1+f²)): As top hit (K15844) partial R²≈0.015; Zn top hits range 0.010–0.025; pH top hits 0.04–0.12. Metal associations are detectable at large N (n~1,000–1,700) but individually weak (partial R²<0.03 all hits). pH effects dominate (3–8× larger standardized effect sizes).
 
 ## Discoveries
 
@@ -567,6 +570,12 @@ The community-weighted mean (CWM) approach, developed in plant ecology (Garnier 
 
 ## References
 
+**Arsenic resistance gene distribution across As gradients:**
+- Escudero, L.V. et al. (2013). Distribution of microbial arsenic reduction, oxidation and extrusion genes along a wide range of environmental arsenic concentrations. *PLoS ONE*, 8(10), e78890. PMID: 24205341. doi:10.1371/journal.pone.0078890 — ars-operon genes selectively excluded from high-As environments; supports negative-association interpretation.
+
+**Microbial CWM methodology (prior art):**
+- Piton, G. et al. (2020). Using proxies of microbial community‐weighted means traits to explain the cascading effect of management intensity, soil and plant traits on ecosystem resilience in mountain grasslands. *Journal of Ecology*, 108(3), 876–893. doi:10.1111/1365-2745.13327 — Closest prior microbial CWM methodology using enzyme-proxy traits; the advance to genome-derived KO-prevalence CWM is methodologically novel.
+
 **Community turnover under metal stress:**
 - Zhang, Y. et al. (2023). Effects of single and combined contamination of total petroleum hydrocarbons and heavy metals on soil microecosystems. *Chemosphere*, 345, 140288. PMID: 37783354. https://doi.org/10.1016/j.chemosphere.2023.140288 — Community beta diversity driven by turnover rather than nestedness; heavy metals reshape soil microbiota through species replacement.
 - Zhang, J. et al. (2026). Niche-driven microbial assembly across the soil-root continuum under heavy metal pollution gradient. *Ecotoxicology and Environmental Safety*, 323, 120615. PMID: 42556226. — Metal pollution restructures community through spatial niche shifts; Proteobacteria → Actinobacteria → Chloroflexi with increasing Pb/Zn/Cd gradient.
@@ -587,6 +596,10 @@ The community-weighted mean (CWM) approach, developed in plant ecology (Garnier 
 
 **Copper and metal contamination effects on soil communities:**
 - Wakelin, S.A. et al. (2010). Soil microbial community structure and function are altered by long-term copper contamination. *European Journal of Soil Biology*, 46, 116–125.
+
+**Statistical methods:**
+- Frisch, R. & Waugh, F.V. (1933). Partial time regressions as compared with individual trends. *Journal of the American Statistical Association*, 28(221), 73–78. Lovell, M.C. (1963). Seasonal adjustment of economic time series. *Journal of the American Statistical Association*, 58(304), 993–1010. — The Frisch-Waugh-Lovell theorem: partial regression on residuals (vectorized across all covariates simultaneously) recovers the same coefficient as full OLS, avoiding explicit inverse computation.
+- Roberts, D.R. et al. (2017). Cross-validation strategies for data with temporal, spatial, hierarchical, or phylogenetic structure. *Ecography*, 40(8), 913–929. doi:10.1111/ecog.02881 — Spatial block cross-validation methodology for avoiding spatial autocorrelation leakage in predictive models.
 
 ---
 
