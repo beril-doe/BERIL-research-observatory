@@ -107,7 +107,7 @@ async def ov_search(
     ``status_code`` 401/403 so callers can distinguish auth failures.
     """
     settings = get_settings()
-    body = {"query": query, "target_uri": target_uri, "limit": limit}
+    body = {"query": query, "target_uri": target_uri, "limit": limit+1}
     try:
         async with httpx.AsyncClient(
             base_url=settings.ov_url, timeout=_SEARCH_TIMEOUT

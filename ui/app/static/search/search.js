@@ -21726,46 +21726,80 @@ var import_jsx_runtime = __toESM(require_jsx_runtime());
 var DEFAULT_LIMIT = 10;
 var MAX_LIMIT = 50;
 function SearchApp({ searchEndpoint }) {
-  const [query, setQuery] = (0, import_react.useState)("");
-  const [limit, setLimit] = (0, import_react.useState)(DEFAULT_LIMIT);
+  const initial = readSearchParams();
+  const [query, setQuery] = (0, import_react.useState)(initial.q);
+  const [limit, setLimit] = (0, import_react.useState)(initial.limit ?? DEFAULT_LIMIT);
   const [status, setStatus] = (0, import_react.useState)("idle");
   const [results, setResults] = (0, import_react.useState)([]);
   const [total, setTotal] = (0, import_react.useState)(0);
   const [notice, setNotice] = (0, import_react.useState)(null);
-  async function runSearch(e) {
+  const requestSeq = (0, import_react.useRef)(0);
+  const runSearch = (0, import_react.useCallback)(
+    async (q, lim) => {
+      const seq = ++requestSeq.current;
+      setStatus("loading");
+      setNotice(null);
+      const params = new URLSearchParams({ q, limit: String(lim) });
+      try {
+        const resp = await fetch(`${searchEndpoint}?${params.toString()}`, {
+          headers: { Accept: "application/json" }
+        });
+        const body = await resp.json().catch(() => ({}));
+        if (seq !== requestSeq.current) return;
+        if (!resp.ok) {
+          setStatus("error");
+          setResults([]);
+          setTotal(0);
+          setNotice({ message: body.message || `Search failed (HTTP ${resp.status}).` });
+          return;
+        }
+        setResults(Array.isArray(body.results) ? body.results : []);
+        setTotal(typeof body.total === "number" ? body.total : (body.results || []).length);
+        setStatus("done");
+      } catch (err) {
+        if (seq !== requestSeq.current) return;
+        setStatus("error");
+        setResults([]);
+        setTotal(0);
+        setNotice({ message: `Could not reach the search service: ${err.message}` });
+      }
+    },
+    [searchEndpoint]
+  );
+  (0, import_react.useEffect)(() => {
+    function syncFromUrl() {
+      const { q, limit: lim } = readSearchParams();
+      setQuery(q);
+      setLimit(lim ?? DEFAULT_LIMIT);
+      if (q) {
+        runSearch(q, clampLimit(lim ?? DEFAULT_LIMIT));
+      } else {
+        requestSeq.current++;
+        setStatus("idle");
+        setResults([]);
+        setTotal(0);
+        setNotice(null);
+      }
+    }
+    syncFromUrl();
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, [runSearch]);
+  function onSubmit(e) {
     e.preventDefault();
     const q = query.trim();
     if (!q) {
       setNotice({ message: "Enter a search term." });
       return;
     }
-    setStatus("loading");
-    setNotice(null);
-    const params = new URLSearchParams({ q, limit: String(clampLimit(limit)) });
-    try {
-      const resp = await fetch(`${searchEndpoint}?${params.toString()}`, {
-        headers: { Accept: "application/json" }
-      });
-      const body = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        setStatus("error");
-        setResults([]);
-        setTotal(0);
-        setNotice({ message: body.message || `Search failed (HTTP ${resp.status}).` });
-        return;
-      }
-      setResults(Array.isArray(body.results) ? body.results : []);
-      setTotal(typeof body.total === "number" ? body.total : (body.results || []).length);
-      setStatus("done");
-    } catch (err) {
-      setStatus("error");
-      setResults([]);
-      setTotal(0);
-      setNotice({ message: `Could not reach the search service: ${err.message}` });
-    }
+    const lim = clampLimit(limit);
+    writeSearchParams(q, lim);
+    setQuery(q);
+    setLimit(lim);
+    runSearch(q, lim);
   }
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", { onSubmit: runSearch, style: FORM_STYLE, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", { onSubmit, style: FORM_STYLE, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
         "input",
         {
@@ -21804,16 +21838,38 @@ function SearchApp({ searchEndpoint }) {
 }
 function ProjectGroup({ group }) {
   const { projectId, items } = group;
+  const [open, setOpen] = (0, import_react.useState)(true);
+  const panelId = (0, import_react.useId)();
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { style: GROUP_HEADER_STYLE, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        "button",
+        {
+          type: "button",
+          onClick: () => setOpen((v) => !v),
+          "aria-expanded": open,
+          "aria-controls": panelId,
+          "aria-label": `${open ? "Collapse" : "Expand"} ${projectId || "Other"}`,
+          style: GROUP_TOGGLE_STYLE,
+          children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { "aria-hidden": "true", style: { ...CARET_STYLE, transform: open ? "rotate(90deg)" : "none" }, children: "\u25B6" })
+        }
+      ),
       projectId ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", { href: `/projects/${projectId}`, className: "group-project-link", style: GROUP_LINK_STYLE, children: projectId }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: GROUP_LINK_STYLE, children: "Other" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-muted text-small", style: { whiteSpace: "nowrap" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-muted text-small", style: { marginLeft: "auto", whiteSpace: "nowrap" }, children: [
         items.length,
         " file",
         items.length === 1 ? "" : "s"
       ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: "var(--space-3)" }, children: items.map((r) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ResultCard, { result: r }, r.uri)) })
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+      "div",
+      {
+        id: panelId,
+        hidden: !open,
+        style: { display: open ? "flex" : "none", flexDirection: "column", gap: "var(--space-3)", marginLeft: "var(--space-5)" },
+        children: items.map((r) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ResultCard, { result: r }, r.uri))
+      }
+    )
   ] });
 }
 function ResultCard({ result }) {
@@ -21834,6 +21890,23 @@ function clampLimit(value) {
   if (!Number.isFinite(n)) return DEFAULT_LIMIT;
   return Math.max(1, Math.min(Math.trunc(n), MAX_LIMIT));
 }
+function readSearchParams() {
+  const params = new URLSearchParams(window.location.search);
+  const q = (params.get("q") || "").trim();
+  const raw = params.get("limit");
+  const limit = raw === null || raw === "" ? null : clampLimit(raw);
+  return { q, limit };
+}
+function writeSearchParams(q, limit) {
+  const params = new URLSearchParams(window.location.search);
+  params.set("q", q);
+  if (limit === DEFAULT_LIMIT) params.delete("limit");
+  else params.set("limit", String(limit));
+  const url = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+  if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+    window.history.pushState(null, "", url);
+  }
+}
 var PROJECTS_PREFIX = "viking://resources/projects/";
 function projectIdFromUri(uri) {
   if (typeof uri !== "string" || !uri.startsWith(PROJECTS_PREFIX)) return null;
@@ -21851,7 +21924,7 @@ function groupByProject(results) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of results) {
     const projectId = projectIdFromUri(r.uri);
-    const key = projectId || "\0other";
+    const key = projectId || " other";
     if (!groups.has(key)) groups.set(key, { key, projectId, items: [] });
     groups.get(key).items.push(r);
   }
@@ -21893,12 +21966,25 @@ var CARD_HEADER_STYLE = {
 };
 var GROUP_HEADER_STYLE = {
   display: "flex",
-  justifyContent: "space-between",
   alignItems: "baseline",
   gap: "var(--space-3)",
   marginBottom: "var(--space-3)",
   paddingBottom: "var(--space-2)",
   borderBottom: "1px solid var(--border-color, #444)"
+};
+var GROUP_TOGGLE_STYLE = {
+  padding: 0,
+  border: "none",
+  background: "none",
+  color: "inherit",
+  cursor: "pointer",
+  lineHeight: 1,
+  font: "inherit"
+};
+var CARET_STYLE = {
+  display: "inline-block",
+  fontSize: "0.7em",
+  transition: "transform 120ms ease"
 };
 var GROUP_LINK_STYLE = {
   fontSize: "1.1rem",
