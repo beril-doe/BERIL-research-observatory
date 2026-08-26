@@ -120,6 +120,7 @@ ui/user_projects/
 # React island build deps — source under ui/components/<name>/src/ and the built
 # bundle under ui/app/static/<name>/ ARE committed; only node_modules is ignored.
 ui/components/*/node_modules/
+ui/static/search/*
 
 # Python virtual environments
 .venv/

@@ -5,7 +5,8 @@
   "description": "React island for the BERIL OpenViking search page. Built with esbuild to ui/app/static/search/search.js and mounted by templates/search.html via window.BERILSearch.mount().",
   "scripts": {
     "build": "esbuild src/index.jsx --bundle --format=esm --outfile=../../app/static/search/search.js --sourcemap --loader:.jsx=jsx --jsx=automatic",
-    "watch": "npm run build -- --watch"
+    "watch": "npm run build -- --watch",
+    "build:prod": "esbuild src/index.jsx --bundle --format=esm --outfile=../../app/static/search/search.js --minify '--define:process.env.NODE_ENV=\"production\"' --loader:.jsx=jsx --jsx=automatic"
   },
   "dependencies": {
     "react": "19.2.5",
