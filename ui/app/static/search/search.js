@@ -21798,15 +21798,29 @@ function SearchApp({ searchEndpoint }) {
       " result",
       total === 1 ? "" : "s"
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: "var(--space-4)" }, children: results.map((r) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ResultCard, { result: r }, r.uri)) }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: "var(--space-6)" }, children: groupByProject(results).map((group) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ProjectGroup, { group }, group.key)) }),
     status === "done" && results.length === 0 && !notice && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "card", style: { padding: "var(--space-6)", textAlign: "center" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-muted", children: "No matches. Try different terms." }) })
+  ] });
+}
+function ProjectGroup({ group }) {
+  const { projectId, items } = group;
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { style: GROUP_HEADER_STYLE, children: [
+      projectId ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", { href: `/projects/${projectId}`, className: "group-project-link", style: GROUP_LINK_STYLE, children: projectId }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: GROUP_LINK_STYLE, children: "Other" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-muted text-small", style: { whiteSpace: "nowrap" }, children: [
+        items.length,
+        " file",
+        items.length === 1 ? "" : "s"
+      ] })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: "var(--space-3)" }, children: items.map((r) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ResultCard, { result: r }, r.uri)) })
   ] });
 }
 function ResultCard({ result }) {
   const { uri, score, abstract } = result;
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("article", { className: "card", style: { padding: "var(--space-4)" }, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { style: CARD_HEADER_STYLE, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { className: "text-small", style: { wordBreak: "break-all" }, children: uri }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { className: "text-small", style: { wordBreak: "break-all" }, children: fileLabel(uri) }),
       typeof score === "number" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-muted text-small", style: { whiteSpace: "nowrap" }, children: [
         "score ",
         score.toFixed(3)
@@ -21819,6 +21833,37 @@ function clampLimit(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return DEFAULT_LIMIT;
   return Math.max(1, Math.min(Math.trunc(n), MAX_LIMIT));
+}
+var PROJECTS_PREFIX = "viking://resources/projects/";
+function projectIdFromUri(uri) {
+  if (typeof uri !== "string" || !uri.startsWith(PROJECTS_PREFIX)) return null;
+  const rest = uri.slice(PROJECTS_PREFIX.length).replace(/^\/+/, "");
+  const first = rest.split("/")[0];
+  return first || null;
+}
+function fileLabel(uri) {
+  const projectId = projectIdFromUri(uri);
+  if (!projectId) return uri;
+  const rest = uri.slice(PROJECTS_PREFIX.length + projectId.length).replace(/^\/+/, "");
+  return rest || projectId;
+}
+function groupByProject(results) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const r of results) {
+    const projectId = projectIdFromUri(r.uri);
+    const key = projectId || "\0other";
+    if (!groups.has(key)) groups.set(key, { key, projectId, items: [] });
+    groups.get(key).items.push(r);
+  }
+  const scoreOf = (r) => typeof r.score === "number" ? r.score : 0;
+  const best = (g) => Math.max(...g.items.map(scoreOf));
+  for (const g of groups.values()) {
+    g.items.sort((a, b) => scoreOf(b) - scoreOf(a));
+  }
+  return [...groups.values()].sort((a, b) => {
+    if (!!a.projectId !== !!b.projectId) return a.projectId ? -1 : 1;
+    return best(b) - best(a);
+  });
 }
 var FORM_STYLE = {
   display: "flex",
@@ -21845,6 +21890,20 @@ var CARD_HEADER_STYLE = {
   alignItems: "baseline",
   gap: "var(--space-3)",
   marginBottom: "var(--space-2)"
+};
+var GROUP_HEADER_STYLE = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "baseline",
+  gap: "var(--space-3)",
+  marginBottom: "var(--space-3)",
+  paddingBottom: "var(--space-2)",
+  borderBottom: "1px solid var(--border-color, #444)"
+};
+var GROUP_LINK_STYLE = {
+  fontSize: "1.1rem",
+  fontWeight: 600,
+  wordBreak: "break-all"
 };
 
 // src/index.jsx
