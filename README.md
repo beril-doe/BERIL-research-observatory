@@ -73,7 +73,7 @@ To use Claude Code you will need an API key. If you are Berkeley Lab staff, you 
 The fastest way to get started is with the BERIL CLI, which handles environment setup and launches your coding agent:
 
 ```bash
-git clone https://github.com/kbaseincubator/BERIL-research-observatory.git
+git clone https://github.com/beril-doe/BERIL-research-observatory.git
 cd BERIL-research-observatory
 pip install -e .        # installs the `beril` command
 beril setup             # interactive onboarding — configures .env, checks prerequisites, picks your agent
@@ -96,7 +96,7 @@ If you prefer to set up manually without the CLI:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/kbaseincubator/BERIL-research-observatory.git
+git clone https://github.com/beril-doe/BERIL-research-observatory.git
 cd BERIL-research-observatory
 
 # 2. Set your auth token

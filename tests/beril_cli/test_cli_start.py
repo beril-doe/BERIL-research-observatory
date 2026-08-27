@@ -60,9 +60,9 @@ def _patch_urlopen(monkeypatch, payload=None, *, exc: BaseException | None = Non
 @pytest.mark.parametrize(
     "url,expected",
     [
-        ("https://github.com/kbaseincubator/BERIL-research-observatory.git\n", "kbaseincubator/BERIL-research-observatory"),
-        ("https://github.com/kbaseincubator/BERIL-research-observatory\n", "kbaseincubator/BERIL-research-observatory"),
-        ("git@github.com:kbaseincubator/BERIL-research-observatory.git\n", "kbaseincubator/BERIL-research-observatory"),
+        ("https://github.com/beril-doe/BERIL-research-observatory.git\n", "beril-doe/BERIL-research-observatory"),
+        ("https://github.com/beril-doe/BERIL-research-observatory\n", "beril-doe/BERIL-research-observatory"),
+        ("git@github.com:beril-doe/BERIL-research-observatory.git\n", "beril-doe/BERIL-research-observatory"),
         ("git@github.com:owner/repo\n", "owner/repo"),
     ],
 )

@@ -25,7 +25,10 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # Pinned explicitly rather than derived from github.repository_owner so that
+  # transferring the repo between orgs does not silently change the published
+  # image path out from under the SPIN deployment manifests.
+  IMAGE_NAME: beril-doe/microbial-data-forge
   GIT_COMMIT_HASH: ${{ github.sha }}
 
 jobs:
@@ -56,7 +59,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/microbial-data-forge
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
 

@@ -84,7 +84,7 @@ source ~/.bashrc
 ## Step 4: Clone the BERIL repository and install the CLI
 
 ```bash
-git clone https://github.com/kbaseincubator/BERIL-research-observatory.git
+git clone https://github.com/beril-doe/BERIL-research-observatory.git
 cd BERIL-research-observatory
 pip install -e .
 ```
