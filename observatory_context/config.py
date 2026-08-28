@@ -52,9 +52,11 @@ def lakehouse_projects_key(
 def s3_settings() -> dict[str, str | None]:
     """Resolve S3 endpoint + credentials for the object store from the env.
 
-    Returns the three values boto3 needs: ``S3_ENDPOINT_URL``, ``S3_ACCESS_KEY``
-    and ``S3_SECRET_KEY``. Any missing one is ``None``, and the caller then falls
-    back to ``berdl-remote`` or treats the tier as unavailable.
+    Returns the three values boto3 needs. ``endpoint_url`` is always a string:
+    it falls back to :data:`DEFAULT_S3_ENDPOINT_URL` when ``S3_ENDPOINT_URL`` is
+    unset. ``access_key`` and ``secret_key`` are ``None`` when their variables
+    are unset, and only those two signal "unconfigured" to the caller, which then
+    falls back to ``berdl-remote`` or treats the tier as unavailable.
 
     Only the vendor-neutral ``S3_*`` names are read. BERDL renamed these from
     ``MINIO_*`` and sets the new names on a pod; verified there 2026-08-14 that
