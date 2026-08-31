@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -749,3 +750,81 @@ def test_main_no_args_prints_help(lu, monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["lakehouse_upload.py"])
     lu.main()
     assert "usage:" in capsys.readouterr().out
+
+
+# --- .env loading (issue 379) -------------------------------------------------
+#
+# The tool read BERIL_UPLOAD_TENANT_PATH from os.environ and never loaded .env,
+# so putting the variable in the obvious place changed nothing and produced the
+# same permission failure with no clue why. These pin both the parsing and the
+# precedence, because "env wins over file" is what keeps an explicit export or
+# --tenant-path from being silently overridden.
+
+
+def test_load_dotenv_sets_names_from_the_file(lu, tmp_path, monkeypatch):
+    monkeypatch.delenv("BERIL_UPLOAD_TENANT_PATH", raising=False)
+    env = tmp_path / ".env"
+    env.write_text("BERIL_UPLOAD_TENANT_PATH=tenant-general-warehouse/nmdc\n")
+
+    applied = lu.load_dotenv(env)
+
+    assert applied == {"BERIL_UPLOAD_TENANT_PATH": "tenant-general-warehouse/nmdc"}
+    assert os.environ["BERIL_UPLOAD_TENANT_PATH"] == "tenant-general-warehouse/nmdc"
+
+
+def test_load_dotenv_does_not_override_the_environment(lu, tmp_path, monkeypatch):
+    """An explicit export must beat the file, or --tenant-path becomes a lie."""
+    monkeypatch.setenv("BERIL_UPLOAD_TENANT_PATH", "from-the-environment")
+    env = tmp_path / ".env"
+    env.write_text("BERIL_UPLOAD_TENANT_PATH=from-the-file\n")
+
+    applied = lu.load_dotenv(env)
+
+    assert applied == {}
+    assert os.environ["BERIL_UPLOAD_TENANT_PATH"] == "from-the-environment"
+
+
+def test_load_dotenv_handles_the_shapes_a_real_env_file_has(lu, tmp_path, monkeypatch):
+    for name in ("PLAIN", "QUOTED", "SINGLE", "EXPORTED", "SPACED", "WITH_EQUALS", "EMPTY"):
+        monkeypatch.delenv(name, raising=False)
+    env = tmp_path / ".env"
+    env.write_text(
+        "# a comment\n"
+        "\n"
+        "PLAIN=value\n"
+        'QUOTED="quoted value"\n'
+        "SINGLE='single quoted'\n"
+        "export EXPORTED=exported\n"
+        "  SPACED  =  spaced  \n"
+        "WITH_EQUALS=a=b=c\n"
+        "EMPTY=\n"
+        "NOT_AN_ASSIGNMENT\n"
+    )
+
+    applied = lu.load_dotenv(env)
+
+    assert applied["PLAIN"] == "value"
+    assert applied["QUOTED"] == "quoted value"
+    assert applied["SINGLE"] == "single quoted"
+    assert applied["EXPORTED"] == "exported"
+    assert applied["SPACED"] == "spaced"
+    assert applied["WITH_EQUALS"] == "a=b=c"
+    assert applied["EMPTY"] == ""
+    assert "NOT_AN_ASSIGNMENT" not in applied
+
+
+def test_load_dotenv_is_quiet_when_there_is_no_file(lu, tmp_path):
+    assert lu.load_dotenv(tmp_path / "does-not-exist") == {}
+
+
+def test_main_reads_tenant_path_from_dotenv(lu, repo, monkeypatch, capsys):
+    """The bug this fixes, end to end: the file alone must change the target."""
+    monkeypatch.delenv("BERIL_UPLOAD_TENANT_PATH", raising=False)
+    (repo / ".env").write_text("BERIL_UPLOAD_TENANT_PATH=tenant-general-warehouse/nmdc\n")
+    monkeypatch.setattr(lu, "REPO_ROOT", repo)
+    monkeypatch.setattr(lu, "list_projects", lambda: print(lu.S3A_BASE))
+    monkeypatch.setattr(sys, "argv", ["lakehouse_upload.py", "--list"])
+
+    lu.main()
+
+    assert "tenant-general-warehouse/nmdc" in capsys.readouterr().out
