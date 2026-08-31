@@ -10,9 +10,8 @@ Prerequisites:
 
 import os
 import json
-from berdl_notebook_utils.minio_governance import get_minio_credentials
-from berdl_notebook_utils.berdl_settings import get_settings
-from minio import Minio
+from berdl_notebook_utils.governance import get_credentials
+from berdl_notebook_utils import get_s3_client
 from data_lakehouse_ingest import ingest
 
 LOCAL_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,16 +33,8 @@ FILES_TO_UPLOAD = [
 
 def main():
     # Get MinIO credentials
-    creds = get_minio_credentials()
-    settings = get_settings()
-    endpoint = settings.S3_ENDPOINT_URL.replace("https://", "").replace("http://", "")
-
-    minio_client = Minio(
-        endpoint=endpoint,
-        access_key=creds.access_key,
-        secret_key=creds.secret_key,
-        secure=True,
-    )
+    creds = get_credentials()
+    minio_client = get_s3_client()
     print(f"MinIO client ready (user: {creds.username})")
 
     # Upload files

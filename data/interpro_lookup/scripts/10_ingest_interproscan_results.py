@@ -26,10 +26,9 @@ import argparse
 import os
 import sys
 
-from berdl_notebook_utils.berdl_settings import get_settings
-from berdl_notebook_utils.minio_governance import get_minio_credentials
+from berdl_notebook_utils import get_s3_client
+from berdl_notebook_utils.governance import get_credentials
 from data_lakehouse_ingest import ingest
-from minio import Minio
 
 BUCKET = "cdm-lake"
 MINIO_PREFIX = "users-general-warehouse/psdehal/data/interproscan_results"
@@ -82,15 +81,8 @@ INGEST_CONFIG = {
 
 
 def get_minio_client():
-    creds = get_minio_credentials()
-    settings = get_settings()
-    endpoint = settings.S3_ENDPOINT_URL.replace("https://", "").replace("http://", "")
-    client = Minio(
-        endpoint=endpoint,
-        access_key=creds.access_key,
-        secret_key=creds.secret_key,
-        secure=True,
-    )
+    creds = get_credentials()
+    client = get_s3_client()
     print(f"MinIO client ready (user: {creds.username})")
     return client
 
