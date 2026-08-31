@@ -169,7 +169,7 @@ def _download_md5s_from_s3(s3_path: str, expected_rows: int):
 
     settings = get_settings()
     creds = get_minio_credentials()
-    endpoint = settings.MINIO_ENDPOINT_URL.replace("https://", "").replace("http://", "")
+    endpoint = settings.S3_ENDPOINT_URL.replace("https://", "").replace("http://", "")
     client = Minio(
         endpoint=endpoint,
         access_key=creds.access_key,

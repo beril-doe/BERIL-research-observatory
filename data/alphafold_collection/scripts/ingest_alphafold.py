@@ -64,7 +64,7 @@ def get_minio_client():
     """Create MinIO client with BERDL credentials."""
     creds = get_minio_credentials()
     settings = get_settings()
-    endpoint = settings.MINIO_ENDPOINT_URL.replace("https://", "").replace(
+    endpoint = settings.S3_ENDPOINT_URL.replace("https://", "").replace(
         "http://", ""
     )
     client = Minio(
