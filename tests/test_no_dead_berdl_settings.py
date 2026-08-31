@@ -59,7 +59,7 @@ def test_no_python_file_reads_a_minio_settings_attribute():
     )
 
 
-def test_the_guard_can_actually_fail(tmp_path):
+def test_the_guard_can_actually_fail():
     """A test that never fails guards nothing, so prove the pattern matches."""
     assert DEAD_ATTRIBUTE.search("endpoint = settings.MINIO_ENDPOINT_URL.replace(")
     assert DEAD_ATTRIBUTE.search("x = cfg.MINIO_SECRET_KEY")
