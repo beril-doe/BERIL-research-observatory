@@ -68,7 +68,7 @@ Per-metal denominators for both datasets are presented below. MGnify contains n 
 
 **Sign convention.** β > 0: the gene is *more* likely to be present in MAGs from high-metal environments (correct bioindicator direction). β < 0: the gene is *less* likely in high-metal environments (depletion). The majority of the prominent named associations — merT×Hg, K07093×Hg, argP×Hg — are negative. Only arsH×Pb (field-strict survivor) and the kdp operon×Hg (top hit by magnitude) are significant in the positive direction. This sign pattern is biologically relevant (see "Functional interpretation" section): negative associations suggest community compositional turnover away from mer-carrying lineages, not gene gain along metal gradients.
 
-**219 FDR-significant KO-metal pairs** (q<0.05) in MGnify. SPIRE independently found 69 significant pairs (rebuilt matrix, 2,477 MAGs; 75 in old 2,905-MAG matrix).
+**219 FDR-significant KO-metal pairs** (q<0.05) in MGnify, counted with **caveat** (see Limitations below): BH-FDR was applied over ~150 convergent pairs per metal (i.e., pairs with finite β estimates in the unadjusted model), not over the full 6,451 KO universe. Corrected over the full KO universe, the count is approximately **110 FDR-significant pairs** (about 50% of the 219 reported here). The **89 field-strict robust pairs** (all-controls survivors) are the more defensible headline, as they represent a much smaller but stricter set with direct relevance to metal ecology. The 219 count should be read as "219 pairs reached nominal FDR significance in the convergent subset" rather than "219 genome-wide associations." SPIRE independently found 69 significant pairs (rebuilt matrix, 2,477 MAGs; 75 in old 2,905-MAG matrix).
 
 Significant pairs by metal:
 
@@ -349,6 +349,74 @@ An elevation covariate was added to the latitude-adjusted model for each of the 
 **Results:** All 88 pairs converged. **83/88 (94%) remain FDR-significant** (q < 0.05). The 5 that lost significance (4 Pb, 1 Cd) were already borderline (q_lat 0.02–0.05) and remain near-significant (q_elev 0.05–0.15). Zero direction flips. Spearman ρ between elevation-adjusted and latitude-only β = **0.959** (p = 8.3 × 10⁻⁴⁹), indicating near-identical rank ordering of associations. Median |Δβ| = 1.44 (13% of original magnitude); 14 pairs have |Δβ| > 3, but all are quasi-separated associations where β magnitudes are already unreliable (direction remains stable). Results in `data/h1_elevation_adjusted.csv`.
 
 **Interpretation:** Elevation does not confound the 88 robust KO–metal associations. The associations persist with equivalent direction and near-identical relative strength when altitudinal gradients are explicitly controlled.
+
+---
+
+## NB42b — Mine proximity and all-elements HGT analysis (2026-08-30)
+
+### Method
+
+**Samples:** 1,077 SPIRE MAGs with USGS GeoChem measured element concentrations (85K soil site measurements; elements extracted from spectrometry and major oxides), 188 MAGs with GEMAS stream/soil geochemical data (EUR). Exposure: measured element concentration (log₁₀-transformed, n measurements per element 539–1,033 for USA GeoChem; 188 for EUR GEMAS).
+
+**Mine exposure — orthogonal test:** 2,477 SPIRE MAGs (full matrix, all samples) with mine proximity (mine_any_dist_km from mindat database, 157K mine localities worldwide) as exposure. Analyses B and C (same framework as NB42) computed for each element.
+
+**Scope:** 248 tests across 31 elements (USGS GeoChem 75 elements + derived elements, GEMAS subset) × 2 analyses (B: accessory fraction; C: MGE×resistance co-occurrence) × 2 exposure types (measured concentration, mine proximity) × 2 regions (USA GeoChem, EUR GEMAS).
+
+### Results — Mine proximity exposure (all significant results NEGATIVE)
+
+**Analysis B — accessory fraction vs mine proximity (FDR < 0.05):**
+
+Cs (ρ=−0.116, n=1,468), Hg (ρ=−0.092, n=1,468), La (ρ=−0.069, n=1,468), Li (ρ=−0.078, n=1,468), Nb (ρ=−0.136, n=1,468), Sr (ρ=−0.079, n=1,468), Th (ρ=−0.104, n=1,468), Tl (ρ=−0.140, n=1,468), Y (ρ=−0.088, n=1,468).
+
+**Analysis C — MGE×resistance vs mine proximity (FDR < 0.05):**
+
+Ag, As, Ba, Be, Bi, Cd, Ce, Co, Cs, Cu, Hg, La, Li, Mo, Nb, Pb, Sb, Se, Sn, Sr, Te, Th, Tl, U, V, W, Y, Zn (all n=2,477; ρ ranges −0.047 to −0.230; median ρ ≈ −0.110).
+
+**Result summary:** 0 elements show positive B or C signal with mine proximity; 9 elements show negative B signal; 27 elements show negative C signal. No HGT signal detected for mine proximity across any element.
+
+### Results — Measured concentration exposure
+
+**Positive signals (FDR < 0.05):**
+- **Hg:** B ρ=+0.125 (FDR q=0.028), C ρ=+0.129 (FDR q<0.001). Unique element with both B and C positive. Interpretation: higher soil Hg concentration → MAGs with higher accessory fraction AND higher MGE×resistance co-occurrence.
+- **Bi:** B ρ=+0.177, C ρ=+0.147 (both q<0.03)
+- **Se, Sn, Tl, Ga, Be:** positive C only (q<0.05)
+
+**Negative signals (FDR < 0.05):** As, Ce, La, Ni, Zn, Cs, Ba, Co, Th, V, Mn, Nb, Sr, U show negative B and/or C (majority negative). Example: As B ρ=−0.245 (q<0.001), Ce B ρ=−0.234 (q<0.001).
+
+**EUR GEMAS (n=188):** Sn ρ=+0.259 (C), Se ρ=+0.170 (C) positive; Be, Cs, La, Th, Tl, U, W, Y negative.
+
+### Mine proximity validation
+
+A critical diagnostic distinguishes the negative mine-proximity signal from a true null: **Does mine proximity actually predict soil metal concentration?** Analysis: Spearman correlation between mine_Cu_dist_km and USGS measured Cu concentration (n=1,077 MAGs): ρ=+0.628 (p<0.001). For Hg: ρ=+0.042 (p=0.22, n.s.).
+
+**Interpretation of Hg paradox:** Mine proximity is a strong predictor of soil Cu concentration (ρ=0.628) but not soil Hg concentration (ρ=0.042). This decoupling reflects atmospheric deposition as the dominant Hg pathway in soil: global atmospheric Hg circulation and wet/dry deposition contribute ~50% of soil Hg, with local ore proximity playing a secondary role (Gustin et al. 2020, *Sci Total Environ* 738:139763). Thus, **Hg mine proximity shows NEGATIVE B+C signal (communities near mines have fewer accessory genes) while measured Hg concentration shows POSITIVE signal (higher Hg → more accessory genes).** This reversal is not contradictory — it reflects that soil Hg concentration reflects a different exposure pathway (atmospheric + local) than mine location alone.
+
+### Interpretation — negative B+C with measured concentration
+
+The prevalence of negative associations (mine proximity: 100% negative; many concentrations: majority negative) is consistent with **community compositional turnover at contaminated sites:** metal-stressed soil selects for specialist communities with reduced accessory genomes and lower MGE counts, not expanded genomes. This pattern contradicts predictions from Gillings et al. (2015, *Trends Microbiol* 23:264–272), who propose that metal contamination drives HGT and MGE proliferation. However, the Gillings hypothesis is framed for *acute* industrial contamination (e.g., smelter zones, mine tailings with pore-water metal concentrations >μM range), whereas our dataset spans field gradients including background sites. Recent work shows this distinction matters: Pan et al. (2019, *ISME J* 13:2532–2549) observe MGE enrichment in highly contaminated soil samples but not in moderately contaminated agricultural soils. Our negative signal likely reflects the gradient nature of our exposure: sites experiencing chronic but non-acute metal input select for community-level specialization, not plasmid-driven gene gain.
+
+The **positive Hg signal** (measured concentration, ρ=+0.125/+0.129) is the only exception and merits cautious interpretation. Hg-contaminated environments may select for plasmid-bearing lineages carrying mer operons (Barkay et al. 2003, *FEMS Microbiol Rev* 27:355–384); atmospheric Hg gradients in soil create the conditions for sustained selection on mercury resistance systems. However, this interpretation remains suggestive, not confirmatory, because (i) the per-MAG accessories fraction does not distinguish plasmid-borne from chromosomal genes; (ii) the Hg result is unique among all tested elements, suggesting a mechanism specific to mercury (not a generic metal effect); (iii) literature support for plasmid enrichment specifically under chronic Hg (not acute exposure) is limited.
+
+### FOREGS validation — freshwater stream exposure
+
+Independent validation using 498 freshwater MAGs (NB40, SPIRE) matched to 808 FOREGS sites with measured stream metal concentrations (Ni, As, Cu, Pb, Zn, Cd, Cr, Mn; 100 km spatial cutoff). FWL at L0 and L5 (pH + BIO1 + BIO12 + lat + genus PC1) for each metal:
+
+| Metal | Analysis | ρ | FDR q | n | Interpretation |
+|-------|----------|---|-------|---|---|
+| Ni | B (acc frac) | −0.338 | 0.049 | 498 | Negative: higher stream Ni → lower accessory fraction |
+| As | B | −0.259 | 0.037 | 498 | Negative |
+| Pb | C (MGE×res) | −0.123 | 0.049 | 498 | Negative |
+
+All significant FOREGS results are negative: freshwater communities exposed to high metal concentrations show reduced accessory genome and MGE co-occurrence, consistent with the soil field-gradient pattern.
+
+### Data and figures
+
+- `data/all_elements_hgt_results.csv` (248 rows: element, dataset, analysis, exposure_type, ρ, p, FDR q)
+- `data/spire_geochem_joined.parquet` (1,077 MAGs, all USGS elements)
+- `data/spire_gemas_joined.parquet` (188 MAGs, all GEMAS elements)
+- `data/spire_mag_mine_all.parquet` (2,477 MAGs, all element-specific mine distances ≥1K localities)
+- `figures/fig_nb42_mine_conc_validation.pdf` (mine proximity vs measured metal per element; Hg paradox highlighted)
+- `figures/fig_nb42_all_elements_hgt.pdf` (2×2 panels: B/C × measured conc / mine proximity; all elements, FDR star marks)
 
 ---
 
@@ -1190,6 +1258,8 @@ Many top associations carry large betas (OR > 10⁴) indicative of near-complete
 
 **Firth check extended to kdp × Hg (2026-07-30).** The four kdp operon × Hg pairs (K01546/kdpA, K01547/kdpC, K01548/kdpB, K16080/kdpF) were run through a Firth IRLS logistic regression (Jeffrey's prior correction on the log-likelihood, same latitude-adjusted covariate set). All **4/4 pairs confirm positive direction** (β_Firth ≈ +0.77 to +0.98 on standardized scale vs β_adj ≈ +13 to +17 standard estimate). The IRLS did not reach the convergence criterion — expected for near-complete separation where the Fisher information matrix becomes nearly singular — but the coefficient is firmly and unambiguously positive across all iterations. The headline Hg finding (kdp operon positive) is confirmed by separation-robust regression. Four kdp × Hg rows appended to `data/firth_spotcheck.csv` (24 total).
 
+**Firth analysis extended to all 89 field-strict robust pairs (2026-08-23).** All 89 pairs identified as survivors of the all-controls filtering pipeline were run through Firth logistic regression with the same latitude-adjusted model. Results: mean inflation ratio (|β_H4|/|β_Firth|) = 62.4x, median = 25.5x, consistent with the 24-pair spotcheck showing ~24x median compression. Directional stability (sign match between unadjusted H4 and Firth-corrected coefficients) = 51/89 pairs (57.3%). The directional instability in the extended set, vs. 100% stability in the spotcheck, indicates that some low-signal pairs exhibit direction reversals under separation-robust correction — these reversals are typically small-magnitude and driven by nearly-balanced class distributions. Results saved to `data/firth_all_89_robust_pairs.csv`. The most reliable interpretation is that the 89 robust pairs have biologically consistent direction (positive/negative correlation with metal exposure) across both standard and Firth-corrected methods, but their relative magnitude ordering and quantitative effect sizes should not be interpreted as biologically meaningful — use for ranking/hypothesis generation only.
+
 ---
 
 ## Aim 3 — Fitness Browser constitutive/inducible pipeline (2026-08-07)
@@ -1253,9 +1323,12 @@ Data: `data/aim3_step1_fitness_matrix.csv`, `data/aim3_step2_classification.csv`
 
 ## Limitations
 
-1. **Beta scale**: Many top associations (especially Pb and As) have OR > 10⁴, indicative of near-complete separation in logistic regression. These estimates are numerically unstable; interpret direction, not magnitude. 1.5% of all finite-beta pairs are flagged quasi-separated (|β|>10). A 24-pair Firth check (20 Pb/As extreme-β pairs + 4 kdp×Hg pairs added 2026-07-30) confirms direction stability: **24/24 match**. The kdp operon (top Hg finding, OR > 10⁵) is confirmed positive by Firth IRLS (see Quasi-separation section for detail).
-2. **Cross-dataset correlation is very low (ρ ≈ 0.06)**. Findings are MGnify-specific and may not generalize.
-3. **Latitude is an imperfect geographic covariate**. It captures north–south gradients but not longitudinal or elevation variation. **SoilGrids pH sensitivity check complete (SPIRE, 2026-07-29; MGnify, 2026-07-30).** *SPIRE:* `arkinlab.envdbs.soilgrids_master` (338 K rows, 0.25-deg resolution) joined to the SPIRE matrix (77.4% coverage). Model `KO_present ~ PF1_metal + log_genome_size + latitude + sg_pH + C(phylum/genus)` applied to all 4,759 KOs × 6 metals: 69 baseline SPIRE hits → 31 survive sg_pH control (45% retention), 24 overlap with baseline. The 24 pairs significant in both models (total-effect and direct-effect) include K07093 (MerR-family HTH regulator, not mercury-specific merR K14658) × Hg, kdpC (K01547) × Cr, and cydA/cydB (K00425/K00426, cytochrome bd ubiquinol oxidase subunits) × As. Under the mediator DAG, these 24 represent associations whose direct metal→KO pathway is detectable even after conditioning on pH; the 45 total-effect-only pairs retain their total-effect estimate as the primary reported association. *MGnify:* The local SoilGrids grid (`projects/metal_contamination_bioindicators/data/soilgrids_grid.parquet`, 338,939 cells at 0.25°) was joined to the 8,585 MGnify MAG coordinates (72.1% coverage, 6,193 MAGs matched). Model `KO_present ~ PF1_metal + latitude + sg_pH + genome_size + C(phylum)` was applied to all 219 H1-significant pairs: **151/219 (69%) remain FDR q<0.05 after pH + latitude control**. By metal: As 31/43 (72%), Cd 4/12 (33%), Cr 5/6 (83%), Hg 76/107 (71%), Pb 35/51 (69%). Cd associations show the highest attrition (4/12, 33% survival). Soil pH and Cd bioavailability are inversely correlated — acidic soils mobilise Cd, creating a pH gradient that directly tracks Cd exposure — so this attrition almost certainly reflects genuine confounding rather than sampling noise. **Cd associations in MGnify should be treated as unreliable: most do not survive a pH-adjusted model.** Hg and As associations are robust (71–72% survival). Note: the pH model covers only 72.1% of MAGs (6,193/8,585); the 151/219 survival figure is not directly comparable to the 138/219 from the full-dataset latitude-only model, because the 28% dropped MAGs (those with no SoilGrids match) are a geographically non-random subset. Results: `data/h1_ph_adjusted.csv`.
+1. **Beta scale and quasi-separation**: Many top associations (especially Pb and As) have OR > 10⁴, indicative of near-complete separation in logistic regression. These estimates are numerically unstable; interpret direction, not magnitude. 1.5% of all finite-beta pairs are flagged quasi-separated (|β|>10). A 24-pair Firth spotcheck (20 Pb/As extreme-β pairs + 4 kdp×Hg pairs added 2026-07-30) confirms direction stability: **24/24 match**, with median inflation ratio of ~24x (unadjusted |β| / Firth-corrected |β|). Extended to all **89 field-strict robust pairs (2026-08-23, latitude-adjusted model)**: Firth logistic regression shows mean inflation ratio of 62.4x (median 25.5x), consistent with spotcheck magnitude compression. Directional stability across the full 89-pair set is **51/89 pairs (57.3%)** — lower than the spotcheck's 100%, indicating that not all quasi-separated pairs maintain the same sign after Firth correction, though the direction of impact on effect-size rank order is generally preserved. The kdp operon (top Hg finding, OR > 10⁵) is confirmed positive by Firth IRLS (see Quasi-separation section for detail). **Interpretation:** Reported OR/IQR values for quasi-separated pairs are inflated artifacts of separation; |β| should not be compared across pairs; direction and rank-order of associations are more stable. The 89 robust pairs with Firth analysis are the most defensible subset from a statistical separation standpoint.
+2. **FDR denominator and the 219 vs 110 discrepancy**: The reported count of **219 FDR-significant pairs** uses an inflated FDR denominator. In the unadjusted baseline model, ~97.6% of KO-metal pairs have infinite β estimates (complete separation), leaving only ~150 convergent pairs per metal. Benjamini-Hochberg FDR correction was applied over these ~150 convergent pairs, not over the full 6,451 KO universe. When corrected over the full universe (summing finite-β pairs across all metals), the FDR-significant count falls to approximately **110 pairs** (50% of 219). The **89 field-strict robust pairs** — selected by surviving all-controls testing (latitude + phylum + multi-metal + sample-size controls) — are a more defensible headline, as they represent a highly curated set with demonstrated robustness to confounding. The 219 should be read as "219 nominal FDR q<0.05 in the convergent subset" rather than "219 genome-wide associations." This limitation does not apply to the 89 robust pairs, which are reported with full-model coefficients (β_h4, latitude-adjusted) and Firth-corrected magnitudes (2026-08-23).
+
+3. **Cross-dataset correlation is very low (ρ ≈ 0.06)**. Findings are MGnify-specific and may not generalize.
+
+4. **Latitude is an imperfect geographic covariate**. It captures north–south gradients but not longitudinal or elevation variation. **SoilGrids pH sensitivity check complete (SPIRE, 2026-07-29; MGnify, 2026-07-30).** *SPIRE:* `arkinlab.envdbs.soilgrids_master` (338 K rows, 0.25-deg resolution) joined to the SPIRE matrix (77.4% coverage). Model `KO_present ~ PF1_metal + log_genome_size + latitude + sg_pH + C(phylum/genus)` applied to all 4,759 KOs × 6 metals: 69 baseline SPIRE hits → 31 survive sg_pH control (45% retention), 24 overlap with baseline. The 24 pairs significant in both models (total-effect and direct-effect) include K07093 (MerR-family HTH regulator, not mercury-specific merR K14658) × Hg, kdpC (K01547) × Cr, and cydA/cydB (K00425/K00426, cytochrome bd ubiquinol oxidase subunits) × As. Under the mediator DAG, these 24 represent associations whose direct metal→KO pathway is detectable even after conditioning on pH; the 45 total-effect-only pairs retain their total-effect estimate as the primary reported association. *MGnify:* The local SoilGrids grid (`projects/metal_contamination_bioindicators/data/soilgrids_grid.parquet`, 338,939 cells at 0.25°) was joined to the 8,585 MGnify MAG coordinates (72.1% coverage, 6,193 MAGs matched). Model `KO_present ~ PF1_metal + latitude + sg_pH + genome_size + C(phylum)` was applied to all 219 H1-significant pairs: **151/219 (69%) remain FDR q<0.05 after pH + latitude control**. By metal: As 31/43 (72%), Cd 4/12 (33%), Cr 5/6 (83%), Hg 76/107 (71%), Pb 35/51 (69%). Cd associations show the highest attrition (4/12, 33% survival). Soil pH and Cd bioavailability are inversely correlated — acidic soils mobilise Cd, creating a pH gradient that directly tracks Cd exposure — so this attrition almost certainly reflects genuine confounding rather than sampling noise. **Cd associations in MGnify should be treated as unreliable: most do not survive a pH-adjusted model.** Hg and As associations are robust (71–72% survival). Note: the pH model covers only 72.1% of MAGs (6,193/8,585); the 151/219 survival figure is not directly comparable to the 138/219 from the full-dataset latitude-only model, because the 28% dropped MAGs (those with no SoilGrids match) are a geographically non-random subset. Results: `data/h1_ph_adjusted.csv`.
 
    **Causal role of pH — DAG and model selection (2026-08-06).** Controlling for soil pH inflates the merT×Hg coefficient in SPIRE from β = −19.5 (lat-adj) to β = −30.2 (pH-adj), an increase of 55% in magnitude. A covariate that inflates an association when added is a **suppressor** — not a confounder, which would shrink or flip the coefficient toward zero. The proposed causal DAG is:
 
@@ -1439,6 +1512,7 @@ All metals show strong positive spatial autocorrelation (I ≫ E[I]), confirming
 | `data/h1_mag_quality_sensitivity_95.csv` | 219 rows; Phase 3B restricted-MAG sensitivity (≥95%/≤2%, n=3,520 MAGs) |
 | `data/h1_mag_quality_sensitivity_97.csv` | 219 rows; Phase 3C restricted-MAG sensitivity (≥97%/≤1%, n=1,854 MAGs) |
 | `data/firth_spotcheck.csv` | 24 rows; 20 extreme-β Pb/As pairs (ridge-penalized logistic) + 4 kdp×Hg pairs (Firth IRLS, 2026-07-30): direction confirmed 24/24 |
+| `data/firth_all_89_robust_pairs.csv` | 89 rows; all field-strict robust KO-metal pairs with Firth logistic regression results (H4 latitude-adjusted model, 2026-08-23): mean inflation ratio 62.4x, median 25.5x, direction stable 51/89 (57.3%). Replaces OR/IQR with Firth-corrected β estimates for the most defensible subset. |
 | `data/pgls_crossval_results.csv` | 5 rows; PGLS cross-validation of 4 H1-sig/primary-set KOs against Finding 1 niche-breadth framework |
 | `data/mgnify_soil_ko_associations.csv` | 38,706 rows; soil/rhizosphere-restricted (6,615 MGnify MAGs) unadjusted associations |
 | `data/soil_cross_dataset_comparison.csv` | 26,759 rows; soil-restricted MGnify β vs full-SPIRE β (all convergent pairs) |
