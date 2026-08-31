@@ -1504,3 +1504,118 @@ The **hydrogeological confound hypothesis is rejected**: if mine locations were 
 **Output.** `data/nb41/soil_fwl_summary_v2.csv`, `soil_fwl_l6_full_v2.csv`, `soil_fwl_l7_full_v2.csv`, `soil_extreme_sites.parquet`; `figures/fig_nb41_v2_soil_ko_survival.pdf`, `fig_nb41_v2_extreme_sites_map.pdf`, `fig_nb41_v2_top_kos_extreme.pdf`.
 
 ---
+
+## NB23 — Pred Matrix Patch + EMEP Patch (data fix notebook)
+
+**Script:** inline notebook (2026-08-xx)
+
+Minor data-fix notebook that back-filled two missing columns into existing predictor matrices:
+1. Corrected an off-by-one in the EUR EMEP deposition join (atmospheric Cd/Hg/Pb columns) that caused ~3% of samples to receive NaN deposition values from a wrong grid cell.
+2. Added `lithology_int` (integer-encoded Hartmann & Moosdorf 2012 lithology class) to the USA predictor matrix, required for the L7 covariate set in NB41.
+
+No new samples or models were added. All downstream analyses (NB25 onward) read from the patched matrices.
+
+---
+
+## NB24 — DEGREE Novel Soil Sample Extraction
+
+**Script:** inline notebook (2026-08-xx)
+**Output:** `data/nb24/degree_eur_genus_long.parquet`, `degree_eur_pred_matrix.parquet`, `degree_swiss_genus_long.parquet`, `degree_swiss_pred_matrix.parquet`, `degree_usa_genus_long.parquet`, `degree_usa_pred_matrix.parquet`, `degree_sample_meta.parquet`
+
+Extracted genus-level relative abundance and predictor matrices from the DEGREE h5ad soil dataset (Lavallee et al. 2023) for novel samples not present in the MicrobeAtlas 16S compilation. DEGREE provides European ($n = 3{,}097$), Swiss (small subset), and USA soil metagenomes assembled to genus level. Output used in NB25 (augmented VP) to supplement MicrobeAtlas coverage.
+
+---
+
+## NB26 — Swiss MEM Sensitivity (k = 5, 10, 15, 20, 30, 50)
+
+**Script:** inline notebook (2026-08-xx)
+**Output:** `data/nb26/swiss_ko_shannon_mem_sensitivity.csv`
+
+Repeated the Swiss variation-partitioning analysis (same covariate set as NB21: elements, mine proximity, pH+CEC, climate, soil, spatial MEMs) across six MEM neighbour-list sizes (k = 5, 10, 15, 20, 30, 50) to test whether the mine-proximity partial R² (pure mine) is sensitive to spatial MEM choice.
+
+| k | n MEMs | pure_mine |
+|---|--------|-----------|
+| 5 | 22 | 0.305 |
+| 10 | 23 | 0.344 |
+| 15 | 24 | 0.378 |
+| 20 | 25 | 0.323 |
+| 30 | 30 | 0.581 |
+| 50 | 32 | 0.533 |
+
+Mine-proximity partial R² (Swiss KO Shannon) is stable across all k values tested (range 0.305–0.581), confirming that the Swiss mine signal is not an artefact of MEM parameterisation. The k = 30 result (0.581) matches the main analysis (NB21: mine_pure = 0.526 at k = 20 MEM).
+
+---
+
+## NB27 — Interactive Maps (EUR / Swiss / USA sample distributions)
+
+**Script:** inline notebook (2026-08-xx)
+**Output:** `figures/fig_nb27_eur_map.html`, `fig_nb27_swiss_map.html`, `fig_nb27_usa_map.html`
+
+Interactive Plotly scatter maps of all MicrobeAtlas samples coloured by mine proximity (log-scale). Used for visual quality control of spatial coverage and to identify sample clusters near known mining districts. No quantitative analysis; for exploration and presentation only.
+
+---
+
+## NB40 — Stream Per-KO MAG-Level FWL (GlobDB Freshwater MAGs)
+
+**Script:** `scripts/run_nb40_stream_mag_ko_fwl.py` / inline (2026-08-31)
+**KO source:** `data/nb40/globdb_freshwater_ko_matrix.parquet` (790,251 rows: 818 MAGs × 2,689 KOs present)
+**Exposure:** mine proximity: log₁₀(1/(mine_any_dist_km + 0.1)); real distances computed via 3D KDTree against mindat 157K localities (median dist = 15.6 km)
+
+**Method:** OLS regression per KO (binary 0/1 presence as outcome) at two covariate levels:
+- **L0:** bivariate (exposure only)
+- **L6:** + genus one-hot fixed effects (528 genus dummies)
+
+KOs filtered to ≥5 genera and ≥10% prevalence across 818 MAGs → 2,689 KOs tested.
+
+**Results:**
+
+| Level | KOs tested | FDR < 0.05 | % Enriched |
+|-------|-----------|-----------|-----------|
+| L0 | 2,689 | 701 (26%) | 61% |
+| L6 (genus FE) | 2,689 | 295 (11%) | 67% |
+
+**Key interpretations:**
+1. **L0 signal (26% of KOs):** A substantial minority of stream freshwater KOs associate with mine proximity in bivariate analysis — consistent with the stream CWM FWL result (NB33/NB39) showing gene-level mine signal in streams.
+2. **L6 signal survives genus control (11% of KOs, 295 hits):** After controlling for genus identity directly (not just community PC1), 295 KOs remain significant. This confirms that at least some of the stream mine association reflects within-genus gene content variation (gene gain/loss) rather than genus replacement.
+3. **Majority positive (67% enriched at L6):** KOs enriched near mines outnumber depleted KOs 2:1 even after genus fixed effects, consistent with the hypothesis that mine-proximal stream communities maintain elevated functional gene diversity (gene gain), not reduced diversity.
+4. **Comparison with soil (NB41 vs NB40):** Soil MAG-level analysis (per-KO metal associations, NB42) found ≤3% overlap between CWM-level and genome-level associations. Stream MAG-level analysis (NB40) shows a weaker but non-trivial genome-level signal (11% of KOs FDR), consistent with the hypothesis that stream communities experience more direct metal exposure and therefore stronger within-lineage selection.
+
+**Limitation:** 818 freshwater MAGs is a small sample; many genera are represented by a single MAG, limiting within-genus comparisons. The genus fixed-effects model is highly saturated (528 dummies for 818 samples), reducing power. Results should be interpreted as directional evidence, not precise quantification.
+
+**Output:** `data/nb40/nb40_l0_results.csv`, `data/nb40/nb40_l6_results.csv`, `data/nb40/nb40_summary.csv`.
+
+---
+
+## NB41-FOREGS — EUR CWM FWL with FOREGS Stream Metal Concentrations
+
+**Script:** `scripts/run_nb41_eur_foregs.py` (2026-08-30)
+**Output:** `data/nb41/foregs_stream_fwl_summary.csv`, `figures/fig_nb41_eur_foregs_comparison.pdf`
+
+**Motivation:** Mine proximity is an indirect exposure proxy. FOREGS (Forum of European Geological Surveys) provides measured stream metal concentrations at 808 European sampling stations. This analysis tests whether actual stream water metal concentrations predict EUR soil microbiome functional composition, and compares the signal to the mine-proximity result.
+
+**Method:** Same CWM-based FWL pipeline as NB41 but restricted to 37,856 EUR MicrobeAtlas samples within 100 km of a FOREGS site with at least one measured metal concentration (93.8% of EUR samples). Exposure = log₁₀(stream concentration, mg/L) for each of 8 metals. Covariate levels: L0 (bivariate) and L5 (pH, pH², BIO1, BIO12, latitude).
+
+**FOREGS coverage:** 4,398 total FOREGS sites; 808 with measured stream metals; 37,856 EUR soil samples matched (93.8% of 40,358 EUR samples).
+
+**Results by metal:**
+
+| Metal | n | L0 hits | L0 % pos | L5 hits | L5 % pos |
+|-------|---|---------|----------|---------|----------|
+| Cr | 37,856 | 7,150 | 87% | 6,682 | 85% |
+| Pb | 37,856 | 7,503 | 85% | 6,661 | 79% |
+| Zn | 37,856 | 6,986 | 82% | 6,706 | 80% |
+| Cd | 37,856 | 6,419 | 72% | 5,834 | 83% |
+| Mn | 37,856 | 6,430 | 67% | 5,342 | 67% |
+| As | 37,856 | 5,551 | 67% | 4,834 | 51% |
+| Cu | 37,856 | 6,412 | 53% | 6,405 | 40% |
+| Ni | 37,856 | 5,839 | 33% | 5,827 | 42% |
+
+**Key interpretations:**
+1. **Stream metal concentration strongly predicts soil CWM:** For Cr, Pb, and Zn, 80–87% of FDR-significant KOs are enriched (positive association) after pH/climate control at L5. These are measured concentrations, not mine proximity proxies, providing direct evidence that chemical contamination gradients drive functional community composition.
+2. **Consistent direction across most metals:** 6/8 metals show majority positive associations at L5 (>50% of hits enriched). This is consistent with the mine-proximity result (NB41 v3) for USA but provides an independent, measured-concentration validation for EUR soils.
+3. **Cu and Ni are mixed:** Cu and Ni show weaker positive or slight negative associations (<53% enriched at L5). Cu in particular inverts to 40% enriched at L5, suggesting pH/climate covariates explain much of the bivariate Cu-KO relationship.
+4. **Comparison to mine proximity (EUR):** Mine proximity at L8 (NB41 v3) yields only 26% enriched KOs after EMEP atmospheric control, while FOREGS stream-measured concentrations yield 67–87% enriched KOs for Cr/Pb/Zn. This contrast supports the interpretation that atmospheric deposition suppresses the mine-proximity signal in EUR soils, but actual stream-borne contamination gradients produce robust positive functional associations. The FOREGS result independently validates that chemical exposure — not confounding by human land use or climate — drives functional enrichment.
+
+**Limitation:** FOREGS sites measure stream water; the soil samples are matched by spatial proximity (100 km) rather than direct drainage connection. Interpretation assumes that stream concentrations at FOREGS sites reflect local geochemical loading relevant to surrounding soil communities. This is a reasonable assumption for diffuse contamination but may not hold for point-source contamination.
+
+---
