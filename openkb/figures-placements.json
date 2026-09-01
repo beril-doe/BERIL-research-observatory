@@ -1,0 +1,1602 @@
+{
+ "summaries/acinetobacter_adp1_explorer__REPORT.md": {
+  "page_hash": "2ec4c6b3536f63aa",
+  "placements": [
+   {
+    "after_paragraph": 9,
+    "project": "acinetobacter_adp1_explorer",
+    "file": "figures/fba_tnseq_concordance.png",
+    "caption": "FBA flux predictions and TnSeq essentiality calls agree for 73.8% of the 866 genes tested."
+   },
+   {
+    "after_paragraph": 10,
+    "project": "acinetobacter_adp1_explorer",
+    "file": "figures/growth_condition_correlation.png",
+    "caption": "Pairwise fitness correlations across eight carbon sources show a mean of 0.44, with urea as a distinct outlier."
+   }
+  ]
+ },
+ "summaries/adp1_deletion_phenotypes__REPORT.md": {
+  "page_hash": "375eda16ddcfdb27",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "adp1_deletion_phenotypes",
+    "file": "figures/condition_boxplots.png",
+    "caption": "Boxplots of growth ratios across the eight carbon sources illustrate the three-tier landscape from demanding (urea) to robust (quinate) conditions."
+   },
+   {
+    "after_paragraph": 10,
+    "project": "adp1_deletion_phenotypes",
+    "file": "figures/gene_heatmap.png",
+    "caption": "Heatmap of growth profiles for all 2,034 genes ordered by hierarchical clustering, showing the continuum structure and the discrete quinate-specific module."
+   }
+  ]
+ },
+ "summaries/adp1_triple_essentiality__REPORT.md": {
+  "page_hash": "e68d599d831fcdb1",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "adp1_triple_essentiality",
+    "file": "figures/fba_growth_concordance.png",
+    "caption": "Growth-defect rates are similar across FBA-essential, FBA-variable, and FBA-blocked genes, showing no significant concordance between FBA class and growth phenotype."
+   },
+   {
+    "after_paragraph": 10,
+    "project": "adp1_triple_essentiality",
+    "file": "figures/rast_enrichment_discordant.png",
+    "caption": "RAST functional category enrichment highlights aromatic catabolism genes as strongly overrepresented among FBA-discordant genes."
+   }
+  ]
+ },
+ "summaries/alphafold_msa_annotation__REPORT.md": {
+  "page_hash": "b3e92e52a1753efc",
+  "placements": [
+   {
+    "after_paragraph": 11,
+    "project": "alphafold_msa_annotation",
+    "file": "figures/NB03_msa_depth_pangenome_class.png",
+    "caption": "MSA depth distributions across pangenome classes, along with associated hypothetical annotation rates and structurally novel fractions."
+   }
+  ]
+ },
+ "summaries/amr_cofitness_networks__REPORT.md": {
+  "page_hash": "8b4535df22f2662b",
+  "placements": [
+   {
+    "after_paragraph": 12,
+    "project": "amr_cofitness_networks",
+    "file": "figures/jaccard_go_comparison.png",
+    "caption": "Cross-organism Jaccard similarity is higher within an organism across mechanisms (0.375) than within a mechanism across organisms (0.207), showing support networks are primarily organism-specific."
+   },
+   {
+    "after_paragraph": 15,
+    "project": "amr_cofitness_networks",
+    "file": "figures/network_size_vs_fitness.png",
+    "caption": "Scatter plot showing no relationship between AMR support-network size and fitness cost (Spearman rho = -0.006, p = 0.87)."
+   }
+  ]
+ },
+ "summaries/amr_environmental_resistome__REPORT.md": {
+  "page_hash": "c5c58760a10771cd",
+  "placements": [
+   {
+    "after_paragraph": 8,
+    "project": "amr_environmental_resistome",
+    "file": "figures/h1_amr_by_environment.png",
+    "caption": "AMR gene cluster diversity by environmental category, showing higher burden in clinical and human-gut species."
+   },
+   {
+    "after_paragraph": 11,
+    "project": "amr_environmental_resistome",
+    "file": "figures/h2_core_accessory_by_env.png",
+    "caption": "Mean core versus accessory AMR composition by environment, showing clinical and gut species skew accessory."
+   }
+  ]
+ },
+ "summaries/amr_fitness_cost__REPORT.md": {
+  "page_hash": "e6d4a059f7a8a1fc",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "amr_fitness_cost",
+    "file": "figures/forest_plot_amr_fitness.png",
+    "caption": "Forest plot showing a consistent positive fitness shift for AMR gene knockouts across all 25 tested organisms."
+   },
+   {
+    "after_paragraph": 11,
+    "project": "amr_fitness_cost",
+    "file": "figures/antibiotic_validation.png",
+    "caption": "Scatter plot and histogram showing the fitness flip toward greater importance of AMR genes under antibiotic exposure."
+   }
+  ]
+ },
+ "summaries/amr_pangenome_atlas__REPORT.md": {
+  "page_hash": "0925e3afd46de7b0",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "amr_pangenome_atlas",
+    "file": "figures/amr_conservation_vs_baseline.png",
+    "caption": "AMR genes show markedly lower conservation (core fraction) than the pangenome baseline, illustrating the core-accessory resistance dichotomy."
+   },
+   {
+    "after_paragraph": 13,
+    "project": "amr_pangenome_atlas",
+    "file": "figures/amr_cog_enrichment.png",
+    "caption": "AMR gene clusters are strongly enriched for COG categories V (Defense mechanisms) and P (Inorganic ion transport) relative to the pangenome baseline."
+   }
+  ]
+ },
+ "summaries/amr_strain_variation__REPORT.md": {
+  "page_hash": "dcec5c52caa277cc",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "amr_strain_variation",
+    "file": "figures/nb02_variation_landscape.png",
+    "caption": "Variation landscape showing AMR gene prevalence classes, variability vs openness, Jaccard diversity by phylum, and prevalence by resistance mechanism."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "amr_strain_variation",
+    "file": "figures/nb03_cooccurrence.png",
+    "caption": "Co-occurrence analysis showing resistance island size distribution, observed vs null phi coefficients, and islands per species."
+   }
+  ]
+ },
+ "summaries/annotation_gap_discovery__REPORT.md": {
+  "page_hash": "c1893b57dff0ea6a",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "annotation_gap_discovery",
+    "file": "figures/fig1_resolution_overview.png",
+    "caption": "Cumulative resolution of the 201 organism\u2013carbon-source pairs, broken down by confidence level (high, medium, low, unresolved)."
+   },
+   {
+    "after_paragraph": 9,
+    "project": "annotation_gap_discovery",
+    "file": "figures/fig2_cross_validation.png",
+    "caption": "Cross-validation showing complementary contributions and overlap among the EC-matching, Bakta-alternative, pangenome, GapMind, and BLAST evidence streams."
+   }
+  ]
+ },
+ "summaries/aromatic_catabolism_network__REPORT.md": {
+  "page_hash": "11de24b5236b0cc5",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "aromatic_catabolism_network",
+    "file": "figures/support_network_categories.png",
+    "caption": "The 51 quinate-specific genes distributed across four functional subsystems: aromatic pathway, Complex I, iron acquisition, and PQQ biosynthesis."
+   },
+   {
+    "after_paragraph": 15,
+    "project": "aromatic_catabolism_network",
+    "file": "figures/cofitness_heatmap.png",
+    "caption": "Co-fitness correlation heatmap among the 51 quinate-specific genes, showing tight clustering within Complex I (r=0.992) and aromatic-pathway (r=0.961) genes."
+   }
+  ]
+ },
+ "summaries/bacdive_metal_validation__REPORT.md": {
+  "page_hash": "07a756cd7db9df97",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "bacdive_metal_validation",
+    "file": "figures/metal_score_by_environment.png",
+    "caption": "Normalized metal tolerance score by isolation environment, showing higher scores for heavy-metal contamination sites versus baseline."
+   }
+  ]
+ },
+ "summaries/bacdive_phenotype_metal_tolerance__REPORT.md": {
+  "page_hash": "dc96fcc403983038",
+  "placements": [
+   {
+    "after_paragraph": 7,
+    "project": "bacdive_phenotype_metal_tolerance",
+    "file": "figures/univariate_effect_sizes.png",
+    "caption": "Univariate effect sizes (Cohen's d) of BacDive phenotype features on metal tolerance score, with Gram-negative status showing the largest effect."
+   },
+   {
+    "after_paragraph": 10,
+    "project": "bacdive_phenotype_metal_tolerance",
+    "file": "figures/model_comparison.png",
+    "caption": "Model comparison showing taxonomy-only, phenotype-only, and combined R\u00b2 under phylogenetic-blocked cross-validation, illustrating that phenotypes add no predictive power beyond taxonomy."
+   }
+  ]
+ },
+ "summaries/bacillota_b_subsurface_accessory__REPORT.md": {
+  "page_hash": "e554d878486e4f27",
+  "placements": [
+   {
+    "after_paragraph": 9,
+    "project": "bacillota_b_subsurface_accessory",
+    "file": "figures/summary_figure.png",
+    "caption": "Summary figure synthesizing the accessory-genome enrichment, genome-size expansion, and functional-category findings for deep-clay Bacillota_B."
+   }
+  ]
+ },
+ "summaries/berdl_data_atlas__REPORT.md": {
+  "page_hash": "b923afce746d29cd",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "berdl_data_atlas",
+    "file": "figures/nb05_volume_by_entity_class.png",
+    "caption": "Per-entity-class data volume (log scale) illustrating the billion-row scale of key BERDL collections."
+   },
+   {
+    "after_paragraph": 13,
+    "project": "berdl_data_atlas",
+    "file": "figures/nb02_linkage_graph.png",
+    "caption": "(Tenant, topic) linkage graph showing existing shared-key connections and highlighting the untapped bridges discussed in the text."
+   }
+  ]
+ },
+ "summaries/caulobacter_fur_lipida_loss__REPORT.md": {
+  "page_hash": "24f423af42dc32b0",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "caulobacter_fur_lipida_loss",
+    "file": "figures/NB01_fur_signature_scatter.png",
+    "caption": "Scatter of Leaden 2018 \u0394fur logFC versus this study's \u0394fur contrast logFC, colored by concordance category, supporting the Spearman \u03c1 = 0.315 correlation."
+   },
+   {
+    "after_paragraph": 15,
+    "project": "caulobacter_fur_lipida_loss",
+    "file": "figures/NB07_synthesis_master.png",
+    "caption": "Master synthesis figure summarizing the four mechanism layers (Fur derepression, sspB respiratory buffering, ChvI phased response, and sphingolipid/PG remodeling) that together explain \u0394fur-permitted lipid A loss."
+   }
+  ]
+ },
+ "summaries/cf_formulation_design__REPORT.md": {
+  "page_hash": "57acb0f1b5dbdcf4",
+  "placements": [
+   {
+    "after_paragraph": 7,
+    "project": "cf_formulation_design",
+    "file": "figures/01_pa14_carbon_profile.png",
+    "caption": "PA14 preferentially catabolizes amino acids such as proline, histidine, and arginine, consistent with the metabolic-overlap inhibition model."
+   }
+  ]
+ },
+ "summaries/clay_confined_subsurface__REPORT.md": {
+  "page_hash": "f86be31c722b8c1c",
+  "placements": [
+   {
+    "after_paragraph": 11,
+    "project": "clay_confined_subsurface",
+    "file": "figures/h2_toolkit_by_cohort.png",
+    "caption": "Mean anaerobic toolkit score (Wood\u2013Ljungdahl, NiFe-hydrogenase, SR markers) is markedly higher in deep-clay genomes than in shallow-clay or soil-baseline cohorts."
+   },
+   {
+    "after_paragraph": 14,
+    "project": "clay_confined_subsurface",
+    "file": "figures/h1_self_sufficiency_violin.png",
+    "caption": "GapMind amino-acid pathway completeness distributions show no elevated self-sufficiency in deep-clay genomes relative to the soil baseline."
+   }
+  ]
+ },
+ "summaries/cofitness_coinheritance__REPORT.md": {
+  "page_hash": "191b9f52741b1ebe",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "cofitness_coinheritance",
+    "file": "figures/fig1_cofit_cooccurrence.png",
+    "caption": "Comparison of phi co-occurrence values between cofit pairs and prevalence-matched random pairs across organisms."
+   },
+   {
+    "after_paragraph": 4,
+    "project": "cofitness_coinheritance",
+    "file": "figures/fig5_module_coinheritance.png",
+    "caption": "Module-level co-inheritance signal compared to pairwise co-fitness across organisms."
+   }
+  ]
+ },
+ "summaries/conservation_fitness_synthesis__REPORT.md": {
+  "page_hash": "afa57203dfaaaf40",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "conservation_fitness_synthesis",
+    "file": "figures/fitness_conservation_gradient.png",
+    "caption": "Gene conservation (percent core) declines gradually with decreasing fitness importance, from 82% in essential genes to 66% in neutral genes."
+   },
+   {
+    "after_paragraph": 11,
+    "project": "conservation_fitness_synthesis",
+    "file": "figures/selection_signature.png",
+    "caption": "Selection signature suggesting that genes beneficial to delete in lab conditions are nonetheless conserved, consistent with selection under natural environments."
+   }
+  ]
+ },
+ "summaries/conservation_vs_fitness__REPORT.md": {
+  "page_hash": "cc36a428233ecd40",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "conservation_vs_fitness",
+    "file": "figures/essential_seed_toplevel_heatmap.png",
+    "caption": "Heatmap of SEED functional category enrichment differences across essential-core, essential-auxiliary, and essential-unmapped gene groups."
+   },
+   {
+    "after_paragraph": 10,
+    "project": "conservation_vs_fitness",
+    "file": "figures/essential_vs_core_forest_plot.png",
+    "caption": "Forest plot showing the robustness of essential-core enrichment across clade size, genomic context, and lifestyle strata."
+   }
+  ]
+ },
+ "summaries/core_gene_tradeoffs__REPORT.md": {
+  "page_hash": "32c8a815abe8efda",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "core_gene_tradeoffs",
+    "file": "figures/burden_by_function.png",
+    "caption": "Burden by functional category, showing core genes disproportionately burdensome in Protein Metabolism, Motility, and RNA Metabolism, with Cell Wall reversing the pattern."
+   }
+  ]
+ },
+ "summaries/costly_dispensable_genes__REPORT.md": {
+  "page_hash": "aa4b1b34779a9546",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "costly_dispensable_genes",
+    "file": "figures/fig_seed_enrichment.png",
+    "caption": "SEED top-level category enrichment shows costly+dispensable genes are dominated by mobile-element and phage-related functions compared to costly+conserved genes."
+   },
+   {
+    "after_paragraph": 16,
+    "project": "costly_dispensable_genes",
+    "file": "figures/fig_per_organism.png",
+    "caption": "Stacked bar chart of quadrant proportions per organism highlights Pseudomonas stutzeri RCH2 as an outlier with an unusually high fraction of costly+dispensable genes."
+   }
+  ]
+ },
+ "summaries/counter_ion_effects__REPORT.md": {
+  "page_hash": "ba17cd7dca6aa3da",
+  "placements": [
+   {
+    "after_paragraph": 7,
+    "project": "counter_ion_effects",
+    "file": "figures/metal_nacl_overlap_by_counter_ion.png",
+    "caption": "Per-metal NaCl overlap percentages colored by counter-ion type, showing no clear separation between chloride- and non-chloride-delivered metals."
+   },
+   {
+    "after_paragraph": 18,
+    "project": "counter_ion_effects",
+    "file": "figures/atlas_original_vs_corrected.png",
+    "caption": "Core-genome enrichment per metal before and after removing shared-stress genes, showing enrichment persists or strengthens for most metals."
+   }
+  ]
+ },
+ "summaries/ecotype_analysis__REPORT.md": {
+  "page_hash": "6560e5dfc25d2a08",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "ecotype_analysis",
+    "file": "figures/ecotype_correlation_summary.png",
+    "caption": "Summary of per-species partial correlations showing phylogeny (median 0.0143) versus environment (median 0.0025) as predictors of gene-content similarity."
+   }
+  ]
+ },
+ "summaries/ecotype_env_reanalysis__REPORT.md": {
+  "page_hash": "b90f98e0ab80f794",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "ecotype_env_reanalysis",
+    "file": "figures/partial_corr_by_group.png",
+    "caption": "Median partial correlation between gene content and environment, compared across environmental, human-associated, and mixed/other species groups."
+   },
+   {
+    "after_paragraph": 4,
+    "project": "ecotype_env_reanalysis",
+    "file": "figures/species_classification.png",
+    "caption": "Classification of the 224 analyzed species by their dominant environment (human-associated, environmental, or mixed/other)."
+   }
+  ]
+ },
+ "summaries/ecotype_functional_differentiation__REPORT.md": {
+  "page_hash": "0c42b277cce2575b",
+  "placements": [
+   {
+    "after_paragraph": 9,
+    "project": "ecotype_functional_differentiation",
+    "file": "figures/cog_differentiation_heatmap.png",
+    "caption": "Heatmap showing which COG functional categories are significantly differentiated between ecotypes across the 12 analyzed species."
+   },
+   {
+    "after_paragraph": 14,
+    "project": "ecotype_functional_differentiation",
+    "file": "figures/effect_size_distributions.png",
+    "caption": "Distribution of effect sizes for adaptive versus housekeeping COG categories, showing adaptive functions tend toward larger proportional shifts."
+   }
+  ]
+ },
+ "summaries/enigma_carbon_census_1__REPORT.md": {
+  "page_hash": "5b4a0ff998c78182",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "enigma_carbon_census_1",
+    "file": "figures/08_funnel.png",
+    "caption": "Discovery funnel showing how 83 enrichment compounds narrow from structure-resolved to KEGG-linked to only 9 initially callable via ENIGMA-isolate or Tier-1 evidence."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "enigma_carbon_census_1",
+    "file": "figures/06_phylo_order_map.png",
+    "caption": "Phylogenetic order map of the 494 utilizer placements, showing concentration in Pseudomonadota and especially Burkholderiales."
+   }
+  ]
+ },
+ "summaries/enigma_contamination_functional_potential__REPORT.md": {
+  "page_hash": "1d6d2782b09fb649",
+  "placements": [
+   {
+    "after_paragraph": 8,
+    "project": "enigma_contamination_functional_potential",
+    "file": "figures/confirmatory_defense_vs_contamination.png",
+    "caption": "Confirmatory genus-level defense score vs contamination index shows no robust monotonic relationship in either mapping mode."
+   },
+   {
+    "after_paragraph": 16,
+    "project": "enigma_contamination_functional_potential",
+    "file": "figures/mapping_coverage_by_mode.png",
+    "caption": "Mapping and feature coverage by mode, showing the sharp drop in mapped abundance fraction for the species-proxy mode."
+   }
+  ]
+ },
+ "summaries/enigma_sso_asv_ecology__REPORT.md": {
+  "page_hash": "21644948e8a11251",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "enigma_sso_asv_ecology",
+    "file": "figures/bc_heatmap_sediment.png",
+    "caption": "Bray-Curtis dissimilarity heatmap across the 9 SSO wells, illustrating the distance-decay pattern in sediment communities."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "enigma_sso_asv_ecology",
+    "file": "figures/genus_process_grid.png",
+    "caption": "Genus-inferred biogeochemical processes mapped across the SSO grid, supporting the plume model's predicted spatial gradient."
+   }
+  ]
+ },
+ "summaries/env_embedding_explorer__REPORT.md": {
+  "page_hash": "46b1e04630f71ca0",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "env_embedding_explorer",
+    "file": "figures/geo_vs_embedding_by_env_group.png",
+    "caption": "Environmental samples show a much steeper increase in embedding distance with geographic distance than human-associated samples, supporting the key finding of differential geographic signal."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "env_embedding_explorer",
+    "file": "figures/env_categories.png",
+    "caption": "Harmonized environment categories are dominated by human clinical and gut samples, illustrating the coverage skew described in the metadata harmonization."
+   }
+  ]
+ },
+ "summaries/essential_genome__REPORT.md": {
+  "page_hash": "1cb8c32aa135f91e",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "essential_genome",
+    "file": "figures/essential_families_overview.png",
+    "caption": "Distribution of the 17,222 ortholog families into universally essential (5.0%), variably essential (27.9%), and never-essential (67.1%) categories."
+   },
+   {
+    "after_paragraph": 9,
+    "project": "essential_genome",
+    "file": "figures/conservation_architecture.png",
+    "caption": "Conservation architecture linking essentiality patterns to pangenome structure across Proteobacteria, Bacteroidetes, Firmicutes, and Archaea."
+   }
+  ]
+ },
+ "summaries/essential_metabolome__REPORT.md": {
+  "page_hash": "54759cb4830f1fb9",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "essential_metabolome",
+    "file": "figures/pathway_completeness.png",
+    "caption": "Heatmap of amino acid biosynthesis pathway completeness across the seven organisms, highlighting the near-universal conservation and the D. vulgaris serine gap."
+   }
+  ]
+ },
+ "summaries/euk_in_prok_correlates__REPORT.md": {
+  "page_hash": "09d1df096d884eb3",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "euk_in_prok_correlates",
+    "file": "figures/fig01_euk_distributions.png",
+    "caption": "Distribution of eukaryotic read fraction across runs and the split between plastid and non-plastid sources."
+   },
+   {
+    "after_paragraph": 11,
+    "project": "euk_in_prok_correlates",
+    "file": "figures/fig04_within_study_env.png",
+    "caption": "Within the batch-controlled NEON soil study, eukaryotic fraction varies by vegetation and geography, providing the strongest within-study biological evidence."
+   }
+  ]
+ },
+ "summaries/field_vs_lab_fitness__REPORT.md": {
+  "page_hash": "b1676b658e388f72",
+  "placements": [
+   {
+    "after_paragraph": 9,
+    "project": "field_vs_lab_fitness",
+    "file": "figures/fig_conservation_by_condition_class.png",
+    "caption": "Core genome percentage for genes important under each condition class, compared to baseline conservation."
+   },
+   {
+    "after_paragraph": 17,
+    "project": "field_vs_lab_fitness",
+    "file": "figures/fig_roc_conservation_prediction.png",
+    "caption": "ROC curves comparing field-only, lab-only, combined, and full (with gene length) models for predicting core genome status."
+   }
+  ]
+ },
+ "summaries/fitness_effects_conservation__REPORT.md": {
+  "page_hash": "8d4272ed042bccb9",
+  "placements": [
+   {
+    "after_paragraph": 7,
+    "project": "fitness_effects_conservation",
+    "file": "figures/conservation_by_fitness_profile.png",
+    "caption": "Proportion of core genes declines steadily from essential to always-neutral fitness categories."
+   },
+   {
+    "after_paragraph": 10,
+    "project": "fitness_effects_conservation",
+    "file": "figures/fitness_breadth_vs_conservation.png",
+    "caption": "Core gene percentage increases with the breadth of experimental conditions in which a gene affects fitness."
+   }
+  ]
+ },
+ "summaries/fitness_modules__REPORT.md": {
+  "page_hash": "b152f050ccc087c3",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "fitness_modules",
+    "file": "figures/validation_summary.png",
+    "caption": "Cofitness validation showing within-module correlations substantially exceeding background, supporting the 2.8-fold enrichment claim."
+   },
+   {
+    "after_paragraph": 6,
+    "project": "fitness_modules",
+    "file": "figures/benchmark_strict.png",
+    "caption": "Strict benchmarking comparison showing ortholog transfer far outperforming domain-based and module-based methods on precision and coverage."
+   }
+  ]
+ },
+ "summaries/functional_dark_matter__REPORT.md": {
+  "page_hash": "b3cf86023abc0412",
+  "placements": [
+   {
+    "after_paragraph": 8,
+    "project": "functional_dark_matter",
+    "file": "figures/fig03_dark_gene_coverage.png",
+    "caption": "Coverage of the six evidence flags underlying the five-tier darkness spectrum (Void through Dawn)."
+   },
+   {
+    "after_paragraph": 12,
+    "project": "functional_dark_matter",
+    "file": "figures/fig04_condition_classes.png",
+    "caption": "Distribution of condition classes for dark genes showing strong, cross-organism fitness phenotypes (e.g., OG11386, OG05812, OG10455)."
+   }
+  ]
+ },
+ "summaries/fw300_metabolic_consistency__REPORT.md": {
+  "page_hash": "79e63a855c63ed7d",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "fw300_metabolic_consistency",
+    "file": "figures/consistency_heatmap.png",
+    "caption": "Heatmap showing concordance/discordance of metabolite handling across WoM, Fitness Browser, BacDive, and GapMind for FW300-N2E3."
+   },
+   {
+    "after_paragraph": 13,
+    "project": "fw300_metabolic_consistency",
+    "file": "figures/fitness_hits_per_metabolite.png",
+    "caption": "Number of significant fitness genes identified for each of the 21 WoM-matched metabolites, highlighting highly pleiotropic conditions like carnitine and alanine."
+   }
+  ]
+ },
+ "summaries/gene_function_ecological_agora__REPORT.md": {
+  "page_hash": "e3d1a5706a9f23a9",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "gene_function_ecological_agora",
+    "file": "figures/p1a_scores_by_class_per_rank.png",
+    "caption": "Per-rank producer/consumer effect-size distributions by control class, showing where Mycobacteriaceae and Cyanobacteriia hypotheses are supported."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "gene_function_ecological_agora",
+    "file": "figures/p1b_bacteroidota_pul_position.png",
+    "caption": "Bacteroidota PUL phylogenetic clumping position relative to other phyla's CAZymes across taxonomic ranks."
+   }
+  ]
+ },
+ "summaries/genotype_to_phenotype_enigma__REPORT.md": {
+  "page_hash": "b78f6e0bbc1d69c2",
+  "placements": [
+   {
+    "after_paragraph": 24,
+    "project": "genotype_to_phenotype_enigma",
+    "file": "figures/NB02_condition_overlap_4way.png",
+    "caption": "Overlap of tested conditions across the four major phenotype datasets, highlighting the five conditions shared by all (cytidine, glycine, inosine, thymidine, uridine)."
+   },
+   {
+    "after_paragraph": 25,
+    "project": "genotype_to_phenotype_enigma",
+    "file": "figures/NB01_parameter_distributions.png",
+    "caption": "Distribution of fitted growth parameters (max growth rate, lag time, yield) and well-level outcome breakdown across the 27,632-well growth corpus."
+   }
+  ]
+ },
+ "summaries/harvard_forest_warming__REPORT.md": {
+  "page_hash": "cbe1de662d9ccb7f",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "harvard_forest_warming",
+    "file": "figures/03_phylum_bars.png",
+    "caption": "Phylum-level relative abundance shifts (e.g., Actinobacteria up, Acidobacteria down) under warming in organic soil."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "harvard_forest_warming",
+    "file": "figures/08_synthesis.png",
+    "caption": "RNA-pool spotlight on paired pmoA/pmoB increases and coordinated glyoxylate-cycle activation under warming."
+   }
+  ]
+ },
+ "summaries/ibd_phage_targeting__REPORT.md": {
+  "page_hash": "7c008ddd0a645a32",
+  "placements": [
+   {
+    "after_paragraph": 9,
+    "project": "ibd_phage_targeting",
+    "file": "figures/NB01b_ecotype_by_diagnosis.png",
+    "caption": "Consensus ecotype (E0\u2013E3) distribution across diagnosis groups, showing disease-stratifying structure in HMP2 data."
+   },
+   {
+    "after_paragraph": 46,
+    "project": "ibd_phage_targeting",
+    "file": "figures/NB17_synthesis.png",
+    "caption": "Cross-cutting synthesis of target decision matrix, per-patient cocktail design map, and clinical-translation roadmap."
+   }
+  ]
+ },
+ "summaries/lab_field_ecology__REPORT.md": {
+  "page_hash": "bf20501a31c60ec6",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "lab_field_ecology",
+    "file": "figures/fig_fb_genus_prevalence.png",
+    "caption": "Prevalence of Fitness Browser genera detected across 108 Oak Ridge groundwater sites, highlighting Sphingomonas, Pseudomonas, and Caulobacter as most common."
+   },
+   {
+    "after_paragraph": 6,
+    "project": "lab_field_ecology",
+    "file": "figures/fig_abundance_vs_uranium.png",
+    "caption": "Genus-level abundance shifts with uranium concentration, showing both positive and negative responses consistent with ecological sorting along the contamination gradient."
+   }
+  ]
+ },
+ "summaries/lanthanide_methylotrophy_atlas__REPORT.md": {
+  "page_hash": "edf7681ccd15ff34",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "lanthanide_methylotrophy_atlas",
+    "file": "figures/h1_phylogenetic_validation.png",
+    "caption": "Comparison of 95% confidence intervals for xoxF dominance across three phylogenetic-correction strategies (pooled, family-weighted, and Bayesian GLMM)."
+   },
+   {
+    "after_paragraph": 10,
+    "project": "lanthanide_methylotrophy_atlas",
+    "file": "figures/h3_lanmodulin_clade_restriction.png",
+    "caption": "Lanmodulin occurrence is restricted to three closely related family clades (Beijerinckiaceae, Acetobacteraceae, Hyphomicrobiaceae), supporting H3a."
+   }
+  ]
+ },
+ "summaries/lignin_community_enrichment__REPORT.md": {
+  "page_hash": "b515c81c75fe95d5",
+  "placements": [
+   {
+    "after_paragraph": 7,
+    "project": "lignin_community_enrichment",
+    "file": "figures/16S_genus_barplot.png",
+    "caption": "Genus-level bar plots showing near-complete bacterial community turnover from an unclassified-dominated base community to Pseudomonas/Acinetobacter dominance after lignin enrichment."
+   },
+   {
+    "after_paragraph": 13,
+    "project": "lignin_community_enrichment",
+    "file": "figures/16S_ecological_memory_pcoa.png",
+    "caption": "PCoA ordination showing Round 2 bacterial communities clustering by Round 1 carbon history despite identical Round 2 conditions, illustrating ecological memory."
+   }
+  ]
+ },
+ "summaries/metabolic_capability_dependency__REPORT.md": {
+  "page_hash": "2520e05175673f13",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "metabolic_capability_dependency",
+    "file": "figures/nb03_stacked_bar.png",
+    "caption": "Distribution of pathway dependency classes (latent, intermediate, active) varies markedly across pathway categories."
+   },
+   {
+    "after_paragraph": 9,
+    "project": "metabolic_capability_dependency",
+    "file": "figures/nb04_openness_scatter.png",
+    "caption": "Latent capability rate correlates with pangenome openness across 22 species clades (Spearman \u03c1=0.69, p=0.0004), supporting a qualified Black Queen hypothesis."
+   }
+  ]
+ },
+ "summaries/metal_cross_resistance__REPORT.md": {
+  "page_hash": "3ee1fd26fd42d6c0",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "metal_cross_resistance",
+    "file": "figures/dvh_cross_resistance_heatmap.png",
+    "caption": "Example organism-level cross-resistance matrix (Desulfovibrio vulgaris) showing predominantly positive gene-fitness correlations across metal pairs."
+   },
+   {
+    "after_paragraph": 10,
+    "project": "metal_cross_resistance",
+    "file": "figures/metal_pair_conservation.png",
+    "caption": "Conservation of metal-pair correlation strengths (e.g., Co\u2013Ni, Al\u2013Co) across diverse bacterial phyla."
+   }
+  ]
+ },
+ "summaries/metal_fitness_atlas__REPORT.md": {
+  "page_hash": "edf82faebed43293",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "metal_fitness_atlas",
+    "file": "figures/metal_conservation_by_organism.png",
+    "caption": "Per-organism core-genome enrichment (delta) for metal-important genes, showing 21 of 22 organisms with positive enrichment."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "metal_fitness_atlas",
+    "file": "figures/core_fraction_by_metal.png",
+    "caption": "Core genome fraction of metal-important genes broken down by metal, highlighting manganese and zinc as most core-enriched."
+   }
+  ]
+ },
+ "summaries/metal_specificity__REPORT.md": {
+  "page_hash": "cfef33d7e7e7836e",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "metal_specificity",
+    "file": "figures/specificity_breakdown.png",
+    "caption": "Metal-specific gene fraction varies substantially across metals, from ~61% for manganese/molybdenum to just 22% for iron."
+   },
+   {
+    "after_paragraph": 11,
+    "project": "metal_specificity",
+    "file": "figures/functional_comparison.png",
+    "caption": "Metal-specific genes are enriched for metal-resistance functional terms compared with general sick genes, while general sick genes show more general-stress terms."
+   }
+  ]
+ },
+ "summaries/microbeatlas_metal_ecology__REPORT.md": {
+  "page_hash": "d529f8992b0f74ef",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "microbeatlas_metal_ecology",
+    "file": "figures/fig3_synthesis.png",
+    "caption": "Synthesis of phylogenetic signal (\u03bb heatmap) and PGLS effect sizes (forest plot) underlying the main niche-breadth vs metal-resistance association."
+   },
+   {
+    "after_paragraph": 20,
+    "project": "microbeatlas_metal_ecology",
+    "file": "figures/fig_enigma_trackB.png",
+    "caption": "ENIGMA groundwater time-series: community-weighted metal-type diversity by well and over time following carbon amendment."
+   }
+  ]
+ },
+ "summaries/module_conservation__REPORT.md": {
+  "page_hash": "e331db071e4b928c",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "module_conservation",
+    "file": "figures/module_core_distribution.png",
+    "caption": "Distribution of the percentage of core genes per module, showing most modules are predominantly core (59% >90% core)."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "module_conservation",
+    "file": "figures/family_breadth_vs_conservation.png",
+    "caption": "Family breadth (number of organisms in a module family) shows no association with conservation rate."
+   }
+  ]
+ },
+ "summaries/nmdc_community_metabolic_ecology__REPORT.md": {
+  "page_hash": "d3e78da0e782e5ba",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "nmdc_community_metabolic_ecology",
+    "file": "figures/h1_bqh_barplot.png",
+    "caption": "Spearman correlations between community pathway completeness and ambient amino acid intensity across 13 testable amino acid biosynthesis pathways, showing a majority-negative pattern consistent with Black Queen dynamics."
+   },
+   {
+    "after_paragraph": 9,
+    "project": "nmdc_community_metabolic_ecology",
+    "file": "figures/h2_pca.png",
+    "caption": "PCA of the 220-sample \u00d7 80-pathway completeness matrix, showing strong separation of communities by ecosystem type along PC1 (49.4% variance) and PC2 (16.6% variance)."
+   }
+  ]
+ },
+ "summaries/nmdc_context_audit__REPORT.md": {
+  "page_hash": "c1c63f051bb7a491",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "nmdc_context_audit",
+    "file": "figures/nmdc_scale.png",
+    "caption": "Breakdown of NMDC-labeled resources by provenance class, showing the split across genuine, external, and derived data sources."
+   },
+   {
+    "after_paragraph": 9,
+    "project": "nmdc_context_audit",
+    "file": "figures/nmdc_currency.png",
+    "caption": "Comparison of data currency across NMDC-labeled resources, highlighting snapshot staleness relative to upstream sources."
+   }
+  ]
+ },
+ "summaries/pangenome_openness__REPORT.md": {
+  "page_hash": "d718ac6d2b9b2a6e",
+  "placements": [
+   {
+    "after_paragraph": 2,
+    "project": "pangenome_openness",
+    "file": "figures/pangenome_vs_effects.png",
+    "caption": "Scatter plot showing the lack of correlation between pangenome openness and environmental/phylogenetic effect sizes."
+   }
+  ]
+ },
+ "summaries/paperblast_explorer__REPORT.md": {
+  "page_hash": "0def5034704d2474",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "paperblast_explorer",
+    "file": "figures/lorenz_curves.png",
+    "caption": "Lorenz curves showing strong inequality in literature coverage across organisms and genes."
+   },
+   {
+    "after_paragraph": 15,
+    "project": "paperblast_explorer",
+    "file": "figures/literature_coverage_landscape.png",
+    "caption": "Literature coverage landscape of protein families, highlighting sequence-family 'dark matter' with no associated papers."
+   }
+  ]
+ },
+ "summaries/pathway_capability_dependency__REPORT.md": {
+  "page_hash": "fae262ae68bf935c",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "pathway_capability_dependency",
+    "file": "figures/fig1_four_category_overview.png",
+    "caption": "Distribution of the 161 organism\u2013pathway pairs across the four capability\u2013dependency categories (Active Dependency, Latent Capability, Incomplete but Important, and the remainder)."
+   },
+   {
+    "after_paragraph": 22,
+    "project": "pathway_capability_dependency",
+    "file": "figures/fig4_ecotype_openness.png",
+    "caption": "Metabolic ecotype count versus pangenome openness across 225 species, showing a significant positive correlation that persists after controlling for genome count."
+   }
+  ]
+ },
+ "summaries/pgp_pangenome_ecology__REPORT.md": {
+  "page_hash": "ad699caf3dd25f99",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "pgp_pangenome_ecology",
+    "file": "figures/cooccurrence_heatmap.png",
+    "caption": "PGP gene co-occurrence heatmap showing strong positive association between pqqC and acdS, and negative associations with nifH (log2 odds ratios; * = FDR q < 0.05)."
+   },
+   {
+    "after_paragraph": 10,
+    "project": "pgp_pangenome_ecology",
+    "file": "figures/env_enrichment_barplot.png",
+    "caption": "Environmental enrichment of PGP genes: acdS, pqqC, and hcnC are significantly enriched in soil/rhizosphere species, while nifH is depleted."
+   }
+  ]
+ },
+ "summaries/phage_defense_arsenal__REPORT.md": {
+  "page_hash": "a09b890879cecbc7",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "phage_defense_arsenal",
+    "file": "figures/arms_race_scatter.png",
+    "caption": "Defense system count versus prophage cluster burden by phylum, illustrating the widespread arms-race association."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "phage_defense_arsenal",
+    "file": "figures/syndrome_heatmap.png",
+    "caption": "Defense syndrome heatmap of signed log10(odds ratio) highlighting the R-M Type II \u00d7 Gabija co-occurrence as the most novel pairwise association."
+   }
+  ]
+ },
+ "summaries/phb_granule_ecology__REPORT.md": {
+  "page_hash": "f6db06d2167fa09c",
+  "placements": [
+   {
+    "after_paragraph": 10,
+    "project": "phb_granule_ecology",
+    "file": "figures/phb_by_environment.png",
+    "caption": "PHB prevalence is markedly higher in high-variability environments (plant, soil, wastewater: 34-44%) than in low-variability environments (marine, clinical, animal: 3-19%)."
+   },
+   {
+    "after_paragraph": 15,
+    "project": "phb_granule_ecology",
+    "file": "figures/genome_size_confound.png",
+    "caption": "Genome size confounds the PHB\u2013niche breadth relationship: larger genomes show both greater niche breadth and higher PHB prevalence, and the PHB-environment association persists within genome-size quartiles."
+   }
+  ]
+ },
+ "summaries/plant_microbiome_ecotypes__REPORT.md": {
+  "page_hash": "53332996b8356d68",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "plant_microbiome_ecotypes",
+    "file": "figures/compartment_heatmap.png",
+    "caption": "Heatmap of compartment-specific marker enrichment across root, rhizosphere, and phyllosphere species using the refined 17-marker panel."
+   },
+   {
+    "after_paragraph": 8,
+    "project": "plant_microbiome_ecotypes",
+    "file": "figures/core_vs_pathogenic.png",
+    "caption": "Core versus accessory genome distribution for beneficial, pathogenic, and baseline gene clusters, showing beneficial functions are more core-encoded."
+   }
+  ]
+ },
+ "summaries/prophage_amr_comobilization__REPORT.md": {
+  "page_hash": "03c49c1b34284413",
+  "placements": [
+   {
+    "after_paragraph": 11,
+    "project": "prophage_amr_comobilization",
+    "file": "figures/nb04_h2_breadth_regression.png",
+    "caption": "Species-level regression showing prophage density strongly predicts AMR repertoire breadth (Spearman rho=0.572, slope=0.823)."
+   },
+   {
+    "after_paragraph": 9,
+    "project": "prophage_amr_comobilization",
+    "file": "figures/nb03_h1_contingency.png",
+    "caption": "Contingency analysis and threshold sensitivity showing the accessory-AMR/prophage-proximity association reverses at short distances and strengthens at longer ones."
+   }
+  ]
+ },
+ "summaries/prophage_ecology__REPORT.md": {
+  "page_hash": "68127a9b32d03ef9",
+  "placements": [
+   {
+    "after_paragraph": 15,
+    "project": "prophage_ecology",
+    "file": "figures/variance_partitioning.png",
+    "caption": "Variance partitioning shows genome size explains the most variation in prophage module composition, followed by environment and then phylogeny."
+   },
+   {
+    "after_paragraph": 20,
+    "project": "prophage_ecology",
+    "file": "figures/module_environment_enrichment.png",
+    "caption": "Module-by-environment enrichment analysis highlighting strong enrichment of tail, head morphogenesis, and anti-defense modules in human-associated environments."
+   }
+  ]
+ },
+ "summaries/pseudomonas_carbon_ecology__REPORT.md": {
+  "page_hash": "228352b7213f684f",
+  "placements": [
+   {
+    "after_paragraph": 8,
+    "project": "pseudomonas_carbon_ecology",
+    "file": "figures/pathway_heatmap.png",
+    "caption": "Heatmap of pathway completeness across Pseudomonas species, ordered by subgenus and lifestyle, showing loss of plant-sugar pathways in the aeruginosa group."
+   },
+   {
+    "after_paragraph": 22,
+    "project": "pseudomonas_carbon_ecology",
+    "file": "figures/pathway_pca_by_lifestyle.png",
+    "caption": "PCA of pathway profiles across all Pseudomonas species colored by lifestyle, showing the aeruginosa\u2013fluorescens split as the dominant axis of variation."
+   }
+  ]
+ },
+ "summaries/respiratory_chain_wiring__REPORT.md": {
+  "page_hash": "a2ca9464d3e13cf5",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "respiratory_chain_wiring",
+    "file": "figures/respiratory_chain_heatmap.png",
+    "caption": "Heatmap of growth ratios across respiratory-chain genes and carbon sources, showing substrate-specific dependency patterns rather than a uniform gradient."
+   },
+   {
+    "after_paragraph": 6,
+    "project": "respiratory_chain_wiring",
+    "file": "figures/wiring_model.png",
+    "caption": "Proposed respiratory-chain wiring model contrasting how NADH flux routes through Complex I, NDH-2, and terminal oxidases under quinate, acetate, and glucose growth."
+   }
+  ]
+ },
+ "summaries/truly_dark_genes__REPORT.md": {
+  "page_hash": "a6cdc1b46fd9e419",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "truly_dark_genes",
+    "file": "figures/fig01_organism_distribution.png",
+    "caption": "Organism distribution of truly dark genes, showing Methanococcus species accounting for 55% of the set."
+   },
+   {
+    "after_paragraph": 2,
+    "project": "truly_dark_genes",
+    "file": "figures/fig05_annotation_tiers.png",
+    "caption": "Annotation tiers showing the breakdown of dark genes into annotation-lag and truly dark categories after Bakta reannotation."
+   }
+  ]
+ },
+ "summaries/webofmicrobes_explorer__REPORT.md": {
+  "page_hash": "8b7fa056ae45c9a7",
+  "placements": [
+   {
+    "after_paragraph": 17,
+    "project": "webofmicrobes_explorer",
+    "file": "figures/enigma_metabolite_heatmap.png",
+    "caption": "Heatmap of emerged versus increased metabolite counts across ENIGMA isolates grown in R2A medium, illustrating the range in metabolic novelty."
+   }
+  ]
+ },
+ "topics/antimicrobial-resistance-genomics.md": {
+  "page_hash": "10be6b4c07c8a0b0",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "amr_environmental_resistome",
+    "file": "figures/h2_core_accessory_by_env.png",
+    "caption": "Clinical species carry a more mobile (accessory-dominated) resistome than environmental species, while environmental species retain more core AMR genes."
+   },
+   {
+    "after_paragraph": 4,
+    "project": "amr_fitness_cost",
+    "file": "figures/forest_plot_amr_fitness.png",
+    "caption": "Forest plot showing a small, consistently positive fitness shift from AMR gene knockouts across all 25 organisms tested."
+   },
+   {
+    "after_paragraph": 6,
+    "project": "amr_strain_variation",
+    "file": "figures/nb03_cooccurrence.png",
+    "caption": "Co-occurrence analysis showing resistance-island size distribution, observed-vs-null phi coefficients, and islands per species."
+   }
+  ]
+ },
+ "topics/bacterial-pangenome-dynamics.md": {
+  "page_hash": "4e15c6d571e9e8f7",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "costly_dispensable_genes",
+    "file": "figures/fig_seed_enrichment.png",
+    "caption": "SEED top-level category enrichment shows costly+dispensable genes are strongly biased toward mobile-element functions relative to costly+conserved genes."
+   },
+   {
+    "after_paragraph": 5,
+    "project": "microbeatlas_metal_ecology",
+    "file": "figures/fig4_metal_types_scatter.png",
+    "caption": "Metal type diversity (not gene count) scales positively with ecological niche breadth (Levins' B_std) across genera."
+   },
+   {
+    "after_paragraph": 6,
+    "project": "phage_defense_arsenal",
+    "file": "figures/arms_race_scatter.png",
+    "caption": "Defense-system count rises with prophage-cluster burden across phyla, consistent with an arms-race dynamic."
+   }
+  ]
+ },
+ "topics/cofitness-network-inference.md": {
+  "page_hash": "c5ed0a5c0757a319",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "aromatic_catabolism_network",
+    "file": "figures/unknown_assignments_heatmap.png",
+    "caption": "Cofitness-based correlations linking previously 'Other/Unknown' quinate-pathway genes to known subsystems, supporting their reassignment."
+   },
+   {
+    "after_paragraph": 6,
+    "project": "amr_cofitness_networks",
+    "file": "figures/jaccard_go_comparison.png",
+    "caption": "Jaccard similarity of GO support terms showing that AMR mechanisms cluster more by organism than by mechanism across organisms."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "cofitness_coinheritance",
+    "file": "figures/fig1_cofit_cooccurrence.png",
+    "caption": "Cofitness strength versus pangenome co-occurrence (phi) across nine organisms, showing only a weak aggregate relationship."
+   }
+  ]
+ },
+ "topics/conditional-gene-essentiality.md": {
+  "page_hash": "86753d771d7523cc",
+  "placements": [
+   {
+    "after_paragraph": 5,
+    "project": "adp1_deletion_phenotypes",
+    "file": "figures/gene_heatmap.png",
+    "caption": "Growth profiles of all 2,034 ADP1 genes across eight carbon sources, ordered by hierarchical clustering, showing a weak, continuum-like structure (K=3, silhouette=0.24) rather than discrete modules."
+   },
+   {
+    "after_paragraph": 6,
+    "project": "aromatic_catabolism_network",
+    "file": "figures/fba_flux_heatmap.png",
+    "caption": "FBA-predicted flux heatmap for quinate-specific genes, showing elevated predicted flux through Complex I genes despite their 0% FBA-assigned essentiality."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "conservation_fitness_synthesis",
+    "file": "figures/fitness_conservation_gradient.png",
+    "caption": "Fitness-conservation gradient showing essential genes are 82% core versus 66% core for fitness-neutral genes, a modest but real correlation."
+   }
+  ]
+ },
+ "topics/gene-function-prioritization.md": {
+  "page_hash": "1b505760f66d870c",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "functional_dark_matter",
+    "file": "figures/fig03_dark_gene_coverage.png",
+    "caption": "Dark gene evidence coverage showing the split between strong fitness effects and other experimentally actionable evidence among the 57,011 dark genes."
+   },
+   {
+    "after_paragraph": 6,
+    "project": "fitness_effects_conservation",
+    "file": "figures/fitness_magnitude_vs_conservation.png",
+    "caption": "Fitness magnitude versus pangenome conservation across ~194,000 genes, showing a real but modest correlation."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "paperblast_explorer",
+    "file": "figures/lorenz_curves.png",
+    "caption": "Lorenz inequality curves illustrating how literature attention is highly skewed across organisms and genes in PaperBLAST."
+   }
+  ]
+ },
+ "topics/metabolic-capability-evolution.md": {
+  "page_hash": "b3428672dc101cc4",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "pathway_capability_dependency",
+    "file": "figures/fig1_four_category_overview.png",
+    "caption": "Four-category classification of pathway\u2013organism dependencies (active, latent, redundant, absent) across the 1,695 pairs."
+   },
+   {
+    "after_paragraph": 5,
+    "project": "pseudomonas_carbon_ecology",
+    "file": "figures/pathway_heatmap.png",
+    "caption": "Pathway completeness heatmap across 12,732 Pseudomonas genomes ordered by subgenus and lifestyle, showing streamlining patterns."
+   }
+  ]
+ },
+ "topics/microbial-metal-tolerance.md": {
+  "page_hash": "70f96a929828d949",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "bacdive_metal_validation",
+    "file": "figures/metal_score_by_environment.png",
+    "caption": "Metal-tolerance score distribution by isolation environment, supporting the BacDive contamination-history validation."
+   },
+   {
+    "after_paragraph": 6,
+    "project": "counter_ion_effects",
+    "file": "figures/nacl_metal_overlap_heatmap.png",
+    "caption": "Heatmap of metal\u2013NaCl gene-importance overlap across organisms and metals, illustrating the shared-stress signal."
+   },
+   {
+    "after_paragraph": 10,
+    "project": "field_vs_lab_fitness",
+    "file": "figures/fig_field_vs_lab_specificity.png",
+    "caption": "Mean field fitness vs mean lab fitness per gene, colored by core/auxiliary conservation status, bearing on the field-vs-lab fitness tension."
+   }
+  ]
+ },
+ "topics/multi-omics-functional-integration.md": {
+  "page_hash": "a45a3f5279359a17",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "harvard_forest_warming",
+    "file": "figures/04_dna_vs_rna_pcoa.png",
+    "caption": "PCoA ordination showing DNA and RNA functional pools both shifting significantly under chronic soil warming at Harvard Forest."
+   },
+   {
+    "after_paragraph": 4,
+    "project": "acinetobacter_adp1_explorer",
+    "file": "figures/data_coverage_by_modality.png",
+    "caption": "Data coverage across TnSeq, FBA, fitness, and proteomics modalities in the ADP1 resource, showing no gene has all six data types."
+   },
+   {
+    "after_paragraph": 11,
+    "project": "adp1_triple_essentiality",
+    "file": "figures/fba_growth_concordance.png",
+    "caption": "Contingency table of FBA essentiality class versus observed growth-defect rate, illustrating FBA's partial and inconsistent concordance with knockout phenotypes."
+   }
+  ]
+ },
+ "topics/phylogenomic-trait-validation.md": {
+  "page_hash": "577db261f96fb8be",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "gene_function_ecological_agora",
+    "file": "figures/p1a_producer_consumer_per_rank.png",
+    "caption": "Producer vs. Consumer classification scores plotted per phylogenetic rank, illustrating the tree-aware HGT proxy discussed in the Producer Participation Framework."
+   },
+   {
+    "after_paragraph": 5,
+    "project": "env_embedding_explorer",
+    "file": "figures/geo_vs_embedding_binned.png",
+    "caption": "Mean AlphaEarth embedding distance increases monotonically with geographic distance, the spatial gradient described in the text."
+   },
+   {
+    "after_paragraph": 6,
+    "project": "ecotype_env_reanalysis",
+    "file": "figures/partial_corr_by_group.png",
+    "caption": "Partial correlations between trait and environment by species group, showing how associations shrink once phylogeny is controlled."
+   }
+  ]
+ },
+ "topics/prophage-genome-ecology.md": {
+  "page_hash": "91abc12bb3b70050",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "prophage_ecology",
+    "file": "figures/prophage_prevalence_by_phylum.png",
+    "caption": "Prevalence of core and accessory prophage modules across bacterial phyla, illustrating the conserved backbone versus variable accessory architecture."
+   },
+   {
+    "after_paragraph": 5,
+    "project": "prophage_ecology",
+    "file": "figures/nmdc_prophage_vs_abiotic.png",
+    "caption": "Correlation of prophage burden with abiotic variables (pH, temperature, depth) across 6,365 NMDC metagenomic samples, corroborating module-level environmental signal."
+   },
+   {
+    "after_paragraph": 6,
+    "project": "prophage_ecology",
+    "file": "figures/lineage_environment_heatmap.png",
+    "caption": "Heatmap of environmental breadth across TerL lineages, showing specialist versus generalist distributions by habitat."
+   }
+  ]
+ },
+ "topics/protein-sequence-novelty.md": {
+  "page_hash": "b5252a49413964d0",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "alphafold_msa_annotation",
+    "file": "figures/NB03_msa_depth_pangenome_class.png",
+    "caption": "MSA depth by pangenome class, showing the gradient from core to auxiliary clusters along with hypothetical annotation rates and structurally novel fractions."
+   }
+  ]
+ },
+ "topics/reproducible-data-provenance.md": {
+  "page_hash": "6204f83c44751b26",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "nmdc_context_audit",
+    "file": "figures/nmdc_scale.png",
+    "caption": "Scale of NMDC-labeled resources by provenance class, showing how few of the 20 name matches correspond to real, maintained resources."
+   },
+   {
+    "after_paragraph": 4,
+    "project": "nmdc_context_audit",
+    "file": "figures/nmdc_currency.png",
+    "caption": "Data currency (Iceberg snapshot commit times) of NMDC-labeled resources, showing the roughly four-month freshness spread."
+   }
+  ]
+ },
+ "topics/sampling-bias-in-metagenomics.md": {
+  "page_hash": "4495852b621040f0",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "euk_in_prok_correlates",
+    "file": "figures/fig03_variance_partition.png",
+    "caption": "Variance partitioning shows study identity, not environment, dominates eukaryotic-fraction variation across the nine NMDC studies."
+   },
+   {
+    "after_paragraph": 4,
+    "project": "enigma_contamination_functional_potential",
+    "file": "figures/mapping_coverage_by_mode.png",
+    "caption": "Mapping and feature coverage by mode illustrates the large fraction of genera left unmapped to the GTDB-to-pangenome bridge in the ENIGMA workflow."
+   },
+   {
+    "after_paragraph": 9,
+    "project": "enigma_contamination_functional_potential",
+    "file": "figures/confirmatory_defense_vs_contamination.png",
+    "caption": "Confirmatory defense score vs contamination index by mapping mode highlights the tension between exploratory and confirmatory associations discussed in the corpus."
+   }
+  ]
+ },
+ "topics/subsurface-microbial-ecology.md": {
+  "page_hash": "d9ef41ad1026811b",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "bacillota_b_subsurface_accessory",
+    "file": "figures/summary_figure.png",
+    "caption": "Four-panel synthesis showing genome expansion (not streamlining) in deep-clay Bacillota_B lineages compared to shallower relatives."
+   },
+   {
+    "after_paragraph": 4,
+    "project": "enigma_sso_asv_ecology",
+    "file": "figures/nmds_samples_zone_well.png",
+    "caption": "Sample-level NMDS ordination colored by depth zone and well, showing that hydrogeological zone structures community composition more than genome content alone."
+   },
+   {
+    "after_paragraph": 7,
+    "project": "enigma_carbon_census_1",
+    "file": "figures/08_funnel.png",
+    "caption": "Discovery funnel illustrating how occupancy-based detection of carbon-utilizer genera narrows sharply when requiring linkage to an isolate-level utilizer or fitness call, underscoring the 'organism-dark' metabolism problem."
+   }
+  ]
+ },
+ "conflicts/conflict--acinetobacter_adp1_explorer--adp1_deletion_phenotypes--alphafold_msa_annotation.md": {
+  "page_hash": "bb674c19fdbe04ee",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "amr_fitness_cost",
+    "file": "figures/h3_core_vs_accessory.png",
+    "caption": "Core and accessory AMR gene fitness distributions are nearly indistinguishable, supporting Side B's claim that conservation does not predict fitness cost."
+   }
+  ]
+ },
+ "conflicts/conflict--acinetobacter_adp1_explorer--adp1_triple_essentiality--annotation_gap_discovery.md": {
+  "page_hash": "817973876166849f",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "adp1_triple_essentiality",
+    "file": "figures/fba_growth_concordance.png",
+    "caption": "Contingency table and defect rates showing FBA-predicted essentiality class does not predict growth defect magnitude among TnSeq-dispensable genes."
+   }
+  ]
+ },
+ "conflicts/conflict--adp1_deletion_phenotypes--adp1_triple_essentiality--amr_cofitness_networks.md": {
+  "page_hash": "cf8075c0e1f68f79",
+  "placements": []
+ },
+ "conflicts/conflict--adp1_triple_essentiality--amr_cofitness_networks--annotation_gap_discovery.md": {
+  "page_hash": "ae385314476b2f96",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "annotation_gap_discovery",
+    "file": "figures/fig1_resolution_overview.png",
+    "caption": "Cumulative resolution of gapfilled reaction pairs shows only 47.8% resolved, with dark reactions resolved at just 16%."
+   }
+  ]
+ },
+ "conflicts/conflict--adp1_triple_essentiality--amr_fitness_cost--conservation_fitness_synthesis.md": {
+  "page_hash": "cebb6e0d46c458c1",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "essential_genome",
+    "file": "figures/essential_families_overview.png",
+    "caption": "Overview of essential gene families showing the divergence between genes essential-when-present (859) and those essential across all 48 sampled organisms (15)."
+   }
+  ]
+ },
+ "conflicts/conflict--amr_cofitness_networks--amr_environmental_resistome--amr_fitness_cost.md": {
+  "page_hash": "7588172c328a2c4a",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "amr_cofitness_networks",
+    "file": "figures/jaccard_go_comparison.png",
+    "caption": "Jaccard similarity comparison showing that cofitness neighborhoods cluster more by organism than by mechanism, supporting organism-level regulatory organization."
+   }
+  ]
+ },
+ "conflicts/conflict--amr_cofitness_networks--aromatic_catabolism_network--fitness_modules.md": {
+  "page_hash": "5e57e2ebdf8abe1f",
+  "placements": [
+   {
+    "after_paragraph": 6,
+    "project": "fitness_modules",
+    "file": "figures/benchmark_strict.png",
+    "caption": "Strict benchmarking shows the tension between high enrichment (94.2%) and low precision (<1%) underlying the mechanism-heterogeneity hypothesis."
+   }
+  ]
+ },
+ "conflicts/conflict--amr_environmental_resistome--amr_pangenome_atlas--amr_strain_variation.md": {
+  "page_hash": "05547cce24ff2eac",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "amr_environmental_resistome",
+    "file": "figures/h1_amr_by_environment.png",
+    "caption": "AMR gene diversity by environment, illustrating the clinical-environmental enrichment pattern central to the debate."
+   }
+  ]
+ },
+ "conflicts/conflict--annotation_gap_discovery--aromatic_catabolism_network--bacdive_metal_validation.md": {
+  "page_hash": "d5209140e8b1498a",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "aromatic_catabolism_network",
+    "file": "figures/fba_flux_heatmap.png",
+    "caption": "FBA-predicted flux heatmap showing elevated Complex I flux despite non-essential predictions for quinate-specific genes."
+   }
+  ]
+ },
+ "conflicts/conflict--aromatic_catabolism_network--respiratory_chain_wiring.md": {
+  "page_hash": "0696db055a499a63",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "respiratory_chain_wiring",
+    "file": "figures/nadh_stoichiometry.png",
+    "caption": "NADH stoichiometry across carbon sources shows quinate yields only 4 NADH versus 9 for glucose, illustrating the yield/essentiality contradiction."
+   }
+  ]
+ },
+ "conflicts/conflict--bacdive_metal_validation--clay_confined_subsurface--ecotype_env_reanalysis.md": {
+  "page_hash": "d2a8e9b92bd01c9d",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "env_embedding_explorer",
+    "file": "figures/geo_vs_embedding_by_env_group.png",
+    "caption": "Geographic distance vs. embedding distance stratified by environment group, showing the stronger gradient for environmental samples (3.4x) versus human-associated samples (2.0x)."
+   }
+  ]
+ },
+ "conflicts/conflict--bacdive_phenotype_metal_tolerance--ecotype_analysis--ecotype_env_reanalysis.md": {
+  "page_hash": "bb210381e04d9d9a",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "bacdive_phenotype_metal_tolerance",
+    "file": "figures/univariate_effect_sizes.png",
+    "caption": "Univariate effect sizes for candidate metal-tolerance traits (e.g., Gram-negative status, urease/nickel), illustrating why associations weaken once phylogenetic class is accounted for."
+   }
+  ]
+ },
+ "conflicts/conflict--bacillota_b_subsurface_accessory--enigma_sso_asv_ecology.md": {
+  "page_hash": "7a86dd17c99c9436",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "enigma_sso_asv_ecology",
+    "file": "figures/nmds_samples_zone_well.png",
+    "caption": "NMDS ordination of SSO samples colored by hydrogeological zone and well, showing that community composition clusters by zone/material rather than by genome-level traits."
+   }
+  ]
+ },
+ "conflicts/conflict--costly_dispensable_genes--ecotype_functional_differentiation--phage_defense_arsenal.md": {
+  "page_hash": "a528428c231b7660",
+  "placements": []
+ },
+ "conflicts/conflict--costly_dispensable_genes--pgp_pangenome_ecology--phb_granule_ecology.md": {
+  "page_hash": "3e55d884ad524fba",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "pgp_pangenome_ecology",
+    "file": "figures/pgp_core_accessory_pie.png",
+    "caption": "Core/auxiliary/singleton fractions for each PGP gene, showing all 13 above the 46.8% genome-wide core baseline."
+   }
+  ]
+ },
+ "conflicts/conflict--counter_ion_effects--metal_cross_resistance--soil_metal_functional_genomics.md": {
+  "page_hash": "120747ac3e2eb8e5",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "counter_ion_effects",
+    "file": "figures/nacl_metal_overlap_heatmap.png",
+    "caption": "Heatmap of metal-NaCl gene overlap by organism and metal, supporting the ~40% shared stress overlap argument against chloride confounding."
+   }
+  ]
+ },
+ "conflicts/conflict--enigma_contamination_functional_potential--euk_in_prok_correlates--soil_frontier_genomics.md": {
+  "page_hash": "48c834819647de1b",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "enigma_contamination_functional_potential",
+    "file": "figures/contamination_vs_functional_score.png",
+    "caption": "Exploratory (coverage-adjusted) association between stress/defense functional score and contamination index across mapping modes, showing the positive signal not recovered in confirmatory tests."
+   }
+  ]
+ },
+ "conflicts/conflict--enigma_contamination_functional_potential--respiratory_chain_wiring.md": {
+  "page_hash": "58653e69aecb768f",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "enigma_contamination_functional_potential",
+    "file": "figures/confirmatory_defense_vs_contamination.png",
+    "caption": "Confirmatory defense score vs contamination index by mapping mode, illustrating the null community-level relationship contrasted with exploratory positive signals."
+   }
+  ]
+ },
+ "conflicts/conflict--essential_metabolome--lanthanide_methylotrophy_atlas.md": {
+  "page_hash": "8fdb54ff289dd064",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "lanthanide_methylotrophy_atlas",
+    "file": "figures/xoxF_vs_mxaF_by_phylum.png",
+    "caption": "xoxF outnumbers mxaF across phyla, illustrating the 18.92:1 prevalence ratio cited as evidence for pathway dominance."
+   }
+  ]
+ },
+ "conflicts/conflict--field_vs_lab_fitness--fitness_effects_conservation--metal_cross_resistance.md": {
+  "page_hash": "d529d8e7fd4d9545",
+  "placements": [
+   {
+    "after_paragraph": 3,
+    "project": "field_vs_lab_fitness",
+    "file": "figures/fig_conservation_by_condition_class.png",
+    "caption": "Core genome percentage for genes important under each condition class (field vs. lab), with baseline, showing field-stress and field-core genes are significantly conserved."
+   }
+  ]
+ },
+ "conflicts/conflict--functional_dark_matter--truly_dark_genes.md": {
+  "page_hash": "d15d6505b70e7ccb",
+  "placements": [
+   {
+    "after_paragraph": 4,
+    "project": "truly_dark_genes",
+    "file": "figures/fig01_organism_distribution.png",
+    "caption": "Organism distribution of truly dark genes, showing Methanococcus strains dominating the set."
+   }
+  ]
+ }
+}

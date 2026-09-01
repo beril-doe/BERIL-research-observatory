@@ -40,6 +40,9 @@ echo "== conflicts" | tee -a "$LOG"
 echo "== hubs" | tee -a "$LOG"
 "$HERE/.venv/bin/python" "$HERE/topics_build.py" | tee -a "$LOG"
 
+echo "== figures" | tee -a "$LOG"
+"$HERE/.venv/bin/python" "$HERE/figures_build.py" | tee -a "$LOG" | tail -3
+
 echo "== extras" | tee -a "$LOG"
 "$HERE/.venv/bin/python" "$HERE/extra_pages.py" | tee -a "$LOG"
 
