@@ -1,0 +1,602 @@
+{
+  "ec7429b1cf2b99caae21a458ffae48609efc6384c9a4b7e3a9b1385d70024218": {
+    "name": "acinetobacter_adp1_explorer__REPORT.md",
+    "doc_name": "acinetobacter_adp1_explorer__REPORT",
+    "type": "md",
+    "path": "staging/acinetobacter_adp1_explorer__REPORT.md",
+    "raw_path": "raw/acinetobacter_adp1_explorer__REPORT.md",
+    "source_path": "wiki/sources/acinetobacter_adp1_explorer__REPORT.md"
+  },
+  "7d40ea0a5c21fdf6e9852ab3cc9628a50905fba2ddb532cd9dc5aa24117bb6f0": {
+    "name": "adp1_deletion_phenotypes__REPORT.md",
+    "doc_name": "adp1_deletion_phenotypes__REPORT",
+    "type": "md",
+    "path": "staging/adp1_deletion_phenotypes__REPORT.md",
+    "raw_path": "raw/adp1_deletion_phenotypes__REPORT.md",
+    "source_path": "wiki/sources/adp1_deletion_phenotypes__REPORT.md"
+  },
+  "5b0b80cbb8215ef660717892ae828f95ef135b781bd6f7024b19d981c94fe52f": {
+    "name": "adp1_triple_essentiality__REPORT.md",
+    "doc_name": "adp1_triple_essentiality__REPORT",
+    "type": "md",
+    "path": "staging/adp1_triple_essentiality__REPORT.md",
+    "raw_path": "raw/adp1_triple_essentiality__REPORT.md",
+    "source_path": "wiki/sources/adp1_triple_essentiality__REPORT.md"
+  },
+  "f66f0c9679cde23e009a56a030fe65d0d4efb49b7f8d057511382970661ac7e1": {
+    "name": "alphafold_msa_annotation__REPORT.md",
+    "doc_name": "alphafold_msa_annotation__REPORT",
+    "type": "md",
+    "path": "staging/alphafold_msa_annotation__REPORT.md",
+    "raw_path": "raw/alphafold_msa_annotation__REPORT.md",
+    "source_path": "wiki/sources/alphafold_msa_annotation__REPORT.md"
+  },
+  "aff57c75024bdd9b12de29d4d39e499b07d78769cef6d0bd2d1a1161e467e9cd": {
+    "name": "amr_cofitness_networks__REPORT.md",
+    "doc_name": "amr_cofitness_networks__REPORT",
+    "type": "md",
+    "path": "staging/amr_cofitness_networks__REPORT.md",
+    "raw_path": "raw/amr_cofitness_networks__REPORT.md",
+    "source_path": "wiki/sources/amr_cofitness_networks__REPORT.md"
+  },
+  "48d007e13fa6f22f0af5ab50fce2658553a23932da5b203ebca2d18948d147b4": {
+    "name": "amr_environmental_resistome__REPORT.md",
+    "doc_name": "amr_environmental_resistome__REPORT",
+    "type": "md",
+    "path": "staging/amr_environmental_resistome__REPORT.md",
+    "raw_path": "raw/amr_environmental_resistome__REPORT.md",
+    "source_path": "wiki/sources/amr_environmental_resistome__REPORT.md"
+  },
+  "37cff6733111944d43de76281816b859093e2ba9f743e964e9b5a9fc5652e034": {
+    "name": "amr_fitness_cost__REPORT.md",
+    "doc_name": "amr_fitness_cost__REPORT",
+    "type": "md",
+    "path": "staging/amr_fitness_cost__REPORT.md",
+    "raw_path": "raw/amr_fitness_cost__REPORT.md",
+    "source_path": "wiki/sources/amr_fitness_cost__REPORT.md"
+  },
+  "d3ff61262afb26bda0b9720898fba96907b71a2b2f1209b3f8d18d168f387de6": {
+    "name": "amr_pangenome_atlas__REPORT.md",
+    "doc_name": "amr_pangenome_atlas__REPORT",
+    "type": "md",
+    "path": "staging/amr_pangenome_atlas__REPORT.md",
+    "raw_path": "raw/amr_pangenome_atlas__REPORT.md",
+    "source_path": "wiki/sources/amr_pangenome_atlas__REPORT.md"
+  },
+  "281555811f8881723be3df2451fb1922ac3608fa2659d910741acb7a97cfcc9c": {
+    "name": "amr_strain_variation__REPORT.md",
+    "doc_name": "amr_strain_variation__REPORT",
+    "type": "md",
+    "path": "staging/amr_strain_variation__REPORT.md",
+    "raw_path": "raw/amr_strain_variation__REPORT.md",
+    "source_path": "wiki/sources/amr_strain_variation__REPORT.md"
+  },
+  "3c63fd0fe807325171c748094ed79318ae508fb874d02e4db139674dc478387c": {
+    "name": "annotation_gap_discovery__REPORT.md",
+    "doc_name": "annotation_gap_discovery__REPORT",
+    "type": "md",
+    "path": "staging/annotation_gap_discovery__REPORT.md",
+    "raw_path": "raw/annotation_gap_discovery__REPORT.md",
+    "source_path": "wiki/sources/annotation_gap_discovery__REPORT.md"
+  },
+  "68071594c6f00c685e2305ec838c11f3c31f6ef34c03cf0c699a64d106b027d6": {
+    "name": "aromatic_catabolism_network__REPORT.md",
+    "doc_name": "aromatic_catabolism_network__REPORT",
+    "type": "md",
+    "path": "staging/aromatic_catabolism_network__REPORT.md",
+    "raw_path": "raw/aromatic_catabolism_network__REPORT.md",
+    "source_path": "wiki/sources/aromatic_catabolism_network__REPORT.md"
+  },
+  "6b482275a5774daed2242605f701225afa538da071ebfacdff398459a8d660a0": {
+    "name": "bacdive_metal_validation__REPORT.md",
+    "doc_name": "bacdive_metal_validation__REPORT",
+    "type": "md",
+    "path": "staging/bacdive_metal_validation__REPORT.md",
+    "raw_path": "raw/bacdive_metal_validation__REPORT.md",
+    "source_path": "wiki/sources/bacdive_metal_validation__REPORT.md"
+  },
+  "9fcabb1ca7fe2bf7740290ce37ec596ac51e60e89249679f42c9408e567a541b": {
+    "name": "bacdive_phenotype_metal_tolerance__REPORT.md",
+    "doc_name": "bacdive_phenotype_metal_tolerance__REPORT",
+    "type": "md",
+    "path": "staging/bacdive_phenotype_metal_tolerance__REPORT.md",
+    "raw_path": "raw/bacdive_phenotype_metal_tolerance__REPORT.md",
+    "source_path": "wiki/sources/bacdive_phenotype_metal_tolerance__REPORT.md"
+  },
+  "d7e7f6138df01ab1518706a0ea0667b6ddedc64f7966c6ac95c3ec44bcd45441": {
+    "name": "bacillota_b_subsurface_accessory__REPORT.md",
+    "doc_name": "bacillota_b_subsurface_accessory__REPORT",
+    "type": "md",
+    "path": "staging/bacillota_b_subsurface_accessory__REPORT.md",
+    "raw_path": "raw/bacillota_b_subsurface_accessory__REPORT.md",
+    "source_path": "wiki/sources/bacillota_b_subsurface_accessory__REPORT.md"
+  },
+  "be5f29816668f7662998e22a666a6a398c84a18d10e70464cfbd943fc645831e": {
+    "name": "berdl_data_atlas__REPORT.md",
+    "doc_name": "berdl_data_atlas__REPORT",
+    "type": "md",
+    "path": "staging/berdl_data_atlas__REPORT.md",
+    "raw_path": "raw/berdl_data_atlas__REPORT.md",
+    "source_path": "wiki/sources/berdl_data_atlas__REPORT.md"
+  },
+  "ef8e4c5759abd14a915e18706ba9283e83019f0c753991a823669cf1d213b8cd": {
+    "name": "caulobacter_fur_lipida_loss__REPORT.md",
+    "doc_name": "caulobacter_fur_lipida_loss__REPORT",
+    "type": "md",
+    "path": "staging/caulobacter_fur_lipida_loss__REPORT.md",
+    "raw_path": "raw/caulobacter_fur_lipida_loss__REPORT.md",
+    "source_path": "wiki/sources/caulobacter_fur_lipida_loss__REPORT.md"
+  },
+  "06931c95e1ee4b3b3a4a95563e11b057ffbada9817b91426fd15b4be9ef75bfe": {
+    "name": "cf_formulation_design__REPORT.md",
+    "doc_name": "cf_formulation_design__REPORT",
+    "type": "md",
+    "path": "staging/cf_formulation_design__REPORT.md",
+    "raw_path": "raw/cf_formulation_design__REPORT.md",
+    "source_path": "wiki/sources/cf_formulation_design__REPORT.md"
+  },
+  "93b0616d8ca5b3e28c3abd934fdaf5a1c4aa678b99ef85f1baeb9f9c637b0c2c": {
+    "name": "clay_confined_subsurface__REPORT.md",
+    "doc_name": "clay_confined_subsurface__REPORT",
+    "type": "md",
+    "path": "staging/clay_confined_subsurface__REPORT.md",
+    "raw_path": "raw/clay_confined_subsurface__REPORT.md",
+    "source_path": "wiki/sources/clay_confined_subsurface__REPORT.md"
+  },
+  "c42104325d32cf92b9baff7341246a79f8b8347e87d245d42d91303d7e98b44c": {
+    "name": "cofitness_coinheritance__REPORT.md",
+    "doc_name": "cofitness_coinheritance__REPORT",
+    "type": "md",
+    "path": "staging/cofitness_coinheritance__REPORT.md",
+    "raw_path": "raw/cofitness_coinheritance__REPORT.md",
+    "source_path": "wiki/sources/cofitness_coinheritance__REPORT.md"
+  },
+  "3551e1b64c6e5e5d4a42b48a79c8034d31302e0401e238884d44971741da489e": {
+    "name": "cog_analysis__REPORT.md",
+    "doc_name": "cog_analysis__REPORT",
+    "type": "md",
+    "path": "staging/cog_analysis__REPORT.md",
+    "raw_path": "raw/cog_analysis__REPORT.md",
+    "source_path": "wiki/sources/cog_analysis__REPORT.md"
+  },
+  "dcc30773426e7d1bb6a6642b526725d104f24b2ce4bc490da0348587b841885a": {
+    "name": "conservation_fitness_synthesis__REPORT.md",
+    "doc_name": "conservation_fitness_synthesis__REPORT",
+    "type": "md",
+    "path": "staging/conservation_fitness_synthesis__REPORT.md",
+    "raw_path": "raw/conservation_fitness_synthesis__REPORT.md",
+    "source_path": "wiki/sources/conservation_fitness_synthesis__REPORT.md"
+  },
+  "e0d31ced5965dc2bd3597dc43f0c63a33ad3497af8e9ec712d9369ae6c9aa197": {
+    "name": "conservation_vs_fitness__REPORT.md",
+    "doc_name": "conservation_vs_fitness__REPORT",
+    "type": "md",
+    "path": "staging/conservation_vs_fitness__REPORT.md",
+    "raw_path": "raw/conservation_vs_fitness__REPORT.md",
+    "source_path": "wiki/sources/conservation_vs_fitness__REPORT.md"
+  },
+  "dd4a7ef97e18dbe8a750070900eeb5647cdf2162c92c52d7d247f70465256e75": {
+    "name": "core_gene_tradeoffs__REPORT.md",
+    "doc_name": "core_gene_tradeoffs__REPORT",
+    "type": "md",
+    "path": "staging/core_gene_tradeoffs__REPORT.md",
+    "raw_path": "raw/core_gene_tradeoffs__REPORT.md",
+    "source_path": "wiki/sources/core_gene_tradeoffs__REPORT.md"
+  },
+  "09c61ea64ca662d2bfa768e341afaf3854e4a5dafe91dd4c4e17eb97d6d663c4": {
+    "name": "costly_dispensable_genes__REPORT.md",
+    "doc_name": "costly_dispensable_genes__REPORT",
+    "type": "md",
+    "path": "staging/costly_dispensable_genes__REPORT.md",
+    "raw_path": "raw/costly_dispensable_genes__REPORT.md",
+    "source_path": "wiki/sources/costly_dispensable_genes__REPORT.md"
+  },
+  "c43b2ab4f0d5dd44e987cc5bb413ebd72891a74a14ce45245be883ec2ca48807": {
+    "name": "counter_ion_effects__REPORT.md",
+    "doc_name": "counter_ion_effects__REPORT",
+    "type": "md",
+    "path": "staging/counter_ion_effects__REPORT.md",
+    "raw_path": "raw/counter_ion_effects__REPORT.md",
+    "source_path": "wiki/sources/counter_ion_effects__REPORT.md"
+  },
+  "f2eb62ac540dea2dd730770887b843734c864dba019e888c49e5cbc9d7d1b564": {
+    "name": "discoveries.md",
+    "doc_name": "discoveries",
+    "type": "md",
+    "path": "staging/discoveries.md",
+    "raw_path": "raw/discoveries.md",
+    "source_path": "wiki/sources/discoveries.md"
+  },
+  "f55bacaa37a86c994ad5c736d651fab97795c9583e3ba5d394319cd671196339": {
+    "name": "ecotype_analysis__REPORT.md",
+    "doc_name": "ecotype_analysis__REPORT",
+    "type": "md",
+    "path": "staging/ecotype_analysis__REPORT.md",
+    "raw_path": "raw/ecotype_analysis__REPORT.md",
+    "source_path": "wiki/sources/ecotype_analysis__REPORT.md"
+  },
+  "db74961114a7aabd8fccc5e50114a3f44b684ffbdd661104a55c40c7fb4e3723": {
+    "name": "ecotype_env_reanalysis__REPORT.md",
+    "doc_name": "ecotype_env_reanalysis__REPORT",
+    "type": "md",
+    "path": "staging/ecotype_env_reanalysis__REPORT.md",
+    "raw_path": "raw/ecotype_env_reanalysis__REPORT.md",
+    "source_path": "wiki/sources/ecotype_env_reanalysis__REPORT.md"
+  },
+  "465628fbc1a9804913dac4212b73369f7fa168714f0ebe401719451cd96d3751": {
+    "name": "ecotype_functional_differentiation__REPORT.md",
+    "doc_name": "ecotype_functional_differentiation__REPORT",
+    "type": "md",
+    "path": "staging/ecotype_functional_differentiation__REPORT.md",
+    "raw_path": "raw/ecotype_functional_differentiation__REPORT.md",
+    "source_path": "wiki/sources/ecotype_functional_differentiation__REPORT.md"
+  },
+  "62204d5c4271f61cef9bd5c3aee8b1410bebd0a60d508276d2875691a7194f49": {
+    "name": "enigma_carbon_census_1__REPORT.md",
+    "doc_name": "enigma_carbon_census_1__REPORT",
+    "type": "md",
+    "path": "staging/enigma_carbon_census_1__REPORT.md",
+    "raw_path": "raw/enigma_carbon_census_1__REPORT.md",
+    "source_path": "wiki/sources/enigma_carbon_census_1__REPORT.md"
+  },
+  "4dcb3d9608b4e864e109a4e0ca80952e30f26797b2d3de85a58962f773ba79f1": {
+    "name": "enigma_contamination_functional_potential__REPORT.md",
+    "doc_name": "enigma_contamination_functional_potential__REPORT",
+    "type": "md",
+    "path": "staging/enigma_contamination_functional_potential__REPORT.md",
+    "raw_path": "raw/enigma_contamination_functional_potential__REPORT.md",
+    "source_path": "wiki/sources/enigma_contamination_functional_potential__REPORT.md"
+  },
+  "1153f1f3f4d12bf8f52c79351cc2441f7f7114eaae9b86f58aae67797d6cb55a": {
+    "name": "enigma_sso_asv_ecology__REPORT.md",
+    "doc_name": "enigma_sso_asv_ecology__REPORT",
+    "type": "md",
+    "path": "staging/enigma_sso_asv_ecology__REPORT.md",
+    "raw_path": "raw/enigma_sso_asv_ecology__REPORT.md",
+    "source_path": "wiki/sources/enigma_sso_asv_ecology__REPORT.md"
+  },
+  "9d8367c2702227ec806ff62e384e9178954f1455f3826dafd569baa34a61a76f": {
+    "name": "env_embedding_explorer__REPORT.md",
+    "doc_name": "env_embedding_explorer__REPORT",
+    "type": "md",
+    "path": "staging/env_embedding_explorer__REPORT.md",
+    "raw_path": "raw/env_embedding_explorer__REPORT.md",
+    "source_path": "wiki/sources/env_embedding_explorer__REPORT.md"
+  },
+  "6bf9c96cf9fac3bfd553efb4fed76a92d75e70a0549d7be588a83c632ea0c049": {
+    "name": "essential_genome__REPORT.md",
+    "doc_name": "essential_genome__REPORT",
+    "type": "md",
+    "path": "staging/essential_genome__REPORT.md",
+    "raw_path": "raw/essential_genome__REPORT.md",
+    "source_path": "wiki/sources/essential_genome__REPORT.md"
+  },
+  "8a18113bee96ddf029c55c8c06b70270b663c1f3e817ab0501e7608c8a90427f": {
+    "name": "essential_metabolome__REPORT.md",
+    "doc_name": "essential_metabolome__REPORT",
+    "type": "md",
+    "path": "staging/essential_metabolome__REPORT.md",
+    "raw_path": "raw/essential_metabolome__REPORT.md",
+    "source_path": "wiki/sources/essential_metabolome__REPORT.md"
+  },
+  "345875dfe9abb66eeb33126277f33a3a655e7e7feed29ff12ebd79787207c86a": {
+    "name": "euk_in_prok_correlates__REPORT.md",
+    "doc_name": "euk_in_prok_correlates__REPORT",
+    "type": "md",
+    "path": "staging/euk_in_prok_correlates__REPORT.md",
+    "raw_path": "raw/euk_in_prok_correlates__REPORT.md",
+    "source_path": "wiki/sources/euk_in_prok_correlates__REPORT.md"
+  },
+  "8bf50c605e80b6db78122bc45bdfce5cb3ef8bc17821932e2e7ab7fb94e5622c": {
+    "name": "field_vs_lab_fitness__REPORT.md",
+    "doc_name": "field_vs_lab_fitness__REPORT",
+    "type": "md",
+    "path": "staging/field_vs_lab_fitness__REPORT.md",
+    "raw_path": "raw/field_vs_lab_fitness__REPORT.md",
+    "source_path": "wiki/sources/field_vs_lab_fitness__REPORT.md"
+  },
+  "876489dafb304c591b6d0ae6315b0249426b647ff63d98b5135904893840f259": {
+    "name": "fitness_effects_conservation__REPORT.md",
+    "doc_name": "fitness_effects_conservation__REPORT",
+    "type": "md",
+    "path": "staging/fitness_effects_conservation__REPORT.md",
+    "raw_path": "raw/fitness_effects_conservation__REPORT.md",
+    "source_path": "wiki/sources/fitness_effects_conservation__REPORT.md"
+  },
+  "4fce3013b064e0af4e90202509f2c93e0d181d2663930f839a35e0ae16b2f86e": {
+    "name": "fitness_modules__REPORT.md",
+    "doc_name": "fitness_modules__REPORT",
+    "type": "md",
+    "path": "staging/fitness_modules__REPORT.md",
+    "raw_path": "raw/fitness_modules__REPORT.md",
+    "source_path": "wiki/sources/fitness_modules__REPORT.md"
+  },
+  "1ea00a93830c52ac6d4c47418f8d718cf6b5aa2d81462a64855a8308888da1d0": {
+    "name": "functional_dark_matter__REPORT.md",
+    "doc_name": "functional_dark_matter__REPORT",
+    "type": "md",
+    "path": "staging/functional_dark_matter__REPORT.md",
+    "raw_path": "raw/functional_dark_matter__REPORT.md",
+    "source_path": "wiki/sources/functional_dark_matter__REPORT.md"
+  },
+  "7ba873873f7c42649450d7c75e18227257c5c7c8eb2fee052525f3732c997c05": {
+    "name": "fw300_metabolic_consistency__REPORT.md",
+    "doc_name": "fw300_metabolic_consistency__REPORT",
+    "type": "md",
+    "path": "staging/fw300_metabolic_consistency__REPORT.md",
+    "raw_path": "raw/fw300_metabolic_consistency__REPORT.md",
+    "source_path": "wiki/sources/fw300_metabolic_consistency__REPORT.md"
+  },
+  "ec22f37a485c95d0e067c1984020af5580f9f103cae1582742ed63f035a74a69": {
+    "name": "gene_function_ecological_agora__REPORT.md",
+    "doc_name": "gene_function_ecological_agora__REPORT",
+    "type": "md",
+    "path": "staging/gene_function_ecological_agora__REPORT.md",
+    "raw_path": "raw/gene_function_ecological_agora__REPORT.md",
+    "source_path": "wiki/sources/gene_function_ecological_agora__REPORT.md"
+  },
+  "e69de667de1b74a70a09c07dc5b5bfb99aa3f042b003017eb1e60ec118fbab42": {
+    "name": "genotype_to_phenotype_enigma__REPORT.md",
+    "doc_name": "genotype_to_phenotype_enigma__REPORT",
+    "type": "md",
+    "path": "staging/genotype_to_phenotype_enigma__REPORT.md",
+    "raw_path": "raw/genotype_to_phenotype_enigma__REPORT.md",
+    "source_path": "wiki/sources/genotype_to_phenotype_enigma__REPORT.md"
+  },
+  "d4043571b26bef25b8a3ca32dbd57a1ba8196ebed694062c96fb769ca1a9e273": {
+    "name": "harvard_forest_warming__REPORT.md",
+    "doc_name": "harvard_forest_warming__REPORT",
+    "type": "md",
+    "path": "staging/harvard_forest_warming__REPORT.md",
+    "raw_path": "raw/harvard_forest_warming__REPORT.md",
+    "source_path": "wiki/sources/harvard_forest_warming__REPORT.md"
+  },
+  "7bb70c12c17426e8c3553768511907d214bbcaa696a58e3a283e6ad8dd52ff53": {
+    "name": "ibd_phage_targeting__REPORT.md",
+    "doc_name": "ibd_phage_targeting__REPORT",
+    "type": "md",
+    "path": "staging/ibd_phage_targeting__REPORT.md",
+    "raw_path": "raw/ibd_phage_targeting__REPORT.md",
+    "source_path": "wiki/sources/ibd_phage_targeting__REPORT.md"
+  },
+  "d301e46026bc8482d801d3d918f6cdabb080b372de868edfa81b5a8631ff3f52": {
+    "name": "lab_field_ecology__REPORT.md",
+    "doc_name": "lab_field_ecology__REPORT",
+    "type": "md",
+    "path": "staging/lab_field_ecology__REPORT.md",
+    "raw_path": "raw/lab_field_ecology__REPORT.md",
+    "source_path": "wiki/sources/lab_field_ecology__REPORT.md"
+  },
+  "4c006958be98f494be09edfff08176308c57490b4b48dc38c5753450c3d8e304": {
+    "name": "lanthanide_methylotrophy_atlas__REPORT.md",
+    "doc_name": "lanthanide_methylotrophy_atlas__REPORT",
+    "type": "md",
+    "path": "staging/lanthanide_methylotrophy_atlas__REPORT.md",
+    "raw_path": "raw/lanthanide_methylotrophy_atlas__REPORT.md",
+    "source_path": "wiki/sources/lanthanide_methylotrophy_atlas__REPORT.md"
+  },
+  "f0bce929a335ab8e8ef7a4731d9934d5e53d9244e175f9b21ac411501aad0360": {
+    "name": "lignin_community_enrichment__REPORT.md",
+    "doc_name": "lignin_community_enrichment__REPORT",
+    "type": "md",
+    "path": "staging/lignin_community_enrichment__REPORT.md",
+    "raw_path": "raw/lignin_community_enrichment__REPORT.md",
+    "source_path": "wiki/sources/lignin_community_enrichment__REPORT.md"
+  },
+  "1412a5c1aa7711732d548b57744f3324a207e5eba6d0b4052c8882ac9cc593fe": {
+    "name": "metabolic_capability_dependency__REPORT.md",
+    "doc_name": "metabolic_capability_dependency__REPORT",
+    "type": "md",
+    "path": "staging/metabolic_capability_dependency__REPORT.md",
+    "raw_path": "raw/metabolic_capability_dependency__REPORT.md",
+    "source_path": "wiki/sources/metabolic_capability_dependency__REPORT.md"
+  },
+  "500dd3cfb440724464d76e3acbbeb03b0f8408de0fccbf2e8a4f53a05e43721b": {
+    "name": "metal_cross_resistance__REPORT.md",
+    "doc_name": "metal_cross_resistance__REPORT",
+    "type": "md",
+    "path": "staging/metal_cross_resistance__REPORT.md",
+    "raw_path": "raw/metal_cross_resistance__REPORT.md",
+    "source_path": "wiki/sources/metal_cross_resistance__REPORT.md"
+  },
+  "9ea58c19144575c5e8a783b777863269a18b37241d89bb6c0a9c2a044de1353d": {
+    "name": "metal_fitness_atlas__REPORT.md",
+    "doc_name": "metal_fitness_atlas__REPORT",
+    "type": "md",
+    "path": "staging/metal_fitness_atlas__REPORT.md",
+    "raw_path": "raw/metal_fitness_atlas__REPORT.md",
+    "source_path": "wiki/sources/metal_fitness_atlas__REPORT.md"
+  },
+  "b0f55ad895a38acb546b33895f438128175fe7ebe53480136798c601a8137317": {
+    "name": "metal_resistance_global_biogeography__REPORT.md",
+    "doc_name": "metal_resistance_global_biogeography__REPORT",
+    "type": "md",
+    "path": "staging/metal_resistance_global_biogeography__REPORT.md",
+    "raw_path": "raw/metal_resistance_global_biogeography__REPORT.md",
+    "source_path": "wiki/sources/metal_resistance_global_biogeography__REPORT.md"
+  },
+  "8555e9245da861451c7bb26e5536567914d3b5cdeeaddefdd4919d2eb6810e89": {
+    "name": "metal_specificity__REPORT.md",
+    "doc_name": "metal_specificity__REPORT",
+    "type": "md",
+    "path": "staging/metal_specificity__REPORT.md",
+    "raw_path": "raw/metal_specificity__REPORT.md",
+    "source_path": "wiki/sources/metal_specificity__REPORT.md"
+  },
+  "45fedd7ae4d79ed996ffeb2f8c38d1298866c9714db14c499b03c3e3882594ad": {
+    "name": "microbeatlas_metal_ecology__REPORT.md",
+    "doc_name": "microbeatlas_metal_ecology__REPORT",
+    "type": "md",
+    "path": "staging/microbeatlas_metal_ecology__REPORT.md",
+    "raw_path": "raw/microbeatlas_metal_ecology__REPORT.md",
+    "source_path": "wiki/sources/microbeatlas_metal_ecology__REPORT.md"
+  },
+  "44e13c4ca1eae246521c79a559693fa556289043e35e7eeb7eaf3c806ed152de": {
+    "name": "module_conservation__REPORT.md",
+    "doc_name": "module_conservation__REPORT",
+    "type": "md",
+    "path": "staging/module_conservation__REPORT.md",
+    "raw_path": "raw/module_conservation__REPORT.md",
+    "source_path": "wiki/sources/module_conservation__REPORT.md"
+  },
+  "1959fd37259df598f708ecfea2c796883e3a8f2f62ea52e1443073544a8866d5": {
+    "name": "nmdc_community_metabolic_ecology__REPORT.md",
+    "doc_name": "nmdc_community_metabolic_ecology__REPORT",
+    "type": "md",
+    "path": "staging/nmdc_community_metabolic_ecology__REPORT.md",
+    "raw_path": "raw/nmdc_community_metabolic_ecology__REPORT.md",
+    "source_path": "wiki/sources/nmdc_community_metabolic_ecology__REPORT.md"
+  },
+  "0f4c987b31cd4df5a18862ca0ce3d3589a6cdbd46b7cbf0496b2f325c91f5d92": {
+    "name": "nmdc_context_audit__REPORT.md",
+    "doc_name": "nmdc_context_audit__REPORT",
+    "type": "md",
+    "path": "staging/nmdc_context_audit__REPORT.md",
+    "raw_path": "raw/nmdc_context_audit__REPORT.md",
+    "source_path": "wiki/sources/nmdc_context_audit__REPORT.md"
+  },
+  "ed7689d4effffdfad5f1be8b8d69b761f8c4d726f62d90e7f89b037a43308fe8": {
+    "name": "pangenome_openness__REPORT.md",
+    "doc_name": "pangenome_openness__REPORT",
+    "type": "md",
+    "path": "staging/pangenome_openness__REPORT.md",
+    "raw_path": "raw/pangenome_openness__REPORT.md",
+    "source_path": "wiki/sources/pangenome_openness__REPORT.md"
+  },
+  "21c92287da8100c2ce6f5e7686137d1f4a58e8270def5e4de9a0da68a56494f6": {
+    "name": "paperblast_explorer__REPORT.md",
+    "doc_name": "paperblast_explorer__REPORT",
+    "type": "md",
+    "path": "staging/paperblast_explorer__REPORT.md",
+    "raw_path": "raw/paperblast_explorer__REPORT.md",
+    "source_path": "wiki/sources/paperblast_explorer__REPORT.md"
+  },
+  "b48f1bebed72779629baaf7e71b9cffda8ab0298f49aa9c3460cc6d13bb7cf75": {
+    "name": "pathway_capability_dependency__REPORT.md",
+    "doc_name": "pathway_capability_dependency__REPORT",
+    "type": "md",
+    "path": "staging/pathway_capability_dependency__REPORT.md",
+    "raw_path": "raw/pathway_capability_dependency__REPORT.md",
+    "source_path": "wiki/sources/pathway_capability_dependency__REPORT.md"
+  },
+  "8319f0fcf3c6f5a2997e4444496c7d59bb5d956e8bfc9aab5ed472003d02a946": {
+    "name": "pgp_pangenome_ecology__REPORT.md",
+    "doc_name": "pgp_pangenome_ecology__REPORT",
+    "type": "md",
+    "path": "staging/pgp_pangenome_ecology__REPORT.md",
+    "raw_path": "raw/pgp_pangenome_ecology__REPORT.md",
+    "source_path": "wiki/sources/pgp_pangenome_ecology__REPORT.md"
+  },
+  "9d450a848b83b2462d07d216ef01827f8a08f8e1c4fcddcdf74cfdb7dbcbe601": {
+    "name": "phage_defense_arsenal__REPORT.md",
+    "doc_name": "phage_defense_arsenal__REPORT",
+    "type": "md",
+    "path": "staging/phage_defense_arsenal__REPORT.md",
+    "raw_path": "raw/phage_defense_arsenal__REPORT.md",
+    "source_path": "wiki/sources/phage_defense_arsenal__REPORT.md"
+  },
+  "256700c607287ee65c24d87e88b02331582e76de9afbe656fd2ea6cd80350324": {
+    "name": "phb_granule_ecology__REPORT.md",
+    "doc_name": "phb_granule_ecology__REPORT",
+    "type": "md",
+    "path": "staging/phb_granule_ecology__REPORT.md",
+    "raw_path": "raw/phb_granule_ecology__REPORT.md",
+    "source_path": "wiki/sources/phb_granule_ecology__REPORT.md"
+  },
+  "d100706f1a00a7f21b590573f90449c7936ee47108d93861756f06f3113df3b4": {
+    "name": "pitfalls.md",
+    "doc_name": "pitfalls",
+    "type": "md",
+    "path": "staging/pitfalls.md",
+    "raw_path": "raw/pitfalls.md",
+    "source_path": "wiki/sources/pitfalls.md"
+  },
+  "ab4bafa20bb607a1edf87a293d67885cd96017817bfabdbff2c19bac9dc95272": {
+    "name": "plant_microbiome_ecotypes__REPORT.md",
+    "doc_name": "plant_microbiome_ecotypes__REPORT",
+    "type": "md",
+    "path": "staging/plant_microbiome_ecotypes__REPORT.md",
+    "raw_path": "raw/plant_microbiome_ecotypes__REPORT.md",
+    "source_path": "wiki/sources/plant_microbiome_ecotypes__REPORT.md"
+  },
+  "f58710893c456806b9a06f5e9bd3687468082c34ffcf93be308e037eb59268b5": {
+    "name": "prophage_amr_comobilization__REPORT.md",
+    "doc_name": "prophage_amr_comobilization__REPORT",
+    "type": "md",
+    "path": "staging/prophage_amr_comobilization__REPORT.md",
+    "raw_path": "raw/prophage_amr_comobilization__REPORT.md",
+    "source_path": "wiki/sources/prophage_amr_comobilization__REPORT.md"
+  },
+  "58e5dfbe672d830cc749b46434bc92ecb328e31d5cb5f793a987c72994a7e0ed": {
+    "name": "prophage_ecology__REPORT.md",
+    "doc_name": "prophage_ecology__REPORT",
+    "type": "md",
+    "path": "staging/prophage_ecology__REPORT.md",
+    "raw_path": "raw/prophage_ecology__REPORT.md",
+    "source_path": "wiki/sources/prophage_ecology__REPORT.md"
+  },
+  "9a0d1678e23b48d6e7732b56ad5ca0452fed1ff9fcf5c9c5e8e9b23315c58260": {
+    "name": "pseudomonas_carbon_ecology__REPORT.md",
+    "doc_name": "pseudomonas_carbon_ecology__REPORT",
+    "type": "md",
+    "path": "staging/pseudomonas_carbon_ecology__REPORT.md",
+    "raw_path": "raw/pseudomonas_carbon_ecology__REPORT.md",
+    "source_path": "wiki/sources/pseudomonas_carbon_ecology__REPORT.md"
+  },
+  "e44ee5fea95d2bf94013d27d0b2afd372d6612ac3bf997f73e2813afe5bb42b3": {
+    "name": "respiratory_chain_wiring__REPORT.md",
+    "doc_name": "respiratory_chain_wiring__REPORT",
+    "type": "md",
+    "path": "staging/respiratory_chain_wiring__REPORT.md",
+    "raw_path": "raw/respiratory_chain_wiring__REPORT.md",
+    "source_path": "wiki/sources/respiratory_chain_wiring__REPORT.md"
+  },
+  "f7d78af3b2d5fc355bdd55bc72ce728519a3dc854968793d401b959f1e9ae555": {
+    "name": "snipe_defense_system__REPORT.md",
+    "doc_name": "snipe_defense_system__REPORT",
+    "type": "md",
+    "path": "staging/snipe_defense_system__REPORT.md",
+    "raw_path": "raw/snipe_defense_system__REPORT.md",
+    "source_path": "wiki/sources/snipe_defense_system__REPORT.md"
+  },
+  "f3931fe9d68922f56c7c150229f466d5cddab2ea6b166362e8b31933149f9a8d": {
+    "name": "soil_frontier_genomics__REPORT.md",
+    "doc_name": "soil_frontier_genomics__REPORT",
+    "type": "md",
+    "path": "staging/soil_frontier_genomics__REPORT.md",
+    "raw_path": "raw/soil_frontier_genomics__REPORT.md",
+    "source_path": "wiki/sources/soil_frontier_genomics__REPORT.md"
+  },
+  "afe5423a06222e7ee2957401c00f4af52fea13df31be748b4ab108fb1dfe6144": {
+    "name": "soil_metal_functional_genomics__REPORT.md",
+    "doc_name": "soil_metal_functional_genomics__REPORT",
+    "type": "md",
+    "path": "staging/soil_metal_functional_genomics__REPORT.md",
+    "raw_path": "raw/soil_metal_functional_genomics__REPORT.md",
+    "source_path": "wiki/sources/soil_metal_functional_genomics__REPORT.md"
+  },
+  "51a111efe7b5ea5f55b6310291e8badbd42dcc5ebe29717b03e23d2c103de389": {
+    "name": "t4ss_cazy_environmental_hgt__REPORT.md",
+    "doc_name": "t4ss_cazy_environmental_hgt__REPORT",
+    "type": "md",
+    "path": "staging/t4ss_cazy_environmental_hgt__REPORT.md",
+    "raw_path": "raw/t4ss_cazy_environmental_hgt__REPORT.md",
+    "source_path": "wiki/sources/t4ss_cazy_environmental_hgt__REPORT.md"
+  },
+  "c3c61898305ee30bac02c9a1ff4d8c27bd21313ee4b736ea0055ea6d9014adf0": {
+    "name": "truly_dark_genes__REPORT.md",
+    "doc_name": "truly_dark_genes__REPORT",
+    "type": "md",
+    "path": "staging/truly_dark_genes__REPORT.md",
+    "raw_path": "raw/truly_dark_genes__REPORT.md",
+    "source_path": "wiki/sources/truly_dark_genes__REPORT.md"
+  },
+  "9a00ed7cecab68d7f9f290eb54f509ee70ab0950d80bcd48cd92b528748dd4da": {
+    "name": "webofmicrobes_explorer__REPORT.md",
+    "doc_name": "webofmicrobes_explorer__REPORT",
+    "type": "md",
+    "path": "staging/webofmicrobes_explorer__REPORT.md",
+    "raw_path": "raw/webofmicrobes_explorer__REPORT.md",
+    "source_path": "wiki/sources/webofmicrobes_explorer__REPORT.md"
+  }
+}

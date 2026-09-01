@@ -1,0 +1,80 @@
+---
+type: "Concept"
+sources: ["summaries/lab_field_ecology__REPORT.md", "summaries/harvard_forest_warming__REPORT.md", "summaries/genotype_to_phenotype_enigma__REPORT.md", "summaries/enigma_sso_asv_ecology__REPORT.md"]
+description: "Spatial separation of microbial processes along changing electron-acceptor conditions."
+---
+
+# Redox Zonation
+
+## Definition
+
+Redox zonation is the spatial organization of microbial communities and processes along gradients in electron donors, electron acceptors, oxygen availability, and reduction potential. As preferred electron acceptors are consumed, microbial metabolism is expected to progress through an approximate sequence from oxygen respiration to nitrate reduction, iron reduction, sulfate reduction, and fermentation. [src: enigma_sso_asv_ecology]
+
+Redox zonation links [[concepts/subsurface-microbial-specialization]] to [[concepts/contamination-plume-microbiology]] because hydrogeological flow can transport reactive compounds and create spatially distinct microbial habitats. [src: enigma_sso_asv_ecology]
+
+## Evidence from the SSO grid
+
+The SSO report infers a redox ladder across a 3×3 well grid from taxonomic composition and literature-based trait assignments rather than direct geochemical measurements. [src: enigma_sso_asv_ecology] Class-level inference covered 22 functional classes and 78% of reads, while genus-level inference covered 65 annotated genera but only 21% of reads. [src: enigma_sso_asv_ecology]
+
+The inferred spatial sequence is consistent with oxidative processes near the proposed plume entry, denitrification in a mixing zone, iron and sulfur transformations farther along the gradient, and fermentation where terminal electron acceptors are depleted. [src: enigma_sso_asv_ecology]
+
+- U3 had the highest inferred redox index at 0.227 and was associated with iron oxidation (2.8%) by *Sideroxydans* and nitrification (2.3%) by *Ca. Nitrosotalea*. [src: enigma_sso_asv_ecology]
+- M5 had the highest inferred denitrification signal at 7.7%, associated primarily with *Rhodanobacter*, and was interpreted as a nitrate–organic-carbon mixing zone. [src: enigma_sso_asv_ecology]
+- U1 had an inferred iron-reduction hotspot (2.3%) associated with *Anaeromyxobacter*. [src: enigma_sso_asv_ecology]
+- M4 showed inferred sulfur oxidation (1.9%) associated with *Arcobacter* and *Thiobacillus*, as well as methanotrophy (1.9%) associated with *Ca. Methanoperedens*. [src: enigma_sso_asv_ecology]
+- L9 had the highest inferred fermentation signal at 5.3%, associated with *Spirochaeta* and *Paenisporosarcina*. [src: enigma_sso_asv_ecology]
+- M6 had the lowest inferred abundance of oxidative processes and was interpreted as an anaerobic plume-core or electron-acceptor-depleted zone. [src: enigma_sso_asv_ecology]
+
+These patterns are consistent with redox zonation, but the report treats the plume-flow and process-order interpretation as a testable model rather than a directly demonstrated mechanism. [src: enigma_sso_asv_ecology]
+
+## Vertical zonation
+
+Hydrogeological depth zone explained 27.5% of sample-level community variance in a PERMANOVA (F = 4.05, p = 0.0001), whereas well identity explained 19.2% and was not significant (F = 0.80, p = 0.979). [src: enigma_sso_asv_ecology] Samples from the same well but different depths had a median Bray-Curtis dissimilarity of 0.977, compared with 0.835 for samples from the same depth zone in different wells. [src: enigma_sso_asv_ecology]
+
+Ten of the 12 dominant phyla showed significant depth associations. [src: enigma_sso_asv_ecology] Chloroflexi, Patescibacteria, Myxococcota, and Spirochaetota were enriched at shallow, more oxic depths, while Firmicutes, WPS-2, Bacteroidota, and Proteobacteria were enriched at deeper, more anoxic depths. [src: enigma_sso_asv_ecology]
+
+The report therefore proposes that the saturated zone is a major redox boundary: depth determines whether a sample intersects the contamination plume, while horizontal position has a secondary effect. [src: enigma_sso_asv_ecology]
+
+## Spatial structure and plume interpretation
+
+Sediment communities across the approximately 6 m SSO grid showed significant distance-decay of similarity, with Mantel Spearman ρ = 0.323 and p = 0.029 based on 9,999 permutations. [src: enigma_sso_asv_ecology] Community turnover was not aligned with the uphill-downhill axis (ρ = −0.049, p = 0.580) but had a weaker east-west association (ρ = 0.227, p = 0.092). [src: enigma_sso_asv_ecology]
+
+U3, M6, and L7 formed an unusually similar diagonal corridor: U3–M6 had Bray-Curtis dissimilarity 0.558, M6–L7 had 0.615, and U3–L7 had 0.646. [src: enigma_sso_asv_ecology] The report hypothesizes that this northeast-to-southwest corridor traces shared exposure to a plume from [[entities/oak-ridge-reservation-area-3]], with U3 near plume entry and L7 farther along the proposed flow path. [src: enigma_sso_asv_ecology]
+
+Under this model, redox zonation is generated by plume transport and reaction: incoming nitrate- and metal-bearing water encounters oxygenated sediment near the entry zone, nitrate reduction occurs where plume chemistry mixes with organic carbon, and downstream zones become progressively more reduced as electron acceptors are consumed. [src: enigma_sso_asv_ecology] This interpretation complements [[concepts/attached-versus-planktonic-microbial-communities]], because flowing groundwater and sediment surfaces can experience different transport and redox conditions. [src: enigma_sso_asv_ecology]
+
+## Functional associations
+
+Guild co-occurrence patterns support spatial separation of metabolisms but do not establish direct interactions. [src: enigma_sso_asv_ecology] Nitrifier and iron-oxidizer guilds were strongly positively correlated (ρ = +0.95), syntrophs and fermenters were positively correlated (ρ = +0.55), and denitrifiers and syntrophs were negatively correlated (ρ = −0.67). [src: enigma_sso_asv_ecology] The report interprets these patterns as consistent with shared oxidative niches, anaerobic food-web coupling, and separation between nitrate-rich and strictly anaerobic habitats. [src: enigma_sso_asv_ecology]
+
+The proposed separation is related to [[concepts/metabolic-competitive-exclusion]]: guilds using different electron acceptors may occupy distinct zones when acceptor availability and thermodynamic conditions vary spatially. [src: enigma_sso_asv_ecology]
+
+## Evidence strength and limitations
+
+The strongest evidence for redox zonation is the significant depth effect, the coherent depth associations of dominant phyla, and the spatially structured distribution of inferred processes. [src: enigma_sso_asv_ecology] The process-level assignments are weaker because they are inferred from taxonomy, genus-level coverage is limited, and trait scores are not direct measurements of the SSO populations. [src: enigma_sso_asv_ecology]
+
+No SSO geochemistry was integrated, despite 221 registered geochemistry samples in CORAL; therefore nitrate, pH, metal, carbon, and isotope gradients remain unverified. [src: enigma_sso_asv_ecology] Groundwater data were available for only five of nine wells and did not include the proposed plume-entry well U3 or denitrification hotspot M5. [src: enigma_sso_asv_ecology] Sediment was sampled once in February–March 2023, whereas groundwater was sampled in September 2024, preventing an uncontounded comparison of material type and time. [src: enigma_sso_asv_ecology]
+
+## Tensions
+
+The report's redox-ladder interpretation is supported by spatially coherent taxonomic traits, but it remains in tension with the absence of direct geochemical measurements. [src: enigma_sso_asv_ecology] Community composition alone cannot distinguish plume-driven redox zonation from other depth-correlated factors such as moisture, carbon availability, mineral surfaces, or oxygen penetration. [src: enigma_sso_asv_ecology]
+
+The inferred guild relationships are also compatible with ecological coupling, but correlations across only nine wells cannot resolve whether guilds interact directly or merely share environmental preferences. [src: enigma_sso_asv_ecology]
+
+## Open Directions
+
+- Integrate SSO nitrate, pH, metals, dissolved organic carbon, and isotope data from CORAL with ASV and inferred-trait profiles to test whether measured chemistry follows the proposed redox sequence. [src: enigma_sso_asv_ecology]
+- Extract pump-test groundwater ASVs from bricks 460–462 and test whether *Rhodanobacter* peaks at M5 as predicted for the proposed mixing zone. [src: enigma_sso_asv_ecology]
+- Compare class-level traits with genus-level process estimates to determine whether the redox pattern persists when coverage limitations are reduced. [src: enigma_sso_asv_ecology]
+- Use metagenomics from matched wells and depth zones to test for genes supporting denitrification, iron and sulfur transformations, methanotrophy, and fermentation. [src: enigma_sso_asv_ecology]
+- Repeat sampling across seasons to determine whether redox-zone boundaries and the U3–M6–L7 corridor remain stable during plume fluctuations. [src: enigma_sso_asv_ecology]
+
+## Related source
+
+[[summaries/enigma_sso_asv_ecology__REPORT]]
+
+See also: [[summaries/genotype_to_phenotype_enigma__REPORT]]
+
+See also: [[summaries/harvard_forest_warming__REPORT]]
+
+See also: [[summaries/lab_field_ecology__REPORT]]

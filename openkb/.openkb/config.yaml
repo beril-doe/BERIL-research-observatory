@@ -1,0 +1,14 @@
+model: openai/claude-sonnet-5
+language: en
+pageindex_threshold: 20
+concurrency: 4
+timeout: 300
+entity_types:
+  - organism
+  - gene_or_pathway
+  - compound
+  - method
+  - dataset
+  - place
+  - person
+  - other
