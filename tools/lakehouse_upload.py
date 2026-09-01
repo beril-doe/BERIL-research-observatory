@@ -17,6 +17,7 @@ Usage (Python):
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -68,13 +69,24 @@ def load_dotenv(env_path: Path | None = None) -> dict[str, str]:
         if not key:
             continue
         value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
-            value = value[1:-1]
+        if value[:1] in ("'", '"'):
+            # Quoted: take the quoted span and ignore any trailing comment. A
+            # `#` inside the quotes is part of the value.
+            quote = value[0]
+            end = value.find(quote, 1)
+            value = value[1:end] if end != -1 else value[1:]
+        else:
+            # Unquoted: strip an inline comment. `.env.example` uses this style
+            # on several lines, which is what makes it worth handling. The
+            # whitespace before `#` is required, so a value that merely contains
+            # a `#` (a fragment, a generated secret) survives intact.
+            value = re.split(r"\s#", value, maxsplit=1)[0].rstrip()
         if key in os.environ:
             continue
         os.environ[key] = value
         applied[key] = value
     return applied
+
 
 # Files/directories to skip during the manifest walk. The manifest is the
 # source of truth for what gets uploaded — upload_project iterates the

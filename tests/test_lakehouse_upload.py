@@ -828,3 +828,25 @@ def test_main_reads_tenant_path_from_dotenv(lu, repo, monkeypatch, capsys):
     lu.main()
 
     assert "tenant-general-warehouse/nmdc" in capsys.readouterr().out
+
+
+def test_load_dotenv_strips_inline_comments(lu, tmp_path, monkeypatch):
+    """`.env.example` itself writes `KEY=value  # note`, so this shape is real."""
+    for name in ("WITH_NOTE", "QUOTED_NOTE", "HASH_IN_VALUE", "QUOTED_HASH"):
+        monkeypatch.delenv(name, raising=False)
+    env = tmp_path / ".env"
+    env.write_text(
+        "WITH_NOTE=tenant-general-warehouse/nmdc  # use the nmdc tenant\n"
+        'QUOTED_NOTE="spaced value"  # trailing note\n'
+        "HASH_IN_VALUE=abc#def\n"
+        'QUOTED_HASH="abc # def"\n'
+    )
+
+    applied = lu.load_dotenv(env)
+
+    assert applied["WITH_NOTE"] == "tenant-general-warehouse/nmdc"
+    assert applied["QUOTED_NOTE"] == "spaced value"
+    # no whitespace before the #, so it is part of the value, not a comment
+    assert applied["HASH_IN_VALUE"] == "abc#def"
+    # inside quotes it is always literal
+    assert applied["QUOTED_HASH"] == "abc # def"
