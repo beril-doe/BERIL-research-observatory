@@ -26,7 +26,7 @@ class OpenVikingManager(ContextManager):
     async def list_files(self) -> list[ContextFile]:
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         results = await ov_client.list_files("resources/projects")
-        ov_client.close()
+        await ov_client.close()
         return results
 
     async def query(self, query: ContextQuery) -> ContextQueryResults:
@@ -48,5 +48,5 @@ class OpenVikingManager(ContextManager):
                 ) for r in results.get("resources", [])
             ]
         )
-        ov_client.close()
+        await ov_client.close()
         return processed
