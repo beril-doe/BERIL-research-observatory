@@ -16,6 +16,7 @@ plaintext only at user creation and key regeneration — never logged here.
 import logging
 
 import httpx
+from openviking import AsyncHTTPClient
 
 from app.config import get_settings
 
@@ -37,6 +38,34 @@ class OpenVikingError(RuntimeError):
         super().__init__(message)
         self.status_code = status_code
         self.code = code
+
+
+class OpenVikingClient:
+    def __init__(self, api_key: str, base_url: str | None = None):
+        settings = get_settings()
+        self._api_key = api_key
+        self._base_url = base_url or settings.ov_url
+        self._client: AsyncHTTPClient = AsyncHTTPClient(
+            url=self._base_url,
+            api_key=self._api_key
+        )
+
+    @classmethod
+    async def create(cls, api_key: str, base_url: str | None = None):
+        client = cls(api_key, base_url=base_url)
+        await client._client.initialize()
+        return client
+
+    async def close(self):
+        await self._client.close()
+
+    async def search(self, query: str, limit: int = 10) -> dict:
+        result = await self._client.search(query, limit=limit)
+        return result
+
+    async def list_files(self, root_path: str) -> dict:
+        result = await self._client.ls(f"viking://{root_path}")
+        return result
 
 
 def _admin_headers() -> dict[str, str]:
