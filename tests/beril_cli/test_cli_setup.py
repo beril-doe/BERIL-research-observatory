@@ -391,7 +391,7 @@ def happy_setup(monkeypatch, repo):
     monkeypatch.setattr(setup_cmd.config, "CONFIG_PATH", repo / "config.toml")
 
     # No env vars to sync, and _prompt/_confirm never asked to launch.
-    for key in ("KBASE_AUTH_TOKEN", "MINIO_ACCESS_KEY", "MINIO_SECRET_KEY", "MINIO_ENDPOINT_URL"):
+    for key in ("KBASE_AUTH_TOKEN", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_ENDPOINT_URL"):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setattr(setup_cmd, "_prompt", lambda q, default="": default)
     monkeypatch.setattr(setup_cmd, "_confirm", lambda *a, **k: True)

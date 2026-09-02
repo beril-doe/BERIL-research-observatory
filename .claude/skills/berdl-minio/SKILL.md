@@ -32,7 +32,7 @@ If `--check` reports off-cluster and not ready, follow the printed next steps. T
 ## Credential Strategy
 
 Use credentials in this order:
-1. Existing `MINIO_ACCESS_KEY` and `MINIO_SECRET_KEY` in environment or `.env`.
+1. Existing `S3_ACCESS_KEY` and `S3_SECRET_KEY` in environment or `.env`. These were once called `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`; that spelling is gone from current pods and the tooling no longer reads it.
 2. Derive credentials from BERDL remote environment using `berdl-remote` (authenticated by `KBASE_AUTH_TOKEN`).
 
 ## Workflow
