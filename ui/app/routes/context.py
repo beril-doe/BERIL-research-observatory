@@ -10,21 +10,14 @@ within BERIL's context manager implementation.
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import BerilUser, require_user_api
-from app.clients.openviking import (
-    OpenVikingError,
-    ov_health,
-    regenerate_ov_user_key,
-    register_ov_user,
-)
 from app.config import get_settings
-from app.context_manager.openviking import OpenVikingManager
-from app.crypto import decrypt_secret, encrypt_secret
-from app.db.crud import get_ov_credential, upsert_ov_credential
+from app.context_manager.openviking import ContextQuery, OpenVikingManager
+from app.crypto import decrypt_secret
+from app.db.crud import get_ov_credential
 from app.db.models import OvUserCredential
 from app.db.session import get_db
 
@@ -37,13 +30,8 @@ def get_context_manager(cred: OvUserCredential) -> OpenVikingManager:
 
 ROUTER_CONTEXT = APIRouter(tags=["context"])
 
-class ContextQuery(BaseModel):
-    query: str
-    root: str | None = None
-    limit: int = 10
-
-@ROUTER_CONTEXT.post("/api/context/query")
-async def post_context_query(
+@ROUTER_CONTEXT.post("/api/context/find")
+async def post_context_find(
     query: ContextQuery,
     request: Request,
     user: BerilUser = Depends(require_user_api),
@@ -51,7 +39,7 @@ async def post_context_query(
 ):
     logger.info(f"Running context query: {query}")
     ov_credential = await get_ov_credential(db, user.id)
-    return await get_context_manager(ov_credential).query(query.query)
+    return await get_context_manager(ov_credential).query(query)
 
 @ROUTER_CONTEXT.get("/api/context/ls")
 async def get_context_files(

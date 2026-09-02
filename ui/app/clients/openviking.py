@@ -59,8 +59,11 @@ class OpenVikingClient:
     async def close(self):
         await self._client.close()
 
-    async def search(self, query: str, limit: int = 10) -> dict:
-        result = await self._client.search(query, limit=limit)
+    async def find(self, query: str, target_uri: str|None = None, limit: int = 10, score_threshold: float|None=None) -> dict:
+        options = None
+        if score_threshold is not None:
+            options = {"score_threshold": score_threshold}
+        result = await self._client.find(query, limit=limit, target_uri=target_uri, options=options)
         return result
 
     async def list_files(self, root_path: str) -> dict:

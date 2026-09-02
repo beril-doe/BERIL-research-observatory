@@ -1,41 +1,38 @@
-from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
+
+from pydantic import BaseModel
 
 from app.db.models import BerilUser
 
-class GlobalPerm(Enum):
-    NONE: 1
-    READ: 2
 
-@dataclass
-class FileMetadata:
+class FileMetadata(BaseModel):
     created: datetime
-    owner: BerilUser
+    owner: str
     last_changed: datetime
-    global_permissions: GlobalPerm
     path: Path
 
-@dataclass
-class ContextFile:
+class ContextFile(BaseModel):
     """
     A class representing a file stored in the context manager.
     """
     content: str
     metadata: FileMetadata
 
-@dataclass
-class QueryResult:
+class ContextQuery(BaseModel):
+    query: str
+    root_path: str | None = None
+    limit: int = 10
+    score_threshold: float | None = None
+
+class QueryResult(BaseModel):
     uri: str
     context_type: str
     score: float
     text: str
 
-@dataclass
-class ContextQueryResults:
+class ContextQueryResults(BaseModel):
     query: str
-    status: str
     results: list[QueryResult]
 
 class ContextManager:
@@ -51,6 +48,6 @@ class ContextManager:
     async def list_files(self, user: BerilUser) -> list[ContextFile]:
         ...
 
-    async def query(self, user: BerilUser, query: str) -> ContextQueryResults:
+    async def query(self, user: BerilUser, query: ContextQuery) -> ContextQueryResults:
         ...
 
