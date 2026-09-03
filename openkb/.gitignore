@@ -1,0 +1,8 @@
+.venv/
+quartz/
+nohup.out
+pipeline.log
+staging/
+.openkb/ingest.lock
+.openkb/journal/
+.openkb/staging/

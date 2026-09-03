@@ -1,0 +1,218 @@
+# Knowledge Base Index
+
+## Documents
+- [[summaries/webofmicrobes_explorer__REPORT]] (short) — Characterizes WoM metabolite-action semantics and links exometabolomics to fitness and pangenomes
+- [[summaries/truly_dark_genes__REPORT]] (short) — Quantifies truly dark genes and prioritizes candidates for functional discovery.
+- [[summaries/t4ss_cazy_environmental_hgt__REPORT]] (short) — Environmental T4SS links GT2 transfer, CAZy diversity, and metal resistance
+- [[summaries/soil_metal_functional_genomics__REPORT]] (short) — Metal concentrations are linked to soil microbial functional gene shifts, pending validation.
+- [[summaries/soil_frontier_genomics__REPORT]] (short) — Tests the clay shield hypothesis and identifies genomic sampling gaps in soils.
+- [[summaries/snipe_defense_system__REPORT]] (short) — BERDL analysis finds widespread, mobile SNIPE phage-defense homologues across diverse bacteria.
+- [[summaries/respiratory_chain_wiring__REPORT]] (short) — ADP1 uses substrate-specific respiratory wiring governed by NADH flux rate.
+- [[summaries/pseudomonas_carbon_ecology__REPORT]] (short) — Genus-scale analysis links Pseudomonas carbon pathways to ecology and host adaptation.
+- [[summaries/prophage_ecology__REPORT]] (short) — Maps prophage modules, TerL lineages, and environmental patterns across bacterial diversity.
+- [[summaries/prophage_amr_comobilization__REPORT]] (short) — Pangenome-scale atlas linking prophage prevalence with AMR co-localization and repertoire breadth.
+- [[summaries/plant_microbiome_ecotypes__REPORT]] (short) — Genome-scale analysis reveals compartment shifts, core PGP functions, and pervasive microbial duality.
+- [[summaries/pitfalls]] (short) — Practical BERDL querying, schema, analysis, and workflow pitfalls.
+- [[summaries/phb_granule_ecology__REPORT]] (short) — Pangenome-scale analysis links PHB distribution to variable environments and HGT.
+- [[summaries/phage_defense_arsenal__REPORT]] (short) — Pan-bacterial analysis links defense diversity to phage burden, syndromes, and accessory genes.
+- [[summaries/pgp_pangenome_ecology__REPORT]] (short) — Pangenome-scale analysis identifies distinct PGP ecological guilds and inheritance patterns
+- [[summaries/pathway_capability_dependency__REPORT]] (short) — Links metabolic pathway capability, context-dependent fitness, and pangenome openness.
+- [[summaries/paperblast_explorer__REPORT]] (short) — Quantifies severe literature bias across organisms, genes, and protein families.
+- [[summaries/pangenome_openness__REPORT]] (short) — Tests whether pangenome openness predicts environmental or phylogenetic gene-content effects.
+- [[summaries/nmdc_context_audit__REPORT]] (short) — Audit showing NMDC labels conceal provenance, scale, currency, and tenant differences.
+- [[summaries/nmdc_community_metabolic_ecology__REPORT]] (short) — NMDC–pangenome integration reveals community-scale BQH and ecosystem metabolic structure.
+- [[summaries/module_conservation__REPORT]] (short) — Fitness modules are enriched in conserved genes but show no breadth-conservation gradient.
+- [[summaries/microbeatlas_metal_ecology__REPORT]] (short) — Global PGLS links metal-resistance breadth to bacterial niche breadth.
+- [[summaries/metal_specificity__REPORT]] (short) — Classifies metal-important genes by specificity and prioritizes novel resistance candidates.
+- [[summaries/metal_resistance_global_biogeography__REPORT]] (short) — Global map of environmental MAG metal resistance and its spatial data gaps
+- [[summaries/metal_fitness_atlas__REPORT]] (short) — Cross-species atlas shows metal fitness genes are predominantly core-genome functions
+- [[summaries/metal_cross_resistance__REPORT]] (short) — Gene-level analysis reveals universal, conserved metal cross-resistance and tiered gene architecture.
+- [[summaries/metabolic_capability_dependency__REPORT]] (short) — Quantifies latent metabolic pathways, pangenome links, and within-species ecotypes.
+- [[summaries/lignin_community_enrichment__REPORT]] (short) — Sequential lignin enrichment reveals strong community turnover and ecological memory.
+- [[summaries/lanthanide_methylotrophy_atlas__REPORT]] (short) — A 293K-genome atlas finds strong xoxF dominance and soil-linked lanthanide methylotrophy.
+- [[summaries/lab_field_ecology__REPORT]] (short) — Tests whether lab metal tolerance predicts Oak Ridge groundwater ecology
+- [[summaries/ibd_phage_targeting__REPORT]] (short) — Ecotype-guided, hybrid phage-cocktail design for Crohn's disease
+- [[summaries/harvard_forest_warming__REPORT]] (short) — Harvard Forest warming reveals comparable DNA/RNA responses and carbon-cycle shifts.
+- [[summaries/genotype_to_phenotype_enigma__REPORT]] (short) — ENIGMA study defines what genome content can predict about bacterial phenotypes
+- [[summaries/gene_function_ecological_agora__REPORT]] (short) — GTDB-scale atlas links microbial gene innovation, acquisition depth, ecology, and phenotype.
+- [[summaries/fw300_metabolic_consistency__REPORT]] (short) — Cross-database analysis finds high concordance but highlights tryptophan overflow.
+- [[summaries/functional_dark_matter__REPORT]] (short) — Prioritizes experimentally testable functions across 57,011 bacterial dark genes.
+- [[summaries/fitness_modules__REPORT]] (short) — ICA identifies conserved bacterial fitness modules for process-level annotation.
+- [[summaries/fitness_effects_conservation__REPORT]] (short) — Quantifies how bacterial gene fitness effects correlate with pangenome conservation
+- [[summaries/field_vs_lab_fitness__REPORT]] (short) — Tests whether field-relevant fitness effects predict gene conservation in DvH.
+- [[summaries/euk_in_prok_correlates__REPORT]] (short) — Shows photosynthetic eukaryotic contamination and exposes its cross-study batch confounding.
+- [[summaries/essential_metabolome__REPORT]] (short) — Pilot GapMind analysis finds near-universal metabolism with a possible serine gap in D. vulgaris.
+- [[summaries/essential_genome__REPORT]] (short) — Cross-organism analysis identifies conserved, variable, and orphan bacterial essentials
+- [[summaries/env_embedding_explorer__REPORT]] (short) — Characterizes AlphaEarth geographic signals, environmental structure, and sampling bias in BERDL.
+- [[summaries/enigma_sso_asv_ecology__REPORT]] (short) — Maps SSO microbial ecology to plume flow, depth, redox gradients, and stable spatial structure.
+- [[summaries/enigma_contamination_functional_potential__REPORT]] (short) — ENIGMA analysis tests contamination effects on inferred microbial functional potential
+- [[summaries/enigma_carbon_census_1__REPORT]] (short) — Tiered census maps 83 compounds to callable taxa and an actionable organism-dark set.
+- [[summaries/ecotype_functional_differentiation__REPORT]] (short) — Multi-species analysis shows ecotypes differ systematically in bacterial gene functions.
+- [[summaries/ecotype_env_reanalysis__REPORT]] (short) — Reanalysis finds clinical sampling bias does not explain the weak environment signal.
+- [[summaries/ecotype_analysis__REPORT]] (short) — Tests whether environment or phylogeny better explains bacterial gene content.
+- [[summaries/discoveries]] (short) — Cross-project log of validated findings, methodological lessons, and open research directions.
+- [[summaries/counter_ion_effects__REPORT]] (short) — Shows metal–NaCl overlap reflects shared stress biology, not counter-ion confounding.
+- [[summaries/costly_dispensable_genes__REPORT]] (short) — Cross-organism analysis links costly, dispensable genes to mobile genetic element burden.
+- [[summaries/core_gene_tradeoffs__REPORT]] (short) — Shows why conserved bacterial genes can be costly under laboratory conditions.
+- [[summaries/conservation_vs_fitness__REPORT]] (short) — Links bacterial gene essentiality to pangenome conservation across 33 species.
+- [[summaries/conservation_fitness_synthesis__REPORT]] (short) — Synthesizes how gene fitness effects shape bacterial genome conservation.
+- [[summaries/cog_analysis__REPORT]] (short) — Cross-species COG analysis identifies a universal two-speed structure in bacterial pangenomes.
+- [[summaries/cofitness_coinheritance__REPORT]] (short) — Tests whether bacterial co-fitness predicts pangenome co-inheritance.
+- [[summaries/clay_confined_subsurface__REPORT]] (short) — Tests cultivation bias and anaerobic traits in cultured clay-confined genomes
+- [[summaries/cf_formulation_design__REPORT]] (short) — Rational design of safe commensal consortia to suppress P. aeruginosa in CF airways
+- [[summaries/caulobacter_fur_lipida_loss__REPORT]] (short) — Maps the regulatory, transport, and envelope-remodeling basis of Caulobacter lipid A loss.
+- [[summaries/berdl_data_atlas__REPORT]] (short) — BERDL inventory maps data depth, cross-tenant bridges, reuse, and validated synergies.
+- [[summaries/bacillota_b_subsurface_accessory__REPORT]] (short) — Deep-clay Bacillota_B show gene-content expansion and enriched anaerobic functions.
+- [[summaries/bacdive_phenotype_metal_tolerance__REPORT]] (short) — BacDive phenotypes predict metal tolerance only through phylogenetic structure
+- [[summaries/bacdive_metal_validation__REPORT]] (short) — Validates genome-based metal tolerance predictions against BacDive isolation environments.
+- [[summaries/aromatic_catabolism_network__REPORT]] (short) — ADP1 aromatic catabolism depends on a 51-gene support network beyond the core pathway.
+- [[summaries/annotation_gap_discovery__REPORT]] (short) — Integrates fitness, pangenome, GapMind, and BLAST evidence to resolve metabolic gaps.
+- [[summaries/amr_strain_variation__REPORT]] (short) — Large-scale analysis shows structured AMR variation within bacterial species.
+- [[summaries/amr_pangenome_atlas__REPORT]] (short) — Pan-bacterial analysis maps AMR conservation, ecology, function, and fitness.
+- [[summaries/amr_fitness_cost__REPORT]] (short) — Pan-bacterial analysis finds AMR costs are universal, modest, and mechanism-independent
+- [[summaries/amr_environmental_resistome__REPORT]] (short) — Pangenome-scale analysis links bacterial resistomes to ecology and clinical exposure.
+- [[summaries/amr_cofitness_networks__REPORT]] (short) — Pan-bacterial AMR cofitness networks are organism-specific and annotation-sensitive.
+- [[summaries/alphafold_msa_annotation__REPORT]] (short) — Shows how AlphaFold MSA depth reveals bacterial annotation gaps.
+- [[summaries/adp1_triple_essentiality__REPORT]] (short) — Integrates FBA, knockout, RB-TnSeq, growth, and proteomics evidence for ADP1 essentiality.
+- [[summaries/adp1_deletion_phenotypes__REPORT]] (short) — ADP1 deletion phenotypes reveal a continuous, condition-specific metabolic landscape
+- [[summaries/acinetobacter_adp1_explorer__REPORT]] (short) — ADP1 multi-omics database exploration and BERDL integration analysis
+
+## Concepts
+- [[concepts/metabolic-novelty]] — De novo metabolite production distinguished from amplification of existing compounds
+- [[concepts/metal-co-contamination-confounding]] — Correlated metals can obscure which contaminant drives microbial gene shifts.
+- [[concepts/negative-out-of-sample-prediction]] — When a model predicts worse out of sample than a training-mean baseline.
+- [[concepts/metabolic-niche-partitioning]] — Ecological divergence expressed through differences in resource-use pathways.
+- [[concepts/metabolic-streamlining]] — Evolutionary loss of metabolic capabilities after specialization to a narrower habitat.
+- [[concepts/module-versus-lineage-ecology]] — Environmental signals act on prophage modules more than whole TerL lineages.
+- [[concepts/prophage-genome-modularity]] — Prophages combine linked core functions with scattered, mobile accessory modules.
+- [[concepts/host-specific-microbial-adaptation]] — How microbial lineages and gene content specialize for particular plant hosts
+- [[concepts/plant-compartment-filtering]] — Plant compartments impose small, measurable shifts in microbial functional profiles.
+- [[concepts/scalable-spark-data-analysis]] — Patterns for reliable, efficient Spark-based analysis of large BERDL datasets.
+- [[concepts/computational-reproducibility]] — Practices that make BERDL analyses auditable, rerunnable, and trustworthy.
+- [[concepts/feast-famine-selection]] — Environmental variability selects for PHB storage pathways in microbial genomes.
+- [[concepts/microbial-arms-race]] — Defense repertoires increase with prophage burden across bacterial phyla.
+- [[concepts/research-attention-inequality]] — Unequal distribution of research attention across organisms, genes, and protein families
+- [[concepts/literature-coverage-bias]] — Unequal research attention across organisms, genes, and protein families.
+- [[concepts/data-currency]] — Data currency is the recency of a resource’s latest committed snapshot.
+- [[concepts/provenance-aware-data-discovery]] — Discovering data by provenance, authority, scope, and currency—not name alone.
+- [[concepts/black-queen-dynamics]] — Ecological framework linking costly function loss, environmental supply, and metabolic dependency
+- [[concepts/metal-resistance-breadth]] — Metal-type diversity links bacterial ecological breadth beyond phylogeny.
+- [[concepts/ecological-generalism]] — Broader metal resistance repertoires are linked to broader microbial niches.
+- [[concepts/spatial-sampling-effort]] — How uneven sampling effort shapes spatial inference from environmental MAGs
+- [[concepts/geospatial-coverage-gaps]] — Missing sample coordinates create geographic blind spots in global microbial analyses.
+- [[concepts/metabolic-ecotypes]] — Within-species metabolic pathway variation that forms ecologically meaningful clusters.
+- [[concepts/latent-metabolic-capabilities]] — Complete metabolic pathways that show little fitness importance under tested conditions
+- [[concepts/labile-carbon-priming]] — Labile carbon reshapes lignin-enriched communities toward copiotrophic taxa.
+- [[concepts/principal-direction-multi-omics]] — Disease-associated multi-omics variation can collapse onto one dominant joint axis.
+- [[concepts/state-dependent-microbiome-therapy]] — Therapy that adapts microbiome targeting to each patient's changing ecological state
+- [[concepts/horizon-specific-warming-response]] — Soil horizons impose distinct microbial warming responses.
+- [[concepts/dna-rna-functional-response]] — Chronic warming can produce comparable DNA and RNA functional shifts.
+- [[concepts/capability-versus-kinetics]] — Genome content predicts metabolic capability better than growth kinetics.
+- [[concepts/phenotype-resolution-matching]] — Genomic features should match the biological resolution of the phenotype being predicted.
+- [[concepts/producer-participation-framework]] — A tree-aware framework classifying clade-level gene innovation and exchange.
+- [[concepts/acquisition-depth-signatures]] — Function classes show distinct recent-to-ancient acquisition profiles on a species tree.
+- [[concepts/metabolite-production-utilization-decoupling]] — Production and utilization can represent distinct metabolic capabilities.
+- [[concepts/gene-neighborhood-inference]] — Using gene proximity, synteny, and co-fitness to infer unknown gene functions.
+- [[concepts/experimental-functional-prioritization]] — Framework for ranking unknown genes and designing tractable validation campaigns
+- [[concepts/fitness-conservation]] — Fitness importance correlates modestly with pangenome conservation, but context matters.
+- [[concepts/batch-confounding]] — Study and batch structure can create spurious cross-study metagenomic associations.
+- [[concepts/pathway-completeness]] — Computational assessment of whether organisms encode all steps of a biochemical pathway
+- [[concepts/geographic-distance-decay]] — Microbial similarity declines with geographic distance through spatially varying environments.
+- [[concepts/redox-zonation]] — Spatial separation of microbial processes along changing electron-acceptor conditions.
+- [[concepts/functional-redundancy]] — Functional overlap can preserve broad capacity while masking condition-specific specialization.
+- [[concepts/coverage-limited-inference]] — Inference constrained by incomplete reference, sample, and study coverage
+- [[concepts/environmental-occupancy-vs-activity]] — Environmental presence suggests opportunity, but activity requires pathway and process evidence.
+- [[concepts/resource-darkness]] — Resource darkness is a measured gap in available organism-level evidence, not proof of biological absence.
+- [[concepts/adversarial-methodological-review]] — Adversarial review exposes structural and inferential flaws missed by routine review.
+- [[concepts/microbiome-ecotype-portability]] — How microbiome ecotypes can remain biologically valid across cohorts and assay pipelines
+- [[concepts/shared-stress-biology]] — Shared cellular stress responses overlap across ionic, osmotic, and metal environments.
+- [[concepts/horizontal-gene-transfer]] — Evidence for HGT, mobile-element transfer, and limits of accessory-genome inference
+- [[concepts/mobile-genetic-elements]] — Synthesizes MGE burden, mobility, defense, resistance, and environmental transfer evidence
+- [[concepts/two-speed-genome]] — A conserved core and dynamic adaptive genome organize bacterial pangenomes.
+- [[concepts/prevalence-ceiling]] — Near-universal genes limit detectable pangenome associations through low presence variance.
+- [[concepts/gene-co-inheritance]] — Functional coupling can weakly predict which genes are inherited together.
+- [[concepts/cultivation-bias]] — Culturing can overrepresent accessible environmental lineages and underrepresent hidden diversity.
+- [[concepts/metabolic-competitive-exclusion]] — Resource competition can suppress pathogens when communities exhaust their preferred nutrients.
+- [[concepts/outer-membrane-lipid-homeostasis]] — How bacteria preserve outer-membrane integrity when lipid composition is disrupted
+- [[concepts/subsurface-microbial-specialization]] — How subsurface microbes specialize through expanded genomes, redox flexibility, and spatial zonation.
+- [[concepts/phylogenetic-confounding]] — Shared ancestry can make microbial trait and environment associations appear causal.
+- [[concepts/genome-ecology-validation]] — Tests whether genome-derived predictions match independent ecological evidence.
+- [[concepts/environmental-metal-tolerance]] — Genome-based metal scores track bacterial isolation from contaminated environments.
+- [[concepts/nadh-flux-respiratory-constraints]] — Substrate-specific respiratory limits caused by NADH production rate and dehydrogenase capacity.
+- [[concepts/metabolic-support-networks]] — Distributed genes and cofactors that enable core metabolic pathways
+- [[concepts/evidence-triangulation]] — Combining independent evidence streams to test biological claims and hypotheses
+- [[concepts/phylogenetic-amr-structure]] — AMR profiles often follow bacterial lineage structure within species.
+- [[concepts/resistance-islands]] — Co-inherited AMR gene modules that structure strain-level resistance variation.
+- [[concepts/compensatory-evolution]] — Evolutionary changes that reduce the fitness cost of resistance.
+- [[concepts/core-accessory-resistance]] — Synthesizes how pangenome conservation distinguishes resistance, stress fitness, and mobility.
+- [[concepts/environmental-resistome]] — How ecological niche shapes AMR abundance, composition, inheritance, and strain variation
+- [[concepts/organism-specificity]] — Organismal context shapes microbial resistance, fitness, ecology, and gene-content architecture.
+- [[concepts/shared-dispensability]] — Shared laboratory dispensability can mimic biological cofitness or co-regulation.
+- [[concepts/cofitness-networks]] — Cofitness networks reveal shared fitness programs but not necessarily direct molecular functions.
+- [[concepts/msa-depth]] — MSA depth measures evolutionary representation and predicts protein annotation richness.
+- [[concepts/structural-novelty]] — Low sequence representation can reveal conserved proteins with unexplored structures and functions.
+- [[concepts/annotation-gap]] — Annotation gaps reflect uneven sequence coverage, functional knowledge, ecological sampling, and method validity.
+- [[concepts/method-concordance]] — A framework for interpreting agreement and disagreement among biological methods
+- [[concepts/gene-essentiality]] — Gene essentiality is condition-dependent and only modestly predicts genome conservation.
+- [[concepts/phenotypic-landscape]] — How ADP1 gene-deletion effects form continuous and condition-specific phenotypic patterns
+- [[concepts/condition-dependent-essentiality]] — Environmental context makes gene and pathway essentiality conditional, graded, and measurable.
+- [[concepts/metabolic-model-gapfilling]] — How missing reactions, cofactors, and environmental assumptions limit metabolic models
+- [[concepts/pangenome-integration]] — A framework for joining pangenome data with phenotypic, ecological, structural, and metabolic evidence.
+- [[concepts/multi-omics-integration]] — Integrating complementary omics reveals condition-dependent biology and model limitations.
+
+## Entities
+- [[entities/sphingomonas]] (organism) — Bacterial genus that declined during lignin enrichment
+- [[entities/oak-ridge]] (place) — Oak Ridge groundwater sites used to study microbial ecology across uranium gradients.
+- [[entities/kbase-ke-pangenome]] (dataset) — KBase dataset providing pangenome gene-cluster and conservation mappings
+- [[entities/chvG-chvI]] (gene_or_pathway) — Caulobacter envelope-stress two-component regulatory system
+- [[entities/metal-fitness-atlas]] (dataset) — Genome-based dataset predicting bacterial metal tolerance across pangenome species.
+- [[entities/bacdive]] (dataset) — Bacterial and archaeal database used to validate metal-tolerance predictions
+- [[entities/protocatechuate-3-4-dioxygenase]] (gene_or_pathway) — Iron-dependent enzyme that cleaves protocatechuate in ADP1 aromatic catabolism
+- [[entities/iron]] (compound) — Iron supports protocatechuate ring cleavage during ADP1 quinate catabolism.
+- [[entities/pqq]] (compound) — PQQ is a redox cofactor required for ADP1 quinate catabolism.
+- [[entities/ndh-2]] (gene_or_pathway) — Alternative NADH dehydrogenase proposed to offset Complex I demand
+- [[entities/complex-i]] (gene_or_pathway) — Respiratory NADH dehydrogenase supporting high-flux aromatic catabolism
+- [[entities/marinobacter]] (organism) — Marinobacter was a high-resolution organism in the annotation-gap study.
+- [[entities/herbaspirillum-seropedicae]] (organism) — Fitness Browser organism with 58.8% metabolic gap resolution
+- [[entities/azospirillum-brasilense]] (organism) — Bacterial Fitness Browser organism with 61.9% annotation-gap resolution.
+- [[entities/klebsiella-michiganensis]] (organism) — Fitness Browser organism with the highest reported annotation-gap resolution rate
+- [[entities/bacteroides-thetaiotaomicron]] (organism) — Bacteroidetes organism with the lowest annotation-gap resolution rate in the study.
+- [[entities/gapmind]] (dataset) — A pathway-level dataset for annotating amino acid biosynthesis completeness
+- [[entities/average-nucleotide-identity]] (method) — Genomic similarity method used to measure strain relatedness
+- [[entities/acinetobacter-baumannii]] (organism) — Bacterial species included in the report’s planned AMR case studies.
+- [[entities/pseudomonas-aeruginosa]] (organism) — Bacterial species listed for an AMR strain-variation case study.
+- [[entities/escherichia-coli]] (organism) — Model organism included in AMR variation and metabolic annotation-gap studies
+- [[entities/eggnog]] (dataset) — Orthology-based annotations used to interpret microbial gene and AMR functions.
+- [[entities/diamond]] (method) — Protein-sequence comparison method supporting pangenome and annotation-gap resolution
+- [[entities/der-simonian-laird-random-effects-meta-analysis]] (method) — A random-effects method used to pool AMR fitness effects across organisms
+- [[entities/bakta]] (method) — Bacterial genome annotation method used for PGP, AMR, and metabolic analyses
+- [[entities/mycobacterium-tuberculosis]] (organism) — Clinical-dominated species with a predominantly accessory AMR profile
+- [[entities/streptococcus-pneumoniae]] (organism) — Clinical-dominated species with a highly accessory AMR profile
+- [[entities/salmonella-enterica]] (organism) — Salmonella enterica shows extensive accessory and lineage-structured AMR variation.
+- [[entities/staphylococcus-aureus]] (organism) — A clinically sampled species with highly accessory AMR and structured strain variation
+- [[entities/klebsiella-pneumoniae]] (organism) — Clinical-associated species with a large, highly accessory AMR resistome.
+- [[entities/alphaearth-environmental-embeddings]] (dataset) — Environmental embeddings linking ecological context to bacterial AMR patterns
+- [[entities/amrfinderplus]] (method) — AMR annotation method used to identify resistance genes and gene clusters
+- [[entities/tryptophan-biosynthesis]] (gene_or_pathway) — A biosynthetic pathway enriched in AMR cofitness neighborhoods.
+- [[entities/histidine-biosynthesis]] (gene_or_pathway) — A biosynthetic pathway enriched in AMR cofitness support networks
+- [[entities/flagellar-motility]] (gene_or_pathway) — Flagellar motility enables bacterial movement and was enriched in AMR cofitness networks.
+- [[entities/kegg]] (dataset) — KEGG is a functional annotation and pathway dataset used in genome analyses.
+- [[entities/seed]] (dataset) — Legacy annotation dataset used for comparison with InterProScan GO.
+- [[entities/independent-component-analysis]] (method) — A dimensionality-reduction method for identifying independent fitness modules
+- [[entities/esmfold]] (method) — An MSA-independent protein-folding method proposed as a novelty comparator.
+- [[entities/gtdb]] (dataset) — Taxonomic and phylogenetic database supporting genome and pangenome analysis
+- [[entities/interproscan]] (method) — Sequence-based method for high-coverage functional and domain annotation
+- [[entities/uniprot]] (dataset) — Protein sequence resource linking gene clusters to functional and homology evidence
+- [[entities/alphafold-protein-structure-database]] (dataset) — Protein structure database used to measure bacterial MSA depth
+- [[entities/pqq-biosynthesis]] (gene_or_pathway) — PQQ pathway supplying cofactors for quinate and glucose oxidation in ADP1
+- [[entities/urease-complex]] (gene_or_pathway) — Urease system whose genes are specifically required for growth on urea in ADP1.
+- [[entities/quinate-aromatic-degradation]] (gene_or_pathway) — ADP1 pathways for quinate and related aromatic compound catabolism
+- [[entities/proteomics]] (method) — Protein-abundance measurements that predict ADP1 gene essentiality
+- [[entities/flux-balance-analysis]] (method) — Constraint-based method for predicting metabolic flux, growth, and gene necessity
+- [[entities/random-barcode-transposon-sequencing]] (method) — Pooled transposon method for measuring condition-specific bacterial gene fitness
+- [[entities/modelseed]] (dataset) — Biochemical reference collection used for metabolic modeling and gapfilling
+- [[entities/fitness-browser]] (dataset) — Dataset of bacterial mutant fitness measurements across genes and conditions
+- [[entities/berdl]] (dataset) — Integrated BERDL data platform linking pangenomes, phenotypes, models, and ecology
+- [[entities/acinetobacter-baylyi-adp1]] (organism) — ADP1 is a model bacterium for integrated metabolic and genetic analysis.
+
+## Explorations

@@ -1,0 +1,3411 @@
+{
+ "acinetobacter_adp1_explorer": [
+  {
+   "file": "figures/data_coverage_by_modality.png",
+   "caption": "Data coverage by modality",
+   "context": ""
+  },
+  {
+   "file": "figures/fba_tnseq_concordance.png",
+   "caption": "FBA vs TnSeq concordance",
+   "context": ""
+  },
+  {
+   "file": "figures/essentiality_overview.png",
+   "caption": "Essentiality overview",
+   "context": ""
+  },
+  {
+   "file": "figures/growth_condition_correlation.png",
+   "caption": "Carbon source fitness correlation",
+   "context": ""
+  },
+  {
+   "file": "figures/mutant_growth_fitness.png",
+   "caption": "Mutant growth fitness distributions",
+   "context": ""
+  },
+  {
+   "file": "figures/annotation_by_essentiality.png",
+   "caption": "Annotation coverage by essentiality",
+   "context": ""
+  },
+  {
+   "file": "figures/essentiality_vs_pangenome.png",
+   "caption": "Essentiality vs pangenome status",
+   "context": ""
+  },
+  {
+   "file": "figures/reaction_conservation.png",
+   "caption": "Reaction conservation",
+   "context": ""
+  },
+  {
+   "file": "figures/reaction_gapfilling.png",
+   "caption": "Reaction gapfilling by genome",
+   "context": ""
+  },
+  {
+   "file": "figures/gapfilling_impact.png",
+   "caption": "Gapfilling impact",
+   "context": ""
+  },
+  {
+   "file": "figures/growth_phenotype_predictions.png",
+   "caption": "Growth phenotype predictions",
+   "context": ""
+  },
+  {
+   "file": "figures/proteomics_cross_strain.png",
+   "caption": "Proteomics cross-strain comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/proteomics_wt_vs_engineered.png",
+   "caption": "WT vs most divergent engineered strain",
+   "context": ""
+  },
+  {
+   "file": "figures/fba_flux_class_transition.png",
+   "caption": "FBA flux class transition heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/essentiality_distribution.png",
+   "caption": "Essentiality distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/metabolic_flux_classes.png",
+   "caption": "Metabolic flux classes",
+   "context": ""
+  },
+  {
+   "file": "figures/mutant_growth_by_condition.png",
+   "caption": "Mutant growth by condition",
+   "context": ""
+  },
+  {
+   "file": "figures/ontology_distribution.png",
+   "caption": "Ontology term distribution",
+   "context": ""
+  }
+ ],
+ "adp1_deletion_phenotypes": [
+  {
+   "file": "figures/condition_boxplots.png",
+   "caption": "Growth defect severity across carbon sources",
+   "context": ""
+  },
+  {
+   "file": "figures/pca_variance.png",
+   "caption": "PCA variance explained and cumulative variance",
+   "context": ""
+  },
+  {
+   "file": "figures/pca_biplot.png",
+   "caption": "PCA biplot showing gene scores and condition loadings",
+   "context": ""
+  },
+  {
+   "file": "figures/condition_clustermap.png",
+   "caption": "Condition correlation heatmap with hierarchical clustering",
+   "context": ""
+  },
+  {
+   "file": "figures/silhouette_analysis.png",
+   "caption": "Silhouette analysis for gene clustering",
+   "context": ""
+  },
+  {
+   "file": "figures/gene_heatmap.png",
+   "caption": "Growth profiles of all 2,034 genes ordered by hierarchical clustering",
+   "context": ""
+  },
+  {
+   "file": "figures/module_profiles.png",
+   "caption": "Module mean z-score profiles",
+   "context": ""
+  },
+  {
+   "file": "figures/specificity_distribution.png",
+   "caption": "Distribution of gene condition-specificity scores",
+   "context": ""
+  },
+  {
+   "file": "figures/condition_specific_heatmap.png",
+   "caption": "Z-score heatmap of top condition-specific genes",
+   "context": ""
+  },
+  {
+   "file": "figures/tnseq_gap_coverage.png",
+   "caption": "TnSeq gap coverage by essentiality class",
+   "context": ""
+  },
+  {
+   "file": "figures/missing_gene_length.png",
+   "caption": "Gene length distribution comparison",
+   "context": ""
+  }
+ ],
+ "adp1_triple_essentiality": [
+  {
+   "file": "figures/fba_growth_concordance.png",
+   "caption": "FBA class vs growth defect contingency table and defect rates",
+   "context": ""
+  },
+  {
+   "file": "figures/threshold_sensitivity.png",
+   "caption": "Threshold sensitivity analysis",
+   "context": ""
+  },
+  {
+   "file": "figures/growth_by_fba_class.png",
+   "caption": "Growth rate distributions by FBA class",
+   "context": ""
+  },
+  {
+   "file": "figures/flux_vs_growth_scatter.png",
+   "caption": "FBA flux vs mutant growth rate scatter plots by carbon source",
+   "context": ""
+  },
+  {
+   "file": "figures/defect_condition_correlation.png",
+   "caption": "Growth defect correlation across conditions",
+   "context": ""
+  },
+  {
+   "file": "figures/rast_enrichment_discordant.png",
+   "caption": "RAST functional category enrichment in discordant genes",
+   "context": ""
+  },
+  {
+   "file": "figures/rast_by_discordance_class.png",
+   "caption": "RAST functional category distribution by concordance class",
+   "context": ""
+  },
+  {
+   "file": "figures/pangenome_discordance.png",
+   "caption": "Pangenome status by discordance class",
+   "context": ""
+  },
+  {
+   "file": "figures/fba_comparison.png",
+   "caption": "FBA Concordance Comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/concordance_comprehensive.png",
+   "caption": "Concordance Comprehensive",
+   "context": ""
+  },
+  {
+   "file": "figures/discordance_analysis.png",
+   "caption": "Discordance Analysis",
+   "context": ""
+  },
+  {
+   "file": "figures/proteomics_expression_distribution.png",
+   "caption": "Proteomics Expression Distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/roc_comprehensive.png",
+   "caption": "ROC Comprehensive",
+   "context": ""
+  }
+ ],
+ "alphafold_msa_annotation": [
+  {
+   "file": "figures/NB03_msa_depth_pangenome_class.png",
+   "caption": "MSA depth by pangenome class, hypothetical rates, and structurally novel fraction",
+   "context": ""
+  }
+ ],
+ "amr_cofitness_networks": [
+  {
+   "file": "figures/amr_module_analysis.png",
+   "caption": "Module size comparison and mechanism coverage",
+   "context": ""
+  },
+  {
+   "file": "figures/go_enrichment_interproscan.png",
+   "caption": "GO term enrichment in AMR support networks",
+   "context": ""
+  },
+  {
+   "file": "figures/jaccard_go_comparison.png",
+   "caption": "Jaccard comparison showing organism-specificity",
+   "context": ""
+  },
+  {
+   "file": "figures/go_conservation_heatmap.png",
+   "caption": "GO term conservation heatmap by mechanism",
+   "context": ""
+  },
+  {
+   "file": "figures/network_size_vs_fitness.png",
+   "caption": "Network size vs fitness cost scatter",
+   "context": ""
+  }
+ ],
+ "amr_environmental_resistome": [
+  {
+   "file": "figures/h1_amr_by_environment.png",
+   "caption": "AMR diversity by environment",
+   "context": ""
+  },
+  {
+   "file": "figures/h2_core_accessory_by_env.png",
+   "caption": "Core vs accessory AMR by environment",
+   "context": ""
+  },
+  {
+   "file": "figures/h3_mechanism_by_environment.png",
+   "caption": "Mechanism composition by environment",
+   "context": ""
+  },
+  {
+   "file": "figures/h4_within_species.png",
+   "caption": "Within-species AMR by environment",
+   "context": ""
+  },
+  {
+   "file": "figures/nb04_alphaearth.png",
+   "caption": "AlphaEarth analysis",
+   "context": ""
+  }
+ ],
+ "amr_fitness_cost": [
+  {
+   "file": "figures/forest_plot_amr_fitness.png",
+   "caption": "Forest plot showing positive fitness shift for AMR gene knockouts across all 25 organisms",
+   "context": ""
+  },
+  {
+   "file": "figures/antibiotic_validation.png",
+   "caption": "Scatter plot and histogram of fitness flip between antibiotic and non-antibiotic conditions",
+   "context": ""
+  },
+  {
+   "file": "figures/class_matched_heatmap.png",
+   "caption": "Heatmap of AMR gene fitness under class-matched antibiotics",
+   "context": ""
+  },
+  {
+   "file": "figures/h2_mechanism_stratification.png",
+   "caption": "Box plot of fitness by AMR mechanism",
+   "context": ""
+  },
+  {
+   "file": "figures/h3_core_vs_accessory.png",
+   "caption": "Box plot comparing core vs accessory AMR gene fitness",
+   "context": ""
+  },
+  {
+   "file": "figures/mechanism_x_conservation.png",
+   "caption": "Interaction plot showing mechanism \u00d7 conservation",
+   "context": ""
+  }
+ ],
+ "amr_pangenome_atlas": [
+  {
+   "file": "figures/amr_conservation_vs_baseline.png",
+   "caption": "AMR conservation vs pangenome baseline",
+   "context": ""
+  },
+  {
+   "file": "figures/amr_mechanism_conservation.png",
+   "caption": "Conservation by AMR mechanism",
+   "context": ""
+  },
+  {
+   "file": "figures/amr_gene_families_core_fraction.png",
+   "caption": "Top 30 AMR gene families by core fraction",
+   "context": ""
+  },
+  {
+   "file": "figures/amr_hotspot_families.png",
+   "caption": "AMR hotspot families",
+   "context": ""
+  },
+  {
+   "file": "figures/amr_openness_by_phylum.png",
+   "caption": "AMR vs pangenome openness by phylum",
+   "context": ""
+  },
+  {
+   "file": "figures/amr_cog_enrichment.png",
+   "caption": "COG enrichment in AMR genes",
+   "context": ""
+  },
+  {
+   "file": "figures/amr_by_environment.png",
+   "caption": "AMR by isolation environment",
+   "context": ""
+  },
+  {
+   "file": "figures/amr_alphaearth_diversity.png",
+   "caption": "AlphaEarth environmental diversity vs AMR",
+   "context": ""
+  },
+  {
+   "file": "figures/amr_fitness_distribution.png",
+   "caption": "AMR gene fitness distribution",
+   "context": ""
+  }
+ ],
+ "amr_strain_variation": [
+  {
+   "file": "figures/nb02_variation_landscape.png",
+   "caption": "Variation landscape showing prevalence classes, variability vs openness, Jaccard diversity by phylum, and prevalence by mechanism",
+   "context": ""
+  },
+  {
+   "file": "figures/nb03_cooccurrence.png",
+   "caption": "Co-occurrence analysis showing island size distribution, observed vs null phi, and islands per species",
+   "context": ""
+  },
+  {
+   "file": "figures/nb04_phylogenetic_signal.png",
+   "caption": "Phylogenetic signal showing Mantel r distribution, core vs non-core, and signal vs diversity",
+   "context": ""
+  }
+ ],
+ "annotation_gap_discovery": [
+  {
+   "file": "figures/fig1_resolution_overview.png",
+   "caption": "Cumulative resolution and confidence breakdown",
+   "context": ""
+  },
+  {
+   "file": "figures/fig2_cross_validation.png",
+   "caption": "Cross-validation of evidence streams",
+   "context": ""
+  },
+  {
+   "file": "figures/fig3_organism_resolution.png",
+   "caption": "Per-organism resolution breakdown",
+   "context": ""
+  },
+  {
+   "file": "figures/fig6_conservation.png",
+   "caption": "EC conservation across organisms",
+   "context": ""
+  },
+  {
+   "file": "figures/fig5_gapmind_concordance.png",
+   "caption": "GapMind concordance with gapfilling",
+   "context": ""
+  },
+  {
+   "file": "figures/fig4_blast_quality.png",
+   "caption": "BLAST hit quality distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/nb04_candidate_sources.png",
+   "caption": "Evidence source distribution from NB04",
+   "context": ""
+  },
+  {
+   "file": "figures/nb05_fitness_specificity.png",
+   "caption": "Fitness specificity analysis from NB05",
+   "context": ""
+  },
+  {
+   "file": "figures/nb06_triangulated_evidence.png",
+   "caption": "Triangulated evidence from NB06",
+   "context": ""
+  },
+  {
+   "file": "figures/gapmind_score_categories.png",
+   "caption": "GapMind score categories",
+   "context": ""
+  },
+  {
+   "file": "figures/annotation_gap_resolution_heatmap.png",
+   "caption": "Annotation gap resolution heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/evidence_distribution.png",
+   "caption": "Evidence distribution",
+   "context": ""
+  }
+ ],
+ "aromatic_catabolism_network": [
+  {
+   "file": "figures/support_network_categories.png",
+   "caption": "Quinate-specific genes by functional category",
+   "context": ""
+  },
+  {
+   "file": "figures/fba_flux_heatmap.png",
+   "caption": "FBA-predicted flux heatmap for quinate-specific genes",
+   "context": ""
+  },
+  {
+   "file": "figures/chromosome_map.png",
+   "caption": "Chromosome map of quinate-specific genes",
+   "context": ""
+  },
+  {
+   "file": "figures/gene_clusters.png",
+   "caption": "Genomic clusters of quinate-specific genes",
+   "context": ""
+  },
+  {
+   "file": "figures/cofitness_heatmap.png",
+   "caption": "Co-fitness heatmap among 51 quinate-specific genes",
+   "context": ""
+  },
+  {
+   "file": "figures/unknown_assignments_heatmap.png",
+   "caption": "Unknown gene correlations with known subsystems",
+   "context": ""
+  },
+  {
+   "file": "figures/cofitness_within_between.png",
+   "caption": "Within vs between category co-fitness",
+   "context": ""
+  },
+  {
+   "file": "figures/cross_species_fitness.png",
+   "caption": "Cross-species fitness on aromatic vs non-aromatic conditions",
+   "context": ""
+  },
+  {
+   "file": "figures/complex_I_vs_background.png",
+   "caption": "Complex I fitness relative to background by condition",
+   "context": ""
+  }
+ ],
+ "bacdive_metal_validation": [
+  {
+   "file": "figures/metal_score_by_environment.png",
+   "caption": "Metal score by environment",
+   "context": ""
+  },
+  {
+   "file": "figures/bridge_summary.png",
+   "caption": "Bridge summary",
+   "context": ""
+  },
+  {
+   "file": "figures/utilization_vs_score.png",
+   "caption": "Metal utilization vs score",
+   "context": ""
+  }
+ ],
+ "bacdive_phenotype_metal_tolerance": [
+  {
+   "file": "figures/univariate_effect_sizes.png",
+   "caption": "Univariate effect sizes",
+   "context": ""
+  },
+  {
+   "file": "figures/model_comparison.png",
+   "caption": "Model comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/feature_completeness.png",
+   "caption": "Feature completeness",
+   "context": ""
+  },
+  {
+   "file": "figures/shap_summary.png",
+   "caption": "SHAP summary",
+   "context": ""
+  },
+  {
+   "file": "figures/coverage_waterfall.png",
+   "caption": "Coverage waterfall",
+   "context": ""
+  },
+  {
+   "file": "figures/fb_bacdive_phenotype_table.png",
+   "caption": "FB-BacDive phenotype table",
+   "context": ""
+  }
+ ],
+ "bacillota_b_subsurface_accessory": [
+  {
+   "file": "figures/summary_figure.png",
+   "caption": "4-panel synthesis figure",
+   "context": ""
+  }
+ ],
+ "berdl_data_atlas": [
+  {
+   "file": "figures/nb05_volume_by_entity_class.png",
+   "caption": "Per-entity-class data volume (log scale)",
+   "context": ""
+  },
+  {
+   "file": "figures/nb01_agency_topic_heatmap.png",
+   "caption": "Agency \u00d7 biological topic coverage",
+   "context": ""
+  },
+  {
+   "file": "figures/nb01_topic_concentration.png",
+   "caption": "Topic concentration \u2014 segments are tenants, with top-tenant share annotated",
+   "context": ""
+  },
+  {
+   "file": "figures/nb02_linkage_graph.png",
+   "caption": "(Tenant, topic) linkage graph \u2014 edges = \u22651 shared canonical join key",
+   "context": ""
+  },
+  {
+   "file": "figures/nb02_key_tenant_heatmap.png",
+   "caption": "Join keys \u00d7 tenants \u2014 table counts per key/tenant combination",
+   "context": ""
+  },
+  {
+   "file": "figures/nb03_tenant_frequency.png",
+   "caption": "BERIL tenant reuse frequency across 66 audited projects",
+   "context": ""
+  },
+  {
+   "file": "figures/nb03_theoretical_vs_realized.png",
+   "caption": "Realized vs theoretical bridges \u2014 top-right = used and rich; bottom-right = untapped",
+   "context": ""
+  },
+  {
+   "file": "figures/nb04_atlas_composite.png",
+   "caption": "Composite atlas \u2014 tenant \u00d7 topic heat, per-tenant realized reuse, theory-vs-practice scatter",
+   "context": ""
+  },
+  {
+   "file": "figures/nb05_volume_per_table.png",
+   "caption": "Every headline table, log-scaled, colored by entity class",
+   "context": ""
+  },
+  {
+   "file": "figures/nb00_topic_distribution.png",
+   "caption": "Primary-topic distribution across 1,740 tables",
+   "context": ""
+  },
+  {
+   "file": "figures/nb00_tenant_topic_heatmap.png",
+   "caption": "Tenant \u00d7 primary topic cross-tab",
+   "context": ""
+  },
+  {
+   "file": "figures/nb01_synergy_capacity.png",
+   "caption": "Synergy capacity (distinct topics \u00d7 topic entropy); point size \u221d table count",
+   "context": ""
+  }
+ ],
+ "caulobacter_fur_lipida_loss": [
+  {
+   "file": "figures/NB07_synthesis_master.png",
+   "caption": "Master synthesis figure \u2014 4-panel summary of all five mechanism layers",
+   "context": ""
+  },
+  {
+   "file": "figures/00_sphingolipid_locus_heatmap.png",
+   "caption": "Sphingolipid locus heatmap from orientation notebook \u2014 neither induced nor strongly suppressed across the strain series",
+   "context": ""
+  },
+  {
+   "file": "figures/NB01_fur_signature_scatter.png",
+   "caption": "Leaden \u0394fur logFC vs our 4584-vs-4580 logFC; concordant_strong in dark blue, buffered set in orange, discordant in red",
+   "context": ""
+  },
+  {
+   "file": "figures/NB01_leaden_iron_vs_fur.png",
+   "caption": "Leaden internal: \u0394fur vs iron-limitation response \u2014 shows the Fur regulon and iron-limitation response are correlated but not identical, providing Leaden's own validation of the signal",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04_sphingolipid_locus_heatmap.png",
+   "caption": "Sphingolipid biosynthesis cluster heatmap \u2014 flat-to-slightly-decreasing across strain series",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04_lpt_apparatus_heatmap.png",
+   "caption": "Canonical LPS-transport apparatus heatmap \u2014 MsbA-like CCNA_00307 visibly UP in 4599 vs others",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04_ctpA_per_strain.png",
+   "caption": "CtpA / CCNA_03113 expression per strain \u2014 clear monotonic rise 37\u219242\u219263 CPM despite borderline single-contrast FDR",
+   "context": ""
+  },
+  {
+   "file": "figures/NB05_pg_remodeling_heatmap.png",
+   "caption": "PG-remodeling enzymes meeting H4 threshold \u2014 coordinated up/down pattern across the strain series",
+   "context": ""
+  }
+ ],
+ "cf_formulation_design": [
+  {
+   "file": "figures/01_isolate_species_distribution.png",
+   "caption": "Isolate species distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/01_isolate_genus_distribution.png",
+   "caption": "Isolate genus distribution \u2014 red = known CF pathogens",
+   "context": ""
+  },
+  {
+   "file": "figures/01_genome_quality.png",
+   "caption": "Genome quality: completeness, contamination, reference ANI",
+   "context": ""
+  },
+  {
+   "file": "figures/01_carbon_util_clustermap.png",
+   "caption": "Carbon utilization clustermap \u2014 top 50 most variable isolates",
+   "context": ""
+  },
+  {
+   "file": "figures/01_data_overlap.png",
+   "caption": "Data type overlap across isolates",
+   "context": ""
+  },
+  {
+   "file": "figures/01_pa14_carbon_profile.png",
+   "caption": "PA14 carbon source utilization profile",
+   "context": ""
+  },
+  {
+   "file": "figures/01_reporter_carbon_heatmap.png",
+   "caption": "All reporter pathogen carbon utilization profiles",
+   "context": ""
+  },
+  {
+   "file": "figures/01_overlap_vs_inhibition_preview.png",
+   "caption": "Metabolic overlap vs inhibition \u2014 initial preview (r=0.384)",
+   "context": ""
+  },
+  {
+   "file": "figures/03_metabolic_features_vs_inhibition.png",
+   "caption": "Three metabolic features vs inhibition with regression lines",
+   "context": ""
+  },
+  {
+   "file": "figures/03_predicted_vs_observed.png",
+   "caption": "Predicted vs observed inhibition from metabolic model (R\u00b2 = 0.274)",
+   "context": ""
+  },
+  {
+   "file": "figures/01_inhibition_distribution.png",
+   "caption": "Inhibition distribution \u2014 all measurements and per-isolate best",
+   "context": ""
+  },
+  {
+   "file": "figures/01_inhibition_by_genus.png",
+   "caption": "Inhibition by genus \u2014 full isolate collection (top 20)",
+   "context": ""
+  },
+  {
+   "file": "figures/03_inhibition_by_genus_cohort.png",
+   "caption": "Inhibition by genus in the analysis cohort",
+   "context": ""
+  },
+  {
+   "file": "figures/02_growth_curve_gallery.png",
+   "caption": "Growth curves: PA14 (dashed) vs representative commensals",
+   "context": ""
+  },
+  {
+   "file": "figures/02_rate_advantage_heatmap.png",
+   "caption": "Growth rate advantage vs PA14 per isolate \u00d7 substrate",
+   "context": ""
+  },
+  {
+   "file": "figures/02_parameter_distributions.png",
+   "caption": "Growth parameter distributions \u2014 K, mu_max, lag, AUC",
+   "context": ""
+  },
+  {
+   "file": "figures/02_kinetics_vs_endpoint.png",
+   "caption": "Growth kinetic parameters vs endpoint OD \u2014 correlated but not redundant",
+   "context": ""
+  },
+  {
+   "file": "figures/03_kinetic_advantage_vs_inhibition.png",
+   "caption": "Kinetic advantage vs inhibition (n=29)",
+   "context": ""
+  },
+  {
+   "file": "figures/04_prevalence_vs_activity.png",
+   "caption": "Species prevalence vs transcriptional activity \u2014 blue = has PROTECT isolate",
+   "context": ""
+  },
+  {
+   "file": "figures/05b_strict_safe_species_frequency.png",
+   "caption": "Core species frequency in top strict-safe formulations",
+   "context": ""
+  },
+  {
+   "file": "figures/05b_bootstrap_ci.png",
+   "caption": "Bootstrap confidence intervals on formulation composite scores",
+   "context": ""
+  },
+  {
+   "file": "figures/05_formulation_scores_by_size.png",
+   "caption": "Best formulation composite score by size",
+   "context": ""
+  },
+  {
+   "file": "figures/06_prebiotic_selectivity.png",
+   "caption": "Carbon source selectivity ratios \u2014 no substrate favors commensals over PA14",
+   "context": ""
+  },
+  {
+   "file": "figures/07_aa_pathway_conservation.png",
+   "caption": "Amino acid pathway conservation heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/07_carbon_pathway_conservation.png",
+   "caption": "Carbon source pathway conservation heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/08_pair_vs_single_inhibition.png",
+   "caption": "Single vs pair inhibition distributions, and synergy score distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/08_dose_response_pairs.png",
+   "caption": "Dose-response: pair inhibition vs total inoculation density",
+   "context": ""
+  },
+  {
+   "file": "figures/09_pathway_selectivity_heatmap.png",
+   "caption": "Pathway completeness: PA14 vs core commensals",
+   "context": ""
+  },
+  {
+   "file": "figures/10_pa_genome_sources.png",
+   "caption": "PA genome sources in pangenome",
+   "context": ""
+  },
+  {
+   "file": "figures/10_pa_lung_vs_nonlung_pathways.png",
+   "caption": "PA metabolic pathways by isolation source",
+   "context": ""
+  },
+  {
+   "file": "figures/10_pa_sick_vs_stable_pathways.png",
+   "caption": "PA pathway expression: acute vs stable patients",
+   "context": ""
+  },
+  {
+   "file": "figures/10_pa_target_robustness.png",
+   "caption": "Formulation target robustness across lung PA",
+   "context": ""
+  },
+  {
+   "file": "figures/10_pa_lung_clusters.png",
+   "caption": "PA lung metabolic subpopulations and CF vs non-CF",
+   "context": ""
+  },
+  {
+   "file": "figures/10_protect_pa_genome_variation.png",
+   "caption": "PROTECT PA genome variation (655 isolates, 15 strain groups)",
+   "context": ""
+  },
+  {
+   "file": "figures/12_growth_rate_prediction.png",
+   "caption": "Growth rate prediction: CUB scores and genome size for PA vs commensals",
+   "context": ""
+  },
+  {
+   "file": "figures/13_t3ss_by_environment.png",
+   "caption": "T3SS effector type and biofilm polysaccharide distribution by environment",
+   "context": ""
+  },
+  {
+   "file": "figures/13_biofilm_by_environment.png",
+   "caption": "Biofilm polysaccharide type by environment",
+   "context": ""
+  },
+  {
+   "file": "figures/13_pa_virulence_summary.png",
+   "caption": "PA virulence systems summary across environments",
+   "context": ""
+  },
+  {
+   "file": "figures/13_protect_pa_virulence.png",
+   "caption": "PROTECT PA virulence gene prevalence",
+   "context": ""
+  },
+  {
+   "file": "figures/14_asma_virulence_profiles.png",
+   "caption": "ASMA PA virulence profiles: T3SS, model similarity, gene prevalence, and strain group breakdown",
+   "context": ""
+  },
+  {
+   "file": "figures/14_pa_phylogenetic_tree.png",
+   "caption": "Circular Pfam-based tree: 165 PA genomes annotated with T3SS type, biofilm, source, and identity. ASMA isolates (red) distributed across lung PA diversity.",
+   "context": ""
+  }
+ ],
+ "clay_confined_subsurface": [
+  {
+   "file": "figures/h3_porewater_vs_rock.png",
+   "caption": "SR vs IR signature by cohort",
+   "context": ""
+  },
+  {
+   "file": "figures/h2_toolkit_by_cohort.png",
+   "caption": "Toolkit score by cohort",
+   "context": ""
+  },
+  {
+   "file": "figures/h1_self_sufficiency_violin.png",
+   "caption": "Self-sufficiency violin",
+   "context": ""
+  }
+ ],
+ "cofitness_coinheritance": [
+  {
+   "file": "figures/fig1_cofit_cooccurrence.png",
+   "caption": "Co-fitness vs Co-occurrence",
+   "context": ""
+  },
+  {
+   "file": "figures/fig2_operon_control.png",
+   "caption": "Operon Control",
+   "context": ""
+  },
+  {
+   "file": "figures/fig5_module_coinheritance.png",
+   "caption": "Module Co-inheritance",
+   "context": ""
+  },
+  {
+   "file": "figures/fig4_cofit_strength.png",
+   "caption": "Co-fitness Strength vs Phi",
+   "context": ""
+  },
+  {
+   "file": "figures/fig3_phylo_control.png",
+   "caption": "Phylogenetic Control",
+   "context": ""
+  },
+  {
+   "file": "figures/fig6_functional.png",
+   "caption": "Functional Enrichment",
+   "context": ""
+  }
+ ],
+ "conservation_fitness_synthesis": [
+  {
+   "file": "figures/fitness_conservation_gradient.png",
+   "caption": "Fitness-Conservation Gradient",
+   "context": ""
+  },
+  {
+   "file": "figures/selection_signature.png",
+   "caption": "Selection Signature",
+   "context": ""
+  },
+  {
+   "file": "figures/core_genome_active.png",
+   "caption": "Core Genome Active",
+   "context": ""
+  }
+ ],
+ "conservation_vs_fitness": [
+  {
+   "file": "figures/identity_distributions.png",
+   "caption": "DIAMOND Identity Distributions",
+   "context": ""
+  },
+  {
+   "file": "figures/conservation_breakdown.png",
+   "caption": "Conservation Breakdown",
+   "context": ""
+  },
+  {
+   "file": "figures/essential_vs_core_forest_plot.png",
+   "caption": "Essential vs Core Forest Plot",
+   "context": ""
+  },
+  {
+   "file": "figures/essential_enzyme_breakdown.png",
+   "caption": "Enzyme Classification Breakdown",
+   "context": ""
+  },
+  {
+   "file": "figures/essential_seed_toplevel_heatmap.png",
+   "caption": "SEED Functional Category Heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/essential_length_validation.png",
+   "caption": "Gene Length Validation",
+   "context": ""
+  },
+  {
+   "file": "figures/essential_enrichment_by_context.png",
+   "caption": "Enrichment by Context",
+   "context": ""
+  },
+  {
+   "file": "figures/essential_enrichment_by_lifestyle.png",
+   "caption": "Enrichment by Lifestyle",
+   "context": ""
+  }
+ ],
+ "core_gene_tradeoffs": [
+  {
+   "file": "figures/burden_by_function.png",
+   "caption": "Burden by Functional Category",
+   "context": ""
+  },
+  {
+   "file": "figures/burden_by_condition.png",
+   "caption": "Burden Patterns by Condition Type",
+   "context": ""
+  },
+  {
+   "file": "figures/tradeoff_genes_conservation.png",
+   "caption": "Trade-off Gene Conservation Enrichment",
+   "context": ""
+  },
+  {
+   "file": "figures/selection_signature_matrix.png",
+   "caption": "Selection Signature Matrix",
+   "context": ""
+  },
+  {
+   "file": "figures/specific_phenotype_conditions.png",
+   "caption": "Specific Phenotype Conditions",
+   "context": ""
+  },
+  {
+   "file": "figures/motility_case_study.png",
+   "caption": "Motility Case Study",
+   "context": ""
+  }
+ ],
+ "costly_dispensable_genes": [
+  {
+   "file": "figures/fig_seed_enrichment.png",
+   "caption": "SEED top-level category enrichment in costly+dispensable vs costly+conserved",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_annotation_rate.png",
+   "caption": "Annotation rate (SEED, KEGG) by selection quadrant",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_ortholog_breadth.png",
+   "caption": "Ortholog group breadth and orphan gene fraction by quadrant",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_gene_length.png",
+   "caption": "Gene length distributions by quadrant",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_organism_distribution.png",
+   "caption": "Costly+dispensable gene counts by organism",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_per_organism.png",
+   "caption": "Stacked bar of quadrant proportions per organism",
+   "context": ""
+  }
+ ],
+ "counter_ion_effects": [
+  {
+   "file": "figures/nacl_metal_overlap_heatmap.png",
+   "caption": "Heatmap of metal-NaCl gene overlap by organism and metal",
+   "context": ""
+  },
+  {
+   "file": "figures/metal_nacl_overlap_by_counter_ion.png",
+   "caption": "Per-metal overlap colored by counter ion type",
+   "context": ""
+  },
+  {
+   "file": "figures/cl_concentration_vs_overlap.png",
+   "caption": "Cl\u207b concentration vs NaCl overlap scatter",
+   "context": ""
+  },
+  {
+   "file": "figures/dvh_nacl_metal_correlation.png",
+   "caption": "DvH fitness profile correlations with NaCl",
+   "context": ""
+  },
+  {
+   "file": "figures/atlas_original_vs_corrected.png",
+   "caption": "Original vs corrected core enrichment per metal",
+   "context": ""
+  },
+  {
+   "file": "figures/gene_classification_by_metal.png",
+   "caption": "Per-metal gene classification: shared-stress vs metal-specific",
+   "context": ""
+  },
+  {
+   "file": "figures/psrch2_copper_comparison.png",
+   "caption": "psRCH2 CuCl\u2082 vs CuSO\u2084 fitness profiles",
+   "context": ""
+  }
+ ],
+ "ecotype_analysis": [
+  {
+   "file": "figures/ecotype_correlation_summary.png",
+   "caption": "Ecotype correlation summary",
+   "context": ""
+  },
+  {
+   "file": "figures/environmental_vs_host_comparison.png",
+   "caption": "Environmental vs host comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/ecotype_by_category.png",
+   "caption": "Ecotype effects by category",
+   "context": ""
+  },
+  {
+   "file": "figures/ecotype_scatter_by_category.png",
+   "caption": "Ecotype scatter by category",
+   "context": ""
+  },
+  {
+   "file": "figures/embedding_diversity_distribution.png",
+   "caption": "Embedding diversity distribution",
+   "context": ""
+  }
+ ],
+ "ecotype_env_reanalysis": [
+  {
+   "file": "figures/partial_corr_by_group.png",
+   "caption": "Partial correlations by species group",
+   "context": ""
+  },
+  {
+   "file": "figures/partial_corr_distributions.png",
+   "caption": "Distribution of partial correlations",
+   "context": ""
+  },
+  {
+   "file": "figures/frac_env_vs_partial_corr.png",
+   "caption": "Continuous analysis: fraction environmental vs partial correlation",
+   "context": ""
+  },
+  {
+   "file": "figures/species_classification.png",
+   "caption": "Species classification by dominant environment",
+   "context": ""
+  }
+ ],
+ "ecotype_functional_differentiation": [
+  {
+   "file": "figures/cog_differentiation_rates.png",
+   "caption": "COG differentiation rates by category, colored by adaptive (red) vs housekeeping (blue) vs other (gray)",
+   "context": ""
+  },
+  {
+   "file": "figures/effect_size_distributions.png",
+   "caption": "Effect size distributions for adaptive vs housekeeping COG categories",
+   "context": ""
+  },
+  {
+   "file": "figures/cog_differentiation_heatmap.png",
+   "caption": "Heatmap of COG differentiation significance across species",
+   "context": ""
+  }
+ ],
+ "enigma_carbon_census_1": [
+  {
+   "file": "figures/08_funnel.png",
+   "caption": "Discovery funnel",
+   "context": ""
+  },
+  {
+   "file": "figures/05_cooccurrence.png",
+   "caption": "Catabolic co-occurrence",
+   "context": ""
+  },
+  {
+   "file": "figures/05b_odds_ratio_forest.png",
+   "caption": "Odds-ratio forest plot",
+   "context": ""
+  },
+  {
+   "file": "figures/05_genus_versatility.png",
+   "caption": "Genus versatility",
+   "context": ""
+  },
+  {
+   "file": "figures/04_utilizer_genera.png",
+   "caption": "Utilizer genera",
+   "context": ""
+  },
+  {
+   "file": "figures/06_phylo_order_map.png",
+   "caption": "Phylogenetic order map",
+   "context": ""
+  },
+  {
+   "file": "figures/06_certainty_composition.png",
+   "caption": "Certainty composition",
+   "context": ""
+  },
+  {
+   "file": "figures/07b_env_atlas_heatmap.png",
+   "caption": "Environmental atlas heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/07b_soil_fresh_enrichment.png",
+   "caption": "Soil/freshwater enrichment",
+   "context": ""
+  },
+  {
+   "file": "figures/09a_physicochem_callable_dark.png",
+   "caption": "Physicochemistry callable vs dark",
+   "context": ""
+  },
+  {
+   "file": "figures/09a_bioavailability_space.png",
+   "caption": "Bioavailability space",
+   "context": ""
+  },
+  {
+   "file": "figures/09b_chassis.png",
+   "caption": "Chassis specialists/generalists",
+   "context": ""
+  },
+  {
+   "file": "figures/09c_clade_conservation.png",
+   "caption": "Per-clade conservation",
+   "context": ""
+  },
+  {
+   "file": "figures/09d_dark_taxonomy.png",
+   "caption": "Dark-matter taxonomy",
+   "context": ""
+  }
+ ],
+ "enigma_contamination_functional_potential": [
+  {
+   "file": "figures/confirmatory_defense_vs_contamination.png",
+   "caption": "Confirmatory defense score vs contamination index by mapping mode",
+   "context": ""
+  },
+  {
+   "file": "figures/contamination_vs_functional_score.png",
+   "caption": "Exploratory stress score vs contamination index by mapping mode",
+   "context": ""
+  },
+  {
+   "file": "figures/mapping_coverage_by_mode.png",
+   "caption": "Mapping and feature coverage by mode",
+   "context": ""
+  },
+  {
+   "file": "figures/contamination_index_distribution.png",
+   "caption": "Distribution of contamination index",
+   "context": ""
+  }
+ ],
+ "enigma_sso_asv_ecology": [
+  {
+   "file": "figures/bc_heatmap_sediment.png",
+   "caption": "Bray-Curtis dissimilarity heatmap across the 9 SSO wells",
+   "context": ""
+  },
+  {
+   "file": "figures/nmds_vs_grid.png",
+   "caption": "NMDS ordination vs physical grid showing nearest community neighbor",
+   "context": ""
+  },
+  {
+   "file": "figures/residual_analysis.png",
+   "caption": "Residual analysis and row-separation effects",
+   "context": ""
+  },
+  {
+   "file": "figures/nmds_samples_zone_well.png",
+   "caption": "Sample-level ordination colored by zone and well",
+   "context": ""
+  },
+  {
+   "file": "figures/depth_phylum_correlation.png",
+   "caption": "Phylum-depth correlations",
+   "context": ""
+  },
+  {
+   "file": "figures/genus_process_grid.png",
+   "caption": "Genus-inferred biogeochemical processes across the SSO grid",
+   "context": ""
+  },
+  {
+   "file": "figures/genus_process_clustermap.png",
+   "caption": "Clustered heatmap of genus-level processes",
+   "context": ""
+  },
+  {
+   "file": "figures/gw_vs_sediment_phylum.png",
+   "caption": "Phylum composition: groundwater vs sediment",
+   "context": ""
+  },
+  {
+   "file": "figures/guild_composition_bars.png",
+   "caption": "Metabolic guild composition across wells",
+   "context": ""
+  },
+  {
+   "file": "figures/guild_cooccurrence.png",
+   "caption": "Guild co-occurrence matrix",
+   "context": ""
+  },
+  {
+   "file": "figures/temporal_vs_spatial_gw.png",
+   "caption": "Temporal vs spatial variation",
+   "context": ""
+  },
+  {
+   "file": "figures/spatial_stability_mantel.png",
+   "caption": "Spatial pattern stability across dates",
+   "context": ""
+  },
+  {
+   "file": "figures/mantel_distance_decay.png",
+   "caption": "Distance-decay scatter plot with pair annotations",
+   "context": ""
+  },
+  {
+   "file": "figures/procrustes_overlay.png",
+   "caption": "Procrustes superimposition of community ordination onto grid",
+   "context": ""
+  },
+  {
+   "file": "figures/well_grid_geometry.png",
+   "caption": "Well grid geometry with inter-well distances",
+   "context": ""
+  },
+  {
+   "file": "figures/depth_zone_profile.png",
+   "caption": "Depth-zone profile across wells",
+   "context": ""
+  },
+  {
+   "file": "figures/zone_vs_well_dissim.png",
+   "caption": "Within-zone vs within-well dissimilarity",
+   "context": ""
+  },
+  {
+   "file": "figures/phylum_by_zone.png",
+   "caption": "Phylum composition by hydrogeological zone",
+   "context": ""
+  },
+  {
+   "file": "figures/zone_indicator_heatmap.png",
+   "caption": "Zone enrichment patterns for top phyla",
+   "context": ""
+  },
+  {
+   "file": "figures/trait_grid_maps.png",
+   "caption": "All trait profiles mapped onto grid",
+   "context": ""
+  },
+  {
+   "file": "figures/key_functional_gradients.png",
+   "caption": "Key functional gradients: redox, fermentation, nitrogen",
+   "context": ""
+  },
+  {
+   "file": "figures/trait_clustermap.png",
+   "caption": "Class-level trait clustermap",
+   "context": ""
+  },
+  {
+   "file": "figures/synthesis_plume_model.png",
+   "caption": "Synthesis: contamination plume model overlaid on the SSO grid",
+   "context": ""
+  }
+ ],
+ "env_embedding_explorer": [
+  {
+   "file": "figures/geo_vs_embedding_by_env_group.png",
+   "caption": "Geographic distance vs embedding distance stratified by environment group",
+   "context": ""
+  },
+  {
+   "file": "figures/geo_vs_embedding_binned.png",
+   "caption": "Mean embedding distance increases monotonically with geographic distance",
+   "context": ""
+  },
+  {
+   "file": "figures/env_categories.png",
+   "caption": "Harmonized environment categories showing human clinical and gut dominance",
+   "context": ""
+  },
+  {
+   "file": "figures/coord_quality_map.png",
+   "caption": "Global coordinate quality assessment",
+   "context": ""
+  },
+  {
+   "file": "figures/umap_by_env_category.png",
+   "caption": "UMAP of AlphaEarth embeddings colored by environment category",
+   "context": ""
+  },
+  {
+   "file": "figures/cluster_env_heatmap.png",
+   "caption": "Environment category composition of UMAP clusters",
+   "context": ""
+  },
+  {
+   "file": "figures/env_cluster_distribution.png",
+   "caption": "Cluster distribution per environment category",
+   "context": ""
+  },
+  {
+   "file": "figures/umap_by_phylum.png",
+   "caption": "UMAP colored by phylum",
+   "context": ""
+  },
+  {
+   "file": "figures/coverage_bar.png",
+   "caption": "Attribute population rates",
+   "context": ""
+  },
+  {
+   "file": "figures/coverage_intersections.png",
+   "caption": "Metadata attribute combinations",
+   "context": ""
+  }
+ ],
+ "essential_genome": [
+  {
+   "file": "figures/essential_families_overview.png",
+   "caption": "Essential Families Overview",
+   "context": ""
+  },
+  {
+   "file": "figures/essential_families_heatmap.png",
+   "caption": "Essential Families Heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/conservation_architecture.png",
+   "caption": "Conservation Architecture",
+   "context": ""
+  }
+ ],
+ "essential_metabolome": [
+  {
+   "file": "figures/pathway_completeness.png",
+   "caption": "Pathway completeness visualization",
+   "context": ""
+  }
+ ],
+ "euk_in_prok_correlates": [
+  {
+   "file": "figures/fig01_euk_distributions.png",
+   "caption": "Eukaryotic-fraction distribution and source split",
+   "context": ""
+  },
+  {
+   "file": "figures/fig02_euk_by_environment.png",
+   "caption": "Eukaryotic fraction by environment",
+   "context": ""
+  },
+  {
+   "file": "figures/fig03_variance_partition.png",
+   "caption": "Variance partition and predictor importance",
+   "context": ""
+  },
+  {
+   "file": "figures/fig04_within_study_env.png",
+   "caption": "Eukaryotic fraction by within-study environment",
+   "context": ""
+  }
+ ],
+ "field_vs_lab_fitness": [
+  {
+   "file": "figures/fig_condition_importance_heatmap.png",
+   "caption": "Heatmap of gene importance (fitness < -2) by condition class and conservation status",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_conservation_by_condition_class.png",
+   "caption": "Core genome percentage for genes important under each condition class, with baseline",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_field_vs_lab_specificity.png",
+   "caption": "Scatter plot of mean field fitness vs mean lab fitness per gene, colored by core/auxiliary status",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_roc_conservation_prediction.png",
+   "caption": "ROC curves comparing field-only, lab-only, combined, and full models for predicting core genome status",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_module_conservation_vs_activity.png",
+   "caption": "Module core fraction vs field and lab condition activity (two-panel scatter)",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_ecological_vs_lab_modules.png",
+   "caption": "Module conservation and activity by module type classification (box + scatter)",
+   "context": ""
+  }
+ ],
+ "fitness_effects_conservation": [
+  {
+   "file": "figures/conservation_by_fitness_profile.png",
+   "caption": "Conservation by Fitness Profile",
+   "context": ""
+  },
+  {
+   "file": "figures/fitness_magnitude_vs_conservation.png",
+   "caption": "Fitness Magnitude vs Conservation",
+   "context": ""
+  },
+  {
+   "file": "figures/fitness_breadth_vs_conservation.png",
+   "caption": "Fitness Breadth vs Conservation",
+   "context": ""
+  },
+  {
+   "file": "figures/broad_vs_specific_conservation.png",
+   "caption": "Broad vs Specific Conservation",
+   "context": ""
+  },
+  {
+   "file": "figures/burden_genes_by_conservation.png",
+   "caption": "Burden Genes by Conservation",
+   "context": ""
+  },
+  {
+   "file": "figures/cost_benefit_portrait.png",
+   "caption": "Cost-Benefit Portrait",
+   "context": ""
+  },
+  {
+   "file": "figures/conservation_by_condition_type.png",
+   "caption": "Conservation by Condition Type",
+   "context": ""
+  },
+  {
+   "file": "figures/fitness_distributions_by_conservation.png",
+   "caption": "Fitness Distributions by Conservation",
+   "context": ""
+  },
+  {
+   "file": "figures/novel_gene_mean_fitness.png",
+   "caption": "Novel Gene Mean Fitness",
+   "context": ""
+  }
+ ],
+ "fitness_modules": [
+  {
+   "file": "figures/pca_eigenvalues.png",
+   "caption": "PCA eigenvalue spectrum used for component selection across organisms",
+   "context": ""
+  },
+  {
+   "file": "figures/module_size_distribution.png",
+   "caption": "Distribution of module sizes across all 32 organisms",
+   "context": ""
+  },
+  {
+   "file": "figures/validation_summary.png",
+   "caption": "Cofitness validation: within-module vs background correlation distributions",
+   "context": ""
+  },
+  {
+   "file": "figures/benchmark_strict.png",
+   "caption": "Strict benchmarking: precision and coverage by method",
+   "context": ""
+  },
+  {
+   "file": "figures/benchmark_neighborhood.png",
+   "caption": "Neighborhood benchmarking: performance when allowing nearby KO matches",
+   "context": ""
+  },
+  {
+   "file": "figures/module_families.png",
+   "caption": "Cross-organism module families: size distribution and taxonomic span",
+   "context": ""
+  },
+  {
+   "file": "figures/enrichment_summary.png",
+   "caption": "Functional enrichment of modules by annotation source",
+   "context": ""
+  },
+  {
+   "file": "figures/prediction_summary.png",
+   "caption": "Function prediction summary: family-backed vs module-only predictions",
+   "context": ""
+  }
+ ],
+ "functional_dark_matter": [
+  {
+   "file": "figures/fig01_annotation_breakdown.png",
+   "caption": "Annotation breakdown by organism",
+   "context": ""
+  },
+  {
+   "file": "figures/fig02_fitness_distributions.png",
+   "caption": "Fitness distributions for dark vs annotated genes",
+   "context": ""
+  },
+  {
+   "file": "figures/fig03_dark_gene_coverage.png",
+   "caption": "Dark gene evidence coverage",
+   "context": ""
+  },
+  {
+   "file": "figures/fig04_condition_classes.png",
+   "caption": "Condition class distribution for dark genes with strong phenotypes",
+   "context": ""
+  },
+  {
+   "file": "figures/fig05_gapmind_gaps.png",
+   "caption": "GapMind gap-filling candidates",
+   "context": ""
+  },
+  {
+   "file": "figures/fig28_domain_matching.png",
+   "caption": "Domain matching analysis",
+   "context": ""
+  },
+  {
+   "file": "figures/fig06_concordance.png",
+   "caption": "Cross-organism concordance",
+   "context": ""
+  },
+  {
+   "file": "figures/fig07_phylo_breadth.png",
+   "caption": "Phylogenetic breadth distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/fig30_species_count_scoring.png",
+   "caption": "Species-count scoring variant",
+   "context": ""
+  },
+  {
+   "file": "figures/fig08_env_distribution.png",
+   "caption": "Environmental distribution of carrier species",
+   "context": ""
+  },
+  {
+   "file": "figures/fig09_carrier_tests.png",
+   "caption": "Carrier vs non-carrier test results",
+   "context": ""
+  },
+  {
+   "file": "figures/fig10_embedding_umap.png",
+   "caption": "AlphaEarth embedding UMAP",
+   "context": ""
+  },
+  {
+   "file": "figures/fig11_concordance_matrix.png",
+   "caption": "Lab-field concordance matrix",
+   "context": ""
+  },
+  {
+   "file": "figures/fig12_nmdc_correlations.png",
+   "caption": "NMDC correlation results",
+   "context": ""
+  },
+  {
+   "file": "figures/fig21_trait_correlations.png",
+   "caption": "NMDC trait-condition correlations",
+   "context": ""
+  },
+  {
+   "file": "figures/fig13_score_components.png",
+   "caption": "Score component distributions",
+   "context": ""
+  },
+  {
+   "file": "figures/fig14_top20_dossiers.png",
+   "caption": "Top 20 candidate dossiers",
+   "context": ""
+  },
+  {
+   "file": "figures/fig15_organism_distribution.png",
+   "caption": "Organism distribution of top candidates",
+   "context": ""
+  },
+  {
+   "file": "figures/fig18_neighbor_analysis.png",
+   "caption": "Gene neighbor analysis overview",
+   "context": ""
+  },
+  {
+   "file": "figures/fig19_essential_scores.png",
+   "caption": "Essential gene score distributions",
+   "context": ""
+  },
+  {
+   "file": "figures/fig20_essential_top20.png",
+   "caption": "Top 20 essential dark gene candidates",
+   "context": ""
+  },
+  {
+   "file": "figures/fig22_conserved_neighborhoods.png",
+   "caption": "Conserved gene neighborhoods",
+   "context": ""
+  },
+  {
+   "file": "figures/fig23_cofit_validation.png",
+   "caption": "Cofit validation",
+   "context": ""
+  },
+  {
+   "file": "figures/fig24_improved_experimental_roadmap.png",
+   "caption": "Improved experimental roadmap",
+   "context": ""
+  },
+  {
+   "file": "figures/fig25_darkness_spectrum.png",
+   "caption": "Darkness spectrum",
+   "context": ""
+  },
+  {
+   "file": "figures/fig26_covering_set.png",
+   "caption": "Minimum covering set",
+   "context": ""
+  },
+  {
+   "file": "figures/fig27_action_plan.png",
+   "caption": "Experimental action plan",
+   "context": ""
+  },
+  {
+   "file": "figures/fig32_organism_taxonomy.png",
+   "caption": "Organism taxonomy context",
+   "context": ""
+  },
+  {
+   "file": "figures/fig33_conservation_tiers.png",
+   "caption": "Conservation tier distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/fig34_classification_heatmap.png",
+   "caption": "Classification heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/fig35_top_knowledge_gaps.png",
+   "caption": "Top knowledge gaps",
+   "context": ""
+  },
+  {
+   "file": "figures/fig36_covering_set_curve.png",
+   "caption": "Covering set optimization",
+   "context": ""
+  },
+  {
+   "file": "figures/fig37_experiment_plan_heatmap.png",
+   "caption": "Experiment plan heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/fig38_pangenome_species_distribution.png",
+   "caption": "Full pangenome species distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/fig39_extended_covering_set.png",
+   "caption": "Extended covering set comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/fig33_bakta_reclassification.png",
+   "caption": "Bakta reclassification breakdown",
+   "context": ""
+  },
+  {
+   "file": "figures/fig34_bakta_coverage_heatmap.png",
+   "caption": "Bakta coverage heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/fig16_h1b_test.png",
+   "caption": "H1b formal test: stress vs carbon/nitrogen accessory rates",
+   "context": ""
+  },
+  {
+   "file": "figures/fig17_concordance_comparison.png",
+   "caption": "Dark vs annotated gene concordance distributions",
+   "context": ""
+  },
+  {
+   "file": "figures/fig31_statistical_tests.png",
+   "caption": "Statistical tests summary",
+   "context": ""
+  },
+  {
+   "file": "figures/fig29_robust_ranks.png",
+   "caption": "Robust rank indicators",
+   "context": ""
+  }
+ ],
+ "fw300_metabolic_consistency": [
+  {
+   "file": "figures/concordance_summary.png",
+   "caption": "Concordance categories and cross-database coverage for 58 WoM-produced metabolites",
+   "context": ""
+  },
+  {
+   "file": "figures/consistency_heatmap.png",
+   "caption": "Consistency heatmap across WoM, Fitness Browser, BacDive, and GapMind",
+   "context": ""
+  },
+  {
+   "file": "figures/fitness_hits_per_metabolite.png",
+   "caption": "Number of significant fitness genes per WoM-produced metabolite",
+   "context": ""
+  }
+ ],
+ "gene_function_ecological_agora": [
+  {
+   "file": "figures/p1a_scores_by_class_per_rank.png",
+   "caption": "Per-rank score distributions by control class",
+   "context": ""
+  },
+  {
+   "file": "figures/p1a_null_per_rank_distributions.png",
+   "caption": "Per-rank null-model distributions",
+   "context": ""
+  },
+  {
+   "file": "figures/p1a_producer_consumer_per_rank.png",
+   "caption": "Producer \u00d7 Consumer scatter per rank",
+   "context": ""
+  },
+  {
+   "file": "figures/p1b_bacteroidota_pul_position.png",
+   "caption": "Bacteroidota PUL position vs other phyla CAZymes per rank",
+   "context": ""
+  },
+  {
+   "file": "figures/p1b_null_per_rank_distributions.png",
+   "caption": "Phase 1B per-rank null model distributions",
+   "context": ""
+  },
+  {
+   "file": "figures/p1b_scores_by_class_per_rank.png",
+   "caption": "Phase 1B scores by control class per rank",
+   "context": ""
+  },
+  {
+   "file": "figures/p1b_metric_diagnostic_panels.png",
+   "caption": "Per-class metric diagnostic panels (A\u2013D)",
+   "context": ""
+  },
+  {
+   "file": "figures/p2_m18_amplification_panel.png",
+   "caption": "M18 amplification panel",
+   "context": ""
+  },
+  {
+   "file": "figures/p2_m18c_strict_class_panel.png",
+   "caption": "M18 strict-class panel",
+   "context": ""
+  },
+  {
+   "file": "figures/p2_ko_atlas_per_rank.png",
+   "caption": "Phase 2 KO atlas per-rank score distributions",
+   "context": ""
+  },
+  {
+   "file": "figures/p2_m22_acquisition_depth_per_class.png",
+   "caption": "M22 acquisition-depth distribution per class",
+   "context": ""
+  },
+  {
+   "file": "figures/p2_nb11_regulatory_vs_metabolic.png",
+   "caption": "Phase 2 Tier-1 regulatory-vs-metabolic comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/p2_nb12_mycobacteriota_mycolic.png",
+   "caption": "NB12 Mycobacteriaceae \u00d7 mycolic-acid summary",
+   "context": ""
+  },
+  {
+   "file": "figures/p3_nb16_cyanobacteria_psii.png",
+   "caption": "NB16 Cyanobacteria PSII test",
+   "context": ""
+  },
+  {
+   "file": "figures/p3_nb17_tcs_hk_architectural.png",
+   "caption": "NB17 TCS HK architectural backtest \u2014 consumer concordance r=0.67, producer concordance r=0.09; canonical PF00512_PF02518 architecture at 25K gain events",
+   "context": ""
+  },
+  {
+   "file": "figures/p4d5_residualization_panel.png",
+   "caption": "P4-D5 residualization panel",
+   "context": ""
+  },
+  {
+   "file": "figures/p4d4_openness_vs_acquisition.png",
+   "caption": "P4-D4 openness vs acquisition",
+   "context": ""
+  },
+  {
+   "file": "figures/p4d1_clade_biome_panel.png",
+   "caption": "P4-D1 biome enrichment",
+   "context": ""
+  },
+  {
+   "file": "figures/p4d1_bacdive_phenotype_panel.png",
+   "caption": "P4-D1 BacDive phenotype",
+   "context": ""
+  },
+  {
+   "file": "figures/p4d1_alphaearth_env_cluster_panel.png",
+   "caption": "P4-D1 AlphaEarth env-clusters",
+   "context": ""
+  },
+  {
+   "file": "figures/p4d2_mge_context_panel.png",
+   "caption": "P4-D2 MGE-context panel \u2014 per-KO-category (top), per-pre-registered-hypothesis (middle), per-biome (bottom) MGE-machinery fractions",
+   "context": ""
+  },
+  {
+   "file": "figures/p4_synthesis_H1_innovation_tree.png",
+   "caption": "Hero 1 \u2014 Atlas Innovation Tree",
+   "context": ""
+  },
+  {
+   "file": "figures/p4_synthesis_H2_three_substrate_convergence.png",
+   "caption": "Hero 2 \u2014 Three-Substrate Convergence Card",
+   "context": ""
+  },
+  {
+   "file": "figures/p4_synthesis_H3_acquisition_depth_spectrum.png",
+   "caption": "Hero 3 \u2014 Acquisition-Depth Function Spectrum",
+   "context": ""
+  },
+  {
+   "file": "figures/p4_synthesis_S4_psii_rank_dependence.png",
+   "caption": "S4 \u2014 PSII rank-dependence ladder",
+   "context": ""
+  },
+  {
+   "file": "figures/p4_synthesis_S5_hypothesis_verdict_card.png",
+   "caption": "S5 \u2014 Hypothesis verdict card",
+   "context": ""
+  },
+  {
+   "file": "figures/p4_synthesis_S6_function_env_flow.png",
+   "caption": "S6 \u2014 Function \u00d7 Phylum \u00d7 Environment flow",
+   "context": ""
+  },
+  {
+   "file": "figures/p4_synthesis_N7_atlas_heatmap.png",
+   "caption": "N7 \u2014 Atlas heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/p4_synthesis_N8_four_quadrant_summary.png",
+   "caption": "N8 \u2014 Four-quadrant summary at genus rank",
+   "context": ""
+  },
+  {
+   "file": "figures/p4_synthesis_H3b_control_class_signature_plane.png",
+   "caption": "H3-B \u2014 Control-class signature plane",
+   "context": ""
+  },
+  {
+   "file": "figures/p4_synthesis_S7_hypothesis_leaf_consistency.png",
+   "caption": "S7 \u2014 Per-hypothesis leaf_consistency distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/p4_synthesis_S8_atlas_confidence_ridge.png",
+   "caption": "S8 \u2014 Atlas confidence ridge",
+   "context": ""
+  },
+  {
+   "file": "figures/p1a_null_producer_distribution.png",
+   "caption": "Phase 1A pilot null producer distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/p1a_null_consumer_distribution.png",
+   "caption": "Phase 1A pilot null consumer distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/p1a_paralog_count_distribution.png",
+   "caption": "Phase 1A pilot paralog count distribution by class",
+   "context": ""
+  }
+ ],
+ "genotype_to_phenotype_enigma": [
+  {
+   "file": "figures/NB02_condition_overlap_4way.png",
+   "caption": "Condition overlap across 4 datasets",
+   "context": ""
+  },
+  {
+   "file": "figures/NB02_anchor_growth_heatmap.png",
+   "caption": "Anchor strain growth heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/NB01_parameter_distributions.png",
+   "caption": "Growth corpus statistics",
+   "context": ""
+  },
+  {
+   "file": "figures/NB01_curve_fit_examples.png",
+   "caption": "Example curve fits",
+   "context": ""
+  },
+  {
+   "file": "figures/NB01_qc_summary.png",
+   "caption": "QC summary across all plates",
+   "context": ""
+  },
+  {
+   "file": "figures/NB03_ko_pca_guilds.png",
+   "caption": "KO profile PCA colored by guild and taxonomy",
+   "context": ""
+  },
+  {
+   "file": "figures/NB03_cog_by_guild.png",
+   "caption": "COG functional profiles by guild",
+   "context": ""
+  },
+  {
+   "file": "figures/NB03_genome_vs_ko.png",
+   "caption": "Genome size vs KO diversity",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04_genus_env_heatmap.png",
+   "caption": "Genus environment heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04_pangenome_env_profiles.png",
+   "caption": "Pangenome species environment profiles",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04_global_genus_occurrence.png",
+   "caption": "Global genus occurrence",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04_oakridge_cooccurrence.png",
+   "caption": "Oak Ridge co-occurrence matrix",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04_global_cooccurrence.png",
+   "caption": "Global co-occurrence matrix",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04_cluster_env_comparison.png",
+   "caption": "Cluster environment comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04_well_guild_distribution.png",
+   "caption": "Well guild distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04_oak_ridge_strain_map.png",
+   "caption": "Strain isolation map",
+   "context": ""
+  },
+  {
+   "file": "figures/NB05_feature_summary.png",
+   "caption": "Feature summary",
+   "context": ""
+  },
+  {
+   "file": "figures/NB05_ko_prevalence_filter.png",
+   "caption": "KO prevalence filter",
+   "context": ""
+  },
+  {
+   "file": "figures/NB05_target_distributions.png",
+   "caption": "Target distributions",
+   "context": ""
+  },
+  {
+   "file": "figures/NB06_variance_partition.png",
+   "caption": "Variance partitioning",
+   "context": ""
+  },
+  {
+   "file": "figures/NB06_group_shap.png",
+   "caption": "Group-level SHAP importance",
+   "context": ""
+  },
+  {
+   "file": "figures/NB06_shap_top20.png",
+   "caption": "Top 20 SHAP features",
+   "context": ""
+  },
+  {
+   "file": "figures/NB06_feature_correlation.png",
+   "caption": "Feature correlation matrix",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_model_comparison.png",
+   "caption": "Model comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_coverage_gap.png",
+   "caption": "Coverage gap",
+   "context": ""
+  },
+  {
+   "file": "figures/NB08_production_ko_heatmap.png",
+   "caption": "Production-KO heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/NB08_mechanistic_examples.png",
+   "caption": "Mechanistic examples",
+   "context": ""
+  },
+  {
+   "file": "figures/NB08_method_comparison.png",
+   "caption": "Method comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/NB08_fb_cognate_results.png",
+   "caption": "FB cognate results",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_full_corpus_results.png",
+   "caption": "Full corpus results",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_full_corpus_shap.png",
+   "caption": "Full corpus SHAP features",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_bulk_vs_continuous.png",
+   "caption": "Bulk features vs continuous parameters",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_roc_curves.png",
+   "caption": "ROC curves by condition class",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_confusion_matrices.png",
+   "caption": "Confusion matrices",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_per_condition_auc.png",
+   "caption": "Per-condition AUC",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_model_diagnostics.png",
+   "caption": "Model diagnostics",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_fb_concordance_detail.png",
+   "caption": "FB concordance detail",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_fb_concordance.png",
+   "caption": "FB concordance overall",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_shap_comparison_n7_vs_full.png",
+   "caption": "SHAP comparison n=7 vs full corpus",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_shap_beeswarm.png",
+   "caption": "SHAP beeswarm",
+   "context": ""
+  },
+  {
+   "file": "figures/NB09_conflict_detection.png",
+   "caption": "NB09 conflict detection",
+   "context": ""
+  },
+  {
+   "file": "figures/NB09_active_learning_candidates.png",
+   "caption": "NB09 active learning candidates",
+   "context": ""
+  },
+  {
+   "file": "figures/NB10_active_learning_proposal.png",
+   "caption": "NB10 active learning proposal",
+   "context": ""
+  }
+ ],
+ "harvard_forest_warming": [
+  {
+   "file": "figures/03_phylum_bars.png",
+   "caption": "Phylum-level relative abundance and warming response",
+   "context": ""
+  },
+  {
+   "file": "figures/04_dna_vs_rna_pcoa.png",
+   "caption": "PCoA panels for DNA and RNA functional pools",
+   "context": ""
+  },
+  {
+   "file": "figures/05_c_cycling_volcano.png",
+   "caption": "Volcano plot: per-KO heated-vs-control DA, with C-cycling KOs highlighted",
+   "context": ""
+  },
+  {
+   "file": "figures/08_synthesis.png",
+   "caption": "Spotlight on pmoA/pmoB and glyoxylate cycle in RNA pool",
+   "context": ""
+  },
+  {
+   "file": "figures/06_horizon_interaction.png",
+   "caption": "Per-KO log2 FC scatter: organic vs mineral, with C-cycling KOs highlighted",
+   "context": ""
+  },
+  {
+   "file": "figures/07_metabolite_heatmap.png",
+   "caption": "Per-sample ChEBI metabolite richness by treatment \u00d7 horizon",
+   "context": ""
+  },
+  {
+   "file": "figures/08_synthesis.png",
+   "caption": "Synthesis of all six findings",
+   "context": ""
+  },
+  {
+   "file": "figures/01_design.png",
+   "caption": "Sample \u00d7 omics-layer coverage matrix",
+   "context": ""
+  }
+ ],
+ "ibd_phage_targeting": [
+  {
+   "file": "figures/NB17_synthesis.png",
+   "caption": "NB17 \u2014 Cross-cutting synthesis: target decision matrix + per-patient design map + clinical-translation roadmap",
+   "context": ""
+  },
+  {
+   "file": "figures/NB01b_K_selection.png",
+   "caption": "K-selection curves \u2014 LDA held-out perplexity / cross-method ARI / GMM BIC",
+   "context": ""
+  },
+  {
+   "file": "figures/NB01b_ecotype_species_heatmap.png",
+   "caption": "Ecotype-defining species (mean abundance per ecotype)",
+   "context": ""
+  },
+  {
+   "file": "figures/NB01b_ecotype_by_diagnosis.png",
+   "caption": "Consensus ecotype \u00d7 diagnosis distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/NB02_ucdavis_ecotype_assignment.png",
+   "caption": "UC Davis per-patient ecotype calls and reference comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/NB02_ucdavis_ecotype_x_clinical.png",
+   "caption": "UC Davis: ecotype \u00d7 Montreal location + ecotype \u00d7 medication class",
+   "context": ""
+  },
+  {
+   "file": "figures/NB03_h1c_auc.png",
+   "caption": "H1c classifier OvR AUC vs the 0.70 threshold",
+   "context": ""
+  },
+  {
+   "file": "figures/NB03_feature_importance.png",
+   "caption": "Feature importance \u2014 minimal vs extended classifier",
+   "context": ""
+  },
+  {
+   "file": "figures/NB00_protective_species_paradox.png",
+   "caption": "Raw Mann-Whitney log\u2082FC vs CLR \u0394 for the curated protective-species battery",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04b_jaccard_null.png",
+   "caption": "Permutation null for E1\u2194E3 Jaccard divergence (NB04b \u00a74)",
+   "context": ""
+  },
+  {
+   "file": "figures/NB04h_hmp2_external_replication.png",
+   "caption": "HMP2 external replication \u2014 ecotype stratifies CD/UC/nonIBD, projection confidence high, E1 Tier-A 88 % sign-concordant",
+   "context": ""
+  },
+  {
+   "file": "figures/NB05_tier_a_scored.png",
+   "caption": "NB05 Tier-A scoring \u2014 top 30 scoring matrix + total-score bar chart",
+   "context": ""
+  },
+  {
+   "file": "figures/NB06_cooccurrence_networks.png",
+   "caption": "NB06 per-subnet co-occurrence networks \u2014 spring-layout with Tier-A actionable (red, large) + Tier-B (orange) highlighted",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07a_H3a_falsifiability.png",
+   "caption": "NB07a H3a falsifiability \u2014 2x2 panel: top CD-up pathways forest plot, count permutation null, MetaCyc category enrichment, pathway-pathobiont attribution null",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07b_stratified_H3a_b.png",
+   "caption": "NB07b stratified-pathway H3a (b) re-test \u2014 per-species \u00d7 category CD-up heatmap, total-vs-in-7-category bars, top species-stratified pathways forest plot, per-species verdict panel",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07_H3a_v18_class_enrichment.png",
+   "caption": "NB07 v1.8 class-based H3a (b) \u2014 cohort enrichment bar (iron/heme dominant) + per-species heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07c_anchor_pathobiont_coupling.png",
+   "caption": "NB07c module-anchor \u00d7 pathobiont coupling (species \u03c1 heatmap + iron-context heatmap)",
+   "context": ""
+  },
+  {
+   "file": "figures/NB08a_bgc_pathobiont_enrichment.png",
+   "caption": "NB08a \u2014 Tier-A core BGC repertoire + theme OR + ebf/ecf cohort meta",
+   "context": ""
+  },
+  {
+   "file": "figures/NB09a_metabolomics_cd_vs_nonibd.png",
+   "caption": "NB09a \u2014 HMP2 metabolomics CD-vs-nonIBD volcano + theme OR + top metabolites",
+   "context": ""
+  },
+  {
+   "file": "figures/NB09c_cross_feeding_disambiguation.png",
+   "caption": "NB09c \u2014 Curated cross-feeding panel \u03c1 heatmap (species \u00d7 metabolite) + cross-feeding-triangle scatter",
+   "context": ""
+  },
+  {
+   "file": "figures/NB10a_kumbhari_strain_adaptation.png",
+   "caption": "NB10a \u2014 per-species gene counts + functional category \u00d7 direction + F. plautii top genes",
+   "context": ""
+  },
+  {
+   "file": "figures/NB11_serology_pathobiont.png",
+   "caption": "NB11 \u2014 partial Pearson r heatmap (species \u00d7 serology axis) + top 10 pairs scatter",
+   "context": ""
+  },
+  {
+   "file": "figures/NB09b_cross_cohort_metabolomics.png",
+   "caption": "NB09b \u2014 Cross-cohort cliff \u03b4 scatter (themes color-coded) + per-theme sign-concordance bar",
+   "context": ""
+  },
+  {
+   "file": "figures/NB09d_metabolite_ecotype_stability.png",
+   "caption": "NB09d \u2014 PCA scatter colored by cluster + per-cluster diagnosis composition + stability metrics summary",
+   "context": ""
+  },
+  {
+   "file": "figures/NB07d_mofa_pilot.png",
+   "caption": "NB07d \u2014 Joint factor space (CC1 \u00d7 CC2) + CC1 top species and metabolite loadings",
+   "context": ""
+  },
+  {
+   "file": "figures/NB12_phage_targetability.png",
+   "caption": "NB12 \u2014 Pillar-4 opener: pathobiont \u00d7 phage targetability matrix",
+   "context": ""
+  },
+  {
+   "file": "figures/NB13_phagefoundry_cocktail.png",
+   "caption": "NB13 \u2014 PhageFoundry quantitative E. coli phage-cocktail design",
+   "context": ""
+  },
+  {
+   "file": "figures/NB14_endogenous_phageome.png",
+   "caption": "NB14 \u2014 HMP2 endogenous phageome \u00d7 ecotype \u00d7 diagnosis",
+   "context": ""
+  },
+  {
+   "file": "figures/NB15_patient_cocktail_draft.png",
+   "caption": "NB15 \u2014 UC Davis per-patient cocktail draft (Pillar 5 opener)",
+   "context": ""
+  },
+  {
+   "file": "figures/NB16_longitudinal_dosing.png",
+   "caption": "NB16 \u2014 Patient 6967 longitudinal + tech-replicate concordance + cocktail composition shift",
+   "context": ""
+  }
+ ],
+ "lab_field_ecology": [
+  {
+   "file": "figures/fig_fb_genus_prevalence.png",
+   "caption": "FB Genus Prevalence",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_abundance_vs_uranium.png",
+   "caption": "Abundance vs Uranium",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_metal_tolerance_score.png",
+   "caption": "Metal Tolerance Score",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_community_by_contamination.png",
+   "caption": "Community by Contamination",
+   "context": ""
+  }
+ ],
+ "lanthanide_methylotrophy_atlas": [
+  {
+   "file": "figures/xoxF_vs_mxaF_by_phylum.png",
+   "caption": "xoxF vs mxaF by phylum (log scale)",
+   "context": ""
+  },
+  {
+   "file": "figures/h1_phylogenetic_validation.png",
+   "caption": "Phylogenetic-correction strategies \u2014 95% CI comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/h1_phylum_forest_plot.png",
+   "caption": "Per-phylum xoxF dominance forest plot",
+   "context": ""
+  },
+  {
+   "file": "figures/h3_lanmodulin_clade_restriction.png",
+   "caption": "Lanmodulin clade restriction (H3)",
+   "context": ""
+  },
+  {
+   "file": "figures/h2_cassette_by_environment.png",
+   "caption": "Cassette presence by environment class",
+   "context": ""
+  },
+  {
+   "file": "figures/ree_amd_taxonomy.png",
+   "caption": "REE-AMD MAG taxonomy",
+   "context": ""
+  },
+  {
+   "file": "figures/ree_amd_marker_presence.png",
+   "caption": "Marker presence in REE-AMD MAGs",
+   "context": ""
+  },
+  {
+   "file": "figures/pqq_supply_asymmetry.png",
+   "caption": "PQQ supply asymmetry across xoxF genomes",
+   "context": ""
+  },
+  {
+   "file": "figures/marker_agreement_eggnog_vs_bakta.png",
+   "caption": "Marker calibration: eggNOG vs bakta agreement per marker",
+   "context": ""
+  },
+  {
+   "file": "figures/lanM_preferred_name_false_positives.png",
+   "caption": "lanM Preferred_name false positives by family",
+   "context": ""
+  }
+ ],
+ "lignin_community_enrichment": [
+  {
+   "file": "figures/16S_pcoa.png",
+   "caption": "16S PCoA ordination",
+   "context": ""
+  },
+  {
+   "file": "figures/16S_genus_barplot.png",
+   "caption": "16S genus bar plot",
+   "context": ""
+  },
+  {
+   "file": "figures/16S_ecological_memory_pcoa.png",
+   "caption": "16S ecological memory PCoA",
+   "context": ""
+  },
+  {
+   "file": "figures/ITS_genus_barplot.png",
+   "caption": "ITS genus bar plot",
+   "context": ""
+  },
+  {
+   "file": "figures/16S_targeted_heatmap.png",
+   "caption": "16S targeted heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/read_counts_per_sample.png",
+   "caption": "Read counts per sample",
+   "context": ""
+  },
+  {
+   "file": "figures/quality_scores_summary.png",
+   "caption": "Quality scores",
+   "context": ""
+  },
+  {
+   "file": "figures/16S_alpha_diversity.png",
+   "caption": "16S alpha diversity",
+   "context": ""
+  },
+  {
+   "file": "figures/ITS_alpha_diversity.png",
+   "caption": "ITS alpha diversity",
+   "context": ""
+  },
+  {
+   "file": "figures/pielou_evenness.png",
+   "caption": "Pielou's evenness",
+   "context": ""
+  },
+  {
+   "file": "figures/pcoa_panel.png",
+   "caption": "PCoA panel",
+   "context": ""
+  },
+  {
+   "file": "figures/16S_community_trajectories.png",
+   "caption": "16S community trajectories",
+   "context": ""
+  },
+  {
+   "file": "figures/16S_volcano_base_vs_L.png",
+   "caption": "16S volcano plot",
+   "context": ""
+  },
+  {
+   "file": "figures/ITS_targeted_heatmap.png",
+   "caption": "ITS targeted heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/ecological_memory_distances.png",
+   "caption": "Ecological memory distances",
+   "context": ""
+  },
+  {
+   "file": "figures/16S_phylum_barplot.png",
+   "caption": "16S phylum bar plot",
+   "context": ""
+  },
+  {
+   "file": "figures/ITS_phylum_barplot.png",
+   "caption": "ITS phylum bar plot",
+   "context": ""
+  },
+  {
+   "file": "figures/gc_content_distribution.png",
+   "caption": "GC content distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/read_length_distribution.png",
+   "caption": "Read length distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/16S_rarefaction.png",
+   "caption": "16S rarefaction curves",
+   "context": ""
+  },
+  {
+   "file": "figures/ITS_rarefaction.png",
+   "caption": "ITS rarefaction curves",
+   "context": ""
+  },
+  {
+   "file": "figures/16S_dendrogram.png",
+   "caption": "16S dendrogram",
+   "context": ""
+  },
+  {
+   "file": "figures/ITS_dendrogram.png",
+   "caption": "ITS dendrogram",
+   "context": ""
+  }
+ ],
+ "metabolic_capability_dependency": [
+  {
+   "file": "figures/nb03_stacked_bar.png",
+   "caption": "Pathway dependency class distribution by category",
+   "context": ""
+  },
+  {
+   "file": "figures/nb04_conservation_boxplot.png",
+   "caption": "Pathway conservation by dependency class",
+   "context": ""
+  },
+  {
+   "file": "figures/nb04_conservation_cdf.png",
+   "caption": "Conservation CDF by dependency class",
+   "context": ""
+  },
+  {
+   "file": "figures/nb04_openness_scatter.png",
+   "caption": "Pangenome openness vs latent capability rate",
+   "context": ""
+  },
+  {
+   "file": "figures/nb05_pca_all_species.png",
+   "caption": "PCA of metabolic pathway profiles by species",
+   "context": ""
+  },
+  {
+   "file": "figures/nb05_pathway_heterogeneity.png",
+   "caption": "Pathway heterogeneity overview",
+   "context": ""
+  },
+  {
+   "file": "figures/nb05_heatmap_Salmonella_enterica.png",
+   "caption": "Salmonella enterica metabolic profile heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/nb05_heatmap_Prochlorococcus_A_sp000635495.png",
+   "caption": "Prochlorococcus metabolic profile heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/nb05_heatmap_Pelagibacter_sp003209915.png",
+   "caption": "Pelagibacter metabolic profile heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/nb03_scatter.png",
+   "caption": "Scatter: mean |t-score| vs. % essential genes",
+   "context": ""
+  },
+  {
+   "file": "figures/nb03_organism_overview.png",
+   "caption": "Organism-level overview",
+   "context": ""
+  }
+ ],
+ "metal_cross_resistance": [
+  {
+   "file": "figures/dvh_cross_resistance_heatmap.png",
+   "caption": "DvH cross-resistance matrix",
+   "context": ""
+  },
+  {
+   "file": "figures/metal_clustering_dendrogram.png",
+   "caption": "Consensus clustering",
+   "context": ""
+  },
+  {
+   "file": "figures/metal_pair_conservation.png",
+   "caption": "Conservation across organisms",
+   "context": ""
+  },
+  {
+   "file": "figures/cross_resistance_panel.png",
+   "caption": "Multi-organism panel",
+   "context": ""
+  },
+  {
+   "file": "figures/organism_agreement_heatmap.png",
+   "caption": "Inter-organism agreement",
+   "context": ""
+  },
+  {
+   "file": "figures/mantel_distribution.png",
+   "caption": "Mantel distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/permutation_test.png",
+   "caption": "Permutation test",
+   "context": ""
+  },
+  {
+   "file": "figures/consensus_vs_individual.png",
+   "caption": "Consensus vs individual",
+   "context": ""
+  },
+  {
+   "file": "figures/core_enrichment_gradient.png",
+   "caption": "Core enrichment gradient",
+   "context": ""
+  },
+  {
+   "file": "figures/tier_functional_enrichment.png",
+   "caption": "Functional enrichment by tier",
+   "context": ""
+  },
+  {
+   "file": "figures/multimetal_validation.png",
+   "caption": "BacDive validation",
+   "context": ""
+  }
+ ],
+ "metal_fitness_atlas": [
+  {
+   "file": "figures/core_fraction_by_metal.png",
+   "caption": "Core genome fraction by metal",
+   "context": ""
+  },
+  {
+   "file": "figures/metal_conservation_by_organism.png",
+   "caption": "Per-organism conservation delta",
+   "context": ""
+  },
+  {
+   "file": "figures/organism_metal_matrix.png",
+   "caption": "Organism x metal experiment matrix",
+   "context": ""
+  },
+  {
+   "file": "figures/metal_fitness_distributions.png",
+   "caption": "Metal fitness distributions",
+   "context": ""
+  },
+  {
+   "file": "figures/metal_important_genes_by_organism.png",
+   "caption": "Metal-important genes by organism",
+   "context": ""
+  },
+  {
+   "file": "figures/metal_family_conservation_heatmap.png",
+   "caption": "Metal family breadth and conservation",
+   "context": ""
+  },
+  {
+   "file": "figures/metal_module_activity_heatmap.png",
+   "caption": "Metal-responsive module activity",
+   "context": ""
+  },
+  {
+   "file": "figures/species_metal_score_distribution.png",
+   "caption": "Species metal score distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/bioleaching_species_scores.png",
+   "caption": "Bioleaching species scores",
+   "context": ""
+  }
+ ],
+ "metal_specificity": [
+  {
+   "file": "figures/specificity_breakdown.png",
+   "caption": "Specificity breakdown by organism",
+   "context": ""
+  },
+  {
+   "file": "figures/threshold_sensitivity.png",
+   "caption": "Threshold sensitivity",
+   "context": ""
+  },
+  {
+   "file": "figures/conservation_by_specificity.png",
+   "caption": "Conservation by specificity",
+   "context": ""
+  },
+  {
+   "file": "figures/functional_comparison.png",
+   "caption": "Functional comparison",
+   "context": ""
+  }
+ ],
+ "microbeatlas_metal_ecology": [
+  {
+   "file": "figures/fig3_synthesis.png",
+   "caption": "Synthesis figure: Pagel's \u03bb heatmap (Panel A) and PGLS forest plot (Panel B)",
+   "context": ""
+  },
+  {
+   "file": "figures/fig1_lambda_heatmap.png",
+   "caption": "Pagel's \u03bb heatmap: trait \u00d7 domain",
+   "context": ""
+  },
+  {
+   "file": "figures/fig4_metal_types_scatter.png",
+   "caption": "Metal type diversity vs Levins' B_std scatter",
+   "context": ""
+  },
+  {
+   "file": "figures/fig2_pgls_forest.png",
+   "caption": "PGLS forest plot: all simple models + multi-predictor",
+   "context": ""
+  },
+  {
+   "file": "figures/fig5_robustness.png",
+   "caption": "Robustness summary: Panel A \u2014 \u03b2 across 5 analysis scenarios; Panel B \u2014 rarefied \u03b2 distribution (200 iterations); Panel C \u2014 archaeal power curve",
+   "context": ""
+  },
+  {
+   "file": "figures/fig_enigma_trackB.png",
+   "caption": "ENIGMA Track B figure: CWM by well, CWM vs time, Sulfurimonas decline",
+   "context": ""
+  }
+ ],
+ "module_conservation": [
+  {
+   "file": "figures/module_core_distribution.png",
+   "caption": "Module Core Distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/family_breadth_vs_conservation.png",
+   "caption": "Family Breadth vs Conservation",
+   "context": ""
+  }
+ ],
+ "nmdc_community_metabolic_ecology": [
+  {
+   "file": "figures/h1_bqh_barplot.png",
+   "caption": "H1 BQH correlation barplot",
+   "context": ""
+  },
+  {
+   "file": "figures/h2_pca.png",
+   "caption": "H2 PCA by ecosystem type",
+   "context": ""
+  },
+  {
+   "file": "figures/pathway_completeness_boxplot.png",
+   "caption": "Pathway completeness boxplot",
+   "context": ""
+  },
+  {
+   "file": "figures/h1_scatter_top.png",
+   "caption": "H1 scatter top pathways",
+   "context": ""
+  }
+ ],
+ "nmdc_context_audit": [
+  {
+   "file": "figures/nmdc_scale.png",
+   "caption": "Scale of NMDC-labeled resources by provenance class",
+   "context": ""
+  },
+  {
+   "file": "figures/nmdc_currency.png",
+   "caption": "Data currency of NMDC-labeled resources",
+   "context": ""
+  }
+ ],
+ "pangenome_openness": [
+  {
+   "file": "figures/pangenome_vs_effects.png",
+   "caption": "Pangenome Openness vs Effects",
+   "context": ""
+  }
+ ],
+ "paperblast_explorer": [
+  {
+   "file": "figures/organism_coverage_skew.png",
+   "caption": "Cumulative coverage of organisms by paper count and top 20 organisms bar chart",
+   "context": ""
+  },
+  {
+   "file": "figures/gene_coverage_skew.png",
+   "caption": "Gene coverage skew: Lorenz curve and papers-per-gene histogram",
+   "context": ""
+  },
+  {
+   "file": "figures/lorenz_curves.png",
+   "caption": "Lorenz inequality curves for organisms and genes",
+   "context": ""
+  },
+  {
+   "file": "figures/top20_bacteria.png",
+   "caption": "Top 20 bacteria by paper count with cumulative percentages",
+   "context": ""
+  },
+  {
+   "file": "figures/sequence_space_reduction.png",
+   "caption": "Sequence space reduction at 90%, 50%, and 30% identity",
+   "context": ""
+  },
+  {
+   "file": "figures/literature_coverage_landscape.png",
+   "caption": "Literature coverage landscape of protein families",
+   "context": ""
+  },
+  {
+   "file": "figures/year_distribution.png",
+   "caption": "Publication year distribution from 1990 onwards",
+   "context": ""
+  },
+  {
+   "file": "figures/domain_distribution.png",
+   "caption": "Domain distribution by organisms and genes",
+   "context": ""
+  },
+  {
+   "file": "figures/cluster_size_distributions.png",
+   "caption": "Cluster size distributions at three identity thresholds",
+   "context": ""
+  },
+  {
+   "file": "figures/cluster_cumulative_capture.png",
+   "caption": "Cumulative sequence capture by cluster rank",
+   "context": ""
+  },
+  {
+   "file": "figures/cluster_vs_literature.png",
+   "caption": "Cluster size vs literature coverage scatter plot and bar chart",
+   "context": ""
+  },
+  {
+   "file": "figures/papers_per_gene.png",
+   "caption": "Papers per gene histogram with median line",
+   "context": ""
+  }
+ ],
+ "pathway_capability_dependency": [
+  {
+   "file": "figures/fig1_four_category_overview.png",
+   "caption": "Four-category overview",
+   "context": ""
+  },
+  {
+   "file": "figures/fig5_condition_type_shifts.png",
+   "caption": "Condition-type shifts",
+   "context": ""
+  },
+  {
+   "file": "figures/fig2_conservation_by_category.png",
+   "caption": "Conservation by category",
+   "context": ""
+  },
+  {
+   "file": "figures/fig3_core_accessory_pathways.png",
+   "caption": "Core vs accessory pathway completeness",
+   "context": ""
+  },
+  {
+   "file": "figures/fig4_ecotype_openness.png",
+   "caption": "Ecotype count vs openness",
+   "context": ""
+  },
+  {
+   "file": "figures/tier1_classification_heatmap.png",
+   "caption": "Classification heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/tier1_condition_type_shifts.png",
+   "caption": "Condition-type shifts",
+   "context": ""
+  },
+  {
+   "file": "figures/pathway_conservation_vs_openness.png",
+   "caption": "Pathway conservation vs openness",
+   "context": ""
+  },
+  {
+   "file": "figures/core_vs_all_pathway_completeness.png",
+   "caption": "Core vs all pathway completeness",
+   "context": ""
+  },
+  {
+   "file": "figures/pathway_conservation_by_genus.png",
+   "caption": "Pathway conservation by genus",
+   "context": ""
+  },
+  {
+   "file": "figures/ecotype_count_vs_openness.png",
+   "caption": "Ecotype count vs openness",
+   "context": ""
+  }
+ ],
+ "pgp_pangenome_ecology": [
+  {
+   "file": "figures/cooccurrence_heatmap.png",
+   "caption": "PGP gene co-occurrence heatmap (log2 odds ratios; * = FDR q < 0.05)",
+   "context": ""
+  },
+  {
+   "file": "figures/cooccurrence_combinations.png",
+   "caption": "Top PGP trait combinations across species",
+   "context": ""
+  },
+  {
+   "file": "figures/env_enrichment_barplot.png",
+   "caption": "Environmental enrichment of PGP genes: prevalence comparison and log2 odds ratios",
+   "context": ""
+  },
+  {
+   "file": "figures/pgp_core_accessory_pie.png",
+   "caption": "Core/auxiliary/singleton fractions per PGP gene (genome-wide baseline: 46.8% core)",
+   "context": ""
+  },
+  {
+   "file": "figures/openness_vs_pgp.png",
+   "caption": "Pangenome openness vs PGP gene richness",
+   "context": ""
+  },
+  {
+   "file": "figures/trp_iaa_contingency.png",
+   "caption": "Tryptophan pathway completeness vs ipdC presence (contingency heatmap and prevalence by environment)",
+   "context": ""
+  }
+ ],
+ "phage_defense_arsenal": [
+  {
+   "file": "figures/system_prevalence_by_phylum.png",
+   "caption": "Defense system prevalence by phylum",
+   "context": ""
+  },
+  {
+   "file": "figures/arms_race_scatter.png",
+   "caption": "Arms-race scatter \u2014 defense count vs prophage cluster burden by phylum",
+   "context": ""
+  },
+  {
+   "file": "figures/partial_correlation_barplot.png",
+   "caption": "Per-phylum partial correlation",
+   "context": ""
+  },
+  {
+   "file": "figures/syndrome_heatmap.png",
+   "caption": "Defense syndrome heatmap \u2014 signed log\u2081\u2080(odds ratio)",
+   "context": ""
+  },
+  {
+   "file": "figures/syndrome_network.png",
+   "caption": "Defense syndrome network \u2014 positive edges at q<0.05",
+   "context": ""
+  },
+  {
+   "file": "figures/core_vs_accessory_by_system.png",
+   "caption": "Core / auxiliary / singleton distribution per system vs background",
+   "context": ""
+  }
+ ],
+ "phb_granule_ecology": [
+  {
+   "file": "figures/phb_prevalence_by_phylum.png",
+   "caption": "PHB pathway prevalence across 20 major bacterial phyla, showing Pseudomonadota, Myxococcota, and Halobacteriota as the most enriched",
+   "context": ""
+  },
+  {
+   "file": "figures/phb_pathway_completeness.png",
+   "caption": "PHB pathway completeness across all 27K species, showing 21.7% complete, 0.2% synthase-only, 46.5% precursors-only, 2.0% accessory-only, and 29.6% absent",
+   "context": ""
+  },
+  {
+   "file": "figures/phb_by_environment.png",
+   "caption": "PHB prevalence by environment type, color-coded by expected temporal variability: high-variability environments (plant, soil, wastewater) show 34-44% prevalence, while low-variability environments (marine, clinical, animal) show 3-19%",
+   "context": ""
+  },
+  {
+   "file": "figures/embedding_variance_phb.png",
+   "caption": "Box plots showing AlphaEarth embedding variance for phaC+ vs phaC- species, with phaC+ species showing significantly higher environmental breadth (p=1.88e-06)",
+   "context": ""
+  },
+  {
+   "file": "figures/genome_size_confound.png",
+   "caption": "Genome size confound analysis: size distributions (left), size vs niche breadth colored by PHB status (center), and PHB enrichment by environment within genome size quartiles (right)",
+   "context": ""
+  },
+  {
+   "file": "figures/phb_enrichment_heatmap.png",
+   "caption": "Heatmap of PHB prevalence by order within six major phyla, showing substantial variation at the order and family level even within PHB-rich phyla",
+   "context": ""
+  },
+  {
+   "file": "figures/phb_core_vs_accessory.png",
+   "caption": "phaC core vs accessory status by phylum, showing most phyla have predominantly core phaC, but some (SAR324, Bacillota_A, Eremiobacterota, Desulfobacterota) have high accessory fractions",
+   "context": ""
+  },
+  {
+   "file": "figures/nmdc_phb_by_environment.png",
+   "caption": "Distribution of PHB inference scores across 6,365 NMDC samples (left) and pangenome matching coverage (right)",
+   "context": ""
+  },
+  {
+   "file": "figures/nmdc_phb_vs_abiotic.png",
+   "caption": "PHB inference score vs top abiotic correlates: depth, temperature, maximum depth, and minimum depth",
+   "context": ""
+  },
+  {
+   "file": "figures/pangenome_vs_metagenome.png",
+   "caption": "Pangenome PHB prevalence vs NMDC metagenomic abundance (left) and abundance comparison of PHB-high vs PHB-low genera (right)",
+   "context": ""
+  }
+ ],
+ "plant_microbiome_ecotypes": [
+  {
+   "file": "figures/nb01_compartment_census.png",
+   "caption": "Compartment census showing species distribution across plant compartments",
+   "context": ""
+  },
+  {
+   "file": "figures/compartment_heatmap.png",
+   "caption": "Compartment-specific marker enrichment heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/core_vs_pathogenic.png",
+   "caption": "Core vs accessory distribution by functional cohort",
+   "context": ""
+  },
+  {
+   "file": "figures/mobility_proxies.png",
+   "caption": "Mobility proxy analysis",
+   "context": ""
+  },
+  {
+   "file": "figures/volcano_enrichment.png",
+   "caption": "Volcano plot of eggNOG OG enrichment",
+   "context": ""
+  },
+  {
+   "file": "figures/nb04_cohort_compartment_bar.png",
+   "caption": "Cohort distribution by compartment",
+   "context": ""
+  },
+  {
+   "file": "figures/synthesis_overview.png",
+   "caption": "Synthesis overview: genus profiles, compartment distribution, genomic architecture",
+   "context": ""
+  },
+  {
+   "file": "figures/novel_og_annotation.png",
+   "caption": "Novel OG annotation: functional classification, core fractions, and domain architecture",
+   "context": ""
+  },
+  {
+   "file": "figures/refined_cohort_comparison.png",
+   "caption": "Refined cohort comparison: Phase 1 vs Phase 2 marker panels",
+   "context": ""
+  },
+  {
+   "file": "figures/mgnify_integration.png",
+   "caption": "MGnify integration: taxonomy bridge, host specificity, mobilome, and BGC profiles",
+   "context": ""
+  },
+  {
+   "file": "figures/subclade_corrected.png",
+   "caption": "Subclade analysis: phylogenetic distance clustering and plant-association mapping",
+   "context": ""
+  },
+  {
+   "file": "figures/final_synthesis.png",
+   "caption": "Final synthesis of Phase 2b corrections",
+   "context": ""
+  },
+  {
+   "file": "figures/complementarity_comparison.png",
+   "caption": "Complementarity: max-aggregated vs prevalence-weighted",
+   "context": ""
+  },
+  {
+   "file": "figures/nb02_marker_survey.png",
+   "caption": "Marker gene survey overview",
+   "context": ""
+  },
+  {
+   "file": "figures/guild_network.png",
+   "caption": "Guild interaction network",
+   "context": ""
+  },
+  {
+   "file": "figures/complementarity_heatmap.png",
+   "caption": "Complementarity heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/complementarity_heatmap_detail.png",
+   "caption": "Complementarity heatmap detail",
+   "context": ""
+  },
+  {
+   "file": "figures/sensitivity_t3ss_t6ss.png",
+   "caption": "Sensitivity analysis: original vs revised cohort distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/dual_nature_marker_drivers.png",
+   "caption": "Marker prevalence in dual-nature species",
+   "context": ""
+  },
+  {
+   "file": "figures/pgp_vs_pathogen_scatter.png",
+   "caption": "PGP vs pathogen composite scores with known organism annotations",
+   "context": ""
+  },
+  {
+   "file": "figures/genome_size_vs_markers.png",
+   "caption": "Genome size vs marker count by cohort",
+   "context": ""
+  },
+  {
+   "file": "figures/feature_importance_compartment.png",
+   "caption": "Feature importance for compartment classification",
+   "context": ""
+  },
+  {
+   "file": "figures/hgt_per_marker_transposase.png",
+   "caption": "HGT signal by marker type",
+   "context": ""
+  },
+  {
+   "file": "figures/hgt_contig_distance.png",
+   "caption": "Contig co-location distances",
+   "context": ""
+  }
+ ],
+ "prophage_amr_comobilization": [
+  {
+   "file": "figures/nb01_census_overview.png",
+   "caption": "Census overview showing AMR and prophage distribution",
+   "context": ""
+  },
+  {
+   "file": "figures/nb03_h1_contingency.png",
+   "caption": "Contingency table and threshold sensitivity for H1",
+   "context": ""
+  },
+  {
+   "file": "figures/nb03_h1_species_odds.png",
+   "caption": "Per-species odds ratios for H1",
+   "context": ""
+  },
+  {
+   "file": "figures/nb04_h2_breadth_regression.png",
+   "caption": "Prophage density vs AMR breadth regression",
+   "context": ""
+  },
+  {
+   "file": "figures/nb01_amr_prophage_phylum_distribution.png",
+   "caption": "AMR and prophage distribution across phyla",
+   "context": ""
+  },
+  {
+   "file": "figures/nb02_distance_distribution.png",
+   "caption": "AMR-prophage distance distribution and CDF",
+   "context": ""
+  },
+  {
+   "file": "figures/nb02_proximal_fraction.png",
+   "caption": "Per-species proximal fraction",
+   "context": ""
+  }
+ ],
+ "prophage_ecology": [
+  {
+   "file": "figures/prophage_prevalence_by_phylum.png",
+   "caption": "Prophage module prevalence by phylum",
+   "context": ""
+  },
+  {
+   "file": "figures/variance_partitioning.png",
+   "caption": "Variance partitioning and module prevalence by environment",
+   "context": ""
+  },
+  {
+   "file": "figures/genome_size_confound.png",
+   "caption": "Genome size confound analysis",
+   "context": ""
+  },
+  {
+   "file": "figures/module_environment_enrichment.png",
+   "caption": "Module \u00d7 environment enrichment",
+   "context": ""
+  },
+  {
+   "file": "figures/lineage_environment_heatmap.png",
+   "caption": "Lineage environmental breadth",
+   "context": ""
+  },
+  {
+   "file": "figures/nmdc_prophage_vs_abiotic.png",
+   "caption": "NMDC prophage burden vs abiotic variables",
+   "context": ""
+  },
+  {
+   "file": "figures/nmdc_module_abiotic_heatmap.png",
+   "caption": "NMDC module-abiotic correlation heatmap",
+   "context": ""
+  },
+  {
+   "file": "figures/prophage_module_discovery.png",
+   "caption": "Prophage gene cluster counts, species presence, and module richness",
+   "context": ""
+  },
+  {
+   "file": "figures/prophage_conservation_by_module.png",
+   "caption": "Core/accessory/singleton status of prophage gene clusters by module",
+   "context": ""
+  },
+  {
+   "file": "figures/terL_lineage_overview.png",
+   "caption": "TerL lineage size distribution and clustering threshold sensitivity",
+   "context": ""
+  },
+  {
+   "file": "figures/module_cooccurrence_heatmap.png",
+   "caption": "Module co-occurrence heatmap",
+   "context": ""
+  }
+ ],
+ "pseudomonas_carbon_ecology": [
+  {
+   "file": "figures/pathway_heatmap.png",
+   "caption": "Pathway completeness heatmap across Pseudomonas species ordered by subgenus and lifestyle",
+   "context": ""
+  },
+  {
+   "file": "figures/pathway_loss_barplot.png",
+   "caption": "Barplot of pathway completeness differences between subgenera",
+   "context": ""
+  },
+  {
+   "file": "figures/pathway_pca_by_environment.png",
+   "caption": "PCA of pathway profiles colored by isolation environment",
+   "context": ""
+  },
+  {
+   "file": "figures/rf_importance.png",
+   "caption": "Random Forest feature importance for environment prediction",
+   "context": ""
+  },
+  {
+   "file": "figures/pathway_richness_by_lifestyle.png",
+   "caption": "Pathway richness boxplots by lifestyle category",
+   "context": ""
+  },
+  {
+   "file": "figures/pathway_pca_by_lifestyle.png",
+   "caption": "PCA of all Pseudomonas species colored by lifestyle",
+   "context": ""
+  },
+  {
+   "file": "figures/environment_by_subgenus.png",
+   "caption": "Environment distribution by GTDB subgenus",
+   "context": ""
+  }
+ ],
+ "respiratory_chain_wiring": [
+  {
+   "file": "figures/respiratory_chain_heatmap.png",
+   "caption": "Respiratory chain growth ratios by carbon source",
+   "context": ""
+  },
+  {
+   "file": "figures/subsystem_profiles.png",
+   "caption": "Mean growth ratio by subsystem and carbon source",
+   "context": ""
+  },
+  {
+   "file": "figures/wiring_model.png",
+   "caption": "Respiratory chain wiring model: glucose vs quinate vs acetate",
+   "context": ""
+  },
+  {
+   "file": "figures/nadh_stoichiometry.png",
+   "caption": "NADH stoichiometry and reducing equivalent production",
+   "context": ""
+  },
+  {
+   "file": "figures/wiring_matrix.png",
+   "caption": "Respiratory chain wiring matrix",
+   "context": ""
+  },
+  {
+   "file": "figures/ndh2_vs_complex_I.png",
+   "caption": "Complex I fitness: aromatic vs non-aromatic by NDH-2 status",
+   "context": ""
+  },
+  {
+   "file": "figures/respiratory_clustermap.png",
+   "caption": "Respiratory chain clustermap",
+   "context": ""
+  },
+  {
+   "file": "figures/proteomics_respiratory.png",
+   "caption": "Proteomics: NADH dehydrogenase expression vs all genes",
+   "context": ""
+  }
+ ],
+ "truly_dark_genes": [
+  {
+   "file": "figures/fig01_organism_distribution.png",
+   "caption": "Organism distribution of truly dark genes",
+   "context": ""
+  },
+  {
+   "file": "figures/fig02_gene_length.png",
+   "caption": "Gene length comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/fig03_summary_comparison.png",
+   "caption": "Summary comparison",
+   "context": ""
+  },
+  {
+   "file": "figures/fig04_clue_coverage.png",
+   "caption": "Clue coverage",
+   "context": ""
+  },
+  {
+   "file": "figures/fig05_annotation_tiers.png",
+   "caption": "Annotation tiers",
+   "context": ""
+  },
+  {
+   "file": "figures/fig06_ortholog_breadth.png",
+   "caption": "Ortholog breadth",
+   "context": ""
+  },
+  {
+   "file": "figures/fig07_gc_deviation.png",
+   "caption": "GC deviation",
+   "context": ""
+  },
+  {
+   "file": "figures/fig08_genomic_context.png",
+   "caption": "Genomic context",
+   "context": ""
+  },
+  {
+   "file": "figures/fig09_prioritization.png",
+   "caption": "Prioritization",
+   "context": ""
+  }
+ ],
+ "webofmicrobes_explorer": [
+  {
+   "file": "figures/enigma_metabolite_heatmap.png",
+   "caption": "ENIGMA isolate metabolite profiles in R2A medium",
+   "context": ""
+  }
+ ]
+}
