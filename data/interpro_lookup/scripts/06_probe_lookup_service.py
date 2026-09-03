@@ -163,19 +163,11 @@ def cmd_extract(args):
 
 def _download_md5s_from_s3(s3_path: str, expected_rows: int):
     """Download CSV part files from S3 and merge into a single local TSV."""
-    from berdl_notebook_utils.berdl_settings import get_settings
-    from berdl_notebook_utils.minio_governance import get_minio_credentials
-    from minio import Minio
+    from berdl_notebook_utils import get_s3_client
+    from berdl_notebook_utils.governance import get_credentials
 
-    settings = get_settings()
-    creds = get_minio_credentials()
-    endpoint = settings.MINIO_ENDPOINT_URL.replace("https://", "").replace("http://", "")
-    client = Minio(
-        endpoint=endpoint,
-        access_key=creds.access_key,
-        secret_key=creds.secret_key,
-        secure=True,
-    )
+    creds = get_credentials()
+    client = get_s3_client()
 
     # Parse bucket and prefix from s3a:// path
     path = s3_path.replace("s3a://", "")

@@ -81,7 +81,10 @@ _STUB_MODULES = [
     "berdl_notebook_utils.spark.database",
     "berdl_notebook_utils.spark.cluster",
     "berdl_notebook_utils.spark.dataframe",
+    # Renamed upstream to `.governance`; the old path survives as a shim for one
+    # release, so stub both until that shim is gone.
     "berdl_notebook_utils.minio_governance",
+    "berdl_notebook_utils.governance",
 ]
 for _name in _STUB_MODULES:
     if _name not in sys.modules:
