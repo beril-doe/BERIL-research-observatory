@@ -98,16 +98,27 @@ class ContextConfig:
     def from_env(cls, repo_root: Path | None = None) -> "ContextConfig":
         root = repo_root or Path(__file__).resolve().parents[1]
 
-        # Precedence: explicit env vars win (CI, `--env-file .env`, manual
-        # export), then fall back to the credential `beril login` / `beril ov
-        # setup` cached in ~/.beril. This lets the query CLI work with no
+        # Precedence: a *complete* explicit env pair wins (CI, `--env-file .env`,
+        # manual export), then fall back to the credential `beril login` / `beril
+        # ov setup` cached in ~/.beril. This lets the query CLI work with no
         # env-file once the user has logged in.
+        #
+        # URL and key are resolved as a PAIR, not independently: the cached
+        # credential is a matched ({base_url}/ov, user_key) tuple, and a partial
+        # env override (e.g. `.env` setting only OPENVIKING_URL) must not splice
+        # a local/dev URL onto the cached prod key — that mismatch points a real
+        # key at the wrong server. So we only take the env pair when BOTH halves
+        # are present; otherwise we use the cached pair whole.
         url = os.getenv("OPENVIKING_URL")
         key = os.getenv("OPENVIKING_API_KEY")
         if not url or not key:
             cached_url, cached_key = _cached_ov_credential()
-            url = url or cached_url
-            key = key or cached_key
+            # Only swap in the cached credential when it's a complete pair;
+            # otherwise keep whatever env gave us (e.g. a local dev URL with no
+            # key, which is valid for an unauthenticated OpenViking). This
+            # avoids splicing an env URL onto a cached key, or vice versa.
+            if cached_url and cached_key:
+                url, key = cached_url, cached_key
 
         return cls(
             repo_root=root,

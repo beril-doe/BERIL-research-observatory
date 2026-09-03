@@ -8,9 +8,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from beril_cli import config
+from beril_cli import auth_store, config
+from beril_cli.auth_cmd import run_login
 from beril_cli.detect import detect_user_identity, print_jupyterhub_path_hint
-from beril_cli.start import claude_defaults
+from beril_cli.start import announce_omp_session, claude_defaults, omp_defaults
+
+CLONE_URL = "https://github.com/beril-doe/BERIL-research-observatory.git"
 
 
 def _find_repo_root() -> Path | None:
@@ -152,6 +155,52 @@ def _install_server_proxy(repo_root: Path, assume_yes: bool = False) -> int:
 
 
 
+def _run_login_step() -> None:
+    """Log in to BERIL (which also links OpenViking) as part of setup.
+
+    Best-effort, mirroring how ``beril login`` treats its own OpenViking
+    linking: setup must complete even if login is skipped or fails, so a bad
+    token, an unreachable server, or a non-interactive shell only warns. The
+    user can always run ``beril login`` later.
+
+    Skips entirely when a valid login already exists — re-running setup should
+    not force a re-auth of someone who is already logged in.
+    """
+    base_url = config.get_base_url()
+
+    record = auth_store.load()
+    if record is not None:
+        name = record.display_name or record.orcid_id
+        print(f"  Already logged in as {name} on {record.base_url}.")
+        print("  Run `beril login` any time to re-authenticate or switch servers.")
+        return
+
+    print(f"  Log in to BERIL ({base_url}) — this also links OpenViking so the")
+    print("  knowledge-context tools work without extra setup.")
+
+    # run_login() with no token prompts via getpass, which needs a real
+    # terminal. Off a TTY (CI, piped input) that would hang, so point the user
+    # at the manual command and move on.
+    if not sys.stdin.isatty():
+        print("  Not a terminal — run `beril login` yourself once setup finishes.")
+        return
+
+    if not _confirm("  Log in now?"):
+        print("  Skipped — run `beril login` later to enable OpenViking.")
+        return
+
+    # run_login handles its own prompting, validation, and OV linking, and
+    # prints its own success/failure lines. A non-zero return is not fatal to
+    # setup — just note it and continue.
+    try:
+        rc = run_login()
+    except (EOFError, KeyboardInterrupt):
+        print("\n  Login cancelled — run `beril login` later.")
+        return
+    if rc != 0:
+        print("  Login did not complete — run `beril login` later to finish.")
+
+
 def run_setup() -> int:
     """Run the interactive setup wizard."""
     print()
@@ -164,7 +213,7 @@ def run_setup() -> int:
     repo_root = _find_repo_root()
     if not repo_root:
         print("  BERIL repository not found in current directory tree.")
-        clone_url = "https://github.com/kbaseincubator/BERIL-research-observatory.git"
+        clone_url = CLONE_URL
         if _confirm(f"  Clone it into {Path.cwd() / 'BERIL-research-observatory'}?"):
             print(f"  Cloning {clone_url} ...")
             result = subprocess.run(
@@ -224,11 +273,17 @@ def run_setup() -> int:
     file_token = env_vars.get("KBASE_AUTH_TOKEN", "")
     if not file_token or file_token == "YOUR_AUTH_TOKEN_HERE":
         print(
-            "  To get a KBASE_AUTH_TOKEN: sign in at https://narrative.kbase.us/#auth2/account\n"
-            "  and open the 'Developer Tokens' tab. That tab only appears for approved KBase\n"
-            "  developers — if you don't see it, you don't have developer access yet; contact\n"
-            "  the BERIL team about requesting it. A generated token is shown only once, for\n"
-            "  about 5 minutes, so have this prompt ready before you generate one."
+            "  To get a KBASE_AUTH_TOKEN: sign in at https://hub.berdl.kbase.us, spawn a\n"
+            "  server, and in a notebook run:\n"
+            "      import os\n"
+            "      print(os.environ.get('KBASE_AUTH_TOKEN'))\n"
+            "  Delete the cell output immediately after copying the token. Saved outputs\n"
+            "  live in the notebook file and can be shared or committed by accident.\n"
+            "  The token lasts 14 days. Signing out of KBase revokes it immediately rather\n"
+            "  than at its stated expiry, so do not sign out while a run is in flight.\n"
+            "  Note: narrative.kbase.us shows a 'Developer Tokens' tab only to accounts\n"
+            "  holding the DevToken role, and BERDL uses Login tokens, so that page is not\n"
+            "  the route here."
         )
         token = _prompt("  Enter your KBASE_AUTH_TOKEN (leave blank to configure later)")
         if token:
@@ -240,8 +295,12 @@ def run_setup() -> int:
     else:
         print("  KBASE_AUTH_TOKEN is set.")
 
-    # ── Step 3: BERDL environment ───────────────────
-    _step(3, "BERDL environment")
+    # ── Step 3: BERIL login (+ OpenViking) ──────────
+    _step(3, "BERIL login")
+    _run_login_step()
+
+    # ── Step 4: BERDL environment ───────────────────
+    _step(4, "BERDL environment")
 
     on_cluster = False
     detect_script = repo_root / "scripts" / "detect_berdl_environment.py"
@@ -263,14 +322,14 @@ def run_setup() -> int:
     else:
         print("  Detection script not found, skipping.")
 
-    # ── Step 4: Virtual environment ─────────────────
+    # ── Step 5: Virtual environment ─────────────────
     # .venv-berdl is only needed off-cluster (for spark_connect_remote, pproxy, etc.)
     # On-cluster (JupyterHub), Spark is directly available.
     if on_cluster:
-        _step(4, "BERDL client environment")
+        _step(5, "BERDL client environment")
         print("  On-cluster — .venv-berdl not needed (Spark is directly available).")
     else:
-        _step(4, "BERDL client environment")
+        _step(5, "BERDL client environment")
 
         venv_path = repo_root / ".venv-berdl"
         bootstrap_script = repo_root / "scripts" / "bootstrap_client.sh"
@@ -293,8 +352,8 @@ def run_setup() -> int:
         else:
             print("  Bootstrap script not found, skipping.")
 
-    # ── Step 5: GitHub CLI ──────────────────────────
-    _step(5, "GitHub CLI")
+    # ── Step 6: GitHub CLI ──────────────────────────
+    _step(6, "GitHub CLI")
 
     rc = subprocess.run(
         ["gh", "auth", "status"],
@@ -310,8 +369,8 @@ def run_setup() -> int:
         print("  gh is not installed.")
         print("  Install: https://cli.github.com/")
 
-    # ── Step 6: Profile (optional) ──────────────────
-    _step(6, "Profile (optional — press Enter to skip)")
+    # ── Step 7: Profile (optional) ──────────────────
+    _step(7, "Profile (optional — press Enter to skip)")
 
     existing_cfg = config.load()
     user_cfg = existing_cfg.get("user", {})
@@ -335,18 +394,18 @@ def run_setup() -> int:
     if orcid:
         user_cfg["orcid"] = orcid
 
-    # ── Step 7: Agent selection ─────────────────────
-    _step(7, "Coding agent")
+    # ── Step 8: Agent selection ─────────────────────
+    _step(8, "Coding agent")
 
     agents_found: list[str] = []
-    for agent in ("claude", "codex", "gemini"):
+    for agent in config.SUPPORTED_AGENTS:
         if shutil.which(agent):
             agents_found.append(agent)
 
     if agents_found:
         print(f"  Detected: {', '.join(agents_found)}")
     else:
-        print("  No agents detected (claude, codex, gemini).")
+        print(f"  No agents detected ({', '.join(config.SUPPORTED_AGENTS)}).")
         print("  Install one and re-run setup, or use beril start --agent <name>.")
 
     default_agent = existing_cfg.get("defaults", {}).get("agent", "")
@@ -358,16 +417,16 @@ def run_setup() -> int:
         if chosen not in agents_found:
             print(f"  Warning: '{chosen}' was not detected on PATH.")
     else:
-        chosen = default_agent or "claude"
+        chosen = default_agent or config.DEFAULT_AGENT
 
-    # ── Step 8: BERIL Anthropic key (Google Vertex) ──
+    # ── Step 9: BERIL Anthropic key (Google Vertex) ──
     vertex_cfg: dict = {}
     _VERTEX_CREDENTIALS = Path("/global_share/BERIL-setup/20260507_hackathon.json")
     _VERTEX_PROJECT_ID = "beril-hackathon-2026"
     _VERTEX_REGION = "global"
 
     if chosen == "claude" and _VERTEX_CREDENTIALS.exists():
-        _step(8, "BERIL Anthropic key (Google Vertex)")
+        _step(9, "BERIL Anthropic key (Google Vertex)")
         print("  A shared BERIL Anthropic API key is available via Google Vertex.")
         print("  This lets you use Claude without a personal API key or subscription.")
         if _confirm("  Use the BERIL Anthropic key?"):
@@ -381,7 +440,7 @@ def run_setup() -> int:
         else:
             print("  Skipped — Claude will use your personal API key / subscription.")
     elif chosen == "claude":
-        _step(8, "BERIL Anthropic key (Google Vertex)")
+        _step(9, "BERIL Anthropic key (Google Vertex)")
         print("  Shared Vertex credentials not found at expected location.")
         print("  Claude will use your personal API key / subscription.")
 
@@ -395,8 +454,8 @@ def run_setup() -> int:
     config.save(cfg)
     print(f"\n  Config saved to {config.CONFIG_PATH}")
 
-    # ── Step 9: Live dashboard ──────────────────────
-    _step(9, "Live dashboard (optional)")
+    # ── Step 10: Live dashboard ─────────────────────
+    _step(10, "Live dashboard (optional)")
 
     print("  While a project runs, the status line links to a dashboard page.")
     print("  Without jupyter-server-proxy that page is a snapshot: it renders")
@@ -404,8 +463,8 @@ def run_setup() -> int:
     print("  $HOME persists, so it survives every later pod restart.")
     _install_server_proxy(repo_root)
 
-    # ── Step 10: Launch ─────────────────────────────
-    _step(10, "Launch")
+    # ── Step 11: Launch ─────────────────────────────
+    _step(11, "Launch")
 
     if agents_found and _confirm(f"  Launch {chosen} now?"):
         print(f"\n  Starting {chosen} with /berdl_start...\n")
@@ -421,8 +480,12 @@ def run_setup() -> int:
                 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = vertex_cfg.get("credentials_file", "")
                 os.environ["VERTEX_REGION_CLAUDE_HAIKU_4_5"] = "us-east5"
                 os.environ["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = "claude-haiku-4-5@20251001"
-            flags = claude_defaults(chosen, []) or ["--model", "opus"]
-            os.execvp(binary, [chosen, *flags, "/berdl_start"])
+            # The same session directory `beril start` gives omp, so a session begun
+            # from the wizard is as collectable as one begun later (start.py::omp_defaults).
+            session_flags = omp_defaults(chosen, [], repo_root)
+            announce_omp_session(session_flags)
+            flags = claude_defaults(chosen, [])
+            os.execvp(binary, [chosen, *flags, *session_flags, "/berdl_start"])
         else:
             print(f"  Error: '{chosen}' not found on PATH.", file=sys.stderr)
             return 1

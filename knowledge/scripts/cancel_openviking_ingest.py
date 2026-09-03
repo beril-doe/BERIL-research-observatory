@@ -146,7 +146,7 @@ def main() -> int:
     console.print(
         Panel.fit(
             "Restart the server with:\n"
-            "  uv run --group knowledge openviking-server --config knowledge/openviking/ov.conf",
+            "  uv run openviking-server --config knowledge/openviking/ov.conf",
             title="Next step",
             border_style="green",
         )

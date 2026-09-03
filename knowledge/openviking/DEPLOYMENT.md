@@ -51,7 +51,7 @@ Once these are deployed, OpenViking should be available by calling `https://beri
 {
     "status": "ok",
     "healthy": true,
-    "version": "0.3.24",
+    "version": "0.4.15",
     "auth_mode": "api_key"
 }
 ```

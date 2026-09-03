@@ -277,8 +277,8 @@ Full walkthrough (rotation, troubleshooting): `docs/remote-openviking-setup.md`.
 **Local server:** copy `knowledge/openviking/ov.conf.example` → `knowledge/openviking/ov.conf` and set the OpenRouter key in `embedding` and the CBORG key in `vlm`. The local `ov.conf` is gitignored.
 
 ```bash
-uv run --group knowledge openviking-server doctor --config knowledge/openviking/ov.conf
-uv run --group knowledge openviking-server --config knowledge/openviking/ov.conf
+uv run openviking-server doctor --config knowledge/openviking/ov.conf
+uv run openviking-server --config knowledge/openviking/ov.conf
 ```
 
 Both scripts probe `OPENVIKING_URL` before opening a client. `ingest_context.py` (the write path) exits cleanly with a start hint when the server is unreachable. `knowledge_query.py` instead falls back to local keyword search for `find`/`grep`/`read`/`overview` (see § Degraded mode) so read queries never hard-fail — neither path produces a Python traceback.

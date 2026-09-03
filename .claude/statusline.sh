@@ -4,8 +4,12 @@
 # Kept, because you act on them mid-research: which project, what stage it is
 # at, where to watch it, how close context is to running out, and which model is
 # answering.
-# Dropped: cost, elapsed, directory. All true, none of them change what you do
+# Dropped: elapsed, directory. All true, none of them change what you do
 # next while a project is running.
+#
+# Cost was on that dropped list and came back, for the same reason as model: a
+# BERDL project runs for hours across many notebook rounds, and the running
+# total is what tells you a re-run is getting expensive before the bill does.
 #
 # Model was on that dropped list and came back. The reasoning that put it there
 # was that it does not change what you do next, and that is wrong in one
@@ -28,6 +32,9 @@ pct = int(float(d.get("context_window", {}).get("used_percentage") or 0))
 # than "claude-opus-5[1m]". The parenthetical is the half you would actually act
 # on — it is why a long run has not compacted yet.
 model = str((d.get("model") or {}).get("display_name") or "")
+# Session-to-date USD, summed by the harness across every API call including
+# subagents — the script only formats it. Absent on the very first render.
+cost = float((d.get("cost") or {}).get("total_cost_usd") or 0)
 
 C, G, Y, R, DIM, X = "\033[36m", "\033[32m", "\033[33m", "\033[31m", "\033[2m", "\033[0m"
 
@@ -121,13 +128,37 @@ if branch:
 # stray space.
 gauge = f"{heat}{bar}{X} {pct}%"
 line.append(f"{DIM}{model}{X} {gauge}" if model else gauge)
+# Own cell, not shared with the gauge: the gauge is "how much room is left in
+# this window", cost is "what the session has spent". A compact resets one
+# and not the other, so pairing them would read as one number.
+line.append(f"{Y}${cost:.2f}{X}")
 print(" | ".join(line))
 
 if not pdir:
     sys.exit(0)
 
-# Stage and URL come from the dashboard itself, so the two cannot disagree.
 sys.path.insert(0, str(root))
+
+# Persist what was displayed above. This is the only component that CAN: no hook
+# payload carries cost — SessionStart, PostToolUse and Stop were each probed and
+# all three omit it — and the session transcript records token counts, not
+# dollars, so deriving USD anywhere else would mean shipping a per-model price
+# table. runtime.json is where the rest of the per-session provenance already
+# lives, and audit_cmd owns that file; from there the runtime hook stamps a
+# per-stage delta into beril.yaml at each lifecycle transition.
+#
+# A second side effect in a display component, so it is bounded the same way the
+# dashboard spawn below is: it writes only when the *cents* value changed (an
+# ordinary turn is one small read), it never records a zero, and it can never
+# break a turn.
+try:
+    from beril_cli.audit_cmd import record_session_cost
+
+    record_session_cost(pdir, d.get("session_id"), cost)
+except Exception:
+    pass
+
+# Stage and URL come from the dashboard itself, so the two cannot disagree.
 try:
     from tools.dashboard import (SETUP_CMD, STAGE_LABELS, can_serve_live, port_for,
                                  public_url, resolve_stage, snapshot_url)

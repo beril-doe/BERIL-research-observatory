@@ -105,7 +105,7 @@ This wraps `scripts/detect_berdl_environment.py` with auto-recovery. It:
 - "Start SSH tunnels" → ask the user to run the printed command in a terminal, then re-run `python scripts/berdl_env.py --check`.
 - "pproxy not running" → the helper auto-starts it; this should self-resolve.
 - "Missing .venv-berdl" → `bash scripts/bootstrap_client.sh`.
-- "Missing KBASE_AUTH_TOKEN" → get token from https://narrative.kbase.us/#auth2/account and add to `.env`.
+- "Missing KBASE_AUTH_TOKEN" → sign in at https://hub.berdl.kbase.us, spawn a server, and in a notebook run `import os; print(os.environ.get('KBASE_AUTH_TOKEN'))`, then add it to `.env`. **Delete the cell output immediately after copying the token**; saved outputs live in the notebook file and can be shared or committed by accident. The token lasts 14 days, and signing out of KBase revokes it immediately, so do not sign out mid-run. (`narrative.kbase.us` shows a Developer Tokens tab only to accounts holding the `DevToken` role, and BERDL uses Login tokens.)
 
 **Route follow-up BERDL queries from the detected location:**
 - `on-cluster`: use the active Spark session and `spark.sql(query)` directly. Do not use `--berdl-proxy`.
@@ -167,6 +167,14 @@ For deeper inspection, suggest the user run:
 - `berdl_notebook_utils.get_table_schema(db, table, detailed=True, return_json=False)` — column-level info (name, type, nullable, description).
 
 **Do not run `COUNT(*)` per database in this phase** — it's expensive and not needed for orientation.
+
+### NMDC collection orientation
+
+If the inventory or the user's question involves an `nmdc` database, read
+`docs/datasets/nmdc/README.md` before recommending tables. It distinguishes the
+canonical `nmdc` tenant from derived or scoped `kbase.nmdc_*` products and gives
+the standard biosample-to-result join. Use the live inventory for availability;
+use the guide for provenance and resource roles.
 
 ---
 

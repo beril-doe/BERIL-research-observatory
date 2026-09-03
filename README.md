@@ -64,7 +64,7 @@ To use Claude Code you will need an API key. If you are Berkeley Lab staff, you 
 ### Prerequisites
 
 - A KBase account with BERDL access (see [Getting BERDL Access](#getting-berdl-access))
-- [Claude Code](https://claude.ai/claude-code) installed (or another supported agent e.g. codex)
+- [Claude Code](https://claude.ai/claude-code) installed (or another supported agent: `codex`, `gemini`, `omp`)
 - Python 3.11+
 - Git
 
@@ -73,7 +73,7 @@ To use Claude Code you will need an API key. If you are Berkeley Lab staff, you 
 The fastest way to get started is with the BERIL CLI, which handles environment setup and launches your coding agent:
 
 ```bash
-git clone https://github.com/kbaseincubator/BERIL-research-observatory.git
+git clone https://github.com/beril-doe/BERIL-research-observatory.git
 cd BERIL-research-observatory
 pip install -e .        # installs the `beril` command
 beril setup             # interactive onboarding — configures .env, checks prerequisites, picks your agent
@@ -96,7 +96,7 @@ If you prefer to set up manually without the CLI:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/kbaseincubator/BERIL-research-observatory.git
+git clone https://github.com/beril-doe/BERIL-research-observatory.git
 cd BERIL-research-observatory
 
 # 2. Set your auth token
@@ -107,7 +107,7 @@ cp .env.example .env
 # from .env automatically. If your token is ever exposed, delete it immediately
 # from the JupyterHub token management page and generate a new one.
 
-# 3. Open Claude Code in the repo
+# 3. Open your agent in the repo (claude, codex, gemini or omp)
 claude
 ```
 
@@ -157,7 +157,7 @@ Skills are invoked automatically based on context, or explicitly with `/skill-na
 | **LinkML Schema** | `/linkml-schema` | Generate LinkML schema from markdown, Excel, or plain text |
 | **Phenix** | `/phenix` | Structural biology workflows — AlphaFold, X-ray, cryo-EM, MolProbity |
 
-BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environment management outside the agent session. Multi-agent support (Codex, Gemini) is planned.
+BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environment management outside the agent session. `beril start --agent <name>` launches Claude Code, Codex, Gemini CLI or omp. With `--agent omp`, session transcripts are written under `~/.beril/omp-sessions/<checkout>/` — in `$HOME`, which persists across BERDL pod restarts where the checkout does not — and the path is printed at launch, so a session can be handed to a transcript reader afterwards.
 
 ---
 

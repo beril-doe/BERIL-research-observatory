@@ -61,7 +61,7 @@ curl). `find`/`reset` are pure filesystem; `reindex`/`verify` hit the HTTP API.
 Run it with the project's `knowledge` dependency group so `httpx` is on the path:
 
 ```bash
-uv run --group knowledge python3 knowledge/openviking/migrate-embedding/migrate.py <cmd> ...
+uv run python3 knowledge/openviking/migrate-embedding/migrate.py <cmd> ...
 ```
 
 Inside the OpenViking container (where `httpx` is already installed for the
