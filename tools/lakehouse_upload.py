@@ -32,6 +32,62 @@ LAKEHOUSE_BASE = f"{MC_ALIAS}/{BUCKET}/{TENANT_PATH}/projects"
 # S3a path for documentation and Spark references
 S3A_BASE = f"s3a://{BUCKET}/{TENANT_PATH}/projects"
 
+# Repo root, derived from this file's own location rather than the cwd, because
+# `--base-path` defaults to "." and cannot be consulted before the parser that
+# defines it has been built.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def load_dotenv(env_path: Path | None = None) -> dict[str, str]:
+    """Load ``.env`` into ``os.environ`` without overriding what is already set.
+
+    Deliberately stdlib only. This tool runs under whatever interpreter the
+    caller has active, which frequently lacks packages (see the note on the
+    context-service mirror below), so taking a dependency on ``python-dotenv``
+    here would break it in exactly the environments it is built to survive.
+
+    Anything already in the environment wins, so an explicit ``export`` or a
+    ``--tenant-path`` argument still beats the file. Returns the names it set,
+    with values, so a caller can report what came from the file; the return is
+    a convenience for tests and is not logged, since values may be secrets.
+    """
+    path = env_path if env_path is not None else REPO_ROOT / ".env"
+    applied: dict[str, str] = {}
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return applied
+
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        if stripped.startswith("export "):
+            stripped = stripped[len("export ") :].lstrip()
+        key, _, value = stripped.partition("=")
+        key = key.strip()
+        if not key:
+            continue
+        value = value.strip()
+        if value[:1] in ("'", '"'):
+            # Quoted: take the quoted span and ignore any trailing comment. A
+            # `#` inside the quotes is part of the value.
+            quote = value[0]
+            end = value.find(quote, 1)
+            value = value[1:end] if end != -1 else value[1:]
+        else:
+            # Unquoted: strip an inline comment. `.env.example` uses this style
+            # on several lines, which is what makes it worth handling. The
+            # whitespace before `#` is required, so a value that merely contains
+            # a `#` (a fragment, a generated secret) survives intact.
+            value = re.split(r"\s#", value, maxsplit=1)[0].rstrip()
+        if key in os.environ:
+            continue
+        os.environ[key] = value
+        applied[key] = value
+    return applied
+
+
 # Files/directories to skip during the manifest walk. The manifest is the
 # source of truth for what gets uploaded — upload_project iterates the
 # manifest directly rather than `mc cp --recursive`, so any name in this
@@ -599,6 +655,11 @@ def clean_tenant_path(raw):
 
 
 def main():
+    # Before the parser is built, because `--tenant-path` takes its default from
+    # os.environ at add_argument() time. Loading afterwards would read the file
+    # and change nothing, which is the bug this fixes.
+    load_dotenv()
+
     parser = argparse.ArgumentParser(
         description="Upload BERIL Observatory projects to the BERDL lakehouse (MinIO)."
     )
