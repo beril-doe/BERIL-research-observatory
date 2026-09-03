@@ -7,12 +7,12 @@ user-invocable: true
 
 # Gene Annotation Skill
 
-Run the `gene-annotate` CLI to produce GeneRIF-style functional annotations for protein sequences. The tool integrates five KBLH evidence layers — PaperBLAST homology (literature-curated), pangenome cluster annotations, Fitness Browser phenotypic data, fitness-browser gene neighborhoods, and pangenome gene neighborhoods (syntenic context across the GTDB clade) — plus InterProScan domain analysis and LLM reasoning to generate evidence-tiered annotations. Additional KBLH datasets can be layered on top via `--kblh-source-config`.
+Run the `gene-annotate` CLI to produce GeneRIF-style functional annotations for protein sequences. The tool integrates five BERDL evidence layers — PaperBLAST homology (literature-curated), pangenome cluster annotations, Fitness Browser phenotypic data, fitness-browser gene neighborhoods, and pangenome gene neighborhoods (syntenic context across the GTDB clade) — plus InterProScan domain analysis and LLM reasoning to generate evidence-tiered annotations. Additional BERDL datasets can be layered on top via `--berdl-source-config`.
 
 ## Prior Run Context
 
 The following organisms have been annotated in prior gene-annotate runs in this project.
-Read this section before any new run to avoid redundant KBLH queries and to calibrate
+Read this section before any new run to avoid redundant BERDL queries and to calibrate
 cost/yield expectations.
 
 ### Completed pilots
@@ -33,7 +33,7 @@ Results in `data/*_annotations_v2/`; per-organism summaries in `data/v2_per_orga
 > annotation outputs exist only within the JupyterHub/cluster environment at
 > `/home/cjneely/repos/BERIL-research-observatory/data/`. They are **not** present on a
 > local developer machine. Spark queries and gene-annotate runs also require the JupyterHub
-> cluster environment (KBLH access, `/global_share/gene-annotation-predictor/` package,
+> cluster environment (BERDL access, `/global_share/gene-annotation-predictor/` package,
 > and a running Spark Connect server). Do not assume these paths exist in a local session.
 
 ### Resolved GTDB clade IDs (validated from prior runs)
@@ -41,7 +41,7 @@ Results in `data/*_annotations_v2/`; per-organism summaries in `data/v2_per_orga
 Always use accession-based lookup (`genome_id LIKE '%<numeric>%'`) rather than species-name
 matching — GTDB renames and clade splits make name matching unreliable.
 
-| Common name | Canonical strain | Target accession | GTDB clade ID in KBLH |
+| Common name | Canonical strain | Target accession | GTDB clade ID in BERDL |
 |---|---|---|---|
 | *Pseudomonas aeruginosa* PAO1 | PAO1 | GCF_000006765.1 | `s__Pseudomonas_aeruginosa--RS_GCF_001457615.1` |
 | *Bacillus subtilis* 168 | 168 | GCF_000009045.1 | `s__Bacillus_subtilis--RS_GCF_000009045.1` |
@@ -78,7 +78,7 @@ matching — GTDB renames and clade splits make name matching unreliable.
 | *Bacteroides thetaiotaomicron* VPI-5482 | VPI-5482 | GCF_000011065.1 | `s__Bacteroides_thetaiotaomicron--RS_GCF_000011065.1` |
 | *Akkermansia muciniphila* ATCC BAA-835 | ATCC BAA-835 | GCF_000020225.1 | `s__Akkermansia_muciniphila--RS_GCF_000020225.1` |
 
-**NOT in KBLH pangenome (confirmed 2026-05-20):**
+**NOT in BERDL pangenome (confirmed 2026-05-20):**
 - *Acinetobacter baumannii* ATCC 17978 (GCF_000015425.1)
 - *Helicobacter pylori* 26695 (GCF_000008525.1)
 - *Streptomyces coelicolor* A3(2) (GCF_000203835.1)
@@ -123,7 +123,7 @@ fitness browser organism list against any shortlist before scoping cost.
 
 ## When to Use
 
-- The user has protein sequences in any format — FASTA files, raw sequences, TSV/CSV tables, GenBank records, KBLH query results, or pasted text
+- The user has protein sequences in any format — FASTA files, raw sequences, TSV/CSV tables, GenBank records, BERDL query results, or pasted text
 - The user wants to determine or predict protein function
 - The user wants evidence-backed functional annotations with confidence tiers
 
@@ -168,7 +168,7 @@ cd $REPO                                       # NOT the package dir — see tok
 /global_share/gene-annotation-predictor/.venv/bin/gene-annotate --input …
 ```
 
-> **⚠ Run from `$REPO`, not the package dir.** The CLI's `load_kblh_token()` reads
+> **⚠ Run from `$REPO`, not the package dir.** The CLI's `load_berdl_token()` reads
 > `KBASE_AUTH_TOKEN` from **`.env` in the current working directory** and ignores the
 > environment variable. The package dir (`/global_share/gene-annotation-predictor/.env`)
 > often carries a **stale token** that will `401` every CTS job (InterProScan and DIAMOND),
@@ -181,34 +181,6 @@ cd $REPO                                       # NOT the package dir — see tok
 InterProScan is a separate install (`./bin/my_interproscan/interproscan-5.76-107.0/`) and is passed via `--interproscan` for local off-cluster mode, or offloaded via `--cts-interproscan` on the lakehouse (the default — see Step 3).
 
 > **Lakehouse default:** on JupyterHub the CLI should always be launched with `--cts-interproscan --cts-diamond --cts-username "$USER"` so InterProScan and DIAMOND run on CTS-provisioned compute rather than on the shared notebook node. Local flags are only for off-cluster / laptop use.
-
-### Install modes: lakehouse vs. local
-
-The package installs under one of two Poetry extras:
-
-- **`pip install gene-annotate[lakehouse]`** — adds the `minio` client used by the CTS uploader. Required
-  for any CTS offload. **The repo `.venv` on this cluster is a `lakehouse` install** (verified: `minio`
-  present), so CTS works here.
-- **`pip install gene-annotate[local]`** — no `minio`; for laptop / off-cluster runs that never touch CTS.
-
-> **⚠ CTS needs the `lakehouse` extra.** As of the KBLH rename, `--cts-interproscan` / `--cts-diamond`
-> **fail fast** on a `[local]` install: the CLI exits immediately with
-> `"--cts-interproscan/--cts-diamond need the 'lakehouse' extra … pip install gene-annotate[lakehouse]"`
-> rather than starting a run that would blow up when the CTS client is constructed. `--kblh-use-spark` is
-> *not* gated — it degrades gracefully to the REST API when Spark is unavailable.
-
-**Pick the evidence backend + compute per environment.** The evidence layer (`--kblh-data-dir` vs. local
-`--paperblast-dir`/`--fitness-dir`) is independent of the InterProScan/DIAMOND compute (CTS vs. local):
-
-| Environment | Evidence flags | InterProScan / DIAMOND | Token? |
-|---|---|---|---|
-| **Lakehouse (on-cluster JupyterHub)** — default | `--kblh-data-dir <dir> --kblh-use-spark` | `--cts-interproscan --cts-diamond --cts-username "$USER"` (needs `[lakehouse]` extra) | `KBASE_AUTH_TOKEN` |
-| **Off-cluster, KBLH via REST** | `--kblh-data-dir <dir>` (omit `--kblh-use-spark` → REST) | `--interproscan <ABSOLUTE path>` (local; no CTS) | `KBASE_AUTH_TOKEN` (for KBLH REST) |
-| **Fully local (no KBLH)** | `--paperblast-dir <dir> --fitness-dir <dir>` | `--interproscan <path>` (local) | none |
-
-Notes: `--kblh-data-dir` is mutually exclusive with `--paperblast-dir`/`--fitness-dir` (KBLH **or** local
-data, not both). `--string-dir` is independent of all of the above and works in every mode. Any KBLH mode
-needs a valid `KBASE_AUTH_TOKEN` in `$REPO/.env`; fully-local needs no token and no `lakehouse` extra.
 
 ### API Key (auto-detected)
 
@@ -224,30 +196,30 @@ Pass `--api-key KEY` only to override with a literal key value.
 | Resource | Path |
 |----------|------|
 | InterProScan | `/global_share/gene-annotation-predictor/bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh` |
-| KBLH DIAMOND databases | `/global_share/gene-annotation-predictor/data_sources/sequences/` |
+| BERDL DIAMOND databases | `/global_share/gene-annotation-predictor/data_sources/sequences/` |
 | Summaries parquet | `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet` |
 | STRING v12 database | `/global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12/` (`string_proteins.dmnd` + `string.sqlite`) |
 
-### KBLH Evidence Layer
+### BERDL Evidence Layer
 
-When `--kblh-data-dir` is provided, six evidence sources are always included automatically:
+When `--berdl-data-dir` is provided, six evidence sources are always included automatically:
 
 | Source | DIAMOND DB | Toolkit | Output column |
 |--------|-----------|---------|---------------|
-| PaperBLAST (literature-curated homologs) | `paperblast_uniq.dmnd` | `BatchKBLHPaperBLASTToolkit` | `kblh_paperblast_evidence` |
-| Pangenome cluster annotations | `pangenome_gene_cluster.dmnd` | `BatchKBLHPangenomeToolkit` | `kblh_pangenome_evidence` |
-| Fitness Browser co-fitness profiles | `fitnessbrowser_aaseqs.dmnd` | `BatchKBLHFitnessBrowserToolkit` | `kblh_fitness_evidence` |
+| PaperBLAST (literature-curated homologs) | `paperblast_uniq.dmnd` | `BatchBERDLPaperBLASTToolkit` | `berdl_paperblast_evidence` |
+| Pangenome cluster annotations | `pangenome_gene_cluster.dmnd` | `BatchBERDLPangenomeToolkit` | `berdl_pangenome_evidence` |
+| Fitness Browser co-fitness profiles | `fitnessbrowser_aaseqs.dmnd` | `BatchBERDLFitnessBrowserToolkit` | `berdl_fitness_evidence` |
 | Gene neighborhoods (fitness browser) | *(same as Fitness Browser)* | `fetch_gene_neighborhood_batch` | `gene_neighborhoods` |
-| Pangenome gene neighborhoods | `pangenome_gene_cluster.dmnd` | `BatchKBLHPangenomeNeighborhoodToolkit` | `pangenome_neighborhoods` |
-| Fitness Browser gene annotations | `fitnessbrowser_aaseqs.dmnd` | `BatchKBLHGenericToolkit` (builtin) | `evidence_fitnessbrowser_aaseqs` |
+| Pangenome gene neighborhoods | `pangenome_gene_cluster.dmnd` | `BatchBERDLPangenomeNeighborhoodToolkit` | `pangenome_neighborhoods` |
+| Fitness Browser gene annotations | `fitnessbrowser_aaseqs.dmnd` | `BatchBERDLGenericToolkit` (builtin) | `evidence_fitnessbrowser_aaseqs` |
 
 The fitness-browser annotations source (`evidence_fitnessbrowser_aaseqs`) is loaded automatically from `data_sources/configs/builtin_fitness_browser.yaml` — no flag required. It complements the co-fitness source by providing direct gene-level descriptions from the fitness browser annotation table, which enables convergent direct-naming evidence that the co-fitness profiles alone cannot provide.
 
-The pangenome neighborhood source (`pangenome_neighborhoods`) provides syntenic/operon context across the GTDB clade by retrieving the ±5 flanking genes around each cluster representative's home genome (top hit per matched clade). Each neighbor's annotation is the bakta output for that gene family's cluster representative (one bakta annotation per cluster, stored in `bakta_annotations` keyed by the rep's `gene_cluster_id` — not a vote across cluster members). This often surfaces operon membership that the fitness-browser neighborhoods (single experimental organism) miss. **Requires `--kblh-use-spark`** — the multi-column temp-view join is not available via the REST client; the source is silently skipped without Spark.
+The pangenome neighborhood source (`pangenome_neighborhoods`) provides syntenic/operon context across the GTDB clade by retrieving the ±5 flanking genes around each cluster representative's home genome (top hit per matched clade). Each neighbor's annotation is the bakta output for that gene family's cluster representative (one bakta annotation per cluster, stored in `bakta_annotations` keyed by the rep's `gene_cluster_id` — not a vote across cluster members). This often surfaces operon membership that the fitness-browser neighborhoods (single experimental organism) miss. **Requires `--berdl-use-spark`** — the multi-column temp-view join is not available via the REST client; the source is silently skipped without Spark.
 
-Config-driven sources from `--kblh-source-config` are **additive** — they run alongside the six defaults, not instead of them.
+Config-driven sources from `--berdl-source-config` are **additive** — they run alongside the six defaults, not instead of them.
 
-### STRING Network Evidence (optional, independent of KBLH)
+### STRING Network Evidence (optional, independent of BERDL)
 
 When `--string-dir` is provided, a seventh evidence source is added:
 
@@ -272,12 +244,12 @@ homolog's label; edge/orthogroup evidence is more conservative. Pass `--string-m
 user explicitly wants the legacy transferred-annotation behavior (e.g., an A/B comparison against a prior
 `full` run). This flag is only meaningful with `--string-dir`.
 
-This source is **independent of `--kblh-data-dir`** — it can be used with or without the KBLH layer.
+This source is **independent of `--berdl-data-dir`** — it can be used with or without the BERDL layer.
 
 Requires:
 - `KBASE_AUTH_TOKEN` set in `$REPO/.env`
-- KBLH data directory (path above)
-- `--kblh-use-spark` for Spark-based annotation queries
+- BERDL data directory (path above)
+- `--berdl-use-spark` for Spark-based annotation queries
 
 ## Workflow
 
@@ -293,7 +265,7 @@ The user may provide protein sequences in many formats. The `gene-annotate` tool
 | **Raw sequence(s) pasted in chat** | Amino acid letters (M, A, G, L, ...) without headers | Assign sequence IDs (`seq_1`, `seq_2`, ...) and write a FASTA file |
 | **TSV/CSV table** | Columns for sequence ID, sequence, and optionally organism | Extract ID + sequence + organism columns, write FASTA |
 | **GenBank / EMBL records** | `LOCUS`, `ORIGIN`, `//` markers | Parse with BioPython or extract protein translations, write FASTA |
-| **KBLH query results** | Protein sequences from a `/berdl` query or direct Spark query against any KBLH database | Extract sequence + ID + organism (use GTDB clade name split at `--` when available), write FASTA. If the source table contains functional annotations (e.g., eggNOG, UniProt descriptions, product names), write a companion `<input>.annotations.json` side file keyed by sequence ID containing those annotations for use in Step 5 comparison |
+| **BERDL query results** | Protein sequences from a `/berdl` query or direct Spark query against any BERDL database | Extract sequence + ID + organism (use GTDB clade name split at `--` when available), write FASTA. If the source table contains functional annotations (e.g., eggNOG, UniProt descriptions, product names), write a companion `<input>.annotations.json` side file keyed by sequence ID containing those annotations for use in Step 5 comparison |
 | **Uniprot / NCBI accessions** | Accession IDs like `P12345`, `WP_*`, `NP_*` | Fetch sequences via NCBI efetch or UniProt API, write FASTA |
 
 **FASTA format for `gene-annotate`:**
@@ -325,7 +297,7 @@ When organism information is available, include it in the FASTA description line
 
 Use the organism name as-is from `kescience_paperblast.gene` — it already includes genus, species, and strain where available. Write it into the FASTA description line and set `--description-is-organism` when at least one sequence has a resolved organism.
 
-**Strip asterisks from all sequences before writing.** Pangenome sequences from KBLH (and any ORF-prediction tool output) may contain `*` stop-codon markers. InterProScan rejects any sequence containing `*` and aborts the entire run — not just the offending sequence. Always strip `*` from every sequence with `seq.replace("*", "")` before writing the FASTA file.
+**Strip asterisks from all sequences before writing.** Pangenome sequences from BERDL (and any ORF-prediction tool output) may contain `*` stop-codon markers. InterProScan rejects any sequence containing `*` and aborts the entire run — not just the offending sequence. Always strip `*` from every sequence with `seq.replace("*", "")` before writing the FASTA file.
 
 **Write the prepared FASTA file** to the project directory or a temp location. Use a descriptive filename (e.g., `input_proteins.faa`).
 
@@ -406,9 +378,9 @@ LIMIT 400
 
 `likelihood` is on a log scale and core/aux are cleanly separated (cores are typically positive, aux are large negative numbers). It rank-orders aux clusters by how widely they're shared without paying for the junction-table scan. Validated across multiple pilots — the high-likelihood end of the aux distribution is reliably where homolog-recoverable Tier-A signal clusters.
 
-### Step 1.5: Discover and Select Additional KBLH Evidence Sources
+### Step 1.5: Discover and Select Additional BERDL Evidence Sources
 
-The user's KBLH tenant may contain protein-bearing tables beyond the three built-in sources (PaperBLAST, pangenome, Fitness Browser). Any table with both protein sequences AND per-protein annotation can be added as an extra evidence source. The CLI consumes these via `--kblh-source-config <YAML>` and emits one `evidence_<name>` column per active source plus a manifest preamble in the LLM prompt.
+The user's BERDL tenant may contain protein-bearing tables beyond the three built-in sources (PaperBLAST, pangenome, Fitness Browser). Any table with both protein sequences AND per-protein annotation can be added as an extra evidence source. The CLI consumes these via `--berdl-source-config <YAML>` and emits one `evidence_<name>` column per active source plus a manifest preamble in the LLM prompt.
 
 **Skip this step if** the user has already provided a source-config YAML, has explicitly opted out, or this is a quick re-run. Otherwise:
 
@@ -511,7 +483,7 @@ PY
 
 # Check paths / binaries
 [ -x /global_share/gene-annotation-predictor/bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh ] && echo "InterProScan: OK"
-[ -d /global_share/gene-annotation-predictor/data_sources/sequences/ ] && echo "KBLH data: OK"
+[ -d /global_share/gene-annotation-predictor/data_sources/sequences/ ] && echo "BERDL data: OK"
 [ -f /global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet ] && echo "Summaries parquet: OK"
 [ -f /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12/string_proteins.dmnd ] && echo "STRING database: OK"
 [ -x /global_share/gene-annotation-predictor/.venv/bin/gene-annotate ] && echo "gene-annotate bin: OK"
@@ -538,7 +510,7 @@ would silently degrade —
 - `Submitting InterProScan CTS job` **and** `Uploading … to cts/io/…` appear → CTS auth + MinIO upload OK
   (no silent 401, no silent local fallback).
 - `Fetching built-in evidence: pangenome_neighborhood …` appears → **Spark connected**; this source is
-  silently skipped without `--kblh-use-spark` or a live Spark session.
+  silently skipped without `--berdl-use-spark` or a live Spark session.
 - No `bio_policy`, `401`, `403`, or `Traceback` lines.
 
 **After the run** (before summarizing): run the reconciliation and a whole-log scan —
@@ -570,11 +542,11 @@ More than one distinct `model` tag in the reconciliation flags such a fallback.
 
 ### Step 2.5: Confirm DIAMOND DB Builds for New Sources
 
-Skip this step when no `--kblh-source-config` was generated in Step 1.5.
+Skip this step when no `--berdl-source-config` was generated in Step 1.5.
 
-For each source in `berdl_sources.yaml`, check whether its `diamond_db` file exists. If not, the CLI can build it under `--kblh-build-missing-dbs`, but builds can take 10–30 minutes for large tables — confirm before proceeding.
+For each source in `berdl_sources.yaml`, check whether its `diamond_db` file exists. If not, the CLI can build it under `--berdl-build-missing-dbs`, but builds can take 10–30 minutes for large tables — confirm before proceeding.
 
-**Spark session for standalone build scripts.** `KBLHSparkClient` now uses `berdl_notebook_utils.get_spark_session()` directly (the `spark_connect_remote` package and manual proxy setup are no longer required). Any Python script that calls `get_spark_session()` outside a running notebook kernel must call `refresh_spark_environment()` first to start the local Spark Connect server. Without it, `get_spark_session()` will hang indefinitely. In JupyterHub the server is pre-started automatically; in CLI scripts it is not.
+**Spark session for standalone build scripts.** `BERDLSparkClient` now uses `berdl_notebook_utils.get_spark_session()` directly (the `spark_connect_remote` package and manual proxy setup are no longer required). Any Python script that calls `get_spark_session()` outside a running notebook kernel must call `refresh_spark_environment()` first to start the local Spark Connect server. Without it, `get_spark_session()` will hang indefinitely. In JupyterHub the server is pre-started automatically; in CLI scripts it is not.
 
 ```python
 from berdl_notebook_utils.refresh import refresh_spark_environment
@@ -604,7 +576,7 @@ Then ask via `AskUserQuestion`:
 > "Build DIAMOND DB for `<source_name>`? (~`<n>` sequences, est. `<est_min>` min)"
 > Options: **Build now** / **Skip this source**
 
-For each "Skip" answer, remove that source from `berdl_sources.yaml` before running Step 3. Pass `--kblh-build-missing-dbs` in Step 3 only when at least one source was approved for build.
+For each "Skip" answer, remove that source from `berdl_sources.yaml` before running Step 3. Pass `--berdl-build-missing-dbs` in Step 3 only when at least one source was approved for build.
 
 ### Step 2.6: Select Tier Filter
 
@@ -659,15 +631,15 @@ export GENE_ANNOTATE_SKIP_REASONING=1
 
 /global_share/gene-annotation-predictor/.venv/bin/gene-annotate \
   --input <FASTA_FILE(S)> \
-  --model gpt-5.5-high \
-  --kblh-data-dir /global_share/gene-annotation-predictor/data_sources/sequences/ \
+  --model gpt-5.6-terra-high \
+  --berdl-data-dir /global_share/gene-annotation-predictor/data_sources/sequences/ \
   --summaries-parquet /global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet \
   --cts-interproscan \
   --cts-diamond \
   --cts-username "$USER" \
   --output-dir <OUTPUT_DIR> \
   --threads 4 \
-  --kblh-use-spark \
+  --berdl-use-spark \
   <OPTIONAL_FLAGS>
 ```
 
@@ -685,11 +657,7 @@ Off-cluster / laptop use (no CTS available) — swap the three CTS flags for `--
 
 **`--description-is-organism`**: Include this flag when organism names were placed in the FASTA description lines during input preparation (Step 1). Omit when no organism information is available for any sequence.
 
-**`--model` is a required CLI flag** — always include it. **Default: `gpt-5.5-high`** (bare name — the funded CBORG route). Validated on the PMI 18-genome bake-off: it matches `gpt-5.6-terra-high-flex` on tier distribution (≈86% agreement, same tier band) with clean structured output and reasoning-off, and — unlike the gpt-5.6 flex family — runs on a **funded** route. The CLI has no compiled-in default and will exit with an error if omitted.
-
-> **⚠ Route funding matters for gpt-5.5.** Use the **bare** `gpt-5.5-high` (or `amazon/gpt-5.5-high`) — the `openai/`-prefixed gpt-5.5 org is **credit-exhausted** (`429 insufficient_quota`) and will drop rows. The gpt-5.5 **flex** tier exists *only* under `openai/`, so it is currently unrunnable. Before a large run, smoke-test the chosen route's funding and keep `amazon/gpt-5.5-high` as the alternate. For gpt-5.6 variants the reverse holds: the bare `-high` names and `openai/…-flex` names are funded, while `openai/gpt-5.6-*-high` (non-flex) is credit-exhausted. When unsure, query `GET https://api.cborg.lbl.gov/v1/models` and ping the exact id.
-
-Alternatives: `gpt-5.6-terra-high-flex` (best-calibrated + fastest *when* the flex org is funded), or an Anthropic model (`claude-opus-4.5`/`claude-sonnet-4.6`) to recover rows a gpt-5.x route drops on `bio_policy`/5xx.
+**`--model` is a required CLI flag** — always include it. **Default: `gpt-5.6-terra-high`** — the current validated model (matches gpt-5.4 on the correctness benchmark: Δ−0.05 mean, 9W/9T/9L, and better-calibrated than the `luna` variant), and the model the OpenAI-route credit exhaustion that stalled `gpt-5.4` does not affect. Use `gpt-5.4` instead only to preserve byte-exact consistency with a prior gpt-5.4 pilot you are extending. The CLI has no compiled-in default and will exit with an error if omitted. Do not prefix with `openai/` — the CLI accepts the short form only (`gpt-5.6-terra-high`, not `openai/gpt-5.6-terra-high`); the CBORG gateway adds the provider prefix internally, and for the gpt-5.6 variants the `openai/`-prefixed form is rejected with a `429 credit_balance_exhausted` (they route only under the bare name).
 
 **InterProScan mode — one of the following is required** (mutually exclusive):
 - `--cts-interproscan` — **preferred on the lakehouse.** Submits InterProScan to the CDM Task Service. Requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` in `$REPO/.env`. Companion flags: `--cts-username <user>` (default: `$USER`), `--cts-cpus <N>` (default: 8), `--cts-memory <MEM>` (default: 16GB), `--cts-runtime <ISO8601>` (default: PT2H). Pairs naturally with `--cts-diamond` so the notebook node stays idle.
@@ -699,22 +667,15 @@ Alternatives: `gpt-5.6-terra-high-flex` (best-calibrated + fastest *when* the fl
 - `--cts-diamond` — **preferred on the lakehouse.** Offloads *all* built-in DIAMOND homology searches (PaperBLAST, Fitness Browser, Pangenome, STRING) to a single CTS job. All target databases ship as one refdata bundle bound to the runner image — no explicit refdata-id needed. Requires the same auth as `--cts-interproscan` plus `--cts-username`. Reuses `--cts-cpus` / `--cts-memory` / `--cts-runtime` for resource sizing. STRING side-table (SQLite) lookups still run locally.
 - Local DIAMOND (implicit when `--cts-diamond` is not passed) — falls back to the `diamond` binary from the conda env's PATH. Used automatically for off-cluster runs.
 
-> **⚠ CTS at scale — the default PT2H/8-CPU sizing silently fails on large inputs (>~5–10K proteins).** Learned on the PMI 50,152-rep run, which hit **three stacked limits** before IPR would complete. Size CTS jobs deliberately for big runs:
-> - **IPR runtime scales with input.** Rate ≈ **306 proteins / ~9 min at 8 CPU** (~110 CPU-h for 50K). At the default `--cts-runtime PT2H` a 50K IPR job needs ~24 h at 8 CPU → it is **killed mid-run**, and the CLI only logs a **WARNING** (`CTS InterProScan job failed … timed out …; continuing without IPR annotations`) — **not fatal.** The whole run then annotates with the entire InterProScan layer missing. **Always grep the log for `continuing without IPR`** on any CTS run; a monitor should treat it as a stop condition.
-> - **Hidden client-side poll cap.** `cts_client.py` has `_MAX_POLL_ATTEMPTS × _POLL_INTERVAL_SECONDS` (was `240 × 30s = 2 h`) that abandons the job **independently of `--cts-runtime`** — so bumping `--cts-runtime` alone still fails with `timed out after 7200s`. The cap must be ≥ the job runtime (raised here to `1500 × 60s = 25 h`). If you extend `--cts-runtime` past it, raise this too.
-> - **CTS hard limit: 500 CPU-hours per job** (`cpus × runtime_hours`). `--cts-cpus 32 --cts-runtime PT24H` = 768 → rejected `400 "greater than the limit of 500"`. **Both the IPR and DIAMOND CTS jobs reuse `--cts-cpus`/`--cts-runtime`, so both must fit under 500.**
-> - **Working config for ~50K proteins:** `--cts-cpus 32 --cts-runtime PT15H` (= 480 CPU-h, under the cap) with the poll cap ≥ 15 h. IPR finishes in ~3–4 h wall at 32 CPU.
-> - **If a single job still won't fit** (much larger inputs), **chunk the IPR**: split the FASTA into batches each under 500 CPU-h and under the poll cap, run one CTS IPR job per batch, and merge the per-batch `<cache_id>_ipr.tsv`/`.json` before the annotation run (which then reuses the merged cache). DIAMOND is fast and rarely needs chunking.
-
 **Optional flags** (include only if needed):
 - `--description-is-organism` — include when FASTA descriptions contain organism names
 - `--evalue`, `--min-identity`, `--max-identity`, `--query-coverage`, `--subject-coverage` — DIAMOND thresholds. `--max-identity` caps how close a homolog is allowed to be (default `1.0` = no cap); useful for ablation runs that force the LLM to reason from distant evidence.
 - `--fitness-threshold`, `--t-threshold` — Fitness Browser thresholds (default absolute fitness `0.4`, T-statistic `2.0`)
 - `--threads <N>` — override default 4
 - `--prompt-file <path>` — custom LLM prompt
-- `--source-config <output_dir>/berdl_sources.yaml` (alias: `--kblh-source-config`) — include when Step 1.5 produced a YAML
-- `--kblh-build-missing-dbs` — include when at least one source from Step 2.5 was approved for build
-- `--string-dir /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12` — adds STRING v12 network-association evidence (orthogroup identity + functional network partners). Recommended for any run where KBLH evidence may be sparse; independent of `--kblh-data-dir`.
+- `--source-config <output_dir>/berdl_sources.yaml` (alias: `--berdl-source-config`) — include when Step 1.5 produced a YAML
+- `--berdl-build-missing-dbs` — include when at least one source from Step 2.5 was approved for build
+- `--string-dir /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12` — adds STRING v12 network-association evidence (orthogroup identity + functional network partners). Recommended for any run where BERDL evidence may be sparse; independent of `--berdl-data-dir`.
 - `--string-mode {edges,full}` — how STRING evidence is presented; **default `edges`** (corroborating network, transferred homolog annotation withheld). Pass `--string-mode full` only for legacy transferred-annotation behavior. Only meaningful with `--string-dir`.
 - `--tier <comma-list>` — include only when Step 2.6 produced a strict subset of `A,B,C` (e.g., `--tier A` or `--tier A,B`). Omit when all three tiers are selected (the CLI default is `A,B,C`).
 
@@ -787,18 +748,18 @@ For each row in the TSV, produce a block of this form:
 
 | Column | Label to use | Experimental? |
 |--------|-------------|---------------|
-| `kblh_paperblast_evidence` | `PaperBLAST (KBLH)*` | Yes — literature-curated experimental characterizations |
+| `berdl_paperblast_evidence` | `PaperBLAST (BERDL)*` | Yes — literature-curated experimental characterizations |
 | `paperblast_evidence` | `PaperBLAST*` | Yes — literature-curated experimental characterizations |
-| `kblh_fitness_evidence` or `fitness_evidence` | `Fitness browser (co-fitness)*` | Yes — experimental transposon fitness co-fitness profiles |
+| `berdl_fitness_evidence` or `fitness_evidence` | `Fitness browser (co-fitness)*` | Yes — experimental transposon fitness co-fitness profiles |
 | `cofitness_evidence` | `Co-fitness*` | Yes — experimental co-fitness correlations |
 | `evidence_fitnessbrowser_aaseqs` | `Fitness browser (gene annotations)*` | Yes — direct gene descriptions from TnSeq-characterized loci |
 | `gene_neighborhoods` | `Gene neighborhoods (fitness browser)` | No — genomic context from conserved gene order in TnSeq organisms |
 | `pangenome_neighborhoods` | `Gene neighborhoods (pangenome)` | No — syntenic context across GTDB clade, bakta-annotated flanks |
-| `kblh_pangenome_evidence` | `Pangenome` | No — comparative/computational clustering |
+| `berdl_pangenome_evidence` | `Pangenome` | No — comparative/computational clustering |
 | `ipr_annotations` | `InterProScan` | No — computational domain/family prediction. Each `IPRSCAN` line carries `qcov=X%` (fraction of query covered) and, for HMM-based methods (Pfam, Gene3D, SMART, NCBIFam, PIRSF, SFLD), additional `hmm=A-B/L, tcov=T%, evalue=E, score=S` fields for target coverage and match quality. Non-HMM methods (PANTHER, SUPERFAMILY, CDD, HAMAP, ProSite, PRINTS) show `qcov=` only. |
 | `string_evidence` | `STRING v12` | No — network guilt-by-association (orthogroup + high-confidence partners ≥700) |
 
-**Dynamic source columns.** When `--kblh-source-config` was used, the TSV contains additional `evidence_<source_name>` columns (one per active source). Discover them at read-time and look up each source's `description` and `evidence_type` from the YAML:
+**Dynamic source columns.** When `--berdl-source-config` was used, the TSV contains additional `evidence_<source_name>` columns (one per active source). Discover them at read-time and look up each source's `description` and `evidence_type` from the YAML:
 
 ```python
 import yaml, polars as pl
@@ -811,9 +772,9 @@ dynamic_cols = [c for c in df.columns if c.startswith("evidence_")
 
 For each dynamic column with non-empty content, label it as `<source_name> (<source_description>)` and mark with `*` when its `evidence_type` is `experimental` or `curated`. Add these to the condensed evidence line alongside the built-in sources.
 
-Any other KBLH dataset included in the evidence whose description mentions experimental derivation (e.g., phenotype assays, growth measurements, biochemical characterization) should also be marked with `*`.
+Any other BERDL dataset included in the evidence whose description mentions experimental derivation (e.g., phenotype assays, growth measurements, biochemical characterization) should also be marked with `*`.
 
-Format the evidence line as: `Evidence: PaperBLAST (KBLH)*, Pangenome, InterProScan`
+Format the evidence line as: `Evidence: PaperBLAST (BERDL)*, Pangenome, InterProScan`
 
 After the evidence line, add an experimental support note:
 - If any `*`-marked source is present: `Experimental support: yes`
@@ -825,7 +786,7 @@ If all evidence columns are empty, write: `Evidence: (none — structural/fold o
 
 ```
 [FAILED] sequence_id (organism)
-    Known (eggNOG/KBLH): <known function if available>
+    Known (eggNOG/BERDL): <known function if available>
     Evidence:             <condensed evidence line>
     Experimental support: <yes/no>
     Analysis:             <narrative>
@@ -833,7 +794,7 @@ If all evidence columns are empty, write: `Evidence: (none — structural/fold o
 
 **Known function** — check two sources in priority order:
 
-1. **KBLH annotation side file** (highest priority): if a `.annotations.json` file was written alongside the input FASTA during input preparation (proteins may have been sourced from any KBLH database — e.g., `kbase_ke_pangenome.eggnog_mapper_annotations`, `kbase_uniprot`, `kescience_paperblast`, etc.), load it. It is keyed by sequence ID and contains at minimum `preferred_name` and `description`; optionally `ec`, `cog_category`, `kegg_ko`, `gos`. Use `preferred_name — description [EC:x.x.x.x]` as the known function string, including any additional fields that are non-empty and non-`-`.
+1. **BERDL annotation side file** (highest priority): if a `.annotations.json` file was written alongside the input FASTA during input preparation (proteins may have been sourced from any BERDL database — e.g., `kbase_ke_pangenome.eggnog_mapper_annotations`, `kbase_uniprot`, `kescience_paperblast`, etc.), load it. It is keyed by sequence ID and contains at minimum `preferred_name` and `description`; optionally `ec`, `cog_category`, `kegg_ko`, `gos`. Use `preferred_name — description [EC:x.x.x.x]` as the known function string, including any additional fields that are non-empty and non-`-`.
 
 2. **FASTA header description** (fallback): re-read the original input FASTA and extract the description text from each `>` header line (all text after the sequence ID). Use this as the known function **only when `--description-is-organism` was NOT used** — when that flag is set the description is organism context, not a functional annotation, so write `Known: (organism context only)` and skip comparison.
 
@@ -857,7 +818,7 @@ When the user has approved full analysis for a run > 10 sequences, write everyth
 
 After the per-protein output (or after reporting the summary file path for large runs):
 - Filter or sort results by tier
-- Cross-reference with KBLH data (`/berdl`)
+- Cross-reference with BERDL data (`/berdl`)
 - Literature review on annotated functions (`/literature-review`)
 - Include in project synthesis (`/synthesize`)
 
@@ -889,7 +850,7 @@ If this is part of a series (e.g., per-organism pilots in a larger collection ef
 
 ## Data selection
 
-Source: {database / KBLH table / external accession set}.
+Source: {database / BERDL table / external accession set}.
 Selection rule: {the actual filter applied — quoted SQL or a one-sentence description}.
 {Any quirks: GTDB taxonomy resolution, sampling shortcut used, sequences excluded for technical reasons (e.g., * stripping), counts.}
 
@@ -960,7 +921,7 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--model` | *(required)* | LLM model — valid choices include: `gpt-5.5`, `gpt-5.5-high`, `gpt-5.6-terra-high`, `gpt-5.6-luna-high`, `openai/gpt-5.6-terra-flex`, `openai/gpt-5.6-terra-high-flex`, `openai/gpt-5.6-sol-flex`, `gpt-5.1`–`gpt-5.4`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `claude-opus-4.5`. **Default `gpt-5.5-high`** (bare name = funded route). See the route-funding note in Step 3: prefer bare/`amazon/` for gpt-5.5; gpt-5.5 flex is unavailable (credit-exhausted `openai/` org). To register a new CBORG model, add it to `cli._MODELS` + `model_loader._MODEL_CHOICES` (routing matches `gpt-5.5*`/`gpt-5.6*` and `openai/`-prefixed variants). |
+| `--model` | *(required)* | LLM model — valid choices: `gpt-5.1`, `gpt-5.2`, `gpt-5.3`, `gpt-5.4`, `gpt-5.6-terra-high`, `gpt-5.6-luna-high`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `claude-opus-4.5`. **Default `gpt-5.6-terra-high`** (bare name only — no `openai/` prefix). Use `gpt-5.4` only to match a prior gpt-5.4 pilot. |
 | `--interproscan` | *(one required)* | Path to local `interproscan.sh`. Mutually exclusive with `--cts-interproscan`. |
 | `--cts-interproscan` | *(one required)* | Run InterProScan remotely via CTS. Needs `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`. |
 | `--cts-username` | `$USERNAME` | KBase username for CTS S3 path construction (used with `--cts-interproscan`). |
@@ -978,7 +939,7 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 | `--fitness-threshold` | `0.4` | Minimum absolute fitness score |
 | `--t-threshold` | `2.0` | Minimum T-statistic for fitness data |
 | `--prompt-file` | built-in | Custom system prompt for the LLM |
-| `--string-dir` | *(omit to skip)* | Path to STRING v12 data directory (`string_proteins.dmnd` + `string.sqlite`). Use `/global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12`. Independent of `--kblh-data-dir`; adds `string_evidence` column to output. |
+| `--string-dir` | *(omit to skip)* | Path to STRING v12 data directory (`string_proteins.dmnd` + `string.sqlite`). Use `/global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12`. Independent of `--berdl-data-dir`; adds `string_evidence` column to output. |
 | `--string-mode` | `edges` | STRING presentation: `edges` (default) withholds the transferred homolog annotation + drops text-mining-only partners, keeping the partner network + orthogroups; `full` = legacy transferred-annotation behavior. Only used with `--string-dir`. |
 | `GENE_ANNOTATE_SKIP_REASONING` *(env var)* | *(unset)* | Set to `1` to skip the separate reasoning pass and halve per-sequence token cost. `reasoning_trace` is still populated; only the raw `reasoning` column is left empty. **Firm default per Step 2.7: set it** (validated no-regression; only leave unset if the user asks to keep the raw reasoning output). |
 
@@ -1027,11 +988,11 @@ an Anthropic model) and relaunch. Do not delete `<output-dir>/.cache/` unless yo
 | InterProScan not found | Binary missing or not executable | Verify `/global_share/gene-annotation-predictor/bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh` exists and is executable |
 | `--interproscan and --cts-interproscan are mutually exclusive` | Both flags passed at once | Remove one; use `--interproscan` for local, `--cts-interproscan` for CTS remote |
 | `One of --interproscan or --cts-interproscan is required` | Neither flag provided | Add `--interproscan <path>` (local) or `--cts-interproscan` (CTS) |
-| `MinIO credentials not found` (CTS skipped) | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` missing from `.env` when using `--cts-interproscan` | Add both keys to `$REPO/.env`; obtain from the KBLH MinIO console |
+| `MinIO credentials not found` (CTS skipped) | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` missing from `.env` when using `--cts-interproscan` | Add both keys to `$REPO/.env`; obtain from the BERDL MinIO console |
 | `InterProScan failed (exit 231)` — tool continues without IPR | A sequence contains `*` (stop-codon marker from ORF predictors like Prodigal). InterProScan rejects the entire batch, not just the offending sequence. | Strip `*` from all sequences during FASTA preparation (Step 1) |
 | Summaries parquet not found | File missing from data_sources | Verify `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet` exists |
-| KBLH auth error | `KBASE_AUTH_TOKEN` missing or expired | Set or refresh `KBASE_AUTH_TOKEN` in `$REPO/.env` — **not** in the gene-annotation-predictor package directory |
-| `CTS job submission failed (401) … Invalid token` (InterProScan and/or `FATAL: paperblast_uniq batch fetch failed`) | The CLI's `load_kblh_token()` reads `.env` from the **current working directory**, ignoring the env var. Running from `/global_share/gene-annotation-predictor` picks up that dir's **stale** `.env` token even when `$REPO/.env` is valid. | `cd $REPO` before invoking (all lakehouse paths are absolute, so CWD need not be the package dir). Verify with `curl -s -o /dev/null -w '%{http_code}' -H "Authorization: $KBASE_AUTH_TOKEN" https://kbase.us/services/auth/api/V2/token` → expect `200`. |
+| BERDL auth error | `KBASE_AUTH_TOKEN` missing or expired | Set or refresh `KBASE_AUTH_TOKEN` in `$REPO/.env` — **not** in the gene-annotation-predictor package directory |
+| `CTS job submission failed (401) … Invalid token` (InterProScan and/or `FATAL: paperblast_uniq batch fetch failed`) | The CLI's `load_berdl_token()` reads `.env` from the **current working directory**, ignoring the env var. Running from `/global_share/gene-annotation-predictor` picks up that dir's **stale** `.env` token even when `$REPO/.env` is valid. | `cd $REPO` before invoking (all lakehouse paths are absolute, so CWD need not be the package dir). Verify with `curl -s -o /dev/null -w '%{http_code}' -H "Authorization: $KBASE_AUTH_TOKEN" https://kbase.us/services/auth/api/V2/token` → expect `200`. |
 | `ERROR: … 400 … code: bio_policy` ("flagged for possible biological risk") on a row | The CBORG/OpenAI gateway applies a **content filter** to some pathogen / select-agent-adjacent sequences (observed on *Vibrio cholerae*). It is newly deployed / intermittent — the same genes annotated fine in earlier runs, and a plain retry with the same model does **not** clear it. Any same-model gpt-5.x re-run (including `gpt-5.6-terra-high`) touching such organisms will systematically lose those rows. | Re-annotate the flagged genes with an **Anthropic model** (`--model claude-opus-4.5` or `claude-sonnet-4.6`), whose filter differs; or retain their prior annotations. Those rows will carry a different `model` tag than the rest of the run. |
 | `ERROR: … timeout` / HTTP 5xx / Cloudflare "error 524" on a large-prompt sequence, **reproducible across same-model retries** | Distinct from `bio_policy`: a large evidence prompt hits a **reproducible** (not transient) gateway/tunnel timeout at the CBORG/CTS gateway. A same-model retry (any gpt-5.x, including `gpt-5.6-terra-high`) fails identically and the row is silently lost. (These 5xx/timeout lines are missed by a `40[13]`-only log scan — see the widened grep in Step 2.) | Re-annotate those specific rows with an **Anthropic model** (`--model claude-opus-4.5`/`claude-sonnet-4.6`), which succeeds — same remediation as `bio_policy`. Distinguish from `bio_policy` by the absence of a `400 … bio_policy` code. Recovered rows carry a different `model` tag. |
 | DIAMOND not found (local off-cluster mode) | `diamond` binary not on PATH — it ships in the conda env, not the package `./bin/` | `conda activate gene-annotation-predictor` so DIAMOND (≥ 2.2.3) is on PATH; on the lakehouse prefer `--cts-diamond` and this never applies |
@@ -1042,11 +1003,11 @@ an Anthropic model) and relaunch. Do not delete `<output-dir>/.cache/` unless yo
 
 ### After annotation
 - **`/literature-review`** — Search literature for annotated gene functions, especially Tier B/C annotations that need more context
-- **`/berdl`** — Cross-reference annotations with pangenome data, pathway databases, or fitness browser data in KBLH
+- **`/berdl`** — Cross-reference annotations with pangenome data, pathway databases, or fitness browser data in BERDL
 - **`/synthesize`** — Include annotation results in a project synthesis report
 
 ### Before annotation
-- **`/berdl`** — Query KBLH for protein sequences to annotate (e.g., hypothetical proteins from a pangenome analysis)
+- **`/berdl`** — Query BERDL for protein sequences to annotate (e.g., hypothetical proteins from a pangenome analysis)
 
 ## Instructions for Claude
 
@@ -1062,7 +1023,7 @@ an Anthropic model) and relaunch. Do not delete `<output-dir>/.cache/` unless yo
 10. **Always produce both `summary.txt` and `WRITEUP.md`** (Step 5 and Step 6). The writeup is required for any run with a discernible user goal — skip it only for ≤ 5-sequence ad-hoc queries.
 11. **Prompt for tier selection before launching** (Step 2.6) using `AskUserQuestion` with `multiSelect: true`. Default is all three tiers. Pass `--tier <list>` in Step 3 only when the user picks a strict subset of `A,B,C`. Skip the prompt only when the user has already specified tiers in their request.
 12. **Gate discovery-class framing on `/literature-review`** (Steps 5d and 6). Before writing or saying that any hit "extends biology beyond X," is "novel," "unexpected," or "discovery-class," prompt the user to run `/literature-review` on that hit first. The system-level claim is often already published; the pipeline's actual contribution is usually at the molecular-mechanism layer. Use the lit-review output to calibrate framing in the WRITEUP. Skip only when the user explicitly opts out, in which case default to tentative ("candidate for...", "consistent with family Y but substrate-specificity not established") rather than discovery framing.
-13. **Run the fail-safe checks against silent failures** (Step 2). This pipeline degrades silently — a stale token, missing MinIO/S3 cred, or absent `--kblh-use-spark` drops evidence layers or 401s CTS jobs with only a `WARNING`. Always: (a) validate the KBASE token returns HTTP 200 before launching, (b) never `source $REPO/.env` or `echo`/`curl` a secret (a secret-guard hook blocks it and it's unnecessary — the CLI reads `.env` from its CWD, so just `cd $REPO`), (c) read the first ~1 min of the run log to confirm CTS upload started, `pangenome_neighborhood` evidence is being fetched (Spark connected), and no `bio_policy`/`401` lines, and (d) after the run, reconcile `input N = SKIPPED + ERROR + LLM-called` and confirm a single `model` tag (multiple tags = a silent Anthropic `bio_policy` fallback). The repo's `S3_ACCESS_KEY`/`S3_SECRET_KEY` satisfy the MinIO requirement.
+13. **Run the fail-safe checks against silent failures** (Step 2). This pipeline degrades silently — a stale token, missing MinIO/S3 cred, or absent `--berdl-use-spark` drops evidence layers or 401s CTS jobs with only a `WARNING`. Always: (a) validate the KBASE token returns HTTP 200 before launching, (b) never `source $REPO/.env` or `echo`/`curl` a secret (a secret-guard hook blocks it and it's unnecessary — the CLI reads `.env` from its CWD, so just `cd $REPO`), (c) read the first ~1 min of the run log to confirm CTS upload started, `pangenome_neighborhood` evidence is being fetched (Spark connected), and no `bio_policy`/`401` lines, and (d) after the run, reconcile `input N = SKIPPED + ERROR + LLM-called` and confirm a single `model` tag (multiple tags = a silent Anthropic `bio_policy` fallback). The repo's `S3_ACCESS_KEY`/`S3_SECRET_KEY` satisfy the MinIO requirement.
 14. **Skip the reasoning pass by default** (Step 2.7). Export `GENE_ANNOTATE_SKIP_REASONING=1` in the Step 3 shell before invoking the CLI — this is the validated firm default (halves cost; `reasoning_trace` still captured; no grade regression). Do not ask; only leave it unset if the user explicitly wants the raw `reasoning` output.
 15. **STRING defaults to `--string-mode edges`** — the corroborating-network mode with the transferred homolog annotation withheld. Do not add `--string-mode full` unless the user explicitly asks for the legacy transferred-annotation behavior (e.g., an A/B comparison against a prior `full` run).
 
