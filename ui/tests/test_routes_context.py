@@ -16,6 +16,7 @@ import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 
+from app.clients.openviking import OpenVikingError
 from app.context_manager.base import ContextQueryResults, QueryResult
 from app.crypto import encrypt_secret
 from app.db.models import BerilUser, OvUserCredential
@@ -241,3 +242,62 @@ async def test_ls_decrypts_stored_key_for_manager(client, credentialed_user):
         client.get("/api/context/ls")
 
     assert cls.call_args.args[1] == "plain-user-key"
+
+
+# ---------------------------------------------------------------------------
+# Credential provisioning
+#
+# ``user`` (not ``credentialed_user``) has no stored credential, so these
+# exercise the first-use path through ``get_user_ov_api_key``.
+# ---------------------------------------------------------------------------
+
+
+async def test_find_provisions_credential_on_first_use(client, user, manager):
+    """A user with no stored key gets one minted transparently — still a 200."""
+    register = AsyncMock(return_value={"user_key": "minted-key"})
+    _login(client)
+    with patch("app.context_manager.openviking.register_ov_user", register):
+        resp = client.post("/api/context/find", json={"query": "alpha"})
+
+    assert resp.status_code == 200
+    register.assert_awaited_once_with(USER_TOKEN["orcid"])
+
+
+async def test_find_uses_freshly_minted_key_for_manager(client, user):
+    register = AsyncMock(return_value={"user_key": "minted-key"})
+    inst = MagicMock()
+    inst.query = AsyncMock(return_value=QUERY_RESULTS)
+    _login(client)
+    with patch("app.context_manager.openviking.register_ov_user", register), patch(
+        "app.routes.context.OpenVikingManager", return_value=inst
+    ) as cls:
+        client.post("/api/context/find", json={"query": "alpha"})
+
+    assert cls.call_args.args[1] == "minted-key"
+
+
+async def test_find_returns_502_when_provisioning_fails(client, user, manager):
+    """Backend failures surface as a generic 502, never as OV specifics."""
+    register = AsyncMock(
+        side_effect=OpenVikingError("boom", status_code=500, code="INTERNAL")
+    )
+    _login(client)
+    with patch("app.context_manager.openviking.register_ov_user", register):
+        resp = client.post("/api/context/find", json={"query": "alpha"})
+
+    assert resp.status_code == 502
+    detail = resp.json()["detail"]
+    assert "openviking" not in detail.lower()
+    manager.query.assert_not_awaited()
+
+
+async def test_ls_returns_502_when_provisioning_fails(client, user, manager):
+    register = AsyncMock(
+        side_effect=OpenVikingError("boom", status_code=500, code="INTERNAL")
+    )
+    _login(client)
+    with patch("app.context_manager.openviking.register_ov_user", register):
+        resp = client.get("/api/context/ls")
+
+    assert resp.status_code == 502
+    manager.list_files.assert_not_awaited()
