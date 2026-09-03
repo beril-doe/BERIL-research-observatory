@@ -10,22 +10,46 @@ within BERIL's context manager implementation.
 
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import BerilUser, require_user_api
 from app.config import get_settings
-from app.context_manager.openviking import ContextQuery, OpenVikingManager
-from app.crypto import decrypt_secret
-from app.db.crud import get_ov_credential
-from app.db.models import OvUserCredential
+from app.context_manager.openviking import (
+    ContextQuery,
+    OpenVikingManager,
+    OvProvisioningError,
+    UnauthenticatedError,
+    get_user_ov_api_key,
+)
 from app.db.session import get_db
 
 logger = logging.getLogger()
 
-def get_context_manager(cred: OvUserCredential) -> OpenVikingManager:
-    key = get_settings().ov_credential_key
-    return OpenVikingManager(get_settings(), decrypt_secret(cred.encrypted_key, key))
+def get_context_manager(api_key: str) -> OpenVikingManager:
+    return OpenVikingManager(get_settings(), api_key)
+
+
+async def resolve_context_manager(
+    db: AsyncSession, user: BerilUser
+) -> OpenVikingManager:
+    """Build a context manager for ``user``, provisioning their backing
+    credential on first use.
+
+    The backing store is an implementation detail, so its failures surface as
+    a generic 502 rather than anything the user is expected to act on.
+    """
+    try:
+        api_key = await get_user_ov_api_key(db, user)
+    except UnauthenticatedError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED) from exc
+    except OvProvisioningError as exc:
+        logger.warning("Context manager unavailable for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager is currently unavailable.",
+        ) from exc
+    return get_context_manager(api_key)
 
 
 ROUTER_CONTEXT = APIRouter(tags=["context"])
@@ -38,8 +62,8 @@ async def post_context_find(
     db: AsyncSession = Depends(get_db)
 ):
     logger.info(f"Running context query: {query}")
-    ov_credential = await get_ov_credential(db, user.id)
-    return await get_context_manager(ov_credential).query(query)
+    manager = await resolve_context_manager(db, user)
+    return await manager.query(query)
 
 @ROUTER_CONTEXT.get("/api/context/ls")
 async def get_context_files(
@@ -47,5 +71,5 @@ async def get_context_files(
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db)
 ):
-    ov_credential = await get_ov_credential(db, user.id)
-    return await get_context_manager(ov_credential).list_files()
+    manager = await resolve_context_manager(db, user)
+    return await manager.list_files()
