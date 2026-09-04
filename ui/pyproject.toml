@@ -21,6 +21,7 @@ dependencies = [
     "nbconvert==7.17.0",
     "nbformat==5.9.2",
     "openviking==0.4.15",
+    "openviking_sdk==0.1.9",
     "psycopg2-binary>=2.9.0",
     "pydantic>=2.11.0",
     "pydantic-settings>=2.5.2",
