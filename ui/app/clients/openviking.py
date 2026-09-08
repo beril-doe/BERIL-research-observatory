@@ -120,7 +120,7 @@ class OpenVikingClient:
         for attempt in range(1, ADD_RESOURCE_RETRIES + 1):
             try:
                 return await self._client.add_resource(
-                    path=path, to=target_uri, reason=reason, wait=False
+                    path=path, to=target_uri, wait=False, options={"reason": reason}
                 )
             except TRANSIENT_OV_ERRORS:
                 if attempt == ADD_RESOURCE_RETRIES:
