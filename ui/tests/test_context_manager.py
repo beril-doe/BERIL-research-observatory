@@ -476,6 +476,89 @@ async def test_insert_file_submits_spilled_file(settings, patched_sdk):
     assert seen["kwargs"]["to"] == "viking://root/proj/notes.md"
 
 
+async def test_insert_file_mirrors_nested_path_on_disk(settings, patched_sdk):
+    """The spilled path keeps its directories, since OpenViking derives the
+    resource's source_name from the path it is handed."""
+    seen = {}
+
+    async def capture(path, **kwargs):
+        seen["path"] = path
+        return {}
+
+    patched_sdk.add_resource = AsyncMock(side_effect=capture)
+    manager = OpenVikingManager(settings, "user-key")
+
+    result = await manager.insert_file(
+        _ingest_file(path="figures/figure_1.png", content=b"png"),
+        target_root="viking://root/proj",
+    )
+
+    assert result.uri == "viking://root/proj/figures/figure_1.png"
+    # Not flattened to "figure_1.png".
+    assert seen["path"].endswith("figures/figure_1.png")
+
+
+async def test_insert_file_mirrors_deeply_nested_path(settings, patched_sdk):
+    seen = {}
+
+    async def capture(path, **kwargs):
+        seen["path"] = path
+        seen["content"] = Path(path).read_bytes()
+        return {}
+
+    patched_sdk.add_resource = AsyncMock(side_effect=capture)
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.insert_file(
+        _ingest_file(path="a/b/c/deep.json", content=b"{}"),
+        target_root="viking://root/proj",
+    )
+
+    assert seen["path"].endswith("a/b/c/deep.json")
+    assert seen["content"] == b"{}"
+
+
+async def test_insert_files_keeps_a_project_tree_intact(settings, patched_sdk):
+    """A whole project directory keeps its shape below the root."""
+    paths = []
+
+    async def capture(path, **kwargs):
+        paths.append(kwargs["to"])
+        return {}
+
+    patched_sdk.add_resource = AsyncMock(side_effect=capture)
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.insert_files(
+        [
+            _ingest_file("README.md"),
+            _ingest_file("data/data_file_1.json"),
+            _ingest_file("figures/figure_1.png"),
+        ],
+        target_root="viking://resources/users/orcid/ingest_smoke_test",
+    )
+
+    assert out.queued == 3
+    assert paths == [
+        "viking://resources/users/orcid/ingest_smoke_test/README.md",
+        "viking://resources/users/orcid/ingest_smoke_test/data/data_file_1.json",
+        "viking://resources/users/orcid/ingest_smoke_test/figures/figure_1.png",
+    ]
+
+
+async def test_insert_file_rejects_absolute_path_at_spill(settings, patched_sdk):
+    """An absolute path must not escape the temp directory."""
+    patched_sdk.add_resource = AsyncMock(return_value={})
+    manager = OpenVikingManager(settings, "user-key")
+
+    result = await manager.insert_file(
+        _ingest_file(path="/etc/passwd"), target_root="viking://root/proj"
+    )
+
+    assert result.status == "failed"
+    patched_sdk.add_resource.assert_not_awaited()
+
+
 async def test_insert_file_cleans_up_temp_file(settings, patched_sdk):
     spilled = {}
 

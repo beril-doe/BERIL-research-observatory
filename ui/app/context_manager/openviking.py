@@ -44,6 +44,9 @@ INGEST_FAILURES: tuple[type[Exception], ...] = (
     SdkOpenVikingError,
     OSError,
     httpx.HTTPError,
+    # An unsafe path caught at the spill — recorded against the file rather
+    # than raised, so one bad name cannot abort the batch.
+    ValueError,
 )
 
 # OpenViking's six task states collapsed onto BERIL's four. "cancelling" is
@@ -212,9 +215,21 @@ class OpenVikingManager(ContextManager):
 
         try:
             with tempfile.TemporaryDirectory() as tmp_dir:
-                # Keep the basename: OpenViking derives the resource's
-                # source_name from it.
-                spill = Path(tmp_dir) / Path(file.relative_path).name
+                # Mirror the full relative path, not just the basename:
+                # OpenViking derives the resource's source_name from the path
+                # it is handed, so a flat spill would index
+                # "figure_1.png" for what the URI calls
+                # "figures/figure_1.png".
+                root = Path(tmp_dir).resolve()
+                spill = (root / file.relative_path).resolve()
+                # target_uri already rejected traversal, but this write must
+                # not depend on that ordering: an absolute relative_path would
+                # otherwise land outside the temp directory entirely.
+                if not spill.is_relative_to(root):
+                    raise ValueError(f"Unsafe relative path: {file.relative_path!r}")
+                await asyncio.to_thread(
+                    spill.parent.mkdir, parents=True, exist_ok=True
+                )
                 await asyncio.to_thread(spill.write_bytes, file.content)
                 submitted = await ov_client.add_resource(
                     str(spill), uri, reason=f"BERIL user upload {file.relative_path}"
