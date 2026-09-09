@@ -8,6 +8,7 @@ OV payload to ``ContextQueryResults`` is covered in ``test_context_manager.py``.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import os
 import zipfile
@@ -338,12 +339,15 @@ def _ingest(
     members=None,
     manifest=None,
     archive=None,
+    force=None,
 ):
     """Post an ingest request.
 
     Defaults to a one-file archive whose manifest lists exactly that file.
     ``manifest`` defaults to every member of the archive, so a test that only
-    cares about the archive contents does not have to restate them.
+    cares about the archive contents does not have to restate them. ``force``
+    is omitted from the form unless set, so the default path exercises the
+    route's own default.
     """
     members = {"notes.md": b"hi"} if members is None else members
     manifest = list(members) if manifest is None else manifest
@@ -351,9 +355,12 @@ def _ingest(
     manifest_bytes = (
         manifest if isinstance(manifest, bytes) else "\n".join(manifest).encode()
     )
+    data = {"project": project}
+    if force is not None:
+        data["force"] = str(force).lower()
     return client.post(
         "/api/context/ingest_files",
-        data={"project": project},
+        data=data,
         files={
             "archive": ("upload.zip", archive, "application/zip"),
             "manifest": ("manifest.txt", manifest_bytes, "text/plain"),
@@ -700,6 +707,70 @@ async def test_ingest_returns_a_batch_id(client, credentialed_user, ingest_manag
     assert batch_id
 
 
+async def test_ingest_records_content_hash(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """The submitted bytes are hashed onto the batch row.
+
+    This is what lets a later ingest tell whether identical content already
+    landed, so the recorded value must be the hash of what was actually sent.
+    """
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t1")])
+    _login(client)
+    resp = _ingest(client, members={"a.md": b"contents"})
+    assert resp.status_code == 200
+
+    batch = await get_ingest_batch(db_session, resp.json()["batch_id"])
+    assert [f.content_sha256 for f in batch.files] == [
+        hashlib.sha256(b"contents").hexdigest()
+    ]
+
+
+async def test_ingest_records_distinct_hashes_per_file(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Each file is hashed independently, matched to it by relative path."""
+    ingest_manager.insert_files.return_value = _queued_with_tasks(
+        [("a.md", "t1"), ("sub/b.md", "t2")]
+    )
+    _login(client)
+    resp = _ingest(client, members={"a.md": b"aaa", "sub/b.md": b"bbb"})
+    assert resp.status_code == 200
+
+    batch = await get_ingest_batch(db_session, resp.json()["batch_id"])
+    recorded = {f.relative_path: f.content_sha256 for f in batch.files}
+    assert recorded == {
+        "a.md": hashlib.sha256(b"aaa").hexdigest(),
+        "sub/b.md": hashlib.sha256(b"bbb").hexdigest(),
+    }
+
+
+async def test_ingest_records_no_hash_for_a_file_never_read(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """A result the manager reports for a path we never read carries no hash.
+
+    Defensive: the hash must come from bytes this request actually handled, so
+    an unmatched path records null rather than borrowing another file's hash.
+    """
+    ingest_manager.insert_files.return_value = ContextIngestResults(
+        results=[
+            IngestResult(relative_path="a.md", status="queued", uri="viking://a"),
+            IngestResult(relative_path="ghost.md", status="failed", reason="nope"),
+        ],
+        queued=1,
+        failed=1,
+    )
+    _login(client)
+    resp = _ingest(client, members={"a.md": b"aaa"})
+    assert resp.status_code == 200
+
+    batch = await get_ingest_batch(db_session, resp.json()["batch_id"])
+    recorded = {f.relative_path: f.content_sha256 for f in batch.files}
+    assert recorded["a.md"] == hashlib.sha256(b"aaa").hexdigest()
+    assert recorded["ghost.md"] is None
+
+
 def test_ingest_status_unauthenticated_returns_401(client):
     assert client.get("/api/context/ingest_status/anything").status_code == 401
 
@@ -864,7 +935,7 @@ async def test_ingest_status_includes_project_slug(
 async def test_ingest_status_counts_cover_every_status(
     client, credentialed_user, ingest_manager
 ):
-    """counts always carries all five keys, so clients can index it blindly."""
+    """counts always carries every status key, so clients can index it blindly."""
     _login(client)
     batch_id = await _start_batch(client, ingest_manager, [("a.md", "t1")])
 
@@ -879,4 +950,242 @@ async def test_ingest_status_counts_cover_every_status(
         "completed",
         "failed",
         "unknown",
+        # Present for a stable mapping, though a skipped file never reaches a
+        # batch: it is not submitted, so it writes no row.
+        "skipped",
     }
+    assert counts["skipped"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Skip-on-unchanged (content hash)
+# ---------------------------------------------------------------------------
+
+
+async def _land(client, ingest_manager, db_session, members):
+    """Ingest ``members`` and mark every resulting file completed.
+
+    Leaves the project in the state the skip check reads: content whose latest
+    record is ``completed`` with a hash.
+    """
+    ingest_manager.insert_files.return_value = _queued_with_tasks(
+        [(p, f"task-{i}") for i, p in enumerate(sorted(members))]
+    )
+    resp = _ingest(client, members=members)
+    assert resp.status_code == 200
+    batch = await get_ingest_batch(db_session, resp.json()["batch_id"])
+    for f in batch.files:
+        f.status = "completed"
+    await db_session.commit()
+    return batch.id
+
+
+async def test_ingest_skips_unchanged_file(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Identical content that already completed is not re-sent."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+
+    ingest_manager.insert_files.reset_mock()
+    resp = _ingest(client, members={"a.md": b"same"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["queued"], body["skipped"]) == (0, 1)
+    assert body["results"][0]["status"] == "skipped"
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_resends_changed_content(
+    client, credentialed_user, ingest_manager, db_session
+):
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"before"})
+
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t2")])
+    resp = _ingest(client, members={"a.md": b"after"})
+
+    assert resp.status_code == 200
+    assert resp.json()["skipped"] == 0
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["a.md"]
+
+
+async def test_ingest_sends_a_new_path(
+    client, credentialed_user, ingest_manager, db_session
+):
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("b.md", "t2")])
+    resp = _ingest(client, members={"b.md": b"new"})
+
+    assert resp.status_code == 200
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["b.md"]
+
+
+async def test_ingest_resends_after_a_failure(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """The critical case: a failed file must re-ingest despite matching bytes.
+
+    Otherwise a transient failure becomes permanent and the user's retry
+    silently does nothing.
+    """
+    _login(client)
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t1")])
+    resp = _ingest(client, members={"a.md": b"same"})
+    batch = await get_ingest_batch(db_session, resp.json()["batch_id"])
+    for f in batch.files:
+        f.status = "failed"
+    await db_session.commit()
+
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t2")])
+    resp = _ingest(client, members={"a.md": b"same"})
+
+    assert resp.status_code == 200
+    assert resp.json()["skipped"] == 0
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["a.md"]
+
+
+async def test_ingest_resends_while_still_queued(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """An in-flight file has not landed; its outcome is unknown."""
+    _login(client)
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t1")])
+    _ingest(client, members={"a.md": b"same"})
+
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t2")])
+    resp = _ingest(client, members={"a.md": b"same"})
+
+    assert resp.json()["skipped"] == 0
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["a.md"]
+
+
+async def test_ingest_resends_when_prior_hash_is_null(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """A pre-hash row gives no basis for comparison, so it re-ingests."""
+    _login(client)
+    batch_id = await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+    batch = await get_ingest_batch(db_session, batch_id)
+    for f in batch.files:
+        f.content_sha256 = None
+    await db_session.commit()
+
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t2")])
+    resp = _ingest(client, members={"a.md": b"same"})
+
+    assert resp.json()["skipped"] == 0
+    ingest_manager.insert_files.assert_awaited()
+
+
+async def test_ingest_uses_the_latest_record_for_a_path(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Two batches for one path: the most recent hash decides."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"v1"})
+    await _land(client, ingest_manager, db_session, {"a.md": b"v2"})
+
+    ingest_manager.insert_files.reset_mock()
+    # v2 is current, so it skips.
+    assert _ingest(client, members={"a.md": b"v2"}).json()["skipped"] == 1
+    ingest_manager.insert_files.assert_not_awaited()
+
+    # v1 is stale, so it re-ingests.
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t9")])
+    assert _ingest(client, members={"a.md": b"v1"}).json()["skipped"] == 0
+    ingest_manager.insert_files.assert_awaited()
+
+
+async def test_ingest_does_not_skip_across_projects(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Identical content in another project is not this project's content."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t2")])
+    resp = _ingest(client, project="Other Project", members={"a.md": b"same"})
+
+    assert resp.json()["skipped"] == 0
+    ingest_manager.insert_files.assert_awaited()
+
+
+async def test_force_reingests_unchanged_files(
+    client, credentialed_user, ingest_manager, db_session
+):
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t2")])
+    resp = _ingest(client, members={"a.md": b"same"}, force=True)
+
+    assert resp.status_code == 200
+    assert resp.json()["skipped"] == 0
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["a.md"]
+
+
+async def test_ingest_all_skipped_returns_no_batch_id(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Nothing submitted means no batch — that is success, not a lost handle."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+
+    ingest_manager.insert_files.reset_mock()
+    resp = _ingest(client, members={"a.md": b"same"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["batch_id"] is None
+    assert (body["queued"], body["failed"], body["skipped"]) == (0, 0, 1)
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_mixed_batch_accounts_for_every_file(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """A partial skip still reports one result per manifest entry."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("b.md", "t2")])
+    resp = _ingest(client, members={"a.md": b"same", "b.md": b"new"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["queued"], body["skipped"]) == (1, 1)
+    by_path = {r["relative_path"]: r["status"] for r in body["results"]}
+    assert by_path == {"a.md": "queued", "b.md": "skipped"} or by_path == {
+        "b.md": "queued",
+        "a.md": "skipped",
+    }
+    # Only the submitted file was sent to the manager.
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["b.md"]
+
+
+async def test_skipped_files_write_no_batch_rows(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """A skip is not an ingest attempt.
+
+    Recording one would let it satisfy a later skip check even though nothing
+    was ever indexed.
+    """
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("b.md", "t2")])
+    resp = _ingest(client, members={"a.md": b"same", "b.md": b"new"})
+
+    batch = await get_ingest_batch(db_session, resp.json()["batch_id"])
+    assert [f.relative_path for f in batch.files] == ["b.md"]

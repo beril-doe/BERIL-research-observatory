@@ -38,8 +38,14 @@ INGEST_COMPLETED = "completed"
 INGEST_FAILED = "failed"
 # The backend forgot the task before we saw it finish — we genuinely don't know.
 INGEST_UNKNOWN = "unknown"
+# Identical content already completed for this project, so nothing was sent.
+# Reported per-file rather than silently omitted: a missing file in the response
+# is indistinguishable from a bug when the user's file doesn't turn up.
+INGEST_SKIPPED = "skipped"
 
-TERMINAL_INGEST_STATUSES = frozenset({INGEST_COMPLETED, INGEST_FAILED})
+TERMINAL_INGEST_STATUSES = frozenset(
+    {INGEST_COMPLETED, INGEST_FAILED, INGEST_SKIPPED}
+)
 
 # Every status, in lifecycle order — used to render a stable counts mapping.
 INGEST_STATUSES = (
@@ -48,6 +54,7 @@ INGEST_STATUSES = (
     INGEST_COMPLETED,
     INGEST_FAILED,
     INGEST_UNKNOWN,
+    INGEST_SKIPPED,
 )
 
 
@@ -67,10 +74,16 @@ class IngestResult(BaseModel):
 
 
 class ContextIngestResults(BaseModel):
-    """Outcome of one submission. ``batch_id`` is the handle for polling it."""
+    """Outcome of one submission. ``batch_id`` is the handle for polling it.
+
+    ``batch_id`` is ``None`` when nothing was submitted — every file was
+    skipped as unchanged, so no batch exists and there is nothing to poll.
+    Callers must treat that as success, not as a missing handle.
+    """
     results: list[IngestResult]
     queued: int
     failed: int
+    skipped: int = 0
     batch_id: str | None = None
 
 
