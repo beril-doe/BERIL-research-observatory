@@ -9,22 +9,36 @@ OpenViking instance.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
-from cryptography.fernet import Fernet
-
-from app.clients.openviking import OpenVikingClient, OpenVikingError
-from app.context_manager.base import ContextQuery, ContextQueryResults
+from app.clients.openviking import (
+    ADD_RESOURCE_RETRIES,
+    OpenVikingClient,
+    OpenVikingError,
+)
+from app.context_manager.base import (
+    ContextIngestFile,
+    ContextQuery,
+    ContextQueryResults,
+)
 from app.context_manager.openviking import (
     OpenVikingManager,
     OvProvisioningError,
     UnauthenticatedError,
+    context_slugify,
     get_user_ov_api_key,
+    target_uri,
+    user_target_root,
 )
 from app.crypto import decrypt_secret, encrypt_secret
 from app.db.crud import get_ov_credential
 from app.db.models import BerilUser, OvUserCredential
+from cryptography.fernet import Fernet
+from openviking_sdk.errors import OpenVikingError as SdkOpenVikingError
+from openviking_sdk.errors import UnavailableError
 
 _CREDENTIAL_KEY = Fernet.generate_key().decode()
 
@@ -381,6 +395,506 @@ async def test_get_key_raises_when_no_key_returned(settings, db_session, ov_user
             await get_user_ov_api_key(db_session, ov_user)
 
     assert await get_ov_credential(db_session, ov_user.id) is None
+
+
+# ---------------------------------------------------------------------------
+# Ingest: slug + URI construction
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("Acinetobacter ADP1 Explorer", "acinetobacter_adp1_explorer"),
+        ("already_a_slug", "already_a_slug"),
+        ("Hyphen-Separated Name", "hyphen_separated_name"),
+        ("  Padded  Name  ", "padded_name"),
+        ("Punctuation!? Removed.", "punctuation_removed"),
+        ("!!!", ""),
+        ("", ""),
+    ],
+)
+def test_context_slugify(raw, expected):
+    assert context_slugify(raw) == expected
+
+
+def test_user_target_root_keys_on_orcid():
+    """Two users' identically-named projects must not share a namespace."""
+    a = user_target_root("0000-0001-2345-6789", "shared_name")
+    b = user_target_root("0000-0002-9999-9999", "shared_name")
+
+    assert a == "viking://resources/users/0000-0001-2345-6789/shared_name"
+    assert a != b
+
+
+def test_target_uri_preserves_nested_path():
+    uri = target_uri("viking://resources/users/orcid/proj", "sub/dir/file.csv")
+
+    assert uri == "viking://resources/users/orcid/proj/sub/dir/file.csv"
+
+
+@pytest.mark.parametrize("bad", ["../escape.md", "a/../../b.md", "", "/", "./."])
+def test_target_uri_rejects_traversal(bad):
+    with pytest.raises(ValueError):
+        target_uri("viking://resources/users/orcid/proj", bad)
+
+
+# ---------------------------------------------------------------------------
+# OpenVikingManager.insert_files
+# ---------------------------------------------------------------------------
+
+
+def _ingest_file(path="notes.md", content=b"hello"):
+    return ContextIngestFile(relative_path=path, content=content)
+
+
+async def test_insert_file_submits_spilled_file(settings, patched_sdk):
+    """The file is written to disk and its path handed to add_resource."""
+    seen = {}
+
+    async def capture(path, **kwargs):
+        seen["path"] = path
+        seen["content"] = Path(path).read_bytes()
+        seen["kwargs"] = kwargs
+        return {}
+
+    patched_sdk.add_resource = AsyncMock(side_effect=capture)
+    manager = OpenVikingManager(settings, "user-key")
+
+    result = await manager.insert_files(
+        [_ingest_file(content=b"file body")], target_root="viking://root/proj"
+    )
+
+    assert len(result.results) == 1
+    assert result.results[0].status == "queued"
+    assert result.results[0].uri == "viking://root/proj/notes.md"
+    assert seen["content"] == b"file body"
+    # Basename preserved — OV derives the resource's source_name from it.
+    assert Path(seen["path"]).name == "notes.md"
+    # Never block on indexing inside a request.
+    assert seen["kwargs"]["wait"] is False
+    assert seen["kwargs"]["to"] == "viking://root/proj/notes.md"
+
+
+async def test_insert_file_mirrors_nested_path_on_disk(settings, patched_sdk):
+    """The spilled path keeps its directories, since OpenViking derives the
+    resource's source_name from the path it is handed."""
+    seen = {}
+
+    async def capture(path, **kwargs):
+        seen["path"] = path
+        return {}
+
+    patched_sdk.add_resource = AsyncMock(side_effect=capture)
+    manager = OpenVikingManager(settings, "user-key")
+
+    result = await manager.insert_files(
+        [_ingest_file(path="figures/figure_1.png", content=b"png")],
+        target_root="viking://root/proj",
+    )
+
+    assert len(result.results) == 1
+    assert result.results[0].uri == "viking://root/proj/figures/figure_1.png"
+    # Not flattened to "figure_1.png".
+    assert seen["path"].endswith("figures/figure_1.png")
+
+
+async def test_insert_file_mirrors_deeply_nested_path(settings, patched_sdk):
+    seen = {}
+
+    async def capture(path, **kwargs):
+        seen["path"] = path
+        seen["content"] = Path(path).read_bytes()
+        return {}
+
+    patched_sdk.add_resource = AsyncMock(side_effect=capture)
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.insert_files(
+        [_ingest_file(path="a/b/c/deep.json", content=b"{}")],
+        target_root="viking://root/proj",
+    )
+
+    assert seen["path"].endswith("a/b/c/deep.json")
+    assert seen["content"] == b"{}"
+
+
+async def test_insert_files_keeps_a_project_tree_intact(settings, patched_sdk):
+    """A whole project directory keeps its shape below the root."""
+    paths = []
+
+    async def capture(path, **kwargs):
+        paths.append(kwargs["to"])
+        return {}
+
+    patched_sdk.add_resource = AsyncMock(side_effect=capture)
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.insert_files(
+        [
+            _ingest_file("README.md"),
+            _ingest_file("data/data_file_1.json"),
+            _ingest_file("figures/figure_1.png"),
+        ],
+        target_root="viking://resources/users/orcid/ingest_smoke_test",
+    )
+
+    assert out.queued == 3
+    assert paths == [
+        "viking://resources/users/orcid/ingest_smoke_test/README.md",
+        "viking://resources/users/orcid/ingest_smoke_test/data/data_file_1.json",
+        "viking://resources/users/orcid/ingest_smoke_test/figures/figure_1.png",
+    ]
+
+
+async def test_insert_file_rejects_absolute_path_at_spill(settings, patched_sdk):
+    """An absolute path must not escape the temp directory."""
+    patched_sdk.add_resource = AsyncMock(return_value={})
+    manager = OpenVikingManager(settings, "user-key")
+
+    result = await manager.insert_files(
+        [_ingest_file(path="/etc/passwd")], target_root="viking://root/proj"
+    )
+
+    assert len(result.results) == 1
+    assert result.results[0].status == "failed"
+    patched_sdk.add_resource.assert_not_awaited()
+
+
+async def test_insert_file_cleans_up_temp_file(settings, patched_sdk):
+    spilled = {}
+
+    async def capture(path, **kwargs):
+        spilled["path"] = path
+        return {}
+
+    patched_sdk.add_resource = AsyncMock(side_effect=capture)
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.insert_files([_ingest_file()], target_root="viking://root/proj")
+
+    assert not Path(spilled["path"]).exists()
+
+
+async def test_insert_file_cleans_up_temp_file_on_failure(settings, patched_sdk):
+    """A failed submission must not leak the spilled file."""
+    spilled = {}
+
+    async def boom(path, **kwargs):
+        spilled["path"] = path
+        raise SdkOpenVikingError("rejected")
+
+    patched_sdk.add_resource = AsyncMock(side_effect=boom)
+    manager = OpenVikingManager(settings, "user-key")
+
+    result = await manager.insert_files(
+        [_ingest_file()], target_root="viking://root/proj"
+    )
+
+    assert len(result.results) == 1
+    assert result.results[0].status == "failed"
+    assert not Path(spilled["path"]).exists()
+
+
+async def test_insert_file_handles_binary_content(settings, patched_sdk):
+    """Binary files ingest byte-for-byte — no text decoding anywhere."""
+    blob = bytes(range(256))
+    seen = {}
+
+    async def capture(path, **kwargs):
+        seen["content"] = Path(path).read_bytes()
+        return {}
+
+    patched_sdk.add_resource = AsyncMock(side_effect=capture)
+    manager = OpenVikingManager(settings, "user-key")
+
+    result = await manager.insert_files(
+        [_ingest_file(path="fig.png", content=blob)], target_root="viking://root/proj"
+    )
+
+    assert len(result.results) == 1
+    assert result.results[0].status == "queued"
+    assert seen["content"] == blob
+
+
+async def test_insert_file_reports_unsafe_path_without_calling_backend(
+    settings, patched_sdk
+):
+    patched_sdk.add_resource = AsyncMock(return_value={})
+    manager = OpenVikingManager(settings, "user-key")
+
+    result = await manager.insert_files(
+        [_ingest_file(path="../escape.md")], target_root="viking://root/proj"
+    )
+
+    assert len(result.results) == 1
+    assert result.results[0].status == "failed"
+    assert result.results[0].uri is None
+    patched_sdk.add_resource.assert_not_awaited()
+
+
+async def test_insert_file_closes_the_client(settings, patched_sdk):
+    patched_sdk.add_resource = AsyncMock(return_value={})
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.insert_files([_ingest_file()], target_root="viking://root/proj")
+
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_insert_files_batches_and_counts(settings, patched_sdk):
+    patched_sdk.add_resource = AsyncMock(return_value={})
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.insert_files(
+        [_ingest_file("a.md"), _ingest_file("b/c.md")],
+        target_root="viking://root/proj",
+    )
+
+    assert out.queued == 2
+    assert out.failed == 0
+    assert [r.uri for r in out.results] == [
+        "viking://root/proj/a.md",
+        "viking://root/proj/b/c.md",
+    ]
+
+
+async def test_insert_files_continues_past_a_failure(settings, patched_sdk):
+    """One rejected file must not abort the rest of the batch."""
+
+    async def fail_second(path, **kwargs):
+        if kwargs["to"].endswith("b.md"):
+            raise SdkOpenVikingError("rejected")
+        return {}
+
+    patched_sdk.add_resource = AsyncMock(side_effect=fail_second)
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.insert_files(
+        [_ingest_file("a.md"), _ingest_file("b.md"), _ingest_file("c.md")],
+        target_root="viking://root/proj",
+    )
+
+    assert out.queued == 2
+    assert out.failed == 1
+    assert [r.status for r in out.results] == ["queued", "failed", "queued"]
+
+
+async def test_insert_files_reuses_one_client(settings, patched_sdk):
+    """A batch opens and closes exactly one client, not one per file."""
+    patched_sdk.add_resource = AsyncMock(return_value={})
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.insert_files(
+        [_ingest_file(f"f{i}.md") for i in range(4)],
+        target_root="viking://root/proj",
+    )
+
+    patched_sdk.initialize.assert_awaited_once()
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_insert_files_closes_client_when_a_file_fails(settings, patched_sdk):
+    patched_sdk.add_resource = AsyncMock(side_effect=SdkOpenVikingError("nope"))
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.insert_files(
+        [_ingest_file()], target_root="viking://root/proj"
+    )
+
+    assert out.failed == 1
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_insert_files_empty_batch_skips_the_backend(settings, patched_sdk):
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.insert_files([], target_root="viking://root/proj")
+
+    assert (out.queued, out.failed, out.results) == (0, 0, [])
+    patched_sdk.initialize.assert_not_awaited()
+
+
+async def test_insert_file_reports_transport_failure(settings, patched_sdk):
+    """An unreachable backend is a per-file failure, not an exception."""
+    patched_sdk.add_resource = AsyncMock(side_effect=httpx.ConnectError("down"))
+    manager = OpenVikingManager(settings, "user-key")
+
+    result = await manager.insert_files(
+        [_ingest_file()], target_root="viking://root/proj"
+    )
+
+    assert len(result.results) == 1
+    assert result.results[0].status == "failed"
+    # The reason is generic — it must not name the backend.
+    assert "openviking" not in (result.results[0].reason or "").lower()
+
+
+async def test_insert_file_propagates_unexpected_errors(settings, patched_sdk):
+    """A bug in our own code must surface, not be reported as a bad file."""
+    patched_sdk.add_resource = AsyncMock(side_effect=TypeError("bug"))
+    manager = OpenVikingManager(settings, "user-key")
+
+    with pytest.raises(TypeError):
+        await manager.insert_files([_ingest_file()], target_root="viking://root/proj")
+
+
+async def test_insert_file_captures_task_id(settings, patched_sdk):
+    """The submission's task id is kept so the ingest stays pollable."""
+    patched_sdk.add_resource = AsyncMock(
+        return_value={"status": "success", "task_id": "task-abc"}
+    )
+    manager = OpenVikingManager(settings, "user-key")
+
+    result = await manager.insert_files(
+        [_ingest_file()], target_root="viking://root/proj"
+    )
+
+    assert len(result.results) == 1
+    assert result.results[0].task_id == "task-abc"
+
+
+async def test_insert_file_tolerates_missing_task_id(settings, patched_sdk):
+    patched_sdk.add_resource = AsyncMock(return_value={})
+    manager = OpenVikingManager(settings, "user-key")
+
+    result = await manager.insert_files(
+        [_ingest_file()], target_root="viking://root/proj"
+    )
+
+    assert len(result.results) == 1
+    assert result.results[0].status == "queued"
+    assert result.results[0].task_id is None
+
+
+# ---------------------------------------------------------------------------
+# OpenVikingManager.task_statuses
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "ov_status,expected",
+    [
+        ("pending", "queued"),
+        ("running", "processing"),
+        # No cancel is exposed, so a cancelling task still reads as in-flight.
+        ("cancelling", "processing"),
+        ("completed", "completed"),
+        ("failed", "failed"),
+        # The file did not land, so a cancelled task is a failure to the user.
+        ("cancelled", "failed"),
+        ("something-new", "unknown"),
+    ],
+)
+async def test_task_statuses_maps_backend_states(
+    settings, patched_sdk, ov_status, expected
+):
+    patched_sdk.get_task = AsyncMock(return_value={"status": ov_status})
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.task_statuses(["t1"])
+
+    assert out["t1"][0] == expected
+
+
+async def test_task_statuses_reports_expired_task_as_unknown(settings, patched_sdk):
+    """An expired record is not proof of failure — say we don't know."""
+    patched_sdk.get_task = AsyncMock(return_value=None)
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert (await manager.task_statuses(["t1"]))["t1"] == ("unknown", None)
+
+
+async def test_task_statuses_returns_error_detail(settings, patched_sdk):
+    patched_sdk.get_task = AsyncMock(
+        return_value={"status": "failed", "error": "parse blew up"}
+    )
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert (await manager.task_statuses(["t1"]))["t1"] == ("failed", "parse blew up")
+
+
+async def test_task_statuses_survives_backend_failure(settings, patched_sdk):
+    """A poll must never raise — the caller falls back to last-known status."""
+    patched_sdk.get_task = AsyncMock(side_effect=httpx.ConnectError("down"))
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.task_statuses(["t1", "t2"])
+
+    assert out == {"t1": ("unknown", None), "t2": ("unknown", None)}
+
+
+async def test_task_statuses_handles_mixed_results(settings, patched_sdk):
+    async def per_task(task_id):
+        if task_id == "t2":
+            raise httpx.ConnectError("down")
+        return {"status": "completed"}
+
+    patched_sdk.get_task = AsyncMock(side_effect=per_task)
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.task_statuses(["t1", "t2", "t3"])
+
+    assert out["t1"][0] == "completed"
+    assert out["t2"][0] == "unknown"
+    assert out["t3"][0] == "completed"
+
+
+async def test_task_statuses_empty_skips_the_backend(settings, patched_sdk):
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert await manager.task_statuses([]) == {}
+    patched_sdk.initialize.assert_not_awaited()
+
+
+async def test_task_statuses_closes_the_client(settings, patched_sdk):
+    patched_sdk.get_task = AsyncMock(return_value={"status": "completed"})
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.task_statuses(["t1"])
+
+    patched_sdk.close.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# OpenVikingClient.add_resource retries
+# ---------------------------------------------------------------------------
+
+
+async def test_add_resource_retries_transient_error(settings, patched_sdk):
+    patched_sdk.add_resource = AsyncMock(
+        side_effect=[UnavailableError("busy"), {"ok": True}]
+    )
+    client = await OpenVikingClient.create("user-key")
+
+    with patch("app.clients.openviking.asyncio.sleep", AsyncMock()) as sleep:
+        result = await client.add_resource("/tmp/f.md", "viking://x/f.md", reason="r")
+
+    assert result == {"ok": True}
+    assert patched_sdk.add_resource.await_count == 2
+    sleep.assert_awaited_once()
+
+
+async def test_add_resource_gives_up_after_retry_cap(settings, patched_sdk):
+    patched_sdk.add_resource = AsyncMock(side_effect=UnavailableError("busy"))
+    client = await OpenVikingClient.create("user-key")
+
+    with patch("app.clients.openviking.asyncio.sleep", AsyncMock()):
+        with pytest.raises(UnavailableError):
+            await client.add_resource("/tmp/f.md", "viking://x/f.md", reason="r")
+
+    assert patched_sdk.add_resource.await_count == ADD_RESOURCE_RETRIES
+
+
+async def test_add_resource_does_not_retry_other_errors(settings, patched_sdk):
+    """A non-transient error fails immediately rather than burning the budget."""
+    patched_sdk.add_resource = AsyncMock(side_effect=SdkOpenVikingError("bad input"))
+    client = await OpenVikingClient.create("user-key")
+
+    with pytest.raises(SdkOpenVikingError):
+        await client.add_resource("/tmp/f.md", "viking://x/f.md", reason="r")
+
+    assert patched_sdk.add_resource.await_count == 1
 
 
 # ---------------------------------------------------------------------------

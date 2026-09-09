@@ -77,6 +77,12 @@ class Settings(BaseSettings):
     # urlsafe-base64-encoded 32-byte key; generate with Fernet.generate_key().
     ov_credential_key: str | None = None
 
+    # Context-manager ingest limits. Each file is spilled to a temp file before
+    # being handed to the context manager, so an uncapped batch would tie up
+    # local disk and the backend's processing queue.
+    context_max_ingest_files: int = 50
+    context_max_file_bytes: int = 50 * 1024 * 1024
+
     # Derived paths
     @property
     def db_url(self) -> str:
