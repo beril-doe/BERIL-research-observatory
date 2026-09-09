@@ -278,14 +278,85 @@ def test_ingest_project_files_submits_then_polls(tmp_path):
 
 
 def test_ingest_project_files_errors_without_a_batch_id(tmp_path):
-    """No batch id means the submission cannot be followed — never call it ok."""
+    """A submission we cannot follow is an error — files were accepted but
+    no handle came back to poll them with."""
     root, files = _project(tmp_path)
 
     def handler(request):
-        return httpx.Response(200, json={"queued": 0, "failed": 2})
+        return httpx.Response(200, json={"queued": 2, "failed": 0})
 
     with _client(handler) as http:
         with pytest.raises(BerilIngestError, match="no batch_id"):
             ingest_project_files(
                 BASE_URL, TOKEN, project="proj", root=root, files=files, client=http
             )
+
+
+def test_ingest_project_files_treats_all_skipped_as_success(tmp_path):
+    """Every file already current: no batch, nothing polled, still ok.
+
+    The server sends no batch_id when it submitted nothing, so this must not be
+    mistaken for a submission that lost its handle.
+    """
+    root, files = _project(tmp_path)
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        return httpx.Response(
+            200, json={"batch_id": None, "queued": 0, "failed": 0, "skipped": 2}
+        )
+
+    with _client(handler) as http:
+        outcome = ingest_project_files(
+            BASE_URL, TOKEN, project="proj", root=root, files=files, client=http
+        )
+
+    assert outcome.ok
+    assert outcome.batch_id is None
+    assert outcome.skipped == 2
+    # Nothing to poll, so the status endpoint is never touched.
+    assert calls == ["/api/context/ingest_files"]
+    assert "already current" in outcome.summary()
+
+
+def test_ingest_project_files_carries_skips_across_a_poll(tmp_path):
+    """A mixed batch: skips come from the submission, not the batch status."""
+    root, files = _project(tmp_path)
+
+    def handler(request):
+        if request.url.path.endswith("/ingest_files"):
+            return httpx.Response(
+                200, json={"batch_id": "b1", "queued": 1, "failed": 0, "skipped": 3}
+            )
+        return httpx.Response(
+            200,
+            json=_status_body(
+                "completed",
+                [{"relative_path": "REPORT.md", "status": "completed"}],
+                counts={"completed": 1},
+            ),
+        )
+
+    with _client(handler) as http:
+        outcome = ingest_project_files(
+            BASE_URL, TOKEN, project="proj", root=root, files=files, client=http,
+            interval=0, sleep=lambda _: None,
+        )
+
+    assert outcome.ok
+    assert outcome.skipped == 3
+    assert outcome.summary() == "1 file(s) ingested, 3 already current"
+
+
+def test_all_skipped_response_missing_the_field_is_still_success(tmp_path):
+    """A server that omits `skipped` entirely still reads as a clean no-op."""
+    root, files = _project(tmp_path)
+
+    with _client(lambda r: httpx.Response(200, json={"queued": 0, "failed": 0})) as http:
+        outcome = ingest_project_files(
+            BASE_URL, TOKEN, project="proj", root=root, files=files, client=http
+        )
+
+    assert outcome.ok
+    assert outcome.skipped == 0

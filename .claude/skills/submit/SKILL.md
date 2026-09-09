@@ -284,9 +284,12 @@ On a successful archive, the upload tool also submits the project files to the B
 
 The mirror goes through BERIL's own HTTP API. `knowledge/scripts/ingest_context.py --project <id> --json` stages the project (curated files, `memories/*.md`, plus the generated `PROJECT_METADATA.md` and `CLAIMS_CONTEXT.md`), zips that tree, and POSTs it with a manifest to `POST /api/context/ingest_files` using the personal access token from `beril login`. The archive is what preserves relative paths — a flat upload would collapse `memories/pitfalls.md` to `pitfalls.md`. Ingest is asynchronous, so the script then polls `GET /api/context/ingest_status/{batch_id}` every few seconds until every file reaches a terminal state (default cap: 10 minutes). A BERIL credential is the only one involved.
 
+The context service skips any file whose exact content it already holds, so re-running `/submit` on an unchanged project sends nothing and completes immediately. Only a file that actually *landed* counts as current — one that failed or is still indexing is sent again, so a retry after a failure always does real work.
+
 Verdict mapping in the tool's `context_submission` JSON:
 
 - all files `completed` → `"ok"`
+- every file already current, nothing sent → `"ok"` (reported as "already current")
 - any file `failed` → `"failed"` (the reason names the offending files)
 - poll cap reached with files still queued/processing → `"skipped"` — the files remain queued and may still land, so an unfinished batch is not treated as a failure
 - not logged in, or BERIL unreachable → `"skipped"`
