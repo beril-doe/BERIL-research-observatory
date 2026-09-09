@@ -203,7 +203,7 @@ Phase 2c is split into a **pre-write validation pass** (no state mutation) follo
 ##### 2c-pre. Validate inputs and stage memory extractions (no writes yet)
 
 - **Compute notebook hashes (v5)**: invoke `python {repo_root}/tools/notebook_hash.py compute-hashes {project_path}` to get a JSON dict of `{relpath: "sha256:<hex>"}`. Result is sorted by path, ready for stable YAML output. Empty dict for projects without `notebooks/`. Values are already `sha256:`-prefixed and can be written to YAML verbatim. (Read-only; safe to do here.)
-- **Stage memory extractions** from `REPORT.md`. This is how reviewed-and-approved discoveries/performance claims become OV-ingestible memories without contaminating the layer with unvetted synthesizer output. Validate and capture in memory only — no files are written or deleted in this pre-pass.
+- **Stage memory extractions** from `REPORT.md`. This is how reviewed-and-approved discoveries/performance claims become ingestible memories without contaminating the context layer with unvetted synthesizer output. Validate and capture in memory only — no files are written or deleted in this pre-pass.
 
   For each section name in `["Discoveries", "Performance Notes"]` (mapping to `discoveries.md` and `performance.md` respectively):
 
@@ -280,7 +280,18 @@ The script archives all project files to `s3a://cdm-lake/tenant-general-warehous
 mc alias set berdl-minio $MINIO_ENDPOINT_URL $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
 ```
 
-On a successful archive, the upload tool also submits the project files to the BERIL-managed context service so the knowledge layer can see the completed project. That step is handled entirely inside `lakehouse_upload.py` and is **best-effort**: it runs only when BERIL and the context service are available and the user is logged in, and if it is skipped or fails the lakehouse archive still succeeds (the tool reports it in its JSON but does not fail the upload). `/submit` needs no extra handling for it — the exit-code contract below is unchanged.
+On a successful archive, the upload tool also submits the project files to the BERIL-managed context service so the knowledge layer can see the completed project. That step is handled entirely inside `lakehouse_upload.py` and is **best-effort**: it runs only when BERIL is reachable and the user is logged in, and if it is skipped or fails the lakehouse archive still succeeds (the tool reports it in its JSON but does not fail the upload). `/submit` needs no extra handling for it — the exit-code contract below is unchanged.
+
+The mirror goes through BERIL's own HTTP API. `knowledge/scripts/ingest_context.py --project <id> --json` stages the project (curated files, `memories/*.md`, plus the generated `PROJECT_METADATA.md` and `CLAIMS_CONTEXT.md`), zips that tree, and POSTs it with a manifest to `POST /api/context/ingest_files` using the personal access token from `beril login`. The archive is what preserves relative paths — a flat upload would collapse `memories/pitfalls.md` to `pitfalls.md`. Ingest is asynchronous, so the script then polls `GET /api/context/ingest_status/{batch_id}` every few seconds until every file reaches a terminal state (default cap: 10 minutes). A BERIL credential is the only one involved.
+
+Verdict mapping in the tool's `context_submission` JSON:
+
+- all files `completed` → `"ok"`
+- any file `failed` → `"failed"` (the reason names the offending files)
+- poll cap reached with files still queued/processing → `"skipped"` — the files remain queued and may still land, so an unfinished batch is not treated as a failure
+- not logged in, or BERIL unreachable → `"skipped"`
+
+**Scope limitation**: this path uploads files only. Cross-project relations and the `knowledge/state/` change manifest are not updated by it — a mirrored project's manifest entry stays whatever the last interactive ingest run (`--all` / `--changed`) recorded. Run an interactive ingest mode to reconcile either. This does not affect the lakehouse archive or the submission verdict.
 
 **Re-submission overwrite semantics**: the upload script pre-clears the remote prefix (`mc rm --recursive --force`) before `mc cp` whenever the prefix already has contents. This prevents stale files from a previous submission from contaminating the new archive when files are dropped or renamed between submissions. The brief mid-upload window during which the archive is empty is acceptable: a `complete + SUBMISSION_FAILED.md` state already signals "incomplete archive" to anyone consuming it. First-time submissions skip the clear because the remote prefix is empty.
 

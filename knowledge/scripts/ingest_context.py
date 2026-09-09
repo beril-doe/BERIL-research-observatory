@@ -8,27 +8,38 @@
 #     "rich",
 # ]
 # ///
-"""Ingest BERIL context into OpenViking.
+"""Ingest BERIL context into the knowledge layer.
 
-Two modes, sharing one ingest code path:
+Two modes, reaching the context store by **different routes**:
 
 **Interactive** (default) — Rich progress output, non-zero exit on failure.
 This is the human-facing mode: ``--all``, ``--changed``, ``--project``, ``--docs``.
+It drives the OpenViking SDK directly (``observatory_context.openviking_client``)
+against the credential ``ContextConfig`` resolves, which is why this script's
+PEP-723 header still pins ``openviking``. Only these modes need it.
 
 **Verdict** (``--json``, requires ``--project``) — the *best-effort mirror* used by
 ``tools/lakehouse_upload.py`` after a successful lakehouse archive, so the
-knowledge layer sees the completed project. Three gates must pass first, all
-required:
+knowledge layer sees the completed project.
 
-  1. the BERIL webapp is available,
-  2. the user is logged in with a valid credential, and
-  3. the context service is reachable and accepts that credential.
+The verdict path speaks **only to BERIL**, never to the context backend. It
+uploads the staged project to BERIL's ``/api/context/ingest_files`` route with
+the personal access token from ``beril login`` and polls the batch to
+completion, so a user needs only a BERIL credential — the backend's address,
+key, and task vocabulary stay on the server. Two gates must pass first:
 
-(1)+(2) are proved together by an authenticated health call against BERIL;
-(3) by the context client's own reachability + auth diagnosis (against the
-credential the importer will actually use). If any gate fails we skip — never
-fail — because the lakehouse archive, not the context index, is the source of
-truth for "submitted".
+  1. the user is logged in to BERIL (``~/.beril/auth.json``), and
+  2. the BERIL webapp is reachable and accepts that token.
+
+Both are proved together by an authenticated health call. If either fails we
+skip — never fail — because the lakehouse archive, not the context index, is the
+source of truth for "submitted".
+
+**Scope note**: the mirror uploads files only. ``apply_project_relations`` and
+the ``knowledge/state/`` change manifest are SDK-level operations with no route
+equivalent, so the verdict path skips them; a mirrored project's manifest entry
+stays whatever the last interactive ``--all``/``--changed`` run recorded. Re-run
+an interactive mode to reconcile relations and change tracking.
 
 ``--json`` prints a single line of JSON on stdout (always)::
 
@@ -54,6 +65,10 @@ from rich.panel import Panel
 
 from beril_cli import auth_store
 from beril_cli.ov_client import OvLinkError, ov_health
+from observatory_context.beril_ingest import (
+    BerilIngestError,
+    ingest_project_files,
+)
 from observatory_context.config import ContextConfig
 from observatory_context.ingest import (
     ingest_all,
@@ -62,12 +77,15 @@ from observatory_context.ingest import (
     ingest_project,
     resolve_project_dir,
 )
-from observatory_context.openviking_client import create_client, diagnose
+from observatory_context.openviking_client import create_client
 from observatory_context.progress import RichIngestObserver
+from observatory_context.staging import stage_project
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Ingest BERIL context into OpenViking")
+    parser = argparse.ArgumentParser(
+        description="Ingest BERIL context into the knowledge layer"
+    )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--all", action="store_true", help="Ingest all selected projects and docs")
     mode.add_argument("--changed", action="store_true", help="Ingest changed selected sources")
@@ -83,9 +101,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--json",
         action="store_true",
-        help="Best-effort mirror mode (requires --project): gate on BERIL login + "
-        "context-service health, emit a single-line JSON verdict on stdout, and "
-        "always exit 0. Used by tools/lakehouse_upload.py after a successful archive",
+        help="Best-effort mirror mode (requires --project): upload the staged "
+        "project through BERIL's ingest route and poll it to completion, emit a "
+        "single-line JSON verdict on stdout, and always exit 0. Used by "
+        "tools/lakehouse_upload.py after a successful archive",
     )
     return parser
 
@@ -99,67 +118,77 @@ def _emit(status: str, reason: str) -> int:
     return 0
 
 
-def _preflight() -> tuple[bool, str]:
-    """Check the three gates. Return (ok, reason)."""
-    # Gates 1+2: authenticated health call against BERIL. A 200 proves the
-    # webapp is up and the stored token still authenticates.
+def _preflight() -> tuple[auth_store.AuthRecord | None, str]:
+    """Check the two gates. Return (record, reason); record is None on failure.
+
+    One authenticated health call proves both gates at once: a 200 means the
+    BERIL webapp is up and the stored token still authenticates. No
+    context-backend credential is checked — the route brokers that itself.
+    """
     record = auth_store.load()
     if record is None:
-        return False, (
+        return None, (
             "not logged in to BERIL (no ~/.beril/auth.json); "
             "run `beril login` to enable the context-service submission"
         )
     try:
         ov_health(record.base_url, record.token)
     except OvLinkError as exc:
-        return False, f"BERIL context service health check failed: {exc}"
-
-    # Gate 3: reachability + client-auth against the context service the way the
-    # importer will reach it (ContextConfig resolves the cached credential).
-    diag = diagnose(ContextConfig.from_env())
-    if not diag.ok:
-        return False, f"context service not ready ({diag.verdict}): {diag.detail}"
-    return True, "context service available"
+        return None, f"BERIL context service health check failed: {exc}"
+    return record, "context service available"
 
 
 def run_mirror(project_id: str) -> int:
     """Best-effort single-project mirror. Never raises; always returns 0.
 
-    Shares `ingest_project` with the interactive path — the difference is the
-    gating, the machine-readable verdict, and the promise never to fail the
-    caller. No observer is passed: Rich output would pollute the stdout line
-    the caller parses.
+    Stages the project the same way the interactive path does — so the
+    generated ``PROJECT_METADATA.md`` and ``CLAIMS_CONTEXT.md`` are mirrored
+    alongside the curated files — then uploads that tree to BERIL as a zip plus
+    a manifest and polls the batch to a terminal state.
+
+    A timed-out poll is reported as "skipped", not "failed": the files are
+    queued server-side and may well land, so it is not an outcome worth
+    marking the submission bad over.
     """
     try:
-        ok, reason = _preflight()
+        record, reason = _preflight()
     except Exception as exc:  # unexpected client/transport error
         return _emit("skipped", f"context-service preflight error: {exc}")
-    if not ok:
+    if record is None:
         return _emit("skipped", reason)
 
     config = ContextConfig.from_env()
     try:
-        client = create_client(config)
-    except (SystemExit, Exception) as exc:
-        # create_client raises SystemExit on an unreachable server — that's a
-        # BaseException, so it must be named explicitly; a bare `except
-        # Exception` would let it propagate and kill the caller's upload. The
-        # preflight should have caught this, but guard against the race.
-        return _emit("skipped", f"context service became unreachable: {exc}")
+        project_dir = resolve_project_dir(config, project_id)
+        staged = stage_project(project_dir, config.staging_dir)
+        files = sorted(p for p in staged.rglob("*") if p.is_file())
+    except Exception as exc:
+        return _emit("failed", f"could not stage {project_id} for submission: {exc}")
+
+    # An empty staging tree means nothing was selected for ingest. Report it
+    # rather than posting an empty archive — a silent no-op would look like a
+    # successful mirror.
+    if not files:
+        return _emit("failed", f"{project_id} staged no files to submit")
 
     try:
-        ingest_project(config, client, project_id)
-    except Exception as exc:
+        outcome = ingest_project_files(
+            record.base_url,
+            record.token,
+            project=project_id,
+            root=staged,
+            files=files,
+        )
+    except BerilIngestError as exc:
         return _emit("failed", f"context-service submission failed: {exc}")
-    finally:
-        close = getattr(client, "close", None)
-        if close:
-            try:
-                close()
-            except Exception:
-                pass
+    except Exception as exc:
+        return _emit("failed", f"context-service submission failed unexpectedly: {exc}")
 
-    return _emit("ok", f"submitted {project_id} to context service")
+    if outcome.ok:
+        return _emit("ok", f"submitted {project_id} to context service ({outcome.summary()})")
+    if outcome.timed_out:
+        return _emit("skipped", f"{project_id} ingest still in progress — {outcome.summary()}")
+    return _emit("failed", f"context-service submission failed: {outcome.summary()}")
 
 
 def main() -> None:
