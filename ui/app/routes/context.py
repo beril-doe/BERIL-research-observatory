@@ -8,8 +8,14 @@ simple API. It also provides API calls for the user / agent to manage their data
 within BERIL's context manager implementation.
 """
 
+import asyncio
+import io
 import logging
+import mimetypes
+import tempfile
+import zipfile
 from collections import Counter
+from pathlib import Path
 
 from fastapi import (
     APIRouter,
@@ -139,15 +145,94 @@ async def _resolve_project(
         return existing
 
 
-@ROUTER_CONTEXT.post("/api/context/ingest_file")
-async def post_context_ingest_file(
+def _extract_archive(archive_bytes: bytes, dest: Path) -> None:
+    """Unpack a zip archive into ``dest``, rejecting anything that escapes it.
+
+    ``zipfile`` sanitizes ordinary traversal in member names, but it happily
+    restores symlinks, which would let a later member be written outside
+    ``dest`` through the link. Members are therefore checked before any of them
+    is written — a hostile archive extracts nothing.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(archive_bytes)) as zf:
+            for info in zf.infolist():
+                # Upper 16 bits of external_attr are the Unix mode; 0xA000 is
+                # S_IFLNK. Directories and regular files are the only members
+                # we restore.
+                if (info.external_attr >> 16) & 0xF000 == 0xA000:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Archive contains a symlink: {info.filename!r}",
+                    )
+                resolved = (dest / info.filename).resolve()
+                if not resolved.is_relative_to(dest):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Archive entry escapes the archive root: {info.filename!r}",
+                    )
+            zf.extractall(dest)
+    except (zipfile.BadZipFile, OSError) as exc:
+        logger.warning("Rejected ingest archive: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded archive could not be read as a zip file.",
+        ) from exc
+
+
+def _parse_manifest(manifest_bytes: bytes) -> list[str]:
+    """Read the manifest into a list of sanitized relative paths.
+
+    One path per line; blank lines are ignored so a trailing newline is fine.
+    Paths are sanitized the same way upload filenames are, and duplicates are
+    dropped so a repeated line does not ingest the same file twice.
+    """
+    try:
+        text = manifest_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The manifest must be UTF-8 text.",
+        ) from exc
+
+    paths: list[str] = []
+    seen: set[str] = set()
+    for line_no, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        relative_path = _safe_relative_path(line)
+        if relative_path is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Invalid manifest path on line {line_no}: {line!r}",
+            )
+        if relative_path not in seen:
+            seen.add(relative_path)
+            paths.append(relative_path)
+
+    if not paths:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="The manifest lists no files.",
+        )
+    return paths
+
+
+@ROUTER_CONTEXT.post("/api/context/ingest_files")
+async def post_context_ingest_files(
     request: Request,
     project: str = Form(...),
-    files: list[UploadFile] = File(default=[]),
+    archive: UploadFile = File(...),
+    manifest: UploadFile = File(...),
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db)
 ):
-    """Ingest one or more files into the user's context manager.
+    """Ingest the manifest-listed files of a zip archive into the context manager.
+
+    The archive carries the caller's directory structure, which a plain
+    multipart upload loses; the manifest names which of its members to ingest,
+    one relative path per line, so an archive may carry more than it ingests.
+    Each path is kept relative to the project's ingest root.
 
     Files are queued for indexing, not indexed synchronously — a ``queued``
     status means the context manager accepted the file, and it becomes
@@ -158,46 +243,53 @@ async def post_context_ingest_file(
     manager = await resolve_context_manager(db, user)
     db_project = await _resolve_project(db, user, project)
 
-    supplied = [f for f in files if f.filename]
-    if len(supplied) > settings.context_max_ingest_files:
+    archive_bytes = await archive.read()
+
+    relative_paths = _parse_manifest(await manifest.read())
+    if len(relative_paths) > settings.context_max_ingest_files:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=(
-                f"Too many files: {len(supplied)} "
+                f"Too many files: {len(relative_paths)} "
                 f"(limit {settings.context_max_ingest_files})."
             ),
         )
 
-    # Validate every name before reading anything, so a bad filename anywhere
-    # in the batch queues nothing.
-    relative_paths = []
-    for f in supplied:
-        relative_path = _safe_relative_path(f.filename or "")
-        if relative_path is None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        root = Path(tmp_dir).resolve()
+        # Unpacking touches the disk, so it stays off the event loop.
+        await asyncio.to_thread(_extract_archive, archive_bytes, root)
+
+        # Check the whole manifest against the archive before reading anything,
+        # so a manifest naming a missing file queues nothing.
+        missing = [p for p in relative_paths if not (root / p).is_file()]
+        if missing:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"Invalid filename: {f.filename!r}",
+                detail=f"Manifest files missing from the archive: {', '.join(missing)}",
             )
-        relative_paths.append(relative_path)
 
-    ingest_files = []
-    for f, relative_path in zip(supplied, relative_paths):
-        content = await f.read()
-        if len(content) > settings.context_max_file_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail=(
-                    f"{relative_path} is too large: {len(content)} bytes "
-                    f"(limit {settings.context_max_file_bytes})."
-                ),
+        logger.info(f"ingesting files: {relative_paths}")
+
+        ingest_files = []
+        for relative_path in relative_paths:
+            source = root / relative_path
+            size = source.stat().st_size
+            if size > settings.context_max_file_bytes:
+                raise HTTPException(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    detail=(
+                        f"{relative_path} is too large: {size} bytes "
+                        f"(limit {settings.context_max_file_bytes})."
+                    ),
+                )
+            ingest_files.append(
+                ContextIngestFile(
+                    relative_path=relative_path,
+                    content=await asyncio.to_thread(source.read_bytes),
+                    content_type=mimetypes.guess_type(relative_path)[0],
+                )
             )
-        ingest_files.append(
-            ContextIngestFile(
-                relative_path=relative_path,
-                content=content,
-                content_type=f.content_type,
-            )
-        )
 
     target_root = user_target_root(user.orcid_id, db_project.slug)
     logger.info(

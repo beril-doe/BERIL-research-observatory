@@ -8,7 +8,9 @@ OV payload to ``ContextQueryResults`` is covered in ``test_context_manager.py``.
 
 from __future__ import annotations
 
+import io
 import os
+import zipfile
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -316,14 +318,46 @@ async def test_ls_returns_502_when_provisioning_fails(client, user, manager):
 
 
 # ---------------------------------------------------------------------------
-# POST /api/context/ingest_file
+# POST /api/context/ingest_files
 # ---------------------------------------------------------------------------
 
 
-def _ingest(client, *, project="My Project", files=None):
-    files = files if files is not None else [("files", ("notes.md", b"hi", "text/md"))]
+def _zip_bytes(members: dict[str, bytes]) -> bytes:
+    """Build an in-memory zip archive from ``{relative_path: content}``."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, content in members.items():
+            zf.writestr(name, content)
+    return buf.getvalue()
+
+
+def _ingest(
+    client,
+    *,
+    project="My Project",
+    members=None,
+    manifest=None,
+    archive=None,
+):
+    """Post an ingest request.
+
+    Defaults to a one-file archive whose manifest lists exactly that file.
+    ``manifest`` defaults to every member of the archive, so a test that only
+    cares about the archive contents does not have to restate them.
+    """
+    members = {"notes.md": b"hi"} if members is None else members
+    manifest = list(members) if manifest is None else manifest
+    archive = _zip_bytes(members) if archive is None else archive
+    manifest_bytes = (
+        manifest if isinstance(manifest, bytes) else "\n".join(manifest).encode()
+    )
     return client.post(
-        "/api/context/ingest_file", data={"project": project}, files=files
+        "/api/context/ingest_files",
+        data={"project": project},
+        files={
+            "archive": ("upload.zip", archive, "application/zip"),
+            "manifest": ("manifest.txt", manifest_bytes, "text/plain"),
+        },
     )
 
 
@@ -383,10 +417,7 @@ async def test_ingest_forwards_file_content_and_path(
     client, credentialed_user, ingest_manager
 ):
     _login(client)
-    _ingest(
-        client,
-        files=[("files", ("sub/dir/data.csv", b"a,b\n1,2\n", "text/csv"))],
-    )
+    _ingest(client, members={"sub/dir/data.csv": b"a,b\n1,2\n"})
 
     sent = ingest_manager.insert_files.await_args.args[0]
     assert len(sent) == 1
@@ -399,17 +430,111 @@ async def test_ingest_accepts_multiple_files(client, credentialed_user, ingest_m
     ingest_manager.insert_files.return_value = _queued(3)
     _login(client)
     resp = _ingest(
-        client,
-        files=[
-            ("files", ("a.md", b"a", "text/md")),
-            ("files", ("b.md", b"b", "text/md")),
-            ("files", ("c.md", b"c", "text/md")),
-        ],
+        client, members={"a.md": b"a", "b.md": b"b", "c.md": b"c"}
     )
 
     assert resp.status_code == 200
     assert resp.json()["queued"] == 3
     assert len(ingest_manager.insert_files.await_args.args[0]) == 3
+
+
+async def test_ingest_only_takes_files_named_by_the_manifest(
+    client, credentialed_user, ingest_manager
+):
+    """The archive may carry more than it ingests — the manifest decides."""
+    _login(client)
+    resp = _ingest(
+        client,
+        members={"keep/a.md": b"a", "skip/b.md": b"b"},
+        manifest=["keep/a.md"],
+    )
+
+    assert resp.status_code == 200
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["keep/a.md"]
+
+
+async def test_ingest_ignores_blank_manifest_lines(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    resp = _ingest(client, members={"a.md": b"a"}, manifest=b"\na.md\n\n  \n")
+
+    assert resp.status_code == 200
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["a.md"]
+
+
+async def test_ingest_deduplicates_repeated_manifest_paths(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    resp = _ingest(client, members={"a.md": b"a"}, manifest=["a.md", "a.md"])
+
+    assert resp.status_code == 200
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["a.md"]
+
+
+async def test_ingest_rejects_unreadable_archive(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    resp = _ingest(client, archive=b"not a zip file", manifest=["a.md"])
+
+    assert resp.status_code == 400
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_rejects_archive_with_symlink(
+    client, credentialed_user, ingest_manager
+):
+    """A symlink member could redirect a later write outside the temp root."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        info = zipfile.ZipInfo("link")
+        info.external_attr = (0xA1FF) << 16
+        zf.writestr(info, "/etc/passwd")
+    _login(client)
+    resp = _ingest(client, archive=buf.getvalue(), manifest=["link"])
+
+    assert resp.status_code == 400
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_rejects_manifest_naming_a_missing_file(
+    client, credentialed_user, ingest_manager
+):
+    """A manifest that names anything absent queues nothing at all."""
+    _login(client)
+    resp = _ingest(
+        client, members={"a.md": b"a"}, manifest=["a.md", "gone.md"]
+    )
+
+    assert resp.status_code == 422
+    assert "gone.md" in resp.json()["detail"]
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_rejects_manifest_naming_a_directory(
+    client, credentialed_user, ingest_manager
+):
+    """A directory is not an ingestable file, even though the path exists."""
+    _login(client)
+    resp = _ingest(client, members={"sub/a.md": b"a"}, manifest=["sub"])
+
+    assert resp.status_code == 422
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_rejects_empty_manifest(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    resp = _ingest(client, members={"a.md": b"a"}, manifest=b"\n  \n")
+
+    assert resp.status_code == 422
+    ingest_manager.insert_files.assert_not_awaited()
 
 
 async def test_ingest_reports_partial_failure_as_200(
@@ -472,33 +597,25 @@ async def test_ingest_rejects_unusable_project_name(
     ingest_manager.insert_files.assert_not_awaited()
 
 
-async def test_ingest_sanitizes_traversal_in_filename(
+async def test_ingest_sanitizes_traversal_in_manifest_path(
     client, credentialed_user, ingest_manager
 ):
-    """Traversal segments are stripped, not rejected — the file still ingests,
-    but below the target root rather than escaping it."""
+    """Traversal segments are stripped, so a manifest cannot reach outside the
+    archive — the sanitized path then has to exist in it like any other."""
     _login(client)
-    resp = _ingest(
-        client, files=[("files", ("../../escape.md", b"b", "text/md"))]
-    )
+    resp = _ingest(client, members={"escape.md": b"b"}, manifest=["../../escape.md"])
 
     assert resp.status_code == 200
     sent = ingest_manager.insert_files.await_args.args[0]
     assert sent[0].relative_path == "escape.md"
 
 
-async def test_ingest_rejects_unusable_filename_without_queueing_any(
+async def test_ingest_rejects_unusable_manifest_path_without_queueing_any(
     client, credentialed_user, ingest_manager
 ):
-    """A name that sanitizes to nothing fails the whole batch — nothing queued."""
+    """A path that sanitizes to nothing fails the whole batch — nothing queued."""
     _login(client)
-    resp = _ingest(
-        client,
-        files=[
-            ("files", ("good.md", b"a", "text/md")),
-            ("files", ("..", b"b", "text/md")),
-        ],
-    )
+    resp = _ingest(client, members={"good.md": b"a"}, manifest=["good.md", ".."])
 
     assert resp.status_code == 422
     ingest_manager.insert_files.assert_not_awaited()
@@ -507,12 +624,7 @@ async def test_ingest_rejects_unusable_filename_without_queueing_any(
 async def test_ingest_enforces_file_count_cap(client, credentialed_user, ingest_manager):
     _login(client)
     with patch.object(get_settings(), "context_max_ingest_files", 2):
-        resp = _ingest(
-            client,
-            files=[
-                ("files", (f"f{i}.md", b"x", "text/md")) for i in range(3)
-            ],
-        )
+        resp = _ingest(client, members={f"f{i}.md": b"x" for i in range(3)})
 
     assert resp.status_code == 413
     ingest_manager.insert_files.assert_not_awaited()
@@ -521,9 +633,7 @@ async def test_ingest_enforces_file_count_cap(client, credentialed_user, ingest_
 async def test_ingest_enforces_file_size_cap(client, credentialed_user, ingest_manager):
     _login(client)
     with patch.object(get_settings(), "context_max_file_bytes", 4):
-        resp = _ingest(
-            client, files=[("files", ("big.md", b"way too long", "text/md"))]
-        )
+        resp = _ingest(client, members={"big.md": b"way too long"})
 
     assert resp.status_code == 413
     ingest_manager.insert_files.assert_not_awaited()

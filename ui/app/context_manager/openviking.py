@@ -115,20 +115,6 @@ class OpenVikingManager(ContextManager):
     async def get_file(self, path: Path) -> ContextFile:
         ...
 
-    async def insert_file(
-        self, file: ContextIngestFile, *, target_root: str
-    ) -> IngestResult:
-        """Ingest one file. Creates and closes its own client.
-
-        For more than one file prefer :meth:`insert_files`, which reuses a
-        single client across the batch.
-        """
-        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
-        try:
-            return await self._insert_one(ov_client, file, target_root)
-        finally:
-            await ov_client.close()
-
     async def insert_files(
         self, files: list[ContextIngestFile], *, target_root: str
     ) -> ContextIngestResults:

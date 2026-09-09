@@ -126,10 +126,8 @@ class OpenVikingClient:
                 if attempt == ADD_RESOURCE_RETRIES:
                     raise
                 logger.info(
-                    "Transient OpenViking error adding %s (attempt %d/%d); retrying",
-                    target_uri,
-                    attempt,
-                    ADD_RESOURCE_RETRIES,
+                    f"Transient OpenViking error adding {target_uri} ",
+                    f"(attempt {attempt}/{ADD_RESOURCE_RETRIES}); retrying"
                 )
                 await asyncio.sleep(ADD_RESOURCE_BACKOFF_SECONDS * attempt)
 
