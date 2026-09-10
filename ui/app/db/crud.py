@@ -4,11 +4,12 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.context_manager.base import INGEST_COMPLETED
 from app.db.models import (
     BerilUser,
     ContextIngestBatch,
@@ -467,7 +468,7 @@ async def create_ingest_batch(
     """Record one ingest submission and its per-file outcomes.
 
     ``files`` entries carry ``relative_path``, ``status``, and optionally
-    ``uri``, ``ov_task_id``, and ``error``.
+    ``uri``, ``ov_task_id``, ``error``, and ``content_sha256``.
     """
     batch = ContextIngestBatch(
         user_id=user_id, project_id=project_id, target_root=target_root
@@ -483,11 +484,59 @@ async def create_ingest_batch(
                 ov_task_id=f.get("ov_task_id"),
                 status=f["status"],
                 error=f.get("error"),
+                content_sha256=f.get("content_sha256"),
             )
         )
     await db.commit()
     await db.refresh(batch)
     return batch
+
+
+async def completed_file_hashes(
+    db: AsyncSession, project_id: str
+) -> dict[str, str]:
+    """Return ``{relative_path: content_sha256}`` for this project's landed files.
+
+    Only rows whose *latest* record is ``completed`` are returned, so a file
+    that later failed or was re-queued is absent and will re-ingest. Rows with a
+    null hash (written before the column existed) are excluded — there is no
+    basis for comparison, so those must re-ingest too.
+
+    Deliberately avoids ``DISTINCT ON``: production runs Postgres but the tests
+    run SQLite, and a Postgres-only construct here would pass review and fail in
+    CI. The row-number window function works on both.
+    """
+    latest = (
+        select(
+            ContextIngestFileRecord.relative_path,
+            ContextIngestFileRecord.status,
+            ContextIngestFileRecord.content_sha256,
+            func.row_number()
+            .over(
+                partition_by=ContextIngestFileRecord.relative_path,
+                order_by=(
+                    ContextIngestFileRecord.created_at.desc(),
+                    ContextIngestFileRecord.id.desc(),
+                ),
+            )
+            .label("rn"),
+        )
+        .join(
+            ContextIngestBatch,
+            ContextIngestFileRecord.batch_id == ContextIngestBatch.id,
+        )
+        .where(ContextIngestBatch.project_id == project_id)
+        .subquery()
+    )
+
+    result = await db.execute(
+        select(latest.c.relative_path, latest.c.content_sha256).where(
+            latest.c.rn == 1,
+            latest.c.status == INGEST_COMPLETED,
+            latest.c.content_sha256.is_not(None),
+        )
+    )
+    return {row.relative_path: row.content_sha256 for row in result}
 
 
 async def get_ingest_batch(

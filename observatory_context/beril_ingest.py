@@ -47,6 +47,9 @@ PROCESSING = "processing"
 COMPLETED = "completed"
 FAILED = "failed"
 UNKNOWN = "unknown"
+# The server already had this exact content, so it was never submitted. Only
+# ever seen in the ingest response — a skipped file joins no batch.
+SKIPPED = "skipped"
 
 TERMINAL_STATUSES = frozenset({COMPLETED, FAILED})
 
@@ -59,10 +62,14 @@ class BerilIngestError(Exception):
 class IngestOutcome:
     """The result of one mirror attempt.
 
-    ``ok`` is true only when every manifest file reached ``completed``. A batch
-    that timed out is not a failure of the upload — the files may still land —
-    so it is reported separately via ``timed_out`` and the caller decides how
-    loudly to say so.
+    ``ok`` is true only when every manifest file reached ``completed`` — or was
+    skipped as already-current, which is equally a success: the content is in
+    the store either way. A batch that timed out is not a failure of the upload
+    (the files may still land), so it is reported separately via ``timed_out``
+    and the caller decides how loudly to say so.
+
+    ``batch_id`` is ``None`` when the server skipped every file. Nothing was
+    submitted, so there is no batch and nothing was polled.
     """
 
     ok: bool
@@ -71,11 +78,16 @@ class IngestOutcome:
     counts: dict[str, int] = field(default_factory=dict)
     failures: list[tuple[str, str | None]] = field(default_factory=list)
     timed_out: bool = False
+    skipped: int = 0
 
     def summary(self) -> str:
         """One line describing the outcome, suitable for a verdict ``reason``."""
         if self.ok:
             n = self.counts.get(COMPLETED, 0)
+            if self.skipped and not n:
+                return f"{self.skipped} file(s) already current; nothing to send"
+            if self.skipped:
+                return f"{n} file(s) ingested, {self.skipped} already current"
             return f"{n} file(s) ingested"
         if self.timed_out:
             pending = self.counts.get(QUEUED, 0) + self.counts.get(PROCESSING, 0)
@@ -239,14 +251,32 @@ def ingest_project_files(
         client=client,
     )
     batch_id = body.get("batch_id")
+    queued = int(body.get("queued") or 0)
+    failed = int(body.get("failed") or 0)
+    skipped = int(body.get("skipped") or 0)
+
     if not batch_id:
-        # Without a batch id the submission cannot be followed. Report what the
-        # server said about the files it did accept rather than claiming success.
+        # No batch means nothing was submitted. That is success when every file
+        # was skipped as already-current — the content is in the store, so there
+        # is nothing to poll. Any other shape is a submission we cannot follow.
+        if not queued and not failed:
+            return IngestOutcome(
+                ok=True,
+                batch_id=None,
+                status=COMPLETED,
+                counts={SKIPPED: skipped},
+                skipped=skipped,
+            )
         raise BerilIngestError(
             "BERIL accepted the upload but returned no batch_id to poll "
-            f"(queued={body.get('queued')}, failed={body.get('failed')})"
+            f"(queued={queued}, failed={failed})"
         )
-    return poll_batch(base_url, token, str(batch_id), client=client, **poll_kwargs)
+
+    outcome = poll_batch(base_url, token, str(batch_id), client=client, **poll_kwargs)
+    # The batch only tracks what was submitted, so skips are known from the
+    # submission response alone and have to be carried across.
+    outcome.skipped = skipped
+    return outcome
 
 
 # --- helpers ---------------------------------------------------------------

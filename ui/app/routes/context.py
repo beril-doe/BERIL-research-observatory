@@ -9,6 +9,7 @@ within BERIL's context manager implementation.
 """
 
 import asyncio
+import hashlib
 import io
 import logging
 import mimetypes
@@ -37,11 +38,14 @@ from app.context_manager.base import (
     INGEST_FAILED,
     INGEST_PROCESSING,
     INGEST_QUEUED,
+    INGEST_SKIPPED,
     INGEST_STATUSES,
     INGEST_UNKNOWN,
     TERMINAL_INGEST_STATUSES,
+    ContextIngestResults,
     IngestBatchStatus,
     IngestFileStatus,
+    IngestResult,
 )
 from app.context_manager.openviking import (
     ContextIngestFile,
@@ -51,9 +55,11 @@ from app.context_manager.openviking import (
     UnauthenticatedError,
     context_slugify,
     get_user_ov_api_key,
+    target_uri,
     user_target_root,
 )
 from app.db.crud import (
+    completed_file_hashes,
     create_ingest_batch,
     create_user_project,
     get_ingest_batch,
@@ -224,6 +230,7 @@ async def post_context_ingest_files(
     project: str = Form(...),
     archive: UploadFile = File(...),
     manifest: UploadFile = File(...),
+    force: bool = Form(False),
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db)
 ):
@@ -238,10 +245,21 @@ async def post_context_ingest_files(
     status means the context manager accepted the file, and it becomes
     searchable some time later. Each file reports its own status, so a partial
     batch still returns 200 with the failures named.
+
+    A file whose content already *completed* an ingest for this project is
+    skipped rather than re-sent, making a re-submission of unchanged work a
+    no-op. Only ``completed`` counts: a file that failed, is still in flight, or
+    predates content hashing re-ingests, so a user's retry after a failure
+    always does something. ``force=true`` bypasses the check entirely — the
+    repair path for content the backend lost or must re-index.
+
+    When every file is skipped nothing is submitted, so no batch exists and
+    ``batch_id`` is ``None``. That is success, not a missing handle.
     """
     settings = get_settings()
     manager = await resolve_context_manager(db, user)
     db_project = await _resolve_project(db, user, project)
+    target_root = user_target_root(user.orcid_id, db_project.slug)
 
     archive_bytes = await archive.read()
 
@@ -271,7 +289,14 @@ async def post_context_ingest_files(
 
         logger.info(f"ingesting files: {relative_paths}")
 
+        # What this project already has, so identical content is not re-sent.
+        # Skipped entirely under force: the point of the flag is to re-ingest
+        # regardless of what we believe already landed.
+        landed = {} if force else await completed_file_hashes(db, db_project.id)
+
         ingest_files = []
+        content_hashes: dict[str, str] = {}
+        skipped: list[IngestResult] = []
         for relative_path in relative_paths:
             source = root / relative_path
             size = source.stat().st_size
@@ -283,25 +308,54 @@ async def post_context_ingest_files(
                         f"(limit {settings.context_max_file_bytes})."
                     ),
                 )
+            content = await asyncio.to_thread(source.read_bytes)
+            # Recorded against the batch row so a later ingest can tell whether
+            # this exact content already landed.
+            digest = hashlib.sha256(content).hexdigest()
+            if landed.get(relative_path) == digest:
+                # Reported, not omitted: the response accounts for every
+                # manifest entry so a skip can't be mistaken for a lost file.
+                # No batch row is written — a skip is not an ingest attempt, and
+                # recording one would let it satisfy a later skip check without
+                # anything ever having been indexed.
+                skipped.append(
+                    IngestResult(
+                        relative_path=relative_path,
+                        status=INGEST_SKIPPED,
+                        uri=target_uri(target_root, relative_path),
+                        reason="Identical content already ingested.",
+                    )
+                )
+                continue
+            content_hashes[relative_path] = digest
             ingest_files.append(
                 ContextIngestFile(
                     relative_path=relative_path,
-                    content=await asyncio.to_thread(source.read_bytes),
+                    content=content,
                     content_type=mimetypes.guess_type(relative_path)[0],
                 )
             )
 
-    target_root = user_target_root(user.orcid_id, db_project.slug)
     logger.info(
-        "Ingesting %d file(s) to %s for user %s",
+        "Ingesting %d file(s) to %s for user %s (%d unchanged)",
         len(ingest_files),
         target_root,
         user.orcid_id,
+        len(skipped),
     )
+
+    # Everything was unchanged: nothing to submit, so no batch and nothing to
+    # poll. Answered as a success with the skips enumerated.
+    if not ingest_files:
+        return ContextIngestResults(
+            results=skipped, queued=0, failed=0, skipped=len(skipped)
+        )
+
     results = await manager.insert_files(ingest_files, target_root=target_root)
 
     # Record the submission so its progress stays pollable: the context
     # manager expires its own task records and does not track who owns them.
+    # Only submitted files get rows — see the skip branch above.
     batch = await create_ingest_batch(
         db,
         user_id=user.id,
@@ -314,11 +368,14 @@ async def post_context_ingest_files(
                 "ov_task_id": r.task_id,
                 "status": r.status,
                 "error": r.reason,
+                "content_sha256": content_hashes.get(r.relative_path),
             }
             for r in results.results
         ],
     )
     results.batch_id = batch.id
+    results.results = results.results + skipped
+    results.skipped = len(skipped)
     return results
 
 
@@ -385,6 +442,9 @@ def _rollup_status(files: list[IngestFileStatus]) -> str:
     Failure wins over everything — a batch with a failed file is not a success,
     however many others landed. Unfinished work outranks a clean sweep, and
     ``unknown`` only surfaces once nothing is still in flight.
+
+    ``skipped`` never appears here: a skipped file is not submitted and so
+    writes no batch row. It is reported only in the ingest response.
     """
     statuses = {f.status for f in files}
     if INGEST_FAILED in statuses:

@@ -149,6 +149,10 @@ def run_mirror(project_id: str) -> int:
     A timed-out poll is reported as "skipped", not "failed": the files are
     queued server-side and may well land, so it is not an outcome worth
     marking the submission bad over.
+
+    The server skips files whose content it already holds, so a re-submission
+    of unchanged work sends nothing and reports "ok" — there is no batch to
+    poll in that case.
     """
     try:
         record, reason = _preflight()
@@ -185,6 +189,10 @@ def run_mirror(project_id: str) -> int:
         return _emit("failed", f"context-service submission failed unexpectedly: {exc}")
 
     if outcome.ok:
+        # "submitted" would be a lie when the server already had every file, so
+        # a no-op mirror says so plainly. Both are "ok": the content is there.
+        if outcome.batch_id is None:
+            return _emit("ok", f"{project_id} already current — {outcome.summary()}")
         return _emit("ok", f"submitted {project_id} to context service ({outcome.summary()})")
     if outcome.timed_out:
         return _emit("skipped", f"{project_id} ingest still in progress — {outcome.summary()}")
