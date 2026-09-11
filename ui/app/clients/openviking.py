@@ -88,12 +88,49 @@ class OpenVikingClient:
     async def close(self):
         await self._client.close()
 
-    async def find(self, query: str, target_uri: str|None = None, limit: int = 10, score_threshold: float|None=None) -> dict:
-        options = None
-        if score_threshold is not None:
-            options = {"score_threshold": score_threshold}
-        result = await self._client.find(query, limit=limit, target_uri=target_uri, options=options)
-        return result
+    async def find(
+        self,
+        query: str,
+        target_uri: str | None = None,
+        limit: int = 10,
+        score_threshold: float | None = None,
+        *,
+        filter: dict | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        time_field: str | None = None,
+        node_limit: int | None = None,
+        read_content: bool = False,
+    ) -> dict:
+        """Semantic search.
+
+        Options are built by omission: a key absent from the dict lets the
+        backend apply its own default, which is not the same as passing None.
+        The time bounds are handed over as given — the backend owns that
+        grammar, so translating it here would only add a second thing to keep
+        in sync.
+        """
+        options = {
+            key: value
+            for key, value in (
+                ("score_threshold", score_threshold),
+                ("filter", filter),
+                ("since", since),
+                ("until", until),
+                ("time_field", time_field),
+                ("node_limit", node_limit),
+                # Sent only when asked: the default is the backend's, and
+                # False is a meaningful value we must not imply.
+                ("read_content", read_content or None),
+            )
+            if value is not None
+        }
+        return await self._client.find(
+            query,
+            limit=limit,
+            target_uri=target_uri,
+            options=options or None,
+        )
 
     async def list_files(self, root_path: str) -> dict:
         result = await self._client.ls(f"viking://{root_path}")

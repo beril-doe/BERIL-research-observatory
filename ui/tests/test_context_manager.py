@@ -205,6 +205,130 @@ async def test_query_forwards_all_query_fields(settings, patched_sdk):
     )
 
 
+async def test_query_forwards_the_extended_options(settings, patched_sdk):
+    """Filter, time bounds, node limit and read_content all reach the backend."""
+    manager = OpenVikingManager(settings, "user-key")
+    await manager.query(
+        ContextQuery(
+            query="alpha",
+            root_path="viking://resources/projects",
+            limit=5,
+            score_threshold=0.5,
+            filter={"op": "must", "field": "uri", "conds": ["viking://x/"]},
+            since="7d",
+            until="2026-01-01",
+            time_field="created_at",
+            node_limit=50,
+            read_content=True,
+        )
+    )
+
+    assert patched_sdk.find.await_args.kwargs["options"] == {
+        "score_threshold": 0.5,
+        "filter": {"op": "must", "field": "uri", "conds": ["viking://x/"]},
+        "since": "7d",
+        "until": "2026-01-01",
+        "time_field": "created_at",
+        "node_limit": 50,
+        "read_content": True,
+    }
+
+
+async def test_query_omits_unset_options(settings, patched_sdk):
+    """An unset option is absent, not None.
+
+    Sending ``None`` would override the backend's own default with a value the
+    caller never chose.
+    """
+    manager = OpenVikingManager(settings, "user-key")
+    await manager.query(ContextQuery(query="alpha"))
+
+    assert patched_sdk.find.await_args.kwargs["options"] is None
+
+
+async def test_query_omits_read_content_when_false(settings, patched_sdk):
+    """``read_content=False`` is the default, so it is not sent at all."""
+    manager = OpenVikingManager(settings, "user-key")
+    await manager.query(ContextQuery(query="alpha", read_content=False))
+
+    assert patched_sdk.find.await_args.kwargs["options"] is None
+
+
+async def test_query_maps_match_reason_and_content(settings, patched_sdk):
+    patched_sdk.find.return_value = {
+        "resources": [
+            {
+                "uri": "viking://x/a.md",
+                "context_type": "document",
+                "score": 0.8,
+                "abstract": "a summary",
+                "match_reason": "matched on title",
+                "content": "the whole document",
+            }
+        ],
+        "total": 1,
+    }
+    manager = OpenVikingManager(settings, "user-key")
+    out = await manager.query(ContextQuery(query="alpha", read_content=True))
+
+    assert out.results[0].match_reason == "matched on title"
+    assert out.results[0].content == "the whole document"
+    # The abstract stays in ``text`` — content is the document, not a summary.
+    assert out.results[0].text == "a summary"
+
+
+async def test_query_reports_backend_total_over_row_count(settings, patched_sdk):
+    """A limited query still reports how many the backend found."""
+    patched_sdk.find.return_value = {
+        "resources": [
+            {"uri": "viking://x/a.md", "context_type": "d", "score": 1.0,
+             "abstract": "a"}
+        ],
+        "total": 97,
+    }
+    manager = OpenVikingManager(settings, "user-key")
+    out = await manager.query(ContextQuery(query="alpha", limit=1))
+
+    assert out.total == 97
+    assert len(out.results) == 1
+
+
+async def test_query_falls_back_to_row_count_without_a_total(settings, patched_sdk):
+    patched_sdk.find.return_value = {
+        "resources": [
+            {"uri": "viking://x/a.md", "context_type": "d", "score": 1.0,
+             "abstract": "a"},
+            {"uri": "viking://x/b.md", "context_type": "d", "score": 0.9,
+             "abstract": "b"},
+        ]
+    }
+    manager = OpenVikingManager(settings, "user-key")
+    out = await manager.query(ContextQuery(query="alpha"))
+
+    assert out.total == 2
+
+
+async def test_query_tolerates_missing_fields_in_a_hit(settings, patched_sdk):
+    """A hit missing uri/score/abstract maps to empty values, not a 500."""
+    patched_sdk.find.return_value = {"resources": [{}]}
+    manager = OpenVikingManager(settings, "user-key")
+    out = await manager.query(ContextQuery(query="alpha"))
+
+    r = out.results[0]
+    assert (r.uri, r.context_type, r.score, r.text) == ("", "", 0.0, "")
+
+
+async def test_query_closes_the_client_when_find_raises(settings, patched_sdk):
+    """A failed query must not leak the connection."""
+    patched_sdk.find.side_effect = UnavailableError("backend down")
+    manager = OpenVikingManager(settings, "user-key")
+
+    with pytest.raises(UnavailableError):
+        await manager.query(ContextQuery(query="alpha"))
+
+    patched_sdk.close.assert_awaited_once()
+
+
 async def test_query_handles_empty_resources(settings, patched_sdk):
     patched_sdk.find.return_value = {"resources": []}
     manager = OpenVikingManager(settings, "user-key")

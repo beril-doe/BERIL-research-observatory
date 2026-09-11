@@ -49,6 +49,17 @@ INGEST_FAILURES: tuple[type[Exception], ...] = (
     ValueError,
 )
 
+# Expected read-path failures: the backend rejecting a query, or the transport
+# dropping. Named here rather than in the routes so the backend's exception
+# types stay inside this module — a route catching SdkOpenVikingError would put
+# the store's name back in the layer that exists to hide it. Deliberately not
+# bare Exception: a bug in our own mapping code should surface as a 500.
+QUERY_FAILURES: tuple[type[Exception], ...] = (
+    SdkOpenVikingError,
+    OpenVikingError,
+    httpx.HTTPError,
+)
+
 # OpenViking's six task states collapsed onto BERIL's four. "cancelling" is
 # reported as processing because BERIL exposes no cancel, and "cancelled" as
 # failed because the file did not land either way.
@@ -246,25 +257,45 @@ class OpenVikingManager(ContextManager):
 
     async def query(self, query: ContextQuery) -> ContextQueryResults:
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
-        results = await ov_client.find(
-            query.query,
-            target_uri=query.root_path,
-            limit=query.limit,
-            score_threshold=query.score_threshold
-        )
-        processed = ContextQueryResults(
+        try:
+            results = await ov_client.find(
+                query.query,
+                target_uri=query.root_path,
+                limit=query.limit,
+                score_threshold=query.score_threshold,
+                filter=query.filter,
+                since=query.since,
+                until=query.until,
+                time_field=query.time_field,
+                node_limit=query.node_limit,
+                read_content=query.read_content,
+            )
+        finally:
+            # Closed even when the search raises, so a failed query does not
+            # leak the connection.
+            await ov_client.close()
+
+        resources = results.get("resources") or []
+        return ContextQueryResults(
             query=query.query,
-            results = [
+            results=[
                 QueryResult(
-                    uri=r.get("uri"),
-                    context_type=r.get("context_type"),
-                    score=r.get("score"),
-                    text=r.get("abstract")
-                ) for r in results.get("resources", [])
-            ]
+                    uri=r.get("uri") or "",
+                    context_type=r.get("context_type") or "",
+                    score=r.get("score") or 0.0,
+                    # The abstract is a summary; `content` is the document, and
+                    # only present when the caller asked to read it.
+                    text=r.get("abstract") or "",
+                    match_reason=r.get("match_reason"),
+                    content=r.get("content"),
+                )
+                for r in resources
+            ],
+            # The backend's own count when it reports one — it can exceed the
+            # number of rows returned under a limit.
+            total=results.get("total") if results.get("total") is not None
+            else len(resources),
         )
-        await ov_client.close()
-        return processed
 
 async def get_user_ov_api_key(db: AsyncSession, user: BerilUser) -> str:
     """

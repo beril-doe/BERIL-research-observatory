@@ -1,7 +1,14 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+# Upper bounds on what a caller may ask the backend for. Not tuning knobs — a
+# query is rejected rather than forwarded when it exceeds these, so one request
+# cannot ask the backend to walk its whole graph.
+MAX_FIND_LIMIT = 200
+MAX_FIND_NODE_LIMIT = 10_000
 
 
 class FileMetadata(BaseModel):
@@ -104,20 +111,54 @@ class IngestBatchStatus(BaseModel):
 
 
 class ContextQuery(BaseModel):
+    """One semantic search against the context layer.
+
+    ``filter`` is a backend metadata filter tree, passed through as given —
+    callers that need one are already reaching past the simple case. The time
+    bounds accept whatever the backend accepts (an ISO date, or a relative form
+    like ``7d``); they are validated as non-empty strings here and interpreted
+    downstream, so a malformed bound is the backend's to reject.
+
+    ``read_content`` asks for each hit's full text, not just its abstract. It
+    is off by default because a broad query would otherwise return every
+    matching document in full.
+    """
+
     query: str
     root_path: str | None = None
-    limit: int = 10
+    limit: int = Field(default=10, ge=1, le=MAX_FIND_LIMIT)
     score_threshold: float | None = None
+    filter: dict[str, Any] | None = None
+    since: str | None = None
+    until: str | None = None
+    time_field: Literal["updated_at", "created_at"] | None = None
+    node_limit: int | None = Field(default=None, ge=1, le=MAX_FIND_NODE_LIMIT)
+    read_content: bool = False
+
 
 class QueryResult(BaseModel):
+    """One hit.
+
+    ``text`` is the abstract — a summary, not the document. ``content`` carries
+    the full text and is present only when the query asked for it, so an absent
+    ``content`` means "not requested", never "empty document".
+    """
+
     uri: str
     context_type: str
     score: float
     text: str
+    match_reason: str | None = None
+    content: str | None = None
+
 
 class ContextQueryResults(BaseModel):
+    """``total`` is the backend's own count, which may exceed ``len(results)``
+    when the query was limited."""
+
     query: str
     results: list[QueryResult]
+    total: int = 0
 
 class ContextManager:
     url: str
