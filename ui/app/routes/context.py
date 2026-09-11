@@ -43,11 +43,13 @@ from app.context_manager.base import (
     INGEST_UNKNOWN,
     TERMINAL_INGEST_STATUSES,
     ContextIngestResults,
+    ContextQueryResults,
     IngestBatchStatus,
     IngestFileStatus,
     IngestResult,
 )
 from app.context_manager.openviking import (
+    QUERY_FAILURES,
     ContextIngestFile,
     ContextQuery,
     OpenVikingManager,
@@ -106,10 +108,29 @@ async def post_context_find(
     request: Request,
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db)
-):
-    logger.info(f"Running context query: {query} for user {user.orcid_id}")
+) -> ContextQueryResults:
+    """Semantic search over the caller's context layer.
+
+    Bounds and types are enforced by ``ContextQuery``, so a malformed request
+    is a 422 before the backend is touched. A backend that rejects or cannot
+    answer the query surfaces as 502 — the store is an implementation detail,
+    so its error text is logged rather than returned.
+    """
+    logger.info(
+        "Context query %r (limit=%d) for user %s",
+        query.query,
+        query.limit,
+        user.orcid_id,
+    )
     manager = await resolve_context_manager(db, user)
-    return await manager.query(query)
+    try:
+        return await manager.query(query)
+    except QUERY_FAILURES as exc:
+        logger.warning("Context query failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not answer that query.",
+        ) from exc
 
 @ROUTER_CONTEXT.get("/api/context/ls")
 async def get_context_files(
