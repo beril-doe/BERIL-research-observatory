@@ -24,7 +24,7 @@ The relevant entries:
 The three context scripts (`ingest_context.py`, `knowledge_query.py`,
 `smoke_ingest_openviking.py`) are PEP 723 self-bootstrapping. Pass `.env` via
 `uv run --env-file .env ...` and the scripts install their own deps in an
-isolated venv — no `uv sync` or `--group knowledge` activation needed.
+isolated venv — no `uv sync` needed.
 
 ### Remote OpenViking
 
@@ -82,8 +82,8 @@ jq --arg key "$OPENROUTER_API_KEY" \
 Validate and start the server:
 
 ```bash
-uv run --group knowledge openviking-server doctor --config knowledge/openviking/ov.conf
-uv run --group knowledge openviking-server --config knowledge/openviking/ov.conf
+uv run openviking-server doctor --config knowledge/openviking/ov.conf
+uv run openviking-server --config knowledge/openviking/ov.conf
 ```
 
 `knowledge/openviking/ov.conf` and `knowledge/openviking/workspace/` are ignored

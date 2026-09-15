@@ -29,7 +29,7 @@ RUN adduser --system --uid 76761 \
     --ingroup openviking \
     ov
 
-RUN pip install --no-cache openviking==0.3.24 litellm[google]>=1.83.12
+RUN pip install --no-cache openviking==0.4.15 litellm[google]>=1.83.12
 
 COPY migrate-embedding ${OV_HOME}/migrate-embedding
 

@@ -15,7 +15,7 @@ PROBE_TIMEOUT_SECONDS = 1.0
 LOCAL_START_HINT = (
     "OpenViking does not appear to be running at {url}.\n"
     "Start it in another terminal:\n"
-    "  uv run --group knowledge openviking-server --config knowledge/openviking/ov.conf"
+    "  uv run openviking-server --config knowledge/openviking/ov.conf"
 )
 REMOTE_HINT = (
     "Cannot reach OpenViking at {url}.\n"
