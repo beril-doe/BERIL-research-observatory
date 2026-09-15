@@ -1359,9 +1359,12 @@ def verify_ingest(
 
     print("\nProgress log summary:")
     for e in progress_log:
-        if e.get("status") == "complete":
+        # Same test as complete_from_log above. A "complete" entry with no
+        # total_rows was already reported INCOMPLETE; indexing it here would
+        # turn that reported failure into a KeyError.
+        if e.get("status") == "complete" and "total_rows" in e:
             print(f"  {e['table']}: {e['total_rows']:,} rows, "
-                  f"{e['total_chunks']} chunk(s) — COMPLETE")
+                  f"{e.get('total_chunks', '?')} chunk(s) — COMPLETE")
 
     print()
     if all_match:

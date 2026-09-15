@@ -174,3 +174,14 @@ def test_table_missing_from_log_is_incomplete(monkeypatch, capsys):
 
     assert "[INCOMPLETE]" in out
     assert "mismatch detected" in out.lower()
+
+
+def test_complete_entry_without_total_rows_is_reported_not_raised(monkeypatch, capsys):
+    """A legacy or truncated log entry says "complete" but carries no counts.
+    It must stay a reported INCOMPLETE, not crash the progress summary."""
+    malformed = {"table": "biosample", "status": "complete"}
+    out = _run(monkeypatch, capsys, _tsv(12345), [malformed], {"biosample": 12345})
+
+    assert "[INCOMPLETE]" in out
+    assert "biosample: " not in out.split("Progress log summary:")[1]
+    assert "mismatch detected" in out.lower()
