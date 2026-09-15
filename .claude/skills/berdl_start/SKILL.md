@@ -168,6 +168,14 @@ For deeper inspection, suggest the user run:
 
 **Do not run `COUNT(*)` per database in this phase** — it's expensive and not needed for orientation.
 
+### NMDC collection orientation
+
+If the inventory or the user's question involves an `nmdc` database, read
+`docs/datasets/nmdc/README.md` before recommending tables. It distinguishes the
+canonical `nmdc` tenant from derived or scoped `kbase.nmdc_*` products and gives
+the standard biosample-to-result join. Use the live inventory for availability;
+use the guide for provenance and resource roles.
+
 ---
 
 ## Phase 1.7: Session Naming Reminder

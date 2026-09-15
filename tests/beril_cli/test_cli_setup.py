@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from beril_cli import setup_cmd
+from beril_cli import setup_cmd, start
 from beril_cli.auth_store import AuthRecord
 
 
@@ -391,7 +391,7 @@ def happy_setup(monkeypatch, repo):
     monkeypatch.setattr(setup_cmd.config, "CONFIG_PATH", repo / "config.toml")
 
     # No env vars to sync, and _prompt/_confirm never asked to launch.
-    for key in ("KBASE_AUTH_TOKEN", "MINIO_ACCESS_KEY", "MINIO_SECRET_KEY", "MINIO_ENDPOINT_URL"):
+    for key in ("KBASE_AUTH_TOKEN", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_ENDPOINT_URL"):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setattr(setup_cmd, "_prompt", lambda q, default="": default)
     monkeypatch.setattr(setup_cmd, "_confirm", lambda *a, **k: True)
@@ -539,6 +539,29 @@ class TestRunSetupOrchestrator:
         binary, argv = execvp.call_args.args
         assert binary == "/usr/bin/claude"
         assert argv[0] == "claude" and "/berdl_start" in argv
+
+    def test_launching_omp_from_the_wizard_sets_a_session_dir(self, happy_setup, monkeypatch):
+        """A session begun from setup must be as collectable as one begun from start.
+
+        `beril start` and `beril setup` are two launch sites for the same agent; only
+        the first having a knowable transcript path is the kind of split that put the
+        agent list in three places before it was shared.
+        """
+        monkeypatch.setattr(
+            setup_cmd.shutil, "which",
+            lambda name: "/usr/bin/omp" if name == "omp" else None,
+        )
+        monkeypatch.setattr(setup_cmd, "_prompt", lambda q, default="": "omp")
+        execvp = MagicMock()
+        monkeypatch.setattr(setup_cmd.os, "execvp", execvp)
+
+        setup_cmd.run_setup()
+
+        _binary, argv = execvp.call_args.args
+        expected = str(start.omp_session_dir(happy_setup.repo))
+        assert argv == ["omp", "--session-dir", expected, "/berdl_start"]
+        # Under $HOME, so nothing is written into the checkout.
+        assert not (happy_setup.repo / ".omp-sessions").exists()
 
     def test_vertex_env_injected_before_launch(self, happy_setup, monkeypatch):
         # When Vertex is enabled and claude launches, the Vertex env vars are set

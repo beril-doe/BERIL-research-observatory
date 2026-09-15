@@ -131,7 +131,7 @@ The application uses a git-based approach to load and automatically update repos
 
 2. **Configure Environment Variables** on your application server:
    ```bash
-   export BERIL_DATA_REPO_URL="https://github.com/kbaseincubator/BERIL-research-observatory.git"
+   export BERIL_DATA_REPO_URL="https://github.com/beril-doe/BERIL-research-observatory.git"
    export BERIL_DATA_REPO_BRANCH="data-cache"  # Optional, defaults to "data-cache"
    export BERIL_WEBHOOK_SECRET="<same-secret-from-github>"
    ```

@@ -11,7 +11,9 @@ from pathlib import Path
 from beril_cli import auth_store, config
 from beril_cli.auth_cmd import run_login
 from beril_cli.detect import detect_user_identity, print_jupyterhub_path_hint
-from beril_cli.start import claude_defaults
+from beril_cli.start import announce_omp_session, claude_defaults, omp_defaults
+
+CLONE_URL = "https://github.com/beril-doe/BERIL-research-observatory.git"
 
 
 def _find_repo_root() -> Path | None:
@@ -211,7 +213,7 @@ def run_setup() -> int:
     repo_root = _find_repo_root()
     if not repo_root:
         print("  BERIL repository not found in current directory tree.")
-        clone_url = "https://github.com/kbaseincubator/BERIL-research-observatory.git"
+        clone_url = CLONE_URL
         if _confirm(f"  Clone it into {Path.cwd() / 'BERIL-research-observatory'}?"):
             print(f"  Cloning {clone_url} ...")
             result = subprocess.run(
@@ -250,11 +252,13 @@ def run_setup() -> int:
 
     # Sync credentials from environment → .env
     # On JupyterHub these are the freshest source and should always overwrite .env
+    # The names a current BERDL pod injects. MINIO_* was the old spelling and is
+    # absent on current images; pods cycle, so it is not carried forward.
     _ENV_KEYS = [
         "KBASE_AUTH_TOKEN",
-        "MINIO_ACCESS_KEY",
-        "MINIO_SECRET_KEY",
-        "MINIO_ENDPOINT_URL",
+        "S3_ACCESS_KEY",
+        "S3_SECRET_KEY",
+        "S3_ENDPOINT_URL",
     ]
     synced = []
     for key in _ENV_KEYS:
@@ -478,8 +482,12 @@ def run_setup() -> int:
                 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = vertex_cfg.get("credentials_file", "")
                 os.environ["VERTEX_REGION_CLAUDE_HAIKU_4_5"] = "us-east5"
                 os.environ["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = "claude-haiku-4-5@20251001"
+            # The same session directory `beril start` gives omp, so a session begun
+            # from the wizard is as collectable as one begun later (start.py::omp_defaults).
+            session_flags = omp_defaults(chosen, [], repo_root)
+            announce_omp_session(session_flags)
             flags = claude_defaults(chosen, [])
-            os.execvp(binary, [chosen, *flags, "/berdl_start"])
+            os.execvp(binary, [chosen, *flags, *session_flags, "/berdl_start"])
         else:
             print(f"  Error: '{chosen}' not found on PATH.", file=sys.stderr)
             return 1

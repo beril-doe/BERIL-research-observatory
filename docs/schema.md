@@ -13,7 +13,7 @@
   - [UniProt](schemas/uniprot.md) (`kbase_uniprot`)
   - [UniRef](schemas/uniref.md) (`kbase_uniref50/90/100`)
   - [ENIGMA CORAL](schemas/enigma.md) (`enigma_coral`)
-  - [NMDC](schemas/nmdc.md) (`nmdc_arkin`, `nmdc_ncbi_biosamples`)
+  - [NMDC](datasets/nmdc/) (`nmdc.metadata`, `nmdc.results`, `nmdc.ref_data`)
   - [PhageFoundry](schemas/phagefoundry.md) (4 genome browsers)
   - [PlanetMicrobe](schemas/planetmicrobe.md) (`planetmicrobe_planetmicrobe`)
   - [PROTECT](schemas/protect.md) (`protect_genomedepot`)
