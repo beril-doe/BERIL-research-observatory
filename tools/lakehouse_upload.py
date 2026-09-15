@@ -17,6 +17,7 @@ Usage (Python):
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -163,9 +164,31 @@ def _check_mc_alias():
     rc, _out, _err = _mc("alias", "list", MC_ALIAS)
     if rc != 0:
         print(f"ERROR: mc alias '{MC_ALIAS}' not configured.", file=sys.stderr)
-        print("Run: mc alias set berdl-minio $MINIO_ENDPOINT_URL $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY", file=sys.stderr)
+        # This line previously named three different schemes at once (MINIO_*, then
+        # AWS_*), none of which a current pod sets. The variables are S3_*.
+        print(
+            "Run: bash scripts/configure_mc.sh   # resolves the credentials for you\n"
+            f"Or:  mc alias set {MC_ALIAS} $S3_ENDPOINT_URL $S3_ACCESS_KEY $S3_SECRET_KEY",
+            file=sys.stderr,
+        )
         return False
     return True
+
+
+def _get_git_remote_url(base_path):
+    """Get the origin remote URL, normalized to a browsable https:// form."""
+    try:
+        url = subprocess.check_output(
+            ["git", "remote", "get-url", "origin"],
+            cwd=base_path, text=True, stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:  # noqa: BLE001
+        return "unknown"
+    # git@github.com:owner/repo.git -> https://github.com/owner/repo
+    match = re.search(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$", url)
+    if match:
+        return f"https://github.com/{match.group(1)}/{match.group(2)}"
+    return url
 
 
 def _get_git_info(base_path):
@@ -271,6 +294,7 @@ def generate_metadata(project_id, base_path):
     manifest = get_upload_manifest(project_path)
     readme_meta = _extract_readme_metadata(project_path)
     git_branch, git_commit = _get_git_info(base_path)
+    git_repo = _get_git_remote_url(base_path)
 
     total_bytes = sum(f["size_bytes"] for f in manifest)
     data_files = [f for f in manifest if f["relative_path"].startswith("data/")]
@@ -281,7 +305,7 @@ def generate_metadata(project_id, base_path):
         "status": readme_meta["status"],
         "authors": readme_meta["authors"],
         "description": f"BERIL Observatory project: {readme_meta['title']}",
-        "git_repo": "https://github.com/kbaseincubator/BERIL-research-observatory",
+        "git_repo": git_repo,
         "git_branch": git_branch,
         "git_commit": git_commit,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
