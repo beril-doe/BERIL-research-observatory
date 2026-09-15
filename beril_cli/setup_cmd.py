@@ -13,6 +13,8 @@ from beril_cli.auth_cmd import run_login
 from beril_cli.detect import detect_user_identity, print_jupyterhub_path_hint
 from beril_cli.start import announce_omp_session, claude_defaults, omp_defaults
 
+CLONE_URL = "https://github.com/beril-doe/BERIL-research-observatory.git"
+
 
 def _find_repo_root() -> Path | None:
     """Walk up from cwd looking for PROJECT.md."""
@@ -211,7 +213,7 @@ def run_setup() -> int:
     repo_root = _find_repo_root()
     if not repo_root:
         print("  BERIL repository not found in current directory tree.")
-        clone_url = "https://github.com/kbaseincubator/BERIL-research-observatory.git"
+        clone_url = CLONE_URL
         if _confirm(f"  Clone it into {Path.cwd() / 'BERIL-research-observatory'}?"):
             print(f"  Cloning {clone_url} ...")
             result = subprocess.run(
