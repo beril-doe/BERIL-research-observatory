@@ -384,10 +384,9 @@ On re-run, the ingest cell reads the log and skips any table with `"status": "co
   correctly, or `KBASE_AUTH_TOKEN` / `USER` is unset. Report the error verbatim and stop
   — this is not a tunnel issue and cannot be fixed by the agent.
 - **MinIO client build fails:** The `S3_ENDPOINT_URL` / `S3_ACCESS_KEY` /
-  `S3_SECRET_KEY` env vars are not set in this JH environment. Check the names before
-  escalating: these were called `MINIO_*` on older images, so a `KeyError` on one
-  spelling may just mean the pod uses the other. Report the error and ask the user to
-  check with a BERDL admin.
+  `S3_SECRET_KEY` env vars are not set in this JH environment. Check that these
+  `S3_*` names are set; `MINIO_*` no longer exists on BERDL pods. Report the error
+  and ask the user to check with a BERDL admin.
 - **`ingest()` returns `success: false`:** Raise immediately — do not silently continue
   to the next table. Show the `errors` list from the report.
 - **Row count mismatch:** Check `s3a://cdm-lake/{BRONZE_PREFIX}/_ingest_progress.jsonl`

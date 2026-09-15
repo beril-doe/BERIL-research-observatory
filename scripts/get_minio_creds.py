@@ -198,7 +198,7 @@ def main() -> int:
             "and berdl-remote.\n"
             "  On a BERDL pod the current names are S3_ACCESS_KEY and S3_SECRET_KEY; "
             "MINIO_* no longer exists there.\n"
-            "  This is a missing variable, not a rejected credential.",
+            "  Required variables may be missing, or remote credential retrieval may have failed.",
             file=sys.stderr,
         )
         return 1

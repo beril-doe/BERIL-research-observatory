@@ -13,6 +13,7 @@ import importlib.util
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -96,6 +97,38 @@ def test_the_failure_message_names_every_variable_it_looked_for(creds):
         assert name in searched
     # Naming a variable the code no longer reads would send someone to set it.
     assert "MINIO_" not in searched
+
+
+@pytest.mark.parametrize("failure", ["missing-variable", "login", "spawn", "python"])
+def test_failure_message_covers_missing_variables_and_remote_failures(creds, monkeypatch, capsys, failure):
+    monkeypatch.setattr(creds, "parse_args", lambda: SimpleNamespace(
+        env_file="unused", bootstrap_remote=True, shell=False,
+    ))
+    monkeypatch.setattr(creds, "load_env_file", lambda path: None)
+    monkeypatch.setattr(creds.shutil, "which", lambda name: name)
+    commands = []
+
+    def fake_run(cmd):
+        commands.append(cmd[1])
+        failed = cmd[1] == failure
+        return subprocess.CompletedProcess(
+            cmd, 1 if failed else 0, stdout="{}",
+            stderr="Remote operation failed" if failed else "",
+        )
+
+    monkeypatch.setattr(creds, "run", fake_run)
+
+    assert creds.main() == 1
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "Required variables may be missing, or remote credential retrieval may have failed." in captured.err
+    assert "This is a missing variable, not a rejected credential." not in captured.err
+    if failure != "missing-variable":
+        assert commands[-1] == failure
+        assert "Remote operation failed" in captured.err
+    else:
+        assert commands == ["login", "spawn", "python"]
 
 
 def _special_chars(marker: Path) -> str:
