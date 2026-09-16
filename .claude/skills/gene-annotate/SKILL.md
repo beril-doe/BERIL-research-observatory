@@ -178,9 +178,9 @@ cd $REPO                                       # NOT the package dir — see tok
 > either `cd $REPO` and pass an **absolute** `--interproscan` path, or symlink
 > `ln -sf $REPO/.env /global_share/gene-annotation-predictor/.env` before running there.)
 
-InterProScan is a separate install (`./bin/my_interproscan/interproscan-5.76-107.0/`) and is passed via `--interproscan` for local off-cluster mode, or offloaded via `--cts-interproscan` on the lakehouse (the default — see Step 3).
+InterProScan is a separate install (`./bin/my_interproscan/interproscan-5.76-107.0/`) and is passed via `--interproscan` for local off-cluster mode, or offloaded via `--cts-interproscan` on the lakehouse (the default — see Step 3). **This skill targets the lakehouse (`--kblh`); the local-only flags do not apply there.**
 
-> **Lakehouse default:** on JupyterHub the CLI should always be launched with `--cts-interproscan --cts-diamond --cts-username "$USER"` so InterProScan and DIAMOND run on CTS-provisioned compute rather than on the shared notebook node. Local flags are only for off-cluster / laptop use.
+> **Lakehouse default:** on JupyterHub the CLI should always be launched with `--kblh --cts-interproscan --cts-username "$USER"`. In `--kblh` mode all DIAMOND searches auto-offload to the CTS refdata bundle and InterProScan runs on CTS too, so nothing heavy runs on the shared notebook node. Local flags (`--paperblast-dir`/`--fitness-dir`/`--interproscan`) are only for off-cluster / laptop use.
 
 ### Install modes: lakehouse vs. local
 
@@ -191,23 +191,23 @@ The package installs under one of two Poetry extras:
   present), so CTS works here.
 - **`pip install gene-annotate[local]`** — no `minio`; for laptop / off-cluster runs that never touch CTS.
 
-> **⚠ CTS needs the `lakehouse` extra.** As of the KBLH rename, `--cts-interproscan` / `--cts-diamond`
-> **fail fast** on a `[local]` install: the CLI exits immediately with
-> `"--cts-interproscan/--cts-diamond need the 'lakehouse' extra … pip install gene-annotate[lakehouse]"`
-> rather than starting a run that would blow up when the CTS client is constructed. `--kblh-use-spark` is
-> *not* gated — it degrades gracefully to the REST API when Spark is unavailable.
+> **⚠ CTS needs the `lakehouse` extra.** `--cts-interproscan` (and the automatic KBLH DIAMOND
+> offload) need the `minio` client from the `[lakehouse]` extra. `--kblh-use-spark` is *not* gated —
+> it degrades gracefully to the REST API when Spark is unavailable.
 
-**Pick the evidence backend + compute per environment.** The evidence layer (`--kblh-data-dir` vs. local
-`--paperblast-dir`/`--fitness-dir`) is independent of the InterProScan/DIAMOND compute (CTS vs. local):
+**Pick the mode per environment.** KBLH mode (`--kblh`) reads Lakehouse annotations and auto-offloads all
+DIAMOND to CTS; local mode (`--paperblast-dir`/`--fitness-dir`) runs DIAMOND locally. The two are mutually exclusive:
 
 | Environment | Evidence flags | InterProScan / DIAMOND | Token? |
 |---|---|---|---|
-| **Lakehouse (on-cluster JupyterHub)** — default | `--kblh-data-dir <dir> --kblh-use-spark` | `--cts-interproscan --cts-diamond --cts-username "$USER"` (needs `[lakehouse]` extra) | `KBASE_AUTH_TOKEN` |
-| **Off-cluster, KBLH via REST** | `--kblh-data-dir <dir>` (omit `--kblh-use-spark` → REST) | `--interproscan <ABSOLUTE path>` (local; no CTS) | `KBASE_AUTH_TOKEN` (for KBLH REST) |
+| **Lakehouse (on-cluster JupyterHub)** — default | `--kblh --kblh-use-spark` | `--cts-interproscan --cts-username "$USER"` (DIAMOND auto-offloaded; needs `[lakehouse]` extra) | `KBASE_AUTH_TOKEN` |
+| **Off-cluster, KBLH via REST** | `--kblh` (omit `--kblh-use-spark` → REST) | `--interproscan <ABSOLUTE path>` (local; no CTS) | `KBASE_AUTH_TOKEN` (for KBLH REST) |
 | **Fully local (no KBLH)** | `--paperblast-dir <dir> --fitness-dir <dir>` | `--interproscan <path>` (local) | none |
 
-Notes: `--kblh-data-dir` is mutually exclusive with `--paperblast-dir`/`--fitness-dir` (KBLH **or** local
-data, not both). `--string-dir` is independent of all of the above and works in every mode. Any KBLH mode
+Notes: `--kblh` is mutually exclusive with `--paperblast-dir`/`--fitness-dir` (KBLH **or** local data, not
+both). `--kblh-data-dir` still works as a **deprecated hidden alias** — it just selects KBLH and warns; its
+directory value is ignored (KBLH DIAMOND DBs come from the CTS refdata bundle, not a local dir). `--string-dir`
+is independent and works in every mode (its SQLite side-tables are the one local input in KBLH). Any KBLH mode
 needs a valid `KBASE_AUTH_TOKEN` in `$REPO/.env`; fully-local needs no token and no `lakehouse` extra.
 
 ### API Key (auto-detected)
@@ -230,7 +230,7 @@ Pass `--api-key KEY` only to override with a literal key value.
 
 ### KBLH Evidence Layer
 
-When `--kblh-data-dir` is provided, six evidence sources are always included automatically:
+When `--kblh` is set, KBLH evidence sources are included automatically (DIAMOND DBs come from the CTS refdata bundle):
 
 | Source | DIAMOND DB | Toolkit | Output column |
 |--------|-----------|---------|---------------|
@@ -272,7 +272,7 @@ homolog's label; edge/orthogroup evidence is more conservative. Pass `--string-m
 user explicitly wants the legacy transferred-annotation behavior (e.g., an A/B comparison against a prior
 `full` run). This flag is only meaningful with `--string-dir`.
 
-This source is **independent of `--kblh-data-dir`** — it can be used with or without the KBLH layer.
+This source is **independent of `--kblh`** — it can be used with or without the KBLH layer.
 
 Requires:
 - `KBASE_AUTH_TOKEN` set in `$REPO/.env`
@@ -529,9 +529,9 @@ abort the run, it just quietly drops an evidence layer or loses rows. Verify at 
 - **KBASE token returns HTTP 200** — a stale token 401s every CTS InterProScan/DIAMOND job. The CLI
   reads `.env` from its **CWD**, so a stale token in the package dir (`/global_share/.../.env`) will be
   used if you run from there; always `cd $REPO`.
-- **MinIO/S3 creds present** — if missing, `--cts-interproscan` is skipped and `--cts-diamond` falls
-  back to local DIAMOND, both with only a `WARNING` (cli.py ~394/1014). The repo's `S3_ACCESS_KEY`/
-  `S3_SECRET_KEY` are accepted as the `MINIO_*` fallback.
+- **MinIO/S3 creds present** — required by CTS (InterProScan + the automatic KBLH DIAMOND offload); if
+  missing they degrade with a `WARNING`. The repo's `S3_ACCESS_KEY`/`S3_SECRET_KEY` are accepted as the
+  `MINIO_*` fallback.
 
 **Early in the run** (read the first ~1 min of the log): confirm the run cleared the points where it
 would silently degrade —
@@ -643,7 +643,7 @@ Only **keep** the reasoning pass (do not set the variable) if the user explicitl
 
 ### Step 3: Build and Run the Command
 
-**Default dispatch when running from the lakehouse (JupyterHub): use CTS for both InterProScan and DIAMOND.** All lakehouse runs are executed on shared JupyterHub nodes whose local CPU / memory is limited; offloading InterProScan and DIAMOND to the CDM Task Service (CTS) keeps compute off the notebook node, avoids memory pressure, and uses the CTS-hosted refdata bundle so no local `.dmnd` files are consulted. This is the standard operating configuration — include `--cts-interproscan --cts-diamond --cts-username "$USER"` in every lakehouse run unless the user explicitly asks for a local invocation. Because CTS is the default, `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY` must be present in `$REPO/.env` (see Step 2). Use `--interproscan <path>` (no CTS flags) only on a laptop / off-cluster environment where the local InterProScan install is desired.
+**Default dispatch when running from the lakehouse (JupyterHub): use `--kblh` + `--cts-interproscan`.** In `--kblh` mode all DIAMOND searches auto-offload to the image-bound CTS refdata bundle (no local `.dmnd` files), and `--cts-interproscan` sends InterProScan to CTS too — so nothing heavy runs on the shared notebook node. There is no `--cts-diamond` flag; DIAMOND offload is implied by `--kblh`. Include `--kblh --cts-interproscan --cts-username "$USER"` in every lakehouse run. `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY` must be present in `$REPO/.env` (see Step 2). Use `--interproscan <path>` / local mode only on a laptop / off-cluster environment.
 
 **Invocation.** Activate the conda env so its `aws` CLI is on PATH (used by the CTS uploader), and call the repo `.venv`'s `gene-annotate` entrypoint. The `.venv` is the source of truth for Python dependencies (Python 3.13 with `berdl_notebook_utils`, `pyspark[connect]`, etc.); the conda env supplies the `aws` binary and — for the rare local-mode fallback — the `diamond` binary.
 
@@ -659,15 +659,13 @@ export GENE_ANNOTATE_SKIP_REASONING=1
 
 /global_share/gene-annotation-predictor/.venv/bin/gene-annotate \
   --input <FASTA_FILE(S)> \
-  --model gpt-5.5-high \
-  --kblh-data-dir /global_share/gene-annotation-predictor/data_sources/sequences/ \
-  --summaries-parquet /global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet \
+  --model gpt-5.6-terra-high \
+  --kblh \
+  --kblh-use-spark \
   --cts-interproscan \
-  --cts-diamond \
   --cts-username "$USER" \
   --output-dir <OUTPUT_DIR> \
   --threads 4 \
-  --kblh-use-spark \
   <OPTIONAL_FLAGS>
 ```
 
@@ -685,24 +683,24 @@ Off-cluster / laptop use (no CTS available) — swap the three CTS flags for `--
 
 **`--description-is-organism`**: Include this flag when organism names were placed in the FASTA description lines during input preparation (Step 1). Omit when no organism information is available for any sequence.
 
-**`--model` is a required CLI flag** — always include it. **Default: `gpt-5.5-high`** (bare name — the funded CBORG route). Validated on the PMI 18-genome bake-off: it matches `gpt-5.6-terra-high-flex` on tier distribution (≈86% agreement, same tier band) with clean structured output and reasoning-off, and — unlike the gpt-5.6 flex family — runs on a **funded** route. The CLI has no compiled-in default and will exit with an error if omitted.
+**`--model` is a required CLI flag** — always include it. **Recommended default: `gpt-5.6-terra-high`** (validated on the 40-organism / 10K-hypothetical runs; CBORG-routed — set `CBORG_API_KEY`). The CLI has no compiled-in default and will exit with an error if omitted. Full choices (run `--help` for the live list): `gpt-5.1`, `gpt-5.2`, `gpt-5.3`, `gpt-5.4`, `gpt-5.5`, `gpt-5.5-high`, `gpt-5.6-terra-high`, `gpt-5.6-luna-high`, `openai/gpt-5.6-terra-flex`, `openai/gpt-5.6-luna-flex`, `openai/gpt-5.6-terra-high-flex`, `openai/gpt-5.6-sol-flex`, `openai/gpt-5.5-high`, `openai/gpt-5.5-high-flex`, `gemma-4-thinking`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `claude-opus-4.5`.
 
-> **⚠ Route funding matters for gpt-5.5.** Use the **bare** `gpt-5.5-high` (or `amazon/gpt-5.5-high`) — the `openai/`-prefixed gpt-5.5 org is **credit-exhausted** (`429 insufficient_quota`) and will drop rows. The gpt-5.5 **flex** tier exists *only* under `openai/`, so it is currently unrunnable. Before a large run, smoke-test the chosen route's funding and keep `amazon/gpt-5.5-high` as the alternate. For gpt-5.6 variants the reverse holds: the bare `-high` names and `openai/…-flex` names are funded, while `openai/gpt-5.6-*-high` (non-flex) is credit-exhausted. When unsure, query `GET https://api.cborg.lbl.gov/v1/models` and ping the exact id.
+> **⚠ CBORG route funding drifts — smoke-test before a large run.** The gpt-5.6 `-high` tiers use the **bare** ids (`gpt-5.6-terra-high`, `gpt-5.6-luna-high`); the `-flex` tiers are served **only** under the `openai/` prefix (`openai/gpt-5.6-terra-flex`, `openai/gpt-5.6-luna-flex`). `create_model` forwards these to CBORG verbatim. Per-org credit state changes over time, so query `GET https://api.cborg.lbl.gov/v1/models` and ping the exact id before a big run; keep an Anthropic model as the fallback for rows a gpt route drops on `bio_policy`/5xx.
 
-Alternatives: `gpt-5.6-terra-high-flex` (best-calibrated + fastest *when* the flex org is funded), or an Anthropic model (`claude-opus-4.5`/`claude-sonnet-4.6`) to recover rows a gpt-5.x route drops on `bio_policy`/5xx.
+Alternatives: the `-flex` tiers (`openai/gpt-5.6-terra-flex`, `openai/gpt-5.6-luna-flex`) are cheaper/slower when their flex org is funded; the Anthropic models now get an ephemeral prompt-cache on the identical-per-run system prompt (OpenAI/Gemini cache implicitly on CBORG), and recover rows a gpt route drops on `bio_policy`/5xx.
 
 **InterProScan mode — one of the following is required** (mutually exclusive):
-- `--cts-interproscan` — **preferred on the lakehouse.** Submits InterProScan to the CDM Task Service. Requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` in `$REPO/.env`. Companion flags: `--cts-username <user>` (default: `$USER`), `--cts-cpus <N>` (default: 8), `--cts-memory <MEM>` (default: 16GB), `--cts-runtime <ISO8601>` (default: PT2H). Pairs naturally with `--cts-diamond` so the notebook node stays idle.
+- `--cts-interproscan` — **preferred on the lakehouse.** Submits InterProScan to the CDM Task Service. Requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` in `$REPO/.env`. Companion flags: `--cts-username <user>` (default: `$USER`), `--cts-cpus <N>` (default: 8), `--cts-memory <MEM>` (default: 16GB), `--cts-runtime <ISO8601>` (default: PT2H). In `--kblh` mode DIAMOND is offloaded to CTS automatically (same `--cts-cpus`/`--cts-memory`/`--cts-runtime` sizing), so the notebook node stays idle.
 - `--interproscan <path>` — local fallback for off-cluster runs. Default path: `./bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh`.
 
-**DIAMOND mode**:
-- `--cts-diamond` — **preferred on the lakehouse.** Offloads *all* built-in DIAMOND homology searches (PaperBLAST, Fitness Browser, Pangenome, STRING) to a single CTS job. All target databases ship as one refdata bundle bound to the runner image — no explicit refdata-id needed. Requires the same auth as `--cts-interproscan` plus `--cts-username`. Reuses `--cts-cpus` / `--cts-memory` / `--cts-runtime` for resource sizing. STRING side-table (SQLite) lookups still run locally.
-- Local DIAMOND (implicit when `--cts-diamond` is not passed) — falls back to the `diamond` binary from the conda env's PATH. Used automatically for off-cluster runs.
+**DIAMOND**:
+- In `--kblh` mode, **all** built-in DIAMOND searches (PaperBLAST, Fitness Browser, Pangenome, STRING) auto-offload to a single CTS job against the image-bound refdata bundle — there is **no `--cts-diamond` flag** (it was removed; the offload is implied by `--kblh`). Sized by `--cts-cpus`/`--cts-memory`/`--cts-runtime`; STRING SQLite side-table lookups still run locally.
+- In local mode, DIAMOND runs via the `diamond` binary from the conda env's PATH.
 
 > **⚠ CTS at scale — the default PT2H/8-CPU sizing silently fails on large inputs (>~5–10K proteins).** Learned on the PMI 50,152-rep run, which hit **three stacked limits** before IPR would complete. Size CTS jobs deliberately for big runs:
 > - **IPR runtime scales with input.** Rate ≈ **306 proteins / ~9 min at 8 CPU** (~110 CPU-h for 50K). At the default `--cts-runtime PT2H` a 50K IPR job needs ~24 h at 8 CPU → it is **killed mid-run**, and the CLI only logs a **WARNING** (`CTS InterProScan job failed … timed out …; continuing without IPR annotations`) — **not fatal.** The whole run then annotates with the entire InterProScan layer missing. **Always grep the log for `continuing without IPR`** on any CTS run; a monitor should treat it as a stop condition.
 > - **Hidden client-side poll cap.** `cts_client.py` has `_MAX_POLL_ATTEMPTS × _POLL_INTERVAL_SECONDS` (was `240 × 30s = 2 h`) that abandons the job **independently of `--cts-runtime`** — so bumping `--cts-runtime` alone still fails with `timed out after 7200s`. The cap must be ≥ the job runtime (raised here to `1500 × 60s = 25 h`). If you extend `--cts-runtime` past it, raise this too.
-> - **CTS hard limit: 500 CPU-hours per job** (`cpus × runtime_hours`). `--cts-cpus 32 --cts-runtime PT24H` = 768 → rejected `400 "greater than the limit of 500"`. **Both the IPR and DIAMOND CTS jobs reuse `--cts-cpus`/`--cts-runtime`, so both must fit under 500.**
+> - **CTS hard limit: 500 CPU-hours per job** (`cpus × runtime_hours`). `--cts-cpus 32 --cts-runtime PT24H` = 768 → rejected `400 "greater than the limit of 500"`. Both the InterProScan and (auto-offloaded) DIAMOND CTS jobs reuse `--cts-cpus`/`--cts-runtime`, so both must fit under 500.
 > - **Working config for ~50K proteins:** `--cts-cpus 32 --cts-runtime PT15H` (= 480 CPU-h, under the cap) with the poll cap ≥ 15 h. IPR finishes in ~3–4 h wall at 32 CPU.
 > - **If a single job still won't fit** (much larger inputs), **chunk the IPR**: split the FASTA into batches each under 500 CPU-h and under the poll cap, run one CTS IPR job per batch, and merge the per-batch `<cache_id>_ipr.tsv`/`.json` before the annotation run (which then reuses the merged cache). DIAMOND is fast and rarely needs chunking.
 
@@ -712,9 +710,11 @@ Alternatives: `gpt-5.6-terra-high-flex` (best-calibrated + fastest *when* the fl
 - `--fitness-threshold`, `--t-threshold` — Fitness Browser thresholds (default absolute fitness `0.4`, T-statistic `2.0`)
 - `--threads <N>` — override default 4
 - `--prompt-file <path>` — custom LLM prompt
+- `--extra-evidence-tsv <path>` — append verbatim per-sequence evidence blocks (any mode)
+- `--summaries-parquet <path>` — **ignored in `--kblh` mode** (summaries are read from `kescience.paperblast.summaries`); local mode only
 - `--source-config <output_dir>/berdl_sources.yaml` (alias: `--kblh-source-config`) — include when Step 1.5 produced a YAML
 - `--kblh-build-missing-dbs` — include when at least one source from Step 2.5 was approved for build
-- `--string-dir /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12` — adds STRING v12 network-association evidence (orthogroup identity + functional network partners). Recommended for any run where KBLH evidence may be sparse; independent of `--kblh-data-dir`.
+- `--string-dir /global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12` — adds STRING v12 network-association evidence (orthogroup identity + functional network partners). Recommended for any run where KBLH evidence may be sparse; independent of `--kblh`.
 - `--string-mode {edges,full}` — how STRING evidence is presented; **default `edges`** (corroborating network, transferred homolog annotation withheld). Pass `--string-mode full` only for legacy transferred-annotation behavior. Only meaningful with `--string-dir`.
 - `--tier <comma-list>` — include only when Step 2.6 produced a strict subset of `A,B,C` (e.g., `--tier A` or `--tier A,B`). Omit when all three tiers are selected (the CLI default is `A,B,C`).
 
@@ -960,14 +960,13 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--model` | *(required)* | LLM model — valid choices include: `gpt-5.5`, `gpt-5.5-high`, `gpt-5.6-terra-high`, `gpt-5.6-luna-high`, `openai/gpt-5.6-terra-flex`, `openai/gpt-5.6-terra-high-flex`, `openai/gpt-5.6-sol-flex`, `gpt-5.1`–`gpt-5.4`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `claude-opus-4.5`. **Default `gpt-5.5-high`** (bare name = funded route). See the route-funding note in Step 3: prefer bare/`amazon/` for gpt-5.5; gpt-5.5 flex is unavailable (credit-exhausted `openai/` org). To register a new CBORG model, add it to `cli._MODELS` + `model_loader._MODEL_CHOICES` (routing matches `gpt-5.5*`/`gpt-5.6*` and `openai/`-prefixed variants). |
+| `--model` | *(required)* | LLM model. Choices include `gpt-5.1`–`gpt-5.4`, `gpt-5.5`, `gpt-5.5-high`, `gpt-5.6-terra-high`, `gpt-5.6-luna-high`, `openai/gpt-5.6-terra-flex`, `openai/gpt-5.6-luna-flex`, `openai/gpt-5.6-terra-high-flex`, `openai/gpt-5.6-sol-flex`, `openai/gpt-5.5-high`, `openai/gpt-5.5-high-flex`, `gemma-4-thinking`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `claude-opus-4.5` (run `--help` for the live list). **Recommended `gpt-5.6-terra-high`** (CBORG). To register a new CBORG model, add it to `cli._MODELS` + `model_loader._MODEL_CHOICES`; the `gpt-5.5*`/`gpt-5.6*` catch-all in `create_model` routes it verbatim (bare id for `-high`, `openai/`-prefixed for `-flex`). |
 | `--interproscan` | *(one required)* | Path to local `interproscan.sh`. Mutually exclusive with `--cts-interproscan`. |
 | `--cts-interproscan` | *(one required)* | Run InterProScan remotely via CTS. Needs `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`. |
 | `--cts-username` | `$USERNAME` | KBase username for CTS S3 path construction (used with `--cts-interproscan`). |
 | `--cts-cpus` | `8` | CPUs for the CTS InterProScan job. |
 | `--cts-memory` | `16GB` | Memory for the CTS InterProScan job. |
 | `--cts-runtime` | `PT2H` | Max runtime for the CTS InterProScan job (ISO 8601 duration). |
-| `--cts-diamond` | `false` | Offload all built-in DIAMOND homology searches (PaperBLAST, Fitness, Pangenome, STRING) to a single CTS job. The DIAMOND database bundle is bound to the runner image as CTS refdata — no explicit id needed. Reuses `--cts-cpus` / `--cts-memory` / `--cts-runtime`. |
 | `--threads` | `4` | CPU threads for DIAMOND and InterProScan |
 | `--output-dir` | `./output` | Where to write results |
 | `--evalue` | `1e-3` | E-value cutoff for DIAMOND hits |
@@ -975,10 +974,10 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 | `--max-identity` | `1.0` | Maximum sequence identity (0-1). Hits above are excluded — used to force reasoning from distant homologs (e.g., ablation runs). |
 | `--query-coverage` | `80.0` | Query coverage % for DIAMOND |
 | `--subject-coverage` | `80.0` | Subject coverage % for DIAMOND |
-| `--fitness-threshold` | `0.4` | Minimum absolute fitness score |
-| `--t-threshold` | `2.0` | Minimum T-statistic for fitness data |
+| `--fitness-threshold` | `1.0` | Keep experiments with \|fit\| ≥ value |
+| `--t-threshold` | `4.0` | Keep experiments with \|t\| ≥ value |
 | `--prompt-file` | built-in | Custom system prompt for the LLM |
-| `--string-dir` | *(omit to skip)* | Path to STRING v12 data directory (`string_proteins.dmnd` + `string.sqlite`). Use `/global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12`. Independent of `--kblh-data-dir`; adds `string_evidence` column to output. |
+| `--string-dir` | *(omit to skip)* | Path to STRING v12 data directory (`string_proteins.dmnd` + `string.sqlite`). Use `/global_share/gene-annotation-predictor/data_sources/sequences/STRING_v12`. Independent of `--kblh`; adds `string_evidence` column to output. |
 | `--string-mode` | `edges` | STRING presentation: `edges` (default) withholds the transferred homolog annotation + drops text-mining-only partners, keeping the partner network + orthogroups; `full` = legacy transferred-annotation behavior. Only used with `--string-dir`. |
 | `GENE_ANNOTATE_SKIP_REASONING` *(env var)* | *(unset)* | Set to `1` to skip the separate reasoning pass and halve per-sequence token cost. `reasoning_trace` is still populated; only the raw `reasoning` column is left empty. **Firm default per Step 2.7: set it** (validated no-regression; only leave unset if the user asks to keep the raw reasoning output). |
 
@@ -1002,6 +1001,11 @@ Tier definitions are authoritative in `/global_share/gene-annotation-predictor/g
 - Required output: fold name as a family-level stub only (e.g., `P450 superfamily protein, substrate undetermined`). No substrate, pathway, or reaction mechanism guesses.
 
 ## Caching
+
+**LLM prompt caching (CBORG).** The system prompt is identical across every sequence in a run, so it is
+cached: OpenAI/Gemini models cache implicitly on CBORG (no flag; kicks in above ~1024 tokens, which these
+prompts always exceed), and the Anthropic wrappers tag it with an ephemeral `cache_control` breakpoint.
+Nothing to configure; `cached_tokens` in the output telemetry shows realized hit rate.
 
 DIAMOND results and batch evidence files are cached under `<output-dir>/.cache/`, and completed
 per-sequence annotations are appended incrementally to the output TSV. Subsequent runs with the same
@@ -1034,7 +1038,7 @@ an Anthropic model) and relaunch. Do not delete `<output-dir>/.cache/` unless yo
 | `CTS job submission failed (401) … Invalid token` (InterProScan and/or `FATAL: paperblast_uniq batch fetch failed`) | The CLI's `load_kblh_token()` reads `.env` from the **current working directory**, ignoring the env var. Running from `/global_share/gene-annotation-predictor` picks up that dir's **stale** `.env` token even when `$REPO/.env` is valid. | `cd $REPO` before invoking (all lakehouse paths are absolute, so CWD need not be the package dir). Verify with `curl -s -o /dev/null -w '%{http_code}' -H "Authorization: $KBASE_AUTH_TOKEN" https://kbase.us/services/auth/api/V2/token` → expect `200`. |
 | `ERROR: … 400 … code: bio_policy` ("flagged for possible biological risk") on a row | The CBORG/OpenAI gateway applies a **content filter** to some pathogen / select-agent-adjacent sequences (observed on *Vibrio cholerae*). It is newly deployed / intermittent — the same genes annotated fine in earlier runs, and a plain retry with the same model does **not** clear it. Any same-model gpt-5.x re-run (including `gpt-5.6-terra-high`) touching such organisms will systematically lose those rows. | Re-annotate the flagged genes with an **Anthropic model** (`--model claude-opus-4.5` or `claude-sonnet-4.6`), whose filter differs; or retain their prior annotations. Those rows will carry a different `model` tag than the rest of the run. |
 | `ERROR: … timeout` / HTTP 5xx / Cloudflare "error 524" on a large-prompt sequence, **reproducible across same-model retries** | Distinct from `bio_policy`: a large evidence prompt hits a **reproducible** (not transient) gateway/tunnel timeout at the CBORG/CTS gateway. A same-model retry (any gpt-5.x, including `gpt-5.6-terra-high`) fails identically and the row is silently lost. (These 5xx/timeout lines are missed by a `40[13]`-only log scan — see the widened grep in Step 2.) | Re-annotate those specific rows with an **Anthropic model** (`--model claude-opus-4.5`/`claude-sonnet-4.6`), which succeeds — same remediation as `bio_policy`. Distinguish from `bio_policy` by the absence of a `400 … bio_policy` code. Recovered rows carry a different `model` tag. |
-| DIAMOND not found (local off-cluster mode) | `diamond` binary not on PATH — it ships in the conda env, not the package `./bin/` | `conda activate gene-annotation-predictor` so DIAMOND (≥ 2.2.3) is on PATH; on the lakehouse prefer `--cts-diamond` and this never applies |
+| DIAMOND not found (local off-cluster mode) | `diamond` binary not on PATH — it ships in the conda env, not the package `./bin/` | `conda activate gene-annotation-predictor` so DIAMOND (≥ 2.2.3) is on PATH; on the lakehouse DIAMOND auto-offloads to CTS via `--kblh` and this never applies |
 | `Spark Connect session did not respond within 90s` / "server listening but not serving sessions (zombie driver)" | The Spark Connect driver went into a zombie state (listening but not serving sessions) — often after a prior query was killed or timed out. **Affects the main annotation run too:** a dead session makes the CLI silently skip the `pangenome_neighborhood` evidence source (no error), not just standalone build scripts. | Restart the Connect server: `python3 -c "from berdl_notebook_utils.refresh import refresh_spark_environment; refresh_spark_environment()"` (also rotates MinIO creds), then re-invoke. If it recurs, restart the JupyterHub kernel/session. On the main run, confirm recovery via the early-log check that `Fetching built-in evidence: pangenome_neighborhood …` appears. Because the run is resume-safe (see Caching), just relaunch with the same `--output-dir`. |
 | Spark session error (other) | Spark dependencies missing | Check that Spark deps are installed in the conda + Poetry environment |
 
@@ -1054,8 +1058,8 @@ an Anthropic model) and relaunch. Do not delete `<output-dir>/.cache/` unless yo
 2. **Use `--description-is-organism`** only when organism information was available and included in the FASTA descriptions during input preparation. Do not include it when the FASTA headers contain only sequence IDs.
 3. **Do not pass any API key flag** — the CLI auto-detects `CBORG_API_KEY` then `ANTHROPIC_API_KEY` from the environment. Only use `--api-key` if the user provides a literal key to override. Do not ask the user unless no key is found in the environment.
 4. **Activate the conda env before running** (`conda activate gene-annotation-predictor`) so the `aws` CLI (used by the CTS uploader) and DIAMOND (off-cluster fallback) are on PATH. Then `cd $REPO` (the BERIL repo — **not** the package dir) and invoke the CLI via its `.venv` path: `/global_share/gene-annotation-predictor/.venv/bin/gene-annotate …`. Running from `$REPO` is required because the CLI reads `KBASE_AUTH_TOKEN` from `.env` in the CWD; the package dir's `.env` frequently holds a stale token that `401`s every CTS job (see the token note under "Package Location" and the Error Handling row). The repo `.venv` is Python 3.13 and holds all Python deps (including `berdl_notebook_utils`); the conda env is Python 3.12 and holds shell binaries only. Do not rely on `gene-annotate` resolving via the conda env — the conda env's Poetry install has been observed to drift out of sync with the source tree.
-5. **On the lakehouse, dispatch InterProScan and DIAMOND to CTS by default** — include `--cts-interproscan --cts-diamond --cts-username "$USER"` in every lakehouse invocation unless the user explicitly asks for local mode. The JupyterHub node's CPU/memory is shared and limited; CTS offload is the standard operating configuration.
-6. **Always include `--summaries-parquet`** pointing to `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet`.
+5. **On the lakehouse, run in `--kblh` mode with `--cts-interproscan`** — include `--kblh --cts-interproscan --cts-username "$USER"` in every lakehouse invocation unless the user explicitly asks for local mode. `--kblh` auto-offloads all DIAMOND to CTS; there is no `--cts-diamond` flag. Use the `--kblh` selector, not the deprecated `--kblh-data-dir`.
+6. **Do not pass `--summaries-parquet` in `--kblh` mode** — it is ignored there (PaperBLAST summaries are read from `kescience.paperblast.summaries`). It applies to local mode only.
 7. **After completion**, always read and summarize the output TSV — don't just report success.
 8. **For large inputs** (>50 sequences), warn the user about runtime and consider suggesting background execution.
 9. **When the input is from `kbase_ke_pangenome` and the user named organisms by common name**, do GTDB clade resolution (Step 1's "When pulling from kbase_ke_pangenome by organism name" subsection) BEFORE pulling sequences. Surface any clade ambiguity via `AskUserQuestion`.
