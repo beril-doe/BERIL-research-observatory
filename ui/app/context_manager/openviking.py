@@ -97,6 +97,33 @@ def user_target_root(orcid_id: str, project_slug: str) -> str:
     return f"{USERS_TARGET_URI}{orcid_id}/{project_slug}"
 
 
+def user_namespace_root(orcid_id: str) -> str:
+    """Everything one user has ingested, across all their projects."""
+    return f"{USERS_TARGET_URI}{orcid_id}"
+
+
+def listing_uri(
+    orcid_id: str, project_slug: str | None = None, relative_path: str | None = None
+) -> str:
+    """Resolve a listing target inside ``orcid_id``'s own namespace.
+
+    The ORCiD comes from the authenticated session, never from caller input, so
+    a caller cannot address another user's files however they spell the
+    arguments. This is the whole reason the API takes a project and a relative
+    path rather than a URI: a URI would have to be validated against the
+    caller's prefix, and a missed check would read someone else's data.
+
+    Raises ``ValueError`` on a traversal attempt, which would otherwise climb
+    out of the namespace the ORCiD pins.
+    """
+    root = user_namespace_root(orcid_id)
+    if project_slug:
+        root = f"{root}/{project_slug}"
+    if not relative_path:
+        return root
+    return target_uri(root, relative_path)
+
+
 def target_uri(target_root: str, relative_path: str) -> str:
     """Join an ingest root and a sanitized relative path into a target URI.
 
@@ -249,11 +276,32 @@ class OpenVikingManager(ContextManager):
             task_id=(submitted or {}).get("task_id"),
         )
 
-    async def list_files(self) -> list[ContextFile]:
+    async def list_files(
+        self,
+        uri: str,
+        *,
+        recursive: bool = False,
+        simple: bool = False,
+        node_limit: int | None = None,
+    ) -> list:
+        """List the resources at ``uri``.
+
+        ``uri`` is resolved by the caller (see ``listing_uri``) — this method
+        does not scope it, so it must never be handed unvalidated caller input.
+
+        A listing of a path the backend does not know is an empty list, not an
+        error: an un-ingested project is a legitimate state, not a failure.
+        """
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
-        results = await ov_client.list_files("resources/projects")
-        await ov_client.close()
-        return results
+        try:
+            results = await ov_client.list_files(
+                uri, recursive=recursive, simple=simple, node_limit=node_limit
+            )
+        finally:
+            # Closed even when the listing raises, so a failure does not leak
+            # the connection.
+            await ov_client.close()
+        return list(results or [])
 
     async def query(self, query: ContextQuery) -> ContextQueryResults:
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)

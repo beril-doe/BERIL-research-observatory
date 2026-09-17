@@ -132,9 +132,24 @@ class OpenVikingClient:
             options=options or None,
         )
 
-    async def list_files(self, root_path: str) -> dict:
-        result = await self._client.ls(f"viking://{root_path}")
-        return result
+    async def list_files(
+        self,
+        uri: str,
+        *,
+        recursive: bool = False,
+        simple: bool = False,
+        node_limit: int | None = None,
+    ) -> list:
+        """List resources at a full ``viking://`` URI.
+
+        Takes a complete URI rather than a bare path: callers now resolve the
+        target themselves (scoping it to the authenticated user), so prepending
+        a scheme here would mean parsing it back off again.
+        """
+        options = {"recursive": recursive, "simple": simple}
+        if node_limit is not None:
+            options["node_limit"] = node_limit
+        return await self._client.ls(uri, **options)
 
     async def get_task(self, task_id: str) -> dict | None:
         """Fetch an async task record, or None if the backend no longer has it.

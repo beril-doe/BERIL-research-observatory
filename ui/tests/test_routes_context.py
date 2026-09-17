@@ -353,6 +353,150 @@ async def test_ls_returns_file_listing(client, credentialed_user, manager):
     manager.list_files.assert_awaited_once()
 
 
+async def test_ls_without_a_project_lists_the_users_namespace(
+    client, credentialed_user, manager
+):
+    _login(client)
+    client.get("/api/context/ls")
+
+    uri = manager.list_files.await_args.args[0]
+    assert uri == f"viking://resources/users/{USER_TOKEN['orcid']}"
+
+
+async def test_ls_scopes_a_project_to_the_caller(client, credentialed_user, manager):
+    _login(client)
+    client.get("/api/context/ls", params={"project": "Acinetobacter ADP1 Explorer"})
+
+    uri = manager.list_files.await_args.args[0]
+    # Slugified, and under the caller's own ORCiD.
+    assert uri == (
+        f"viking://resources/users/{USER_TOKEN['orcid']}/acinetobacter_adp1_explorer"
+    )
+
+
+async def test_ls_appends_a_relative_path(client, credentialed_user, manager):
+    _login(client)
+    client.get("/api/context/ls", params={"project": "alpha", "path": "memories"})
+
+    uri = manager.list_files.await_args.args[0]
+    assert uri == f"viking://resources/users/{USER_TOKEN['orcid']}/alpha/memories"
+
+
+async def test_ls_forwards_listing_options(client, credentialed_user, manager):
+    _login(client)
+    client.get(
+        "/api/context/ls",
+        params={"project": "alpha", "recursive": "true", "simple": "true",
+                "node_limit": 50},
+    )
+
+    kwargs = manager.list_files.await_args.kwargs
+    assert (kwargs["recursive"], kwargs["simple"], kwargs["node_limit"]) == (
+        True, True, 50
+    )
+
+
+async def test_ls_applies_option_defaults(client, credentialed_user, manager):
+    _login(client)
+    client.get("/api/context/ls")
+
+    kwargs = manager.list_files.await_args.kwargs
+    assert (kwargs["recursive"], kwargs["simple"], kwargs["node_limit"]) == (
+        False, False, None
+    )
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["../0000-9999-9999-9999", "../../users/other", "..", "a/../../escape"],
+)
+async def test_ls_rejects_traversal_out_of_the_namespace(
+    client, credentialed_user, manager, path
+):
+    """A caller must not be able to list another user's files.
+
+    The ORCiD prefix is applied server-side, so this is the only way a request
+    could try to reach past it — and it is refused before the backend is asked.
+    """
+    _login(client)
+    resp = client.get(
+        "/api/context/ls", params={"project": "alpha", "path": path}
+    )
+
+    assert resp.status_code == 422
+    manager.list_files.assert_not_awaited()
+
+
+async def test_ls_rejects_a_path_without_a_project(
+    client, credentialed_user, manager
+):
+    """`path` alone would resolve against the namespace root."""
+    _login(client)
+    resp = client.get("/api/context/ls", params={"path": "memories"})
+
+    assert resp.status_code == 422
+    manager.list_files.assert_not_awaited()
+
+
+async def test_ls_rejects_an_unusable_project_name(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = client.get("/api/context/ls", params={"project": "!!!"})
+
+    assert resp.status_code == 422
+    manager.list_files.assert_not_awaited()
+
+
+@pytest.mark.parametrize("node_limit", [0, 10_000_000])
+async def test_ls_rejects_out_of_range_node_limit(
+    client, credentialed_user, manager, node_limit
+):
+    _login(client)
+    resp = client.get(
+        "/api/context/ls", params={"node_limit": node_limit}
+    )
+
+    assert resp.status_code == 422
+    manager.list_files.assert_not_awaited()
+
+
+async def test_ls_does_not_use_a_caller_supplied_orcid(
+    client, credentialed_user, manager
+):
+    """An `orcid` parameter is not part of the API and must not be honored."""
+    _login(client)
+    client.get(
+        "/api/context/ls",
+        params={"project": "alpha", "orcid": "0000-0009-8888-7777"},
+    )
+
+    uri = manager.list_files.await_args.args[0]
+    assert USER_TOKEN["orcid"] in uri
+    assert "0000-0009-8888-7777" not in uri
+
+
+async def test_ls_empty_listing_is_not_an_error(client, credentialed_user, manager):
+    """An un-ingested project lists empty rather than 404."""
+    manager.list_files = AsyncMock(return_value=[])
+    _login(client)
+    resp = client.get("/api/context/ls", params={"project": "never_ingested"})
+
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+async def test_ls_surfaces_backend_failure_as_502(client, credentialed_user):
+    inst = MagicMock()
+    inst.list_files = AsyncMock(side_effect=UnavailableError("backend down"))
+    _login(client)
+    with patch("app.routes.context.OpenVikingManager", return_value=inst):
+        resp = client.get("/api/context/ls")
+
+    assert resp.status_code == 502
+    assert "backend down" not in resp.text
+
+
 async def test_ls_decrypts_stored_key_for_manager(client, credentialed_user):
     _login(client)
     inst = MagicMock()
