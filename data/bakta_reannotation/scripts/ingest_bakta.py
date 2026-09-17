@@ -17,10 +17,9 @@ Usage:
 
 import os
 
-from berdl_notebook_utils.berdl_settings import get_settings
-from berdl_notebook_utils.minio_governance import get_minio_credentials
+from berdl_notebook_utils import get_s3_client
+from berdl_notebook_utils.governance import get_credentials
 from data_lakehouse_ingest import ingest
-from minio import Minio
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 FINAL_DIR = "/pscratch/sd/p/psdehal/bakta_reannotation/tables/final"
@@ -38,18 +37,8 @@ FILES_TO_UPLOAD = [
 
 def main():
     # Get MinIO credentials
-    creds = get_minio_credentials()
-    settings = get_settings()
-    endpoint = settings.MINIO_ENDPOINT_URL.replace("https://", "").replace(
-        "http://", ""
-    )
-
-    minio_client = Minio(
-        endpoint=endpoint,
-        access_key=creds.access_key,
-        secret_key=creds.secret_key,
-        secure=True,
-    )
+    creds = get_credentials()
+    minio_client = get_s3_client()
     print(f"MinIO client ready (user: {creds.username})")
 
     # Upload files
