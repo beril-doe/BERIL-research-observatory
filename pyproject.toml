@@ -1,6 +1,6 @@
 [project]
 name = "beril-cli"
-version = "0.0.6"
+dynamic = ["version"]
 description = "BERIL Research Observatory — CLI launcher and environment manager"
 requires-python = ">=3.11"
 license = "MIT"
@@ -24,5 +24,12 @@ dev = [
 beril = "beril_cli.cli:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+# Only three-component release tags are eligible. Without this, any tag becomes a
+# version candidate: the repo already carries `archive/verify-ingest-2026-04-attempt`,
+# which `git describe` cannot parse, and `v0.3.4.5`, which is not our scheme.
+raw-options = { tag_regex = '^v(?P<version>[0-9]+\.[0-9]+\.[0-9]+)$' }
