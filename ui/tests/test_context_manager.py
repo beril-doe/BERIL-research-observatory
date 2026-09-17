@@ -30,7 +30,9 @@ from app.context_manager.openviking import (
     UnauthenticatedError,
     context_slugify,
     get_user_ov_api_key,
+    listing_uri,
     target_uri,
+    user_namespace_root,
     user_target_root,
 )
 from app.crypto import decrypt_secret, encrypt_secret
@@ -150,12 +152,37 @@ async def test_find_wraps_score_threshold_in_options(settings, patched_sdk):
     assert patched_sdk.find.await_args.kwargs["options"] == {"score_threshold": 0.75}
 
 
-async def test_list_files_prefixes_viking_scheme(settings, patched_sdk):
-    """``list_files`` takes a bare path and builds the ``viking://`` URI."""
-    client = await OpenVikingClient.create("user-key")
-    await client.list_files("resources/projects")
+async def test_list_files_passes_the_uri_through(settings, patched_sdk):
+    """``list_files`` takes a full URI — callers resolve the target themselves.
 
-    patched_sdk.ls.assert_awaited_once_with("viking://resources/projects")
+    Scoping happens above this layer (see ``listing_uri``), so prepending a
+    scheme here would mean parsing it back off again.
+    """
+    client = await OpenVikingClient.create("user-key")
+    await client.list_files("viking://resources/users/0000-1/alpha")
+
+    patched_sdk.ls.assert_awaited_once_with(
+        "viking://resources/users/0000-1/alpha", recursive=False, simple=False
+    )
+
+
+async def test_list_files_forwards_listing_options(settings, patched_sdk):
+    client = await OpenVikingClient.create("user-key")
+    await client.list_files(
+        "viking://x", recursive=True, simple=True, node_limit=25
+    )
+
+    patched_sdk.ls.assert_awaited_once_with(
+        "viking://x", recursive=True, simple=True, node_limit=25
+    )
+
+
+async def test_list_files_omits_an_unset_node_limit(settings, patched_sdk):
+    """An unset node_limit leaves the backend's own default in place."""
+    client = await OpenVikingClient.create("user-key")
+    await client.list_files("viking://x")
+
+    assert "node_limit" not in patched_sdk.ls.await_args.kwargs
 
 
 async def test_close_closes_underlying_client(settings, patched_sdk):
@@ -376,18 +403,38 @@ async def test_query_closes_the_client(settings, patched_sdk):
 # ---------------------------------------------------------------------------
 
 
-async def test_list_files_queries_the_projects_root(settings, patched_sdk):
+async def test_list_files_lists_the_given_uri(settings, patched_sdk):
     manager = OpenVikingManager(settings, "user-key")
-    out = await manager.list_files()
+    out = await manager.list_files("viking://resources/users/0000-1/alpha")
 
-    patched_sdk.ls.assert_awaited_once_with("viking://resources/projects")
+    patched_sdk.ls.assert_awaited_once_with(
+        "viking://resources/users/0000-1/alpha", recursive=False, simple=False
+    )
     assert out == ["alpha.md", "beta.md"]
+
+
+async def test_list_files_returns_empty_for_an_unknown_path(settings, patched_sdk):
+    """An un-ingested project is empty, not an error."""
+    patched_sdk.ls.return_value = None
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert await manager.list_files("viking://x/never-ingested") == []
 
 
 async def test_list_files_closes_the_client(settings, patched_sdk):
     """Regression: same un-awaited ``close()`` leak as in ``query``."""
     manager = OpenVikingManager(settings, "user-key")
-    await manager.list_files()
+    await manager.list_files("viking://x")
+
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_list_files_closes_the_client_when_ls_raises(settings, patched_sdk):
+    patched_sdk.ls.side_effect = UnavailableError("backend down")
+    manager = OpenVikingManager(settings, "user-key")
+
+    with pytest.raises(UnavailableError):
+        await manager.list_files("viking://x")
 
     patched_sdk.close.assert_awaited_once()
 
@@ -561,6 +608,44 @@ def test_target_uri_preserves_nested_path():
 def test_target_uri_rejects_traversal(bad):
     with pytest.raises(ValueError):
         target_uri("viking://resources/users/orcid/proj", bad)
+
+
+def test_user_namespace_root_is_the_whole_user():
+    assert user_namespace_root("0000-1") == "viking://resources/users/0000-1"
+
+
+def test_listing_uri_scopes_to_the_users_namespace():
+    """Every listing target sits under the caller's ORCiD, at every depth."""
+    assert listing_uri("0000-1") == "viking://resources/users/0000-1"
+    assert listing_uri("0000-1", "alpha") == "viking://resources/users/0000-1/alpha"
+    assert (
+        listing_uri("0000-1", "alpha", "memories/pitfalls.md")
+        == "viking://resources/users/0000-1/alpha/memories/pitfalls.md"
+    )
+
+
+def test_listing_uri_cannot_reach_another_users_namespace():
+    """The ORCiD prefix is structural, not a string the caller can escape.
+
+    This is the guarantee that lets the route skip prefix validation: a
+    traversal that would climb out is rejected rather than resolved.
+    """
+    for attack in ["../0000-2", "../../users/0000-2", "..", "a/../../0000-2"]:
+        with pytest.raises(ValueError):
+            listing_uri("0000-1", "alpha", attack)
+
+
+def test_listing_uri_rejects_a_path_that_escapes_via_the_project():
+    """A traversal in the relative path cannot climb past the project either."""
+    with pytest.raises(ValueError):
+        listing_uri("0000-1", "alpha", "../beta/secret.md")
+
+
+def test_listing_uri_two_users_never_collide():
+    a = listing_uri("0000-0001-2345-6789", "shared_name")
+    b = listing_uri("0000-0002-9999-9999", "shared_name")
+
+    assert a != b
 
 
 # ---------------------------------------------------------------------------

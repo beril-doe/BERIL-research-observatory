@@ -24,6 +24,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     Request,
     UploadFile,
     status,
@@ -41,6 +42,7 @@ from app.context_manager.base import (
     INGEST_SKIPPED,
     INGEST_STATUSES,
     INGEST_UNKNOWN,
+    MAX_LS_NODE_LIMIT,
     TERMINAL_INGEST_STATUSES,
     ContextIngestResults,
     ContextQueryResults,
@@ -57,6 +59,7 @@ from app.context_manager.openviking import (
     UnauthenticatedError,
     context_slugify,
     get_user_ov_api_key,
+    listing_uri,
     target_uri,
     user_target_root,
 )
@@ -135,11 +138,71 @@ async def post_context_find(
 @ROUTER_CONTEXT.get("/api/context/ls")
 async def get_context_files(
     request: Request,
+    project: str | None = Query(
+        default=None,
+        description="Project to list. Omitted lists the caller's projects.",
+    ),
+    path: str | None = Query(
+        default=None, description="Relative path within the project."
+    ),
+    recursive: bool = Query(default=False),
+    simple: bool = Query(default=False, description="Return paths only."),
+    node_limit: int | None = Query(default=None, ge=1, le=MAX_LS_NODE_LIMIT),
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db)
-):
+) -> list:
+    """List what the caller has ingested.
+
+    Addressed by project and relative path, not by URI: the namespace is
+    resolved from the authenticated ORCiD, so a caller cannot name another
+    user's files however they spell the arguments. A URI parameter would have
+    to be validated against the caller's own prefix, and one missed check would
+    expose someone else's data — so the API simply cannot express it.
+
+    With no ``project``, lists the caller's projects. ``path`` without a
+    ``project`` is rejected: it would otherwise silently resolve against the
+    namespace root and list across projects.
+
+    An un-ingested project lists empty rather than 404 — it is a legitimate
+    state, and distinguishing it would report on a namespace the caller may not
+    have written yet.
+    """
+    if path and not project:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="`path` requires `project`.",
+        )
+
+    slug = None
+    if project is not None:
+        slug = context_slugify(project)
+        if not slug:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Invalid project name: {project!r}",
+            )
+
+    try:
+        uri = listing_uri(user.orcid_id, slug, path)
+    except ValueError as exc:
+        # A traversal segment, which would climb out of the caller's namespace.
+        logger.warning("Rejected listing path %r for user %s: %s", path, user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Invalid path: {path!r}",
+        ) from exc
+
     manager = await resolve_context_manager(db, user)
-    return await manager.list_files()
+    try:
+        return await manager.list_files(
+            uri, recursive=recursive, simple=simple, node_limit=node_limit
+        )
+    except QUERY_FAILURES as exc:
+        logger.warning("Context listing failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not list that path.",
+        ) from exc
 
 async def _resolve_project(
     db: AsyncSession, user: BerilUser, project: str
