@@ -91,7 +91,7 @@ def info(msg: str) -> None:
 # ----------------- User attribution (BERIL addition) -----------------
 # One rule for both hooks; the sibling module carries the definition. Runs as
 # a script, so the hook's own directory is already on sys.path.
-from langfuse_artifacts import get_user_id  # noqa: E402
+from langfuse_artifacts import get_user_id, relay_client_kwargs  # noqa: E402
 
 # ----------------- State locking (best-effort) -----------------
 class FileLock:
@@ -712,11 +712,10 @@ def main() -> int:
     if os.environ.get("TRACE_TO_LANGFUSE", "") != "true":
         return 0
 
-    public_key = os.environ.get("CC_LANGFUSE_PUBLIC_KEY") or os.environ.get("LANGFUSE_PUBLIC_KEY")
-    secret_key = os.environ.get("CC_LANGFUSE_SECRET_KEY") or os.environ.get("LANGFUSE_SECRET_KEY")
-    host = os.environ.get("CC_LANGFUSE_BASE_URL") or os.environ.get("LANGFUSE_BASE_URL") or "https://cloud.langfuse.com"
-
-    if not public_key or not secret_key:
+    # BERIL addition: no keys on this machine — the SDK is pointed at the
+    # BERIL relay and authenticated with the `beril login` token.
+    client_kwargs = relay_client_kwargs()
+    if not client_kwargs:
         return 0
 
     payload = read_hook_payload()
@@ -733,7 +732,7 @@ def main() -> int:
 
     langfuse = None
     try:
-        langfuse = Langfuse(public_key=public_key, secret_key=secret_key, host=host)
+        langfuse = Langfuse(**client_kwargs)
     except Exception:
         return 0
 

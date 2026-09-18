@@ -77,6 +77,12 @@ class Settings(BaseSettings):
     # urlsafe-base64-encoded 32-byte key; generate with Fernet.generate_key().
     ov_credential_key: str | None = None
 
+    # Langfuse relay (app/routes/langfuse.py): the shared project keypair lives
+    # only here. Leave the keys unset to disable the relay (503).
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+    langfuse_base_url: str = "https://us.cloud.langfuse.com"
+
     # Derived paths
     @property
     def db_url(self) -> str:

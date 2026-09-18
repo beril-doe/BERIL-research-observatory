@@ -111,7 +111,7 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/langfuse-run.sh\" langfuse_artifacts.py"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/langfuse-run.sh\" --bg langfuse_artifacts.py"
           }
         ]
       }

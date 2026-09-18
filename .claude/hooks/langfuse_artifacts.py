@@ -6,15 +6,16 @@ beril_cli.project_resolution) and attaches REPORT.md / RESEARCH_PLAN.md /
 WORKLOG.md as media on a span carrying the session_id, so the files land next
 to the session's conversation traces. Strictly best-effort: always exits 0.
 
-Also the single home of get_user_id(), imported by langfuse_hook.py so both
-hooks attribute to the same identity.
+Also the single home of get_user_id() and relay_client_kwargs(), imported by
+langfuse_hook.py so both hooks attribute to the same identity and reach
+Langfuse the same way: through the BERIL relay (ui/app/routes/langfuse.py),
+authenticated with the `beril login` token. No Langfuse keys on this machine.
 
 Failures are logged to ~/.claude/state/langfuse_artifacts.log.
 """
 
 import json
 import os
-import subprocess
 import sys
 import threading
 from datetime import datetime, timezone
@@ -41,19 +42,48 @@ def log(msg: str) -> None:
 
 
 @lru_cache(maxsize=1)
+def _login():
+    """The `beril login` record, or None (not logged in / unreadable / no CLI)."""
+    try:
+        from beril_cli.auth_store import load
+
+        return load()
+    except Exception as e:
+        log(f"login record unavailable: {type(e).__name__}: {e}")
+        return None
+
+
+@lru_cache(maxsize=1)
 def get_user_id() -> str | None:
-    """LANGFUSE_USER_ID > git user.email > $USER — one rule for both hooks."""
+    """LANGFUSE_USER_ID > ORCiD from `beril login` — one rule for both hooks."""
     uid = os.environ.get("LANGFUSE_USER_ID", "").strip()
-    if not uid:
-        try:
-            r = subprocess.run(
-                ["git", "config", "user.email"],
-                capture_output=True, text=True, timeout=5, cwd=REPO_ROOT,
-            )
-            uid = r.stdout.strip() if r.returncode == 0 else ""
-        except Exception:
-            uid = ""
-    return uid or os.environ.get("USER") or None
+    if uid:
+        return uid
+    rec = _login()
+    return rec.orcid_id if rec else None
+
+
+def relay_client_kwargs() -> dict | None:
+    """Langfuse() kwargs that route through the BERIL relay, or None if not logged in.
+
+    The SDK only speaks Basic auth, so the BERIL personal access token rides
+    as the password; the relay validates it and swaps in the server-held
+    project keypair. The custom User-Agent matters: Cloudflare in front of the
+    prod server 403s some default Python UAs (see beril_cli.auth_cmd).
+
+    ``base_url`` (not ``host``): the SDK resolves base_url > $LANGFUSE_BASE_URL
+    > host, so with ``host`` a stale LANGFUSE_BASE_URL in .env would send the
+    BERIL token to Langfuse Cloud instead of the relay.
+    """
+    rec = _login()
+    if rec is None:
+        return None
+    return {
+        "public_key": "beril",
+        "secret_key": rec.token,
+        "base_url": rec.base_url.rstrip("/") + "/lf",
+        "additional_headers": {"User-Agent": "beril-langfuse-hook"},
+    }
 
 
 def find_uploads(session_id: str, repo_root: Path) -> tuple[str, list[Path]] | None:
@@ -71,11 +101,8 @@ def find_uploads(session_id: str, repo_root: Path) -> tuple[str, list[Path]] | N
 def main() -> int:
     if os.environ.get("TRACE_TO_LANGFUSE") != "true":
         return 0
-    # Same credential resolution as langfuse_hook.py: CC_-prefixed names win.
-    public_key = os.environ.get("CC_LANGFUSE_PUBLIC_KEY") or os.environ.get("LANGFUSE_PUBLIC_KEY")
-    secret_key = os.environ.get("CC_LANGFUSE_SECRET_KEY") or os.environ.get("LANGFUSE_SECRET_KEY")
-    host = os.environ.get("CC_LANGFUSE_BASE_URL") or os.environ.get("LANGFUSE_BASE_URL") or "https://cloud.langfuse.com"
-    if not public_key or not secret_key:
+    client_kwargs = relay_client_kwargs()
+    if not client_kwargs:
         return 0
 
     try:
@@ -100,7 +127,7 @@ def main() -> int:
         from langfuse import Langfuse, propagate_attributes
         from langfuse.media import LangfuseMedia
 
-        langfuse = Langfuse(public_key=public_key, secret_key=secret_key, host=host)
+        langfuse = Langfuse(**client_kwargs)
         media = {
             p.name: LangfuseMedia(content_bytes=p.read_bytes(), content_type="text/markdown")
             for p in files
