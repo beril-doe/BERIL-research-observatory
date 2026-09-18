@@ -201,6 +201,36 @@ def _run_login_step() -> None:
         print("  Login did not complete — run `beril login` later to finish.")
 
 
+def _run_tracing_step(env_path: Path) -> None:
+    """Ask for consent to trace sessions to the team's shared Langfuse project.
+
+    Opt-in with an affirmative prompt (default Yes); the flag is written
+    either way so a re-run doesn't re-ask (an explicit ``false`` in .env means "asked and
+    declined"; edit .env to change). Off a TTY nothing is written and tracing
+    stays off. The hooks themselves also require ``beril login``.
+    """
+    current = _parse_env_file(env_path).get("TRACE_TO_LANGFUSE", "").strip().lower()
+    if current in ("true", "false"):
+        state = "on" if current == "true" else "off"
+        print(f"  Session tracing is {state} (TRACE_TO_LANGFUSE={current} in .env; edit to change).")
+        return
+    if not sys.stdin.isatty():
+        print("  Not a terminal — session tracing stays off. Opt in later with")
+        print("  TRACE_TO_LANGFUSE=true in .env.")
+        return
+
+    print("  BERIL can send each Claude Code session — prompts, responses, tool inputs")
+    print("  and outputs, token usage — plus the project's REPORT/RESEARCH_PLAN/WORKLOG")
+    print("  to the team's shared Langfuse project, attributed to your ORCiD, so the")
+    print("  team can study how BERIL is used. Credential-shaped strings are masked")
+    print("  before upload; anything else a session sees goes too. Requires `beril")
+    print("  login`; toggle any time with TRACE_TO_LANGFUSE in .env (docs/langfuse.md).")
+    enabled = _confirm("  Enable session tracing?", default=True)
+    value = "true" if enabled else "false"
+    _update_env_var(env_path, "TRACE_TO_LANGFUSE", value)
+    print(f"  Session tracing {'enabled' if enabled else 'off'} (TRACE_TO_LANGFUSE={value}).")
+
+
 def run_setup() -> int:
     """Run the interactive setup wizard."""
     print()
@@ -298,8 +328,9 @@ def run_setup() -> int:
         print("  KBASE_AUTH_TOKEN is set.")
 
     # ── Step 3: BERIL login (+ OpenViking) ──────────
-    _step(3, "BERIL login")
+    _step(3, "BERIL login + session tracing")
     _run_login_step()
+    _run_tracing_step(env_path)
 
     # ── Step 4: BERDL environment ───────────────────
     _step(4, "BERDL environment")
