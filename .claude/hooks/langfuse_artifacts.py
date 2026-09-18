@@ -17,6 +17,7 @@ Failures are logged to ~/.claude/state/langfuse_artifacts.log.
 import json
 import logging
 import os
+import re
 import sys
 import threading
 from datetime import datetime, timezone
@@ -40,6 +41,46 @@ def log(msg: str) -> None:
             fh.write(f"{stamp} {msg}\n")
     except Exception:
         pass
+
+
+# Traces carry every tool output, so anything a session `cat`s lands in the
+# shared project; live credentials have done exactly that before
+# (langfuse-retro-load#4). The SDK applies this to every observation's
+# input/output/metadata before export. Best-effort by nature: a bare token
+# with no surrounding context can't be recognised, so docs/langfuse.md still
+# says not to trace sessions handling data that must not leave the machine.
+# Group 1, when present, is the prefix to keep; the rest is the secret.
+_SECRET_PATTERNS = [
+    re.compile(r"beril_[0-9a-f]{48}"),                              # BERIL PAT
+    re.compile(r"\b[ps]k-lf-[0-9a-f-]{20,}"),                        # Langfuse keys
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),                             # AWS access key id
+    re.compile(r"\beyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}"),           # JWT
+    re.compile(r"(?i)(authorization\s*[:=]\s*(?:bearer|basic|token)\s+)\S+"),
+    re.compile(r"(?i)(-u\s+['\"]?)[^\s'\"]+:[^\s'\"]+"),               # curl -u user:pass
+    re.compile(
+        r"(?i)((?:token|secret|password|passwd|credential|api[_-]?key|access[_-]?key"
+        r"|secret[_-]?key|user[_-]?key|private[_-]?key)\w*[\"']?\s*[=:]\s*[\"']?)"
+        r"[^\s\"',;&]+"
+    ),
+]
+_REDACTED = "[REDACTED]"
+
+
+def _sub(m: re.Match) -> str:
+    return (m.group(1) if m.lastindex else "") + _REDACTED
+
+
+def redact(data=None, **_):
+    """Langfuse `mask` hook: scrub credential-shaped strings, recursively."""
+    if isinstance(data, str):
+        for pat in _SECRET_PATTERNS:
+            data = pat.sub(_sub, data)
+        return data
+    if isinstance(data, dict):
+        return {k: redact(v) for k, v in data.items()}
+    if isinstance(data, (list, tuple)):
+        return type(data)(redact(v) for v in data)
+    return data
 
 
 class _SdkLogHandler(logging.Handler):
@@ -101,6 +142,7 @@ def relay_client_kwargs() -> dict | None:
         "secret_key": rec.token,
         "base_url": rec.base_url.rstrip("/") + "/lf",
         "additional_headers": {"User-Agent": "beril-langfuse-hook"},
+        "mask": redact,
     }
 
 

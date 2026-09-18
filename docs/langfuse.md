@@ -121,8 +121,28 @@ Traces contain everything a session saw: prompts, responses, and tool inputs
 *and outputs* — so anything a session `cat`s or an API returns (auth tokens,
 unpublished data) lands in Langfuse Cloud. This is not hypothetical: live
 credentials have turned up in BERIL transcripts before
-(langfuse-retro-load#4). Don't enable tracing for sessions handling data
-that must not leave the machine, and treat trace access accordingly.
+(langfuse-retro-load#4).
+
+Two guards, neither complete on its own:
+
+- **Credential masking.** Both hooks pass `redact()`
+  (`.claude/hooks/langfuse_artifacts.py`) as the SDK's `mask`, which runs
+  over every observation before export and replaces credential-shaped
+  strings with `[REDACTED]`: BERIL tokens, Langfuse keys, AWS key ids, JWTs,
+  `Authorization:` headers, `curl -u`, and `token|secret|password|api_key|
+  user_key|credential… = value` pairs (so a dumped `.env` or `auth.json` is
+  scrubbed line by line). A bare token with no surrounding context is not
+  recognised.
+- **Per-session off switch.** A regex can't recognise an unpublished dataset.
+  For a session that handles data that must not leave the machine, start it
+  with tracing off:
+
+  ```bash
+  TRACE_TO_LANGFUSE=false claude
+  ```
+
+The relay also caps a single request at 16 MiB, so a broken client can't
+push unbounded data into the project with the shared keys.
 
 The real local transcript path is *not* uploaded — trace metadata carries a
 synthetic `<session_id>.jsonl` instead, since real paths leak usernames and

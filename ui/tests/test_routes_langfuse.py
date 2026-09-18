@@ -179,6 +179,17 @@ async def test_media_paths_forwarded(client, pat):
     ]
 
 
+async def test_oversized_body_is_413(client, pat, monkeypatch):
+    import app.routes.langfuse as lf
+
+    monkeypatch.setattr(lf, "MAX_BODY_BYTES", 8)
+    patcher, instance = _patch_upstream()
+    with patcher:
+        resp = client.post("/lf/api/public/otel/v1/traces", content=b"x" * 9, headers=_basic("beril", pat))
+    assert resp.status_code == 413
+    instance.request.assert_not_awaited()
+
+
 async def test_upstream_unreachable_is_502(client, pat):
     patcher, instance = _patch_upstream()
     instance.request = AsyncMock(side_effect=httpx.ConnectError("down"))

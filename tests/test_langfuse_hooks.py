@@ -89,6 +89,7 @@ def test_hooks_reach_langfuse_only_through_the_relay(tmp_path, monkeypatch):
     assert kwargs["base_url"] == "https://beril.test/lf"
     assert kwargs["secret_key"] == "beril_abc"
     assert kwargs["public_key"] == "beril"
+    assert kwargs["mask"] is mod.redact
     assert mod.get_user_id() == "0000-0001-2345-6789"
 
     # A stale LANGFUSE_BASE_URL from the pre-relay setup must not win: the SDK
@@ -103,6 +104,25 @@ def test_hooks_reach_langfuse_only_through_the_relay(tmp_path, monkeypatch):
     mod = _load_artifacts_module()
     assert mod.relay_client_kwargs() is None
     assert mod.get_user_id() is None
+
+
+def test_redact_scrubs_credentials_but_not_prose():
+    mod = _load_artifacts_module()
+    r = mod.redact
+    assert r("token beril_" + "a" * 48 + " done") == "token [REDACTED] done"
+    assert r("sk-lf-12345678-1234-1234-1234-123456789abc") == "[REDACTED]"
+    assert r("KBASE_AUTH_TOKEN=ABCDEF123456") == "KBASE_AUTH_TOKEN=[REDACTED]"
+    assert r("BERIL_DB_PASSWORD=hunter2  # comment") == "BERIL_DB_PASSWORD=[REDACTED]  # comment"
+    assert r('{"user_key": "ov-abc", "ov_url": "http://x"}') == '{"user_key": "[REDACTED]", "ov_url": "http://x"}'
+    assert r("Authorization: Bearer abc.def") == "Authorization: Bearer [REDACTED]"
+    assert r("curl -u pk:sk https://h") == "curl -u [REDACTED] https://h"
+    assert r("AKIAIOSFODNN7EXAMPLE") == "[REDACTED]"
+    assert r("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV") == "[REDACTED]"
+    # Structure is preserved and ordinary text untouched.
+    assert r({"a": ["the token is rotated weekly", 3]}) == {"a": ["the token is rotated weekly", 3]}
+    assert r(None) is None
+    # The SDK calls mask(data=...).
+    assert r(data="password: x") == "password: [REDACTED]"
 
 
 def test_sdk_export_failures_reach_the_hook_log(tmp_path, monkeypatch):
