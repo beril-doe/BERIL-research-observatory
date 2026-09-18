@@ -252,11 +252,13 @@ def run_setup() -> int:
 
     # Sync credentials from environment → .env
     # On JupyterHub these are the freshest source and should always overwrite .env
+    # The names a current BERDL pod injects. MINIO_* was the old spelling and is
+    # absent on current images; pods cycle, so it is not carried forward.
     _ENV_KEYS = [
         "KBASE_AUTH_TOKEN",
-        "MINIO_ACCESS_KEY",
-        "MINIO_SECRET_KEY",
-        "MINIO_ENDPOINT_URL",
+        "S3_ACCESS_KEY",
+        "S3_SECRET_KEY",
+        "S3_ENDPOINT_URL",
     ]
     synced = []
     for key in _ENV_KEYS:
