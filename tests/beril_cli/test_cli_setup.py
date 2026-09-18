@@ -9,6 +9,7 @@ identity detection, proxy install, the final launch) mocked at the module edge.
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -588,3 +589,59 @@ class TestRunSetupOrchestrator:
         assert setup_cmd.os.environ.get("ANTHROPIC_VERTEX_PROJECT_ID") == "beril-hackathon-2026"
         # Vertex config was also persisted.
         assert happy_setup.saved["cfg"]["vertex"]["enabled"] is True
+
+
+# ---------------------------------------------------------------------------
+# _run_tracing_step — opt-in consent for Langfuse session tracing
+# ---------------------------------------------------------------------------
+
+
+class TestRunTracingStep:
+    def _env(self, tmp_path, body=""):
+        env = tmp_path / ".env"
+        env.write_text(body)
+        return env
+
+    def test_yes_writes_true(self, monkeypatch, tty, tmp_path):
+        env = self._env(tmp_path, "KBASE_AUTH_TOKEN=x\n")
+        monkeypatch.setattr("builtins.input", lambda _prompt="": "y")
+        setup_cmd._run_tracing_step(env)
+        assert setup_cmd._parse_env_file(env)["TRACE_TO_LANGFUSE"] == "true"
+
+    def test_enter_accepts_the_default_yes(self, monkeypatch, tty, tmp_path):
+        env = self._env(tmp_path)
+        monkeypatch.setattr("builtins.input", lambda _prompt="": "")
+        setup_cmd._run_tracing_step(env)
+        assert setup_cmd._parse_env_file(env)["TRACE_TO_LANGFUSE"] == "true"
+
+    def test_no_is_recorded_so_rerun_does_not_nag(self, monkeypatch, tty, tmp_path):
+        env = self._env(tmp_path)
+        monkeypatch.setattr("builtins.input", lambda _prompt="": "n")
+        setup_cmd._run_tracing_step(env)
+        assert setup_cmd._parse_env_file(env)["TRACE_TO_LANGFUSE"] == "false"
+
+    @pytest.mark.parametrize("value", ["true", "false"])
+    def test_already_answered_is_not_reasked(self, monkeypatch, tty, tmp_path, value):
+        env = self._env(tmp_path, f"TRACE_TO_LANGFUSE={value}\n")
+        monkeypatch.setattr(
+            setup_cmd, "_confirm", MagicMock(side_effect=AssertionError("re-prompted"))
+        )
+        setup_cmd._run_tracing_step(env)
+        assert setup_cmd._parse_env_file(env)["TRACE_TO_LANGFUSE"] == value
+
+    def test_off_tty_leaves_tracing_off(self, monkeypatch, tmp_path):
+        env = self._env(tmp_path, "KBASE_AUTH_TOKEN=x\n")
+        fake = MagicMock()
+        fake.isatty.return_value = False
+        monkeypatch.setattr(setup_cmd.sys, "stdin", fake)
+        monkeypatch.setattr(
+            setup_cmd, "_confirm", MagicMock(side_effect=AssertionError("prompted off-TTY"))
+        )
+        setup_cmd._run_tracing_step(env)
+        assert "TRACE_TO_LANGFUSE" not in setup_cmd._parse_env_file(env)
+
+    def test_example_env_does_not_preset_the_flag(self):
+        # `beril setup` copies .env.example to .env; a live value there would
+        # turn tracing on without the consent prompt ever running.
+        example = Path(__file__).resolve().parents[2] / ".env.example"
+        assert "TRACE_TO_LANGFUSE" not in setup_cmd._parse_env_file(example)

@@ -18,7 +18,9 @@ missing SDK, an expired login, or an unreachable server never blocks a session.
 
 1. `beril login` — the same login that links OpenViking. There is nothing
    else to obtain.
-2. Add to `.env` in the repo root (gitignored; loaded by direnv):
+2. Opt in. `beril setup` asks ("Enable session tracing?", default Yes) and
+   writes the answer to `.env`; to change it later, edit the flag there
+   (gitignored; loaded by direnv):
 
    ```bash
    TRACE_TO_LANGFUSE=true       # the on/off switch
