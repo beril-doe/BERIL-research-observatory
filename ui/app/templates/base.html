@@ -31,6 +31,7 @@
 
             <ul class="nav-links">
                 <li><a href="/co-scientist" class="{% if request.url.path == '/co-scientist' %}active{% endif %}">Co-Scientist</a></li>
+                <li><a href="/search" class="{% if request.url.path == '/search' %}active{% endif %}">Search</a></li>
                 <li class="nav-dropdown">
                     <a href="/projects" class="{% if request.url.path.startswith('/projects') or request.url.path.startswith('/collections') or request.url.path == '/data-explorer' %}active{% endif %}">Observatory</a>
                     <ul class="dropdown-menu">

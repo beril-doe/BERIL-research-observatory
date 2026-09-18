@@ -54,3 +54,14 @@ ui/data/indexdir/
 
 # Claude
 .claude
+
+# Node — the islands stage runs `npm ci` from the lockfile, so the host's
+# node_modules must never enter the build context (slow, platform-specific,
+# and would shadow the clean install).
+node_modules
+ui/components/*/node_modules
+
+# Built island bundles: produced by the islands build stage, not copied from
+# the host, so an outdated local build can't ship in the image.
+ui/app/static/search
+ui/app/static/chat

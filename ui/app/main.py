@@ -12,6 +12,7 @@ from app.context import generate_base_context, get_base_context, get_repo_data, 
 from app.db.session import init_db, close_db, check_db
 from app.notebook_processors import PlotlyPreprocessor
 from app.routes.openviking import ROUTER_OV
+from app.routes.search import ROUTER_SEARCH
 import nbformat
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -140,6 +141,7 @@ def create_app() -> FastAPI:
     app.include_router(ROUTER_SKILLS)
     app.include_router(ROUTER_ATLAS)
     app.include_router(ROUTER_OV)
+    app.include_router(ROUTER_SEARCH)
 
     # Configure templates
     global templates

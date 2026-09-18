@@ -1,3 +1,29 @@
+# ---------------------------------------------------------------------------
+# Stage 1: build the React islands.
+#
+# Node lives only in this stage. The final image copies just the emitted
+# bundles, so neither the Node runtime nor node_modules (~100MB+) ships.
+# ---------------------------------------------------------------------------
+FROM node:22-slim AS islands
+
+WORKDIR /build/search
+
+# package.json + lockfile first: this layer is cached until dependencies
+# actually change, so editing component source doesn't re-run npm ci.
+COPY ui/components/search/package.json ui/components/search/package-lock.json ./
+# `npm ci` (not `install`) installs exactly the lockfile, failing if the two
+# disagree — a reproducible build rather than a silently-drifting one.
+RUN npm ci --no-audit --no-fund
+
+COPY ui/components/search/src ./src
+# build:prod = minified, React's production build, no sourcemap (~196KB vs
+# ~1MB for the dev bundle). The default `build` script stays unminified with a
+# sourcemap for local work.
+RUN npm run build:prod -- --outfile=/build/out/search/search.js
+
+# ---------------------------------------------------------------------------
+# Stage 2: the application image.
+# ---------------------------------------------------------------------------
 FROM python:3.12-slim
 
 # Add SPIN user id. `--home` + `--shell` give the account a real, writable
@@ -34,6 +60,10 @@ COPY ui/alembic.ini ui/alembic.ini
 
 # Install dependencies using uv
 RUN uv pip install --system --no-cache -e ui/
+
+# Built React islands from stage 1. Must follow `COPY ui/app` above, which
+# would otherwise overwrite this directory with the host's copy.
+COPY --from=islands /build/out/search /repo/ui/app/static/search
 
 # Copy all necessary repository directories
 COPY projects ./projects

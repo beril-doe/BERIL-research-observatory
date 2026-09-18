@@ -1,0 +1,347 @@
+// The search island: a text field, an optional max-results input, and a list of
+// result cards showing each hit's summary (abstract). Deliberately minimal — the
+// goal is the end-to-end flow (input -> /api/search -> rendered summaries).
+//
+// The active query lives in the page URL (?q=…&limit=…), which makes a search
+// reloadable, linkable, and reachable via back/forward. The URL is the source of
+// truth: submitting pushes a history entry and the search runs off what we read
+// back out, so every path into a result set goes through the same code.
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 50;
+
+export function SearchApp({ searchEndpoint }) {
+  const initial = readSearchParams();
+  const [query, setQuery] = useState(initial.q);
+  const [limit, setLimit] = useState(initial.limit ?? DEFAULT_LIMIT);
+  const [status, setStatus] = useState("idle"); // idle | loading | done | error
+  const [results, setResults] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [notice, setNotice] = useState(null); // {message} for a friendly error
+
+  // Guards against a stale response overwriting a newer one: only the most
+  // recent request is allowed to commit its results.
+  const requestSeq = useRef(0);
+
+  const runSearch = useCallback(
+    async (q, lim) => {
+      const seq = ++requestSeq.current;
+      setStatus("loading");
+      setNotice(null);
+
+      const params = new URLSearchParams({ q, limit: String(lim) });
+      try {
+        const resp = await fetch(`${searchEndpoint}?${params.toString()}`, {
+          headers: { Accept: "application/json" },
+        });
+        const body = await resp.json().catch(() => ({}));
+        if (seq !== requestSeq.current) return; // superseded
+        if (!resp.ok) {
+          // Backend always sends {error, message} on expected failures.
+          setStatus("error");
+          setResults([]);
+          setTotal(0);
+          setNotice({ message: body.message || `Search failed (HTTP ${resp.status}).` });
+          return;
+        }
+        setResults(Array.isArray(body.results) ? body.results : []);
+        setTotal(typeof body.total === "number" ? body.total : (body.results || []).length);
+        setStatus("done");
+      } catch (err) {
+        if (seq !== requestSeq.current) return;
+        setStatus("error");
+        setResults([]);
+        setTotal(0);
+        setNotice({ message: `Could not reach the search service: ${err.message}` });
+      }
+    },
+    [searchEndpoint],
+  );
+
+  // Run whatever the URL says — on first paint (so a reloaded or shared link
+  // restores its results) and again whenever history navigation changes it.
+  useEffect(() => {
+    function syncFromUrl() {
+      const { q, limit: lim } = readSearchParams();
+      setQuery(q);
+      setLimit(lim ?? DEFAULT_LIMIT);
+      if (q) {
+        runSearch(q, clampLimit(lim ?? DEFAULT_LIMIT));
+      } else {
+        // Back-navigated to a bare /search: clear rather than strand old results.
+        requestSeq.current++;
+        setStatus("idle");
+        setResults([]);
+        setTotal(0);
+        setNotice(null);
+      }
+    }
+    syncFromUrl();
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, [runSearch]);
+
+  function onSubmit(e) {
+    e.preventDefault();
+    const q = query.trim();
+    if (!q) {
+      setNotice({ message: "Enter a search term." });
+      return;
+    }
+    const lim = clampLimit(limit);
+    // Push the URL first; the effect above won't refire (popstate only covers
+    // history navigation), so kick off the search directly.
+    writeSearchParams(q, lim);
+    setQuery(q);
+    setLimit(lim);
+    runSearch(q, lim);
+  }
+
+  return (
+    <div>
+      <form onSubmit={onSubmit} style={FORM_STYLE}>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search BERIL projects…"
+          aria-label="Search query"
+          style={{ ...INPUT_STYLE, flex: 1, minWidth: "12rem" }}
+        />
+        <input
+          type="number"
+          value={limit}
+          min={1}
+          max={MAX_LIMIT}
+          onChange={(e) => setLimit(e.target.value === "" ? "" : Number(e.target.value))}
+          aria-label="Max results"
+          title={`Max results (1–${MAX_LIMIT})`}
+          style={{ ...INPUT_STYLE, width: "6rem" }}
+        />
+        <button type="submit" className="btn" disabled={status === "loading"}>
+          {status === "loading" ? "Searching…" : "Search"}
+        </button>
+      </form>
+
+      {notice && (
+        <div className="card" style={NOTICE_STYLE} role="status">
+          {notice.message}
+        </div>
+      )}
+
+      {status === "done" && !notice && (
+        <p className="text-muted text-small" style={{ marginBottom: "var(--space-4)" }}>
+          {total} result{total === 1 ? "" : "s"}
+        </p>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
+        {groupByProject(results).map((group) => (
+          <ProjectGroup key={group.key} group={group} />
+        ))}
+      </div>
+
+      {status === "done" && results.length === 0 && !notice && (
+        <div className="card" style={{ padding: "var(--space-6)", textAlign: "center" }}>
+          <p className="text-muted">No matches. Try different terms.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A project group: header naming the project (linking to its page when it's a
+// real project) plus its matching files as children. The header doubles as a
+// collapse toggle — open by default, so a fresh search reads the same as before.
+function ProjectGroup({ group }) {
+  const { projectId, items } = group;
+  const [open, setOpen] = useState(true);
+  const panelId = useId();
+  return (
+    <section>
+      <header style={GROUP_HEADER_STYLE}>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-label={`${open ? "Collapse" : "Expand"} ${projectId || "Other"}`}
+          style={GROUP_TOGGLE_STYLE}
+        >
+          <span aria-hidden="true" style={{ ...CARET_STYLE, transform: open ? "rotate(90deg)" : "none" }}>
+            ▶
+          </span>
+        </button>
+        {projectId ? (
+          <a href={`/projects/${projectId}`} className="group-project-link" style={GROUP_LINK_STYLE}>
+            {projectId}
+          </a>
+        ) : (
+          <span style={GROUP_LINK_STYLE}>Other</span>
+        )}
+        <span className="text-muted text-small" style={{ marginLeft: "auto", whiteSpace: "nowrap" }}>
+          {items.length} file{items.length === 1 ? "" : "s"}
+        </span>
+      </header>
+      <div
+        id={panelId}
+        hidden={!open}
+        style={{ display: open ? "flex" : "none", flexDirection: "column", gap: "var(--space-3)", marginLeft: "var(--space-5)" }}
+      >
+        {items.map((r) => (
+          <ResultCard key={r.uri} result={r} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ResultCard({ result }) {
+  const { uri, score, abstract } = result;
+  return (
+    <article className="card" style={{ padding: "var(--space-4)" }}>
+      <header style={CARD_HEADER_STYLE}>
+        <code className="text-small" style={{ wordBreak: "break-all" }}>
+          {fileLabel(uri)}
+        </code>
+        {typeof score === "number" && (
+          <span className="text-muted text-small" style={{ whiteSpace: "nowrap" }}>
+            score {score.toFixed(3)}
+          </span>
+        )}
+      </header>
+      <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{abstract || "(no summary available)"}</p>
+    </article>
+  );
+}
+
+function clampLimit(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_LIMIT;
+  return Math.max(1, Math.min(Math.trunc(n), MAX_LIMIT));
+}
+
+// --- URL state -------------------------------------------------------------
+// The page URL carries the active search: ?q=<terms>&limit=<n>. `limit` is
+// omitted when it's the default, keeping shared links tidy.
+
+function readSearchParams() {
+  const params = new URLSearchParams(window.location.search);
+  const q = (params.get("q") || "").trim();
+  const raw = params.get("limit");
+  // A malformed ?limit= falls back to the default rather than erroring.
+  const limit = raw === null || raw === "" ? null : clampLimit(raw);
+  return { q, limit };
+}
+
+function writeSearchParams(q, limit) {
+  const params = new URLSearchParams(window.location.search);
+  params.set("q", q);
+  if (limit === DEFAULT_LIMIT) params.delete("limit");
+  else params.set("limit", String(limit));
+  const url = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+  // Push (not replace) so each distinct search is a back-button stop.
+  if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+    window.history.pushState(null, "", url);
+  }
+}
+
+const PROJECTS_PREFIX = "viking://resources/projects/";
+
+// The project id is the first path segment after the projects prefix, e.g.
+// viking://resources/projects/metal_cross_resistance/REPORT/x.md -> metal_cross_resistance.
+// Returns null for URIs that aren't under a project (e.g. docs).
+function projectIdFromUri(uri) {
+  if (typeof uri !== "string" || !uri.startsWith(PROJECTS_PREFIX)) return null;
+  const rest = uri.slice(PROJECTS_PREFIX.length).replace(/^\/+/, "");
+  const first = rest.split("/")[0];
+  return first || null;
+}
+
+// Human-friendly label for a result within a group: the path below the project
+// (the project id is already shown in the group header). Falls back to the full
+// URI for non-project results.
+function fileLabel(uri) {
+  const projectId = projectIdFromUri(uri);
+  if (!projectId) return uri;
+  const rest = uri.slice(PROJECTS_PREFIX.length + projectId.length).replace(/^\/+/, "");
+  return rest || projectId;
+}
+
+// Group results by project id, sort groups by their best (max) hit score so the
+// strongest project leads, and keep each group's files score-sorted. Non-project
+// results collect under a single null-key "Other" group, ordered last.
+function groupByProject(results) {
+  const groups = new Map();
+  for (const r of results) {
+    const projectId = projectIdFromUri(r.uri);
+    const key = projectId || " other"; // sentinel sorts after real ids by score anyway
+    if (!groups.has(key)) groups.set(key, { key, projectId, items: [] });
+    groups.get(key).items.push(r);
+  }
+  const scoreOf = (r) => (typeof r.score === "number" ? r.score : 0);
+  const best = (g) => Math.max(...g.items.map(scoreOf));
+  for (const g of groups.values()) {
+    g.items.sort((a, b) => scoreOf(b) - scoreOf(a));
+  }
+  return [...groups.values()].sort((a, b) => {
+    // Real projects before the "Other" bucket; otherwise by best score desc.
+    if (!!a.projectId !== !!b.projectId) return a.projectId ? -1 : 1;
+    return best(b) - best(a);
+  });
+}
+
+const FORM_STYLE = {
+  display: "flex",
+  gap: "var(--space-3)",
+  flexWrap: "wrap",
+  marginBottom: "var(--space-6)",
+};
+const INPUT_STYLE = {
+  padding: "var(--space-2) var(--space-3)",
+  borderRadius: "var(--radius, 6px)",
+  border: "1px solid var(--border-color, #444)",
+  background: "var(--input-bg, #1a1a1a)",
+  color: "inherit",
+  fontSize: "1rem",
+};
+const NOTICE_STYLE = {
+  padding: "var(--space-4)",
+  marginBottom: "var(--space-4)",
+  borderLeft: "3px solid #ffb454",
+};
+const CARD_HEADER_STYLE = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "baseline",
+  gap: "var(--space-3)",
+  marginBottom: "var(--space-2)",
+};
+const GROUP_HEADER_STYLE = {
+  display: "flex",
+  alignItems: "baseline",
+  gap: "var(--space-3)",
+  marginBottom: "var(--space-3)",
+  paddingBottom: "var(--space-2)",
+  borderBottom: "1px solid var(--border-color, #444)",
+};
+const GROUP_TOGGLE_STYLE = {
+  padding: 0,
+  border: "none",
+  background: "none",
+  color: "inherit",
+  cursor: "pointer",
+  lineHeight: 1,
+  font: "inherit",
+};
+const CARET_STYLE = {
+  display: "inline-block",
+  fontSize: "0.7em",
+  transition: "transform 120ms ease",
+};
+const GROUP_LINK_STYLE = {
+  fontSize: "1.1rem",
+  fontWeight: 600,
+  wordBreak: "break-all",
+};
