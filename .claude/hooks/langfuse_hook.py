@@ -49,6 +49,7 @@ except ValueError:
 
 # ----------------- Logging -----------------
 _logger: Optional[logging.Logger] = None
+_SDK_LOGGERS = ("langfuse", "opentelemetry.exporter.otlp.proto.http.trace_exporter")
 
 def _get_logger() -> Optional[logging.Logger]:
     global _logger
@@ -65,6 +66,16 @@ def _get_logger() -> Optional[logging.Logger]:
                 datefmt="%Y-%m-%d %H:%M:%S",
             ))
             lg.addHandler(h)
+            # BERIL addition: export failures are logged by the SDK/exporter,
+            # never raised, and the detached hook's stderr is /dev/null. Route
+            # them here so lost turns are diagnosable — delivery is
+            # at-most-once (state is saved before flush; flush() can't report
+            # success), so this log is the only evidence a turn was dropped.
+            for name in _SDK_LOGGERS:
+                sdk = logging.getLogger(name)
+                if not DEBUG:
+                    sdk.setLevel(logging.WARNING)
+                sdk.addHandler(h)
         _logger = lg
         return _logger
     except Exception:
@@ -730,6 +741,7 @@ def main() -> int:
         debug(f"Transcript path does not exist: {transcript_path}")
         return 0
 
+    _get_logger()  # attach SDK/exporter log routing before anything exports
     langfuse = None
     try:
         langfuse = Langfuse(**client_kwargs)

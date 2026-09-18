@@ -105,6 +105,20 @@ def test_hooks_reach_langfuse_only_through_the_relay(tmp_path, monkeypatch):
     assert mod.get_user_id() is None
 
 
+def test_sdk_export_failures_reach_the_hook_log(tmp_path, monkeypatch):
+    # Delivery is at-most-once, so the log is the only evidence of a dropped
+    # export; the exporter logs failures instead of raising.
+    import logging
+
+    mod = _load_artifacts_module()
+    monkeypatch.setattr(mod, "LOG_FILE", tmp_path / "artifacts.log")
+    mod.route_sdk_logs()
+    logging.getLogger("opentelemetry.exporter.otlp.proto.http.trace_exporter").error(
+        "Failed to export span batch code: 401"
+    )
+    assert "401" in (tmp_path / "artifacts.log").read_text()
+
+
 def test_artifact_hook_fails_open_without_config(tmp_path):
     proc = subprocess.run(
         [sys.executable, str(ARTIFACTS_HOOK)],

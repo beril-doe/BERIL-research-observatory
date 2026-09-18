@@ -15,6 +15,7 @@ Failures are logged to ~/.claude/state/langfuse_artifacts.log.
 """
 
 import json
+import logging
 import os
 import sys
 import threading
@@ -39,6 +40,23 @@ def log(msg: str) -> None:
             fh.write(f"{stamp} {msg}\n")
     except Exception:
         pass
+
+
+class _SdkLogHandler(logging.Handler):
+    """Forward SDK/exporter warnings into this hook's log file."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        log(f"[{record.name}] {record.getMessage()}")
+
+
+def route_sdk_logs() -> None:
+    """Export failures are logged by the SDK, never raised, and the detached
+    hook's stderr is /dev/null — without this a dropped upload leaves no trace.
+    """
+    for name in ("langfuse", "opentelemetry.exporter.otlp.proto.http.trace_exporter"):
+        lg = logging.getLogger(name)
+        lg.setLevel(logging.WARNING)
+        lg.addHandler(_SdkLogHandler(level=logging.WARNING))
 
 
 @lru_cache(maxsize=1)
@@ -123,6 +141,7 @@ def main() -> int:
     project, files = found
 
     langfuse = None
+    route_sdk_logs()
     try:
         from langfuse import Langfuse, propagate_attributes
         from langfuse.media import LangfuseMedia
