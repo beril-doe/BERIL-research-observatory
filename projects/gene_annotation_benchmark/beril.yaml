@@ -1,0 +1,14 @@
+project_id: gene_annotation_benchmark
+status: active
+created_at: "2026-09-20T00:00:00Z"
+branch: feature/gene-annotation-benchmark-project
+engine:
+  name: codex
+artifacts:
+  readme: true
+  research_plan: true
+collections:
+  - kescience_fitnessbrowser
+  - kescience_paperblast
+  - kescience_interpro
+  - kbase_ke_pangenome
