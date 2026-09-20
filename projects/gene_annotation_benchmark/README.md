@@ -29,6 +29,21 @@ checks, and SQL pitfalls discovered while constructing the candidate sets.
 - `kbase_ke_pangenome` - pangenome gene clusters, conservation, Bakta, eggNOG,
   Pfam, and InterProScan annotations
 
+## Evidence Streams
+
+Every candidate snapshot should account for these streams:
+
+- `original_annotation`
+- `fitness`
+- `cofitness`
+- `conserved_cofitness`
+- `gene_neighborhood`
+- `paperblast`
+- `papers`
+- `domains`
+- `homology`
+- `pangenome`
+
 ## Current Implementation Repos
 
 - `KBaseIncubator/gene-annotation-benchmark`

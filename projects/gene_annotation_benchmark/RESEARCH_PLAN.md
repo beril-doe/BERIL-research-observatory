@@ -23,6 +23,22 @@ to provide:
 | `kescience_interpro` | InterPro and GO evidence |
 | `kbase_ke_pangenome` | pangenome conservation and cluster-level annotations |
 
+## Evidence Stream Checklist
+
+Table discovery is complete only after it identifies candidate joins for:
+
+- `original_annotation`: Fitness Browser or KBase product names and locus
+  metadata
+- `fitness`: per-experiment RB-TnSeq effects and t statistics
+- `cofitness`: same-organism cofitness hits
+- `conserved_cofitness`: conserved associations across organisms
+- `gene_neighborhood`: upstream and downstream gene context
+- `paperblast`: curated sequence-to-paper homolog hits
+- `papers`: paper metadata, snippets, GeneRIFs, and summaries
+- `domains`: InterPro, Pfam, TIGRFAM, GO, or equivalent family calls
+- `homology`: exact duplicates, orthologs, and sequence-similarity hits
+- `pangenome`: KBase gene clusters and cluster-level annotations
+
 ## Backend-Compatibility Gate
 
 The historical local workflow used Spark SQL against BERDL collections whose

@@ -12,3 +12,14 @@ collections:
   - kescience_paperblast
   - kescience_interpro
   - kbase_ke_pangenome
+evidence_streams:
+  - original_annotation
+  - fitness
+  - cofitness
+  - conserved_cofitness
+  - gene_neighborhood
+  - paperblast
+  - papers
+  - domains
+  - homology
+  - pangenome
