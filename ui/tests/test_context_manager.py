@@ -87,15 +87,16 @@ def settings():
 def sdk_client():
     """A stand-in for ``openviking.AsyncHTTPClient``.
 
-    ``initialize``/``close``/``find``/``ls`` are all async on the real SDK, so
-    they are ``AsyncMock`` here — that is what makes an un-awaited ``close()``
-    detectable.
+    ``initialize``/``close``/``find``/``ls``/``grep`` are all async on the real
+    SDK, so they are ``AsyncMock`` here — that is what makes an un-awaited
+    ``close()`` detectable.
     """
     inst = MagicMock()
     inst.initialize = AsyncMock(return_value=None)
     inst.close = AsyncMock(return_value=None)
     inst.find = AsyncMock(return_value=FIND_PAYLOAD)
     inst.ls = AsyncMock(return_value=["alpha.md", "beta.md"])
+    inst.grep = AsyncMock(return_value={"matches": [], "total": 0})
     return inst
 
 
@@ -183,6 +184,19 @@ async def test_list_files_omits_an_unset_node_limit(settings, patched_sdk):
     await client.list_files("viking://x")
 
     assert "node_limit" not in patched_sdk.ls.await_args.kwargs
+
+
+async def test_client_grep_passes_uri_pattern_and_options(settings, patched_sdk):
+    client = await OpenVikingClient.create("user-key")
+    await client.grep(
+        "viking://x", "pat", case_insensitive=True, exclude_uri="viking://x/s",
+        node_limit=9,
+    )
+
+    patched_sdk.grep.assert_awaited_once_with(
+        "viking://x", "pat", case_insensitive=True,
+        exclude_uri="viking://x/s", node_limit=9,
+    )
 
 
 async def test_close_closes_underlying_client(settings, patched_sdk):
@@ -435,6 +449,76 @@ async def test_list_files_closes_the_client_when_ls_raises(settings, patched_sdk
 
     with pytest.raises(UnavailableError):
         await manager.list_files("viking://x")
+
+    patched_sdk.close.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# OpenVikingManager.grep
+# ---------------------------------------------------------------------------
+
+
+async def test_grep_passes_uri_and_pattern(settings, patched_sdk):
+    manager = OpenVikingManager(settings, "user-key")
+    out = await manager.grep("viking://resources/users/0000-1", "metal binding")
+
+    patched_sdk.grep.assert_awaited_once_with(
+        "viking://resources/users/0000-1",
+        "metal binding",
+        case_insensitive=False,
+    )
+    assert out == {"matches": [], "total": 0}
+
+
+async def test_grep_forwards_options(settings, patched_sdk):
+    manager = OpenVikingManager(settings, "user-key")
+    await manager.grep(
+        "viking://x",
+        "pat",
+        case_insensitive=True,
+        exclude_uri="viking://x/skip",
+        node_limit=25,
+    )
+
+    patched_sdk.grep.assert_awaited_once_with(
+        "viking://x",
+        "pat",
+        case_insensitive=True,
+        exclude_uri="viking://x/skip",
+        node_limit=25,
+    )
+
+
+async def test_grep_omits_unset_options(settings, patched_sdk):
+    """Unset options leave the backend's own defaults in place."""
+    manager = OpenVikingManager(settings, "user-key")
+    await manager.grep("viking://x", "pat")
+
+    kwargs = patched_sdk.grep.await_args.kwargs
+    assert "exclude_uri" not in kwargs
+    assert "node_limit" not in kwargs
+
+
+async def test_grep_returns_empty_dict_for_no_payload(settings, patched_sdk):
+    patched_sdk.grep.return_value = None
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert await manager.grep("viking://x", "pat") == {}
+
+
+async def test_grep_closes_the_client(settings, patched_sdk):
+    manager = OpenVikingManager(settings, "user-key")
+    await manager.grep("viking://x", "pat")
+
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_grep_closes_the_client_when_grep_raises(settings, patched_sdk):
+    patched_sdk.grep.side_effect = UnavailableError("backend down")
+    manager = OpenVikingManager(settings, "user-key")
+
+    with pytest.raises(UnavailableError):
+        await manager.grep("viking://x", "pat")
 
     patched_sdk.close.assert_awaited_once()
 

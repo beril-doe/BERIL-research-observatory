@@ -303,6 +303,38 @@ class OpenVikingManager(ContextManager):
             await ov_client.close()
         return list(results or [])
 
+    async def grep(
+        self,
+        uri: str,
+        pattern: str,
+        *,
+        case_insensitive: bool = False,
+        exclude_uri: str | None = None,
+        node_limit: int | None = None,
+    ) -> dict:
+        """Exact-pattern search beneath ``uri``.
+
+        Both URIs are resolved by the caller (see ``listing_uri``); this method
+        does not scope them, so it must never be handed unvalidated input.
+
+        Returns the backend's own payload shape. Unlike ``query``, there is no
+        mapping layer: grep results are structural (matching nodes and their
+        lines), and inventing a BERIL-side schema for them would be guesswork
+        until a consumer needs one.
+        """
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        try:
+            results = await ov_client.grep(
+                uri,
+                pattern,
+                case_insensitive=case_insensitive,
+                exclude_uri=exclude_uri,
+                node_limit=node_limit,
+            )
+        finally:
+            await ov_client.close()
+        return results or {}
+
     async def query(self, query: ContextQuery) -> ContextQueryResults:
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         try:

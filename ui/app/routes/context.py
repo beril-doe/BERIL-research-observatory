@@ -42,6 +42,7 @@ from app.context_manager.base import (
     INGEST_SKIPPED,
     INGEST_STATUSES,
     INGEST_UNKNOWN,
+    MAX_GREP_NODE_LIMIT,
     MAX_LS_NODE_LIMIT,
     TERMINAL_INGEST_STATUSES,
     ContextIngestResults,
@@ -135,6 +136,49 @@ async def post_context_find(
             detail="The context manager could not answer that query.",
         ) from exc
 
+def _scoped_uri(
+    user: BerilUser,
+    project: str | None,
+    path: str | None,
+    *,
+    path_field: str = "path",
+    project_field: str = "project",
+) -> str:
+    """Resolve ``project``/``path`` into a URI inside the caller's namespace.
+
+    The single place the read routes turn caller input into an address, so the
+    scoping rule has one implementation rather than one per route. The ORCiD
+    comes from the session; a traversal that would climb out of it is a 422.
+
+    ``path`` without ``project`` is refused: it would otherwise resolve against
+    the namespace root and reach across the caller's own projects, which is
+    never what a relative path means.
+    """
+    if path and not project:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"`{path_field}` requires `{project_field}`.",
+        )
+
+    slug = None
+    if project is not None:
+        slug = context_slugify(project)
+        if not slug:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Invalid project name: {project!r}",
+            )
+
+    try:
+        return listing_uri(user.orcid_id, slug, path)
+    except ValueError as exc:
+        logger.warning("Rejected path %r for user %s: %s", path, user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Invalid {path_field}: {path!r}",
+        ) from exc
+
+
 @ROUTER_CONTEXT.get("/api/context/ls")
 async def get_context_files(
     request: Request,
@@ -167,30 +211,7 @@ async def get_context_files(
     state, and distinguishing it would report on a namespace the caller may not
     have written yet.
     """
-    if path and not project:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="`path` requires `project`.",
-        )
-
-    slug = None
-    if project is not None:
-        slug = context_slugify(project)
-        if not slug:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"Invalid project name: {project!r}",
-            )
-
-    try:
-        uri = listing_uri(user.orcid_id, slug, path)
-    except ValueError as exc:
-        # A traversal segment, which would climb out of the caller's namespace.
-        logger.warning("Rejected listing path %r for user %s: %s", path, user.id, exc)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Invalid path: {path!r}",
-        ) from exc
+    uri = _scoped_uri(user, project, path)
 
     manager = await resolve_context_manager(db, user)
     try:
@@ -202,6 +223,69 @@ async def get_context_files(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The context manager could not list that path.",
+        ) from exc
+
+
+@ROUTER_CONTEXT.get("/api/context/grep")
+async def get_context_grep(
+    request: Request,
+    pattern: str = Query(min_length=1, description="Pattern to match."),
+    project: str | None = Query(
+        default=None,
+        description="Project to search. Omitted searches all the caller's.",
+    ),
+    path: str | None = Query(
+        default=None, description="Relative path within the project."
+    ),
+    case_insensitive: bool = Query(default=False),
+    exclude_project: str | None = Query(
+        default=None, description="Project to exclude from the search."
+    ),
+    exclude_path: str | None = Query(
+        default=None, description="Relative path within `exclude_project`."
+    ),
+    node_limit: int | None = Query(default=None, ge=1, le=MAX_GREP_NODE_LIMIT),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """Exact-pattern search across what the caller has ingested.
+
+    Scoped exactly like ``/ls``: both the searched and excluded targets resolve
+    inside the caller's own namespace, so neither can name another user's
+    files. The exclusion is scoped too — an unscoped one would be a way to
+    probe for the existence of paths outside the namespace.
+
+    Returns the backend's own payload. Unlike ``/find`` there is no mapped
+    schema: grep results are structural, and inventing one before a consumer
+    needs it would be guesswork.
+    """
+    uri = _scoped_uri(user, project, path)
+    exclude_uri = (
+        _scoped_uri(
+            user,
+            exclude_project,
+            exclude_path,
+            path_field="exclude_path",
+            project_field="exclude_project",
+        )
+        if exclude_project or exclude_path
+        else None
+    )
+
+    manager = await resolve_context_manager(db, user)
+    try:
+        return await manager.grep(
+            uri,
+            pattern,
+            case_insensitive=case_insensitive,
+            exclude_uri=exclude_uri,
+            node_limit=node_limit,
+        )
+    except QUERY_FAILURES as exc:
+        logger.warning("Context grep failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not run that search.",
         ) from exc
 
 async def _resolve_project(

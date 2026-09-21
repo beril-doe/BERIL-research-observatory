@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 MAX_FIND_LIMIT = 200
 MAX_FIND_NODE_LIMIT = 10_000
 MAX_LS_NODE_LIMIT = 10_000
+MAX_GREP_NODE_LIMIT = 10_000
 
 
 class FileMetadata(BaseModel):
