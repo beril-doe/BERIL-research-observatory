@@ -25,10 +25,13 @@ from app.context_manager.base import (
     ContextQueryResults,
 )
 from app.context_manager.openviking import (
+    HOUSE_ACCOUNT_ID,
     OpenVikingManager,
     OvProvisioningError,
+    ReservedNamespaceError,
     UnauthenticatedError,
     context_slugify,
+    corpus_root,
     get_user_ov_api_key,
     listing_uri,
     target_uri,
@@ -698,8 +701,12 @@ def test_user_namespace_root_is_the_whole_user():
     assert user_namespace_root("0000-1") == "viking://resources/users/0000-1"
 
 
-def test_listing_uri_scopes_to_the_users_namespace():
-    """Every listing target sits under the caller's ORCiD, at every depth."""
+def test_corpus_root_is_every_owner():
+    assert corpus_root() == "viking://resources/users"
+
+
+def test_listing_uri_resolves_at_every_depth():
+    assert listing_uri() == "viking://resources/users"
     assert listing_uri("0000-1") == "viking://resources/users/0000-1"
     assert listing_uri("0000-1", "alpha") == "viking://resources/users/0000-1/alpha"
     assert (
@@ -708,28 +715,73 @@ def test_listing_uri_scopes_to_the_users_namespace():
     )
 
 
-def test_listing_uri_cannot_reach_another_users_namespace():
-    """The ORCiD prefix is structural, not a string the caller can escape.
+def test_listing_uri_reads_any_owner():
+    """Reads are global: the owner narrows the target, it does not authorize it.
 
-    This is the guarantee that lets the route skip prefix validation: a
-    traversal that would climb out is rejected rather than resolved.
+    A submitted project is owned by one user and readable by everyone, so
+    addressing another owner is the normal case, not an attack.
     """
-    for attack in ["../0000-2", "../../users/0000-2", "..", "a/../../0000-2"]:
+    assert listing_uri("0000-2", "alpha") == "viking://resources/users/0000-2/alpha"
+
+
+def test_listing_uri_boundary_is_the_corpus_not_the_owner():
+    """Traversal may not climb out of ``resources/users/``.
+
+    The owner is no longer the boundary — reads span owners — but the corpus
+    root still is, so a path cannot reach the wider resource tree.
+    """
+    for attack in ["../../docs", "../..", "..", "a/../../../projects"]:
         with pytest.raises(ValueError):
             listing_uri("0000-1", "alpha", attack)
 
 
-def test_listing_uri_rejects_a_path_that_escapes_via_the_project():
-    """A traversal in the relative path cannot climb past the project either."""
+def test_listing_uri_checks_the_owner_segment_too():
+    """The owner comes from caller input (``?owner=``), so it is checked."""
+    for attack in ["../..", "..", "a/../../.."]:
+        with pytest.raises(ValueError):
+            listing_uri(attack)
+
+
+def test_listing_uri_requires_an_owner_for_a_project():
+    """A project name alone does not identify a resource.
+
+    Every owner may have an ``alpha``, so there is nothing to resolve against.
+    """
     with pytest.raises(ValueError):
-        listing_uri("0000-1", "alpha", "../beta/secret.md")
+        listing_uri(None, "alpha")
+    with pytest.raises(ValueError):
+        listing_uri(None, None, "memories")
 
 
-def test_listing_uri_two_users_never_collide():
+def test_listing_uri_two_owners_never_collide():
     a = listing_uri("0000-0001-2345-6789", "shared_name")
     b = listing_uri("0000-0002-9999-9999", "shared_name")
 
     assert a != b
+
+
+def test_house_account_docs_are_addressable():
+    """Central docs live in the same tree under a reserved owner."""
+    assert (
+        listing_uri(HOUSE_ACCOUNT_ID, "docs", "pitfalls")
+        == "viking://resources/users/beril/docs/pitfalls"
+    )
+
+
+def test_user_target_root_refuses_the_house_account():
+    """A user whose ORCiD is the reserved name must not own the central docs.
+
+    ``orcid_id`` is an unvalidated String(64), so this guard is what makes the
+    reservation real rather than conventional.
+    """
+    with pytest.raises(ReservedNamespaceError):
+        user_target_root(HOUSE_ACCOUNT_ID, "anything")
+
+
+def test_user_target_root_still_serves_real_orcids():
+    assert user_target_root("0000-1", "alpha") == (
+        "viking://resources/users/0000-1/alpha"
+    )
 
 
 # ---------------------------------------------------------------------------

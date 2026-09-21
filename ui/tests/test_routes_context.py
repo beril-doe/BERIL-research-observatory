@@ -411,13 +411,13 @@ async def test_ls_applies_option_defaults(client, credentialed_user, manager):
     "path",
     ["../0000-9999-9999-9999", "../../users/other", "..", "a/../../escape"],
 )
-async def test_ls_rejects_traversal_out_of_the_namespace(
+async def test_ls_rejects_traversal_out_of_the_corpus(
     client, credentialed_user, manager, path
 ):
-    """A caller must not be able to list another user's files.
+    """A path must not climb out of the corpus into the wider resource tree.
 
-    The ORCiD prefix is applied server-side, so this is the only way a request
-    could try to reach past it — and it is refused before the backend is asked.
+    Reads span owners, so the owner is not the boundary — but the corpus root
+    is, and a traversal is refused before the backend is asked.
     """
     _login(client)
     resp = client.get(
@@ -1549,10 +1549,10 @@ async def test_grep_rejects_traversal_in_the_search_path(
 async def test_grep_rejects_traversal_in_the_exclusion_path(
     client, credentialed_user, manager, exclude_path
 ):
-    """The exclusion is a second attack surface, scoped like the first.
+    """The exclusion is a second attack surface, resolved like the first.
 
     An unscoped exclusion would let a caller probe for the existence of paths
-    outside their namespace by watching whether results change.
+    outside the corpus by watching whether results change.
     """
     _login(client)
     resp = _grep(client, project="alpha", exclude_project="beta",
@@ -1624,3 +1624,143 @@ async def test_grep_surfaces_backend_failure_as_502(client, credentialed_user):
 
     assert resp.status_code == 502
     assert "backend down" not in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Global reads: owner / all_owners
+# ---------------------------------------------------------------------------
+
+OTHER_ORCID = "0000-0009-8888-7777"
+
+
+async def test_ls_reads_another_owners_project(
+    client, credentialed_user, manager
+):
+    """Reads are global — a submitted project is readable by everyone.
+
+    This is the behavior the earlier caller-pinned version got wrong.
+    """
+    _login(client)
+    resp = client.get(
+        "/api/context/ls", params={"project": "alpha", "owner": OTHER_ORCID}
+    )
+
+    assert resp.status_code == 200
+    uri = manager.list_files.await_args.args[0]
+    assert uri == f"viking://resources/users/{OTHER_ORCID}/alpha"
+
+
+async def test_ls_spans_every_owner(client, credentialed_user, manager):
+    _login(client)
+    resp = client.get("/api/context/ls", params={"all_owners": "true"})
+
+    assert resp.status_code == 200
+    assert manager.list_files.await_args.args[0] == "viking://resources/users"
+
+
+async def test_ls_all_owners_drops_the_project_name(
+    client, credentialed_user, manager
+):
+    """A project name many owners share cannot be part of a corpus-wide path."""
+    _login(client)
+    client.get(
+        "/api/context/ls", params={"project": "alpha", "all_owners": "true"}
+    )
+
+    assert manager.list_files.await_args.args[0] == "viking://resources/users"
+
+
+async def test_ls_bare_project_defaults_to_the_caller(
+    client, credentialed_user, manager
+):
+    """The safe default: a typo must not silently read someone else's work."""
+    _login(client)
+    client.get("/api/context/ls", params={"project": "alpha"})
+
+    uri = manager.list_files.await_args.args[0]
+    assert uri == f"viking://resources/users/{USER_TOKEN['orcid']}/alpha"
+
+
+async def test_ls_rejects_owner_with_all_owners(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = client.get(
+        "/api/context/ls",
+        params={"owner": OTHER_ORCID, "all_owners": "true"},
+    )
+
+    assert resp.status_code == 422
+    manager.list_files.assert_not_awaited()
+
+
+@pytest.mark.parametrize("bad_owner", ["../..", "..", "a/../../.."])
+async def test_ls_rejects_traversal_in_the_owner(
+    client, credentialed_user, manager, bad_owner
+):
+    """The owner is caller input too, so it gets the same traversal check.
+
+    Without this, `?owner=../..` would climb out of the corpus into the wider
+    resource tree.
+    """
+    _login(client)
+    resp = client.get("/api/context/ls", params={"owner": bad_owner})
+
+    assert resp.status_code == 422
+    manager.list_files.assert_not_awaited()
+
+
+async def test_grep_searches_another_owners_project(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = _grep(client, project="alpha", owner=OTHER_ORCID)
+
+    assert resp.status_code == 200
+    uri = manager.grep.await_args.args[0]
+    assert uri == f"viking://resources/users/{OTHER_ORCID}/alpha"
+
+
+async def test_grep_spans_every_owner(client, credentialed_user, manager):
+    _login(client)
+    resp = _grep(client, all_owners="true")
+
+    assert resp.status_code == 200
+    assert manager.grep.await_args.args[0] == "viking://resources/users"
+
+
+async def test_grep_excludes_another_owners_project(
+    client, credentialed_user, manager
+):
+    _login(client)
+    _grep(
+        client,
+        all_owners="true",
+        exclude_project="beta",
+        exclude_owner=OTHER_ORCID,
+    )
+
+    kwargs = manager.grep.await_args.kwargs
+    assert kwargs["exclude_uri"] == f"viking://resources/users/{OTHER_ORCID}/beta"
+
+
+async def test_grep_exclude_owner_alone_scopes_that_owner(
+    client, credentialed_user, manager
+):
+    """An exclude_owner with no project excludes that whole owner."""
+    _login(client)
+    _grep(client, all_owners="true", exclude_owner=OTHER_ORCID)
+
+    kwargs = manager.grep.await_args.kwargs
+    assert kwargs["exclude_uri"] == f"viking://resources/users/{OTHER_ORCID}"
+
+
+@pytest.mark.parametrize("bad_owner", ["../..", ".."])
+async def test_grep_rejects_traversal_in_the_exclude_owner(
+    client, credentialed_user, manager, bad_owner
+):
+    _login(client)
+    resp = _grep(client, all_owners="true", exclude_owner=bad_owner)
+
+    assert resp.status_code == 422
+    manager.grep.assert_not_awaited()
