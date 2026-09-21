@@ -138,6 +138,7 @@ def manager():
     inst = MagicMock()
     inst.query = AsyncMock(return_value=QUERY_RESULTS)
     inst.list_files = AsyncMock(return_value=["alpha.md", "beta.md"])
+    inst.grep = AsyncMock(return_value={"matches": [], "total": 0})
     with patch("app.routes.context.OpenVikingManager", return_value=inst):
         yield inst
 
@@ -410,13 +411,13 @@ async def test_ls_applies_option_defaults(client, credentialed_user, manager):
     "path",
     ["../0000-9999-9999-9999", "../../users/other", "..", "a/../../escape"],
 )
-async def test_ls_rejects_traversal_out_of_the_namespace(
+async def test_ls_rejects_traversal_out_of_the_corpus(
     client, credentialed_user, manager, path
 ):
-    """A caller must not be able to list another user's files.
+    """A path must not climb out of the corpus into the wider resource tree.
 
-    The ORCiD prefix is applied server-side, so this is the only way a request
-    could try to reach past it — and it is refused before the backend is asked.
+    Reads span owners, so the owner is not the boundary — but the corpus root
+    is, and a traversal is refused before the backend is asked.
     """
     _login(client)
     resp = client.get(
@@ -1437,3 +1438,329 @@ async def test_skipped_files_write_no_batch_rows(
 
     batch = await get_ingest_batch(db_session, resp.json()["batch_id"])
     assert [f.relative_path for f in batch.files] == ["b.md"]
+
+
+# ---------------------------------------------------------------------------
+# GET /api/context/grep
+# ---------------------------------------------------------------------------
+
+
+def _grep(client, **params):
+    params.setdefault("pattern", "metal binding")
+    return client.get("/api/context/grep", params=params)
+
+
+def test_grep_unauthenticated_returns_401(client):
+    assert client.get("/api/context/grep", params={"pattern": "x"}).status_code == 401
+
+
+async def test_grep_returns_the_backend_payload(client, credentialed_user, manager):
+    manager.grep = AsyncMock(return_value={"matches": [{"uri": "viking://x"}], "total": 1})
+    _login(client)
+    resp = _grep(client)
+
+    assert resp.status_code == 200
+    assert resp.json() == {"matches": [{"uri": "viking://x"}], "total": 1}
+
+
+async def test_grep_requires_a_pattern(client, credentialed_user, manager):
+    _login(client)
+    resp = client.get("/api/context/grep")
+
+    assert resp.status_code == 422
+    manager.grep.assert_not_awaited()
+
+
+async def test_grep_rejects_an_empty_pattern(client, credentialed_user, manager):
+    _login(client)
+    resp = _grep(client, pattern="")
+
+    assert resp.status_code == 422
+    manager.grep.assert_not_awaited()
+
+
+async def test_grep_without_a_project_searches_the_users_namespace(
+    client, credentialed_user, manager
+):
+    _login(client)
+    _grep(client)
+
+    uri, pattern = manager.grep.await_args.args
+    assert uri == f"viking://resources/users/{USER_TOKEN['orcid']}"
+    assert pattern == "metal binding"
+
+
+async def test_grep_scopes_a_project_to_the_caller(client, credentialed_user, manager):
+    _login(client)
+    _grep(client, project="Acinetobacter ADP1 Explorer", path="memories")
+
+    uri = manager.grep.await_args.args[0]
+    assert uri == (
+        f"viking://resources/users/{USER_TOKEN['orcid']}"
+        "/acinetobacter_adp1_explorer/memories"
+    )
+
+
+async def test_grep_forwards_options(client, credentialed_user, manager):
+    _login(client)
+    _grep(client, case_insensitive="true", node_limit=25)
+
+    kwargs = manager.grep.await_args.kwargs
+    assert kwargs["case_insensitive"] is True
+    assert kwargs["node_limit"] == 25
+
+
+async def test_grep_applies_option_defaults(client, credentialed_user, manager):
+    _login(client)
+    _grep(client)
+
+    kwargs = manager.grep.await_args.kwargs
+    assert kwargs["case_insensitive"] is False
+    assert kwargs["node_limit"] is None
+    assert kwargs["exclude_uri"] is None
+
+
+async def test_grep_scopes_the_exclusion_too(client, credentialed_user, manager):
+    _login(client)
+    _grep(client, project="alpha", exclude_project="beta", exclude_path="drafts")
+
+    kwargs = manager.grep.await_args.kwargs
+    assert kwargs["exclude_uri"] == (
+        f"viking://resources/users/{USER_TOKEN['orcid']}/beta/drafts"
+    )
+
+
+@pytest.mark.parametrize(
+    "path", ["../0000-9999-9999-9999", "../../users/other", "..", "a/../../escape"]
+)
+async def test_grep_rejects_traversal_in_the_search_path(
+    client, credentialed_user, manager, path
+):
+    _login(client)
+    resp = _grep(client, project="alpha", path=path)
+
+    assert resp.status_code == 422
+    manager.grep.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "exclude_path", ["../0000-9999-9999-9999", "../../users/other", ".."]
+)
+async def test_grep_rejects_traversal_in_the_exclusion_path(
+    client, credentialed_user, manager, exclude_path
+):
+    """The exclusion is a second attack surface, resolved like the first.
+
+    An unscoped exclusion would let a caller probe for the existence of paths
+    outside the corpus by watching whether results change.
+    """
+    _login(client)
+    resp = _grep(client, project="alpha", exclude_project="beta",
+                 exclude_path=exclude_path)
+
+    assert resp.status_code == 422
+    manager.grep.assert_not_awaited()
+
+
+async def test_grep_rejects_an_exclude_path_without_an_exclude_project(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = _grep(client, project="alpha", exclude_path="drafts")
+
+    assert resp.status_code == 422
+    assert "exclude_project" in resp.json()["detail"]
+    manager.grep.assert_not_awaited()
+
+
+async def test_grep_rejects_a_path_without_a_project(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = _grep(client, path="memories")
+
+    assert resp.status_code == 422
+    manager.grep.assert_not_awaited()
+
+
+async def test_grep_rejects_an_unusable_project_name(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = _grep(client, project="!!!")
+
+    assert resp.status_code == 422
+    manager.grep.assert_not_awaited()
+
+
+@pytest.mark.parametrize("node_limit", [0, 10_000_000])
+async def test_grep_rejects_out_of_range_node_limit(
+    client, credentialed_user, manager, node_limit
+):
+    _login(client)
+    resp = _grep(client, node_limit=node_limit)
+
+    assert resp.status_code == 422
+    manager.grep.assert_not_awaited()
+
+
+async def test_grep_does_not_use_a_caller_supplied_orcid(
+    client, credentialed_user, manager
+):
+    _login(client)
+    _grep(client, project="alpha", orcid="0000-0009-8888-7777")
+
+    uri = manager.grep.await_args.args[0]
+    assert USER_TOKEN["orcid"] in uri
+    assert "0000-0009-8888-7777" not in uri
+
+
+async def test_grep_surfaces_backend_failure_as_502(client, credentialed_user):
+    inst = MagicMock()
+    inst.grep = AsyncMock(side_effect=UnavailableError("backend down"))
+    _login(client)
+    with patch("app.routes.context.OpenVikingManager", return_value=inst):
+        resp = _grep(client)
+
+    assert resp.status_code == 502
+    assert "backend down" not in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Global reads: owner / all_owners
+# ---------------------------------------------------------------------------
+
+OTHER_ORCID = "0000-0009-8888-7777"
+
+
+async def test_ls_reads_another_owners_project(
+    client, credentialed_user, manager
+):
+    """Reads are global — a submitted project is readable by everyone.
+
+    This is the behavior the earlier caller-pinned version got wrong.
+    """
+    _login(client)
+    resp = client.get(
+        "/api/context/ls", params={"project": "alpha", "owner": OTHER_ORCID}
+    )
+
+    assert resp.status_code == 200
+    uri = manager.list_files.await_args.args[0]
+    assert uri == f"viking://resources/users/{OTHER_ORCID}/alpha"
+
+
+async def test_ls_spans_every_owner(client, credentialed_user, manager):
+    _login(client)
+    resp = client.get("/api/context/ls", params={"all_owners": "true"})
+
+    assert resp.status_code == 200
+    assert manager.list_files.await_args.args[0] == "viking://resources/users"
+
+
+async def test_ls_all_owners_drops_the_project_name(
+    client, credentialed_user, manager
+):
+    """A project name many owners share cannot be part of a corpus-wide path."""
+    _login(client)
+    client.get(
+        "/api/context/ls", params={"project": "alpha", "all_owners": "true"}
+    )
+
+    assert manager.list_files.await_args.args[0] == "viking://resources/users"
+
+
+async def test_ls_bare_project_defaults_to_the_caller(
+    client, credentialed_user, manager
+):
+    """The safe default: a typo must not silently read someone else's work."""
+    _login(client)
+    client.get("/api/context/ls", params={"project": "alpha"})
+
+    uri = manager.list_files.await_args.args[0]
+    assert uri == f"viking://resources/users/{USER_TOKEN['orcid']}/alpha"
+
+
+async def test_ls_rejects_owner_with_all_owners(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = client.get(
+        "/api/context/ls",
+        params={"owner": OTHER_ORCID, "all_owners": "true"},
+    )
+
+    assert resp.status_code == 422
+    manager.list_files.assert_not_awaited()
+
+
+@pytest.mark.parametrize("bad_owner", ["../..", "..", "a/../../.."])
+async def test_ls_rejects_traversal_in_the_owner(
+    client, credentialed_user, manager, bad_owner
+):
+    """The owner is caller input too, so it gets the same traversal check.
+
+    Without this, `?owner=../..` would climb out of the corpus into the wider
+    resource tree.
+    """
+    _login(client)
+    resp = client.get("/api/context/ls", params={"owner": bad_owner})
+
+    assert resp.status_code == 422
+    manager.list_files.assert_not_awaited()
+
+
+async def test_grep_searches_another_owners_project(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = _grep(client, project="alpha", owner=OTHER_ORCID)
+
+    assert resp.status_code == 200
+    uri = manager.grep.await_args.args[0]
+    assert uri == f"viking://resources/users/{OTHER_ORCID}/alpha"
+
+
+async def test_grep_spans_every_owner(client, credentialed_user, manager):
+    _login(client)
+    resp = _grep(client, all_owners="true")
+
+    assert resp.status_code == 200
+    assert manager.grep.await_args.args[0] == "viking://resources/users"
+
+
+async def test_grep_excludes_another_owners_project(
+    client, credentialed_user, manager
+):
+    _login(client)
+    _grep(
+        client,
+        all_owners="true",
+        exclude_project="beta",
+        exclude_owner=OTHER_ORCID,
+    )
+
+    kwargs = manager.grep.await_args.kwargs
+    assert kwargs["exclude_uri"] == f"viking://resources/users/{OTHER_ORCID}/beta"
+
+
+async def test_grep_exclude_owner_alone_scopes_that_owner(
+    client, credentialed_user, manager
+):
+    """An exclude_owner with no project excludes that whole owner."""
+    _login(client)
+    _grep(client, all_owners="true", exclude_owner=OTHER_ORCID)
+
+    kwargs = manager.grep.await_args.kwargs
+    assert kwargs["exclude_uri"] == f"viking://resources/users/{OTHER_ORCID}"
+
+
+@pytest.mark.parametrize("bad_owner", ["../..", ".."])
+async def test_grep_rejects_traversal_in_the_exclude_owner(
+    client, credentialed_user, manager, bad_owner
+):
+    _login(client)
+    resp = _grep(client, all_owners="true", exclude_owner=bad_owner)
+
+    assert resp.status_code == 422
+    manager.grep.assert_not_awaited()
