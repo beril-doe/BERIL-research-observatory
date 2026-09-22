@@ -50,8 +50,11 @@ _AUTH_HEADER = re.compile(
     r'''(?:bearer|basic|token)[ \t]+)[^\s"'\\,;{}]+'''
 )
 _AUTH_SCHEME = re.compile(r"(?i)^([ \t]*(?:bearer|basic|token)[ \t]+)")
+# ANTHROPIC_AUTH_TOKEN and CBORG_API_KEY: docs/getting_started.md tells LBL
+# users to route Claude Code through CBORG with ANTHROPIC_AUTH_TOKEN=$CBORG_API_KEY.
 _CREDENTIAL_ENV = (
     "LANGFUSE_SECRET_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN", "CBORG_API_KEY",
     "KBASE_AUTH_TOKEN", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
 )
 
