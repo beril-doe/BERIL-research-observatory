@@ -46,7 +46,7 @@ def test_format_find_text_and_result_to_json() -> None:
                 match_reason="title match",
             ),
             SimpleNamespace(
-                uri="viking://resources/docs/pitfalls/",
+                uri=f"{DOCS_TARGET_URI}pitfalls/",
                 score=0.5,
                 abstract="Pitfalls summary",
             ),
@@ -71,7 +71,7 @@ def test_format_find_text_and_result_to_json() -> None:
                 "match_reason": "title match",
             },
             {
-                "uri": "viking://resources/docs/pitfalls/",
+                "uri": f"{DOCS_TARGET_URI}pitfalls/",
                 "score": 0.5,
                 "abstract": "Pitfalls summary",
             },

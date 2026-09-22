@@ -7,7 +7,22 @@ from pathlib import Path
 
 DEFAULT_OPENVIKING_URL = "http://127.0.0.1:1933"
 PROJECTS_TARGET_URI = "viking://resources/projects/"
-DOCS_TARGET_URI = "viking://resources/docs/"
+
+# --- central docs: the house account -------------------------------------
+#
+# Central docs (pitfalls, discoveries, performance, research_ideas) have no
+# owner, but BERIL's read routes address everything as
+# ``resources/users/<owner>/…`` — reads span owners, and a submitted project is
+# owned by one user and readable by all. Rather than give the ownerless docs a
+# special case in every read path, they live under a reserved owner.
+#
+# Must stay in sync with ``HOUSE_ACCOUNT_ID`` in
+# ``ui/app/context_manager/openviking.py``, which reserves the name so no real
+# user can claim it. Duplicated rather than imported because this package must
+# keep working without the webapp on the path.
+HOUSE_ACCOUNT_ID = "beril"
+USERS_TARGET_URI = "viking://resources/users/"
+DOCS_TARGET_URI = f"{USERS_TARGET_URI}{HOUSE_ACCOUNT_ID}/docs/"
 
 # --- BERDL lakehouse object storage --------------------------------------
 #
