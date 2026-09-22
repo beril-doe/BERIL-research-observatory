@@ -11,6 +11,7 @@ MAX_FIND_LIMIT = 200
 MAX_FIND_NODE_LIMIT = 10_000
 MAX_LS_NODE_LIMIT = 10_000
 MAX_GREP_NODE_LIMIT = 10_000
+MAX_PITFALL_LIMIT = 50
 
 
 class FileMetadata(BaseModel):
@@ -152,6 +153,41 @@ class QueryResult(BaseModel):
     text: str
     match_reason: str | None = None
     content: str | None = None
+
+
+class PitfallHit(BaseModel):
+    """One pitfall document, with the fragments that matched inside it.
+
+    The backend decomposes a document into many nodes, so a raw search returns
+    fragments of the same file as separate hits. Grouping them here means a
+    caller sees documents — which is the unit a user reads and cites.
+
+    ``origin`` says which half of the corpus it came from: ``project_memory``
+    for ``projects/<id>/memories/pitfalls.md``, ``central`` for the shared
+    archive. ``project`` is the owning project when known, and ``None`` for a
+    central doc that names no project.
+    """
+
+    uri: str
+    origin: Literal["project_memory", "central"]
+    project: str | None = None
+    owner: str | None = None
+    score: float
+    excerpts: list[str] = Field(default_factory=list)
+    fragment_uris: list[str] = Field(default_factory=list)
+
+
+class PitfallResults(BaseModel):
+    """Documents matching a pitfall query, best first.
+
+    ``fragments_scanned`` is how many raw nodes the backend returned before
+    grouping — reported so a caller can tell a broad query from a narrow one
+    without the route inventing a relevance judgement.
+    """
+
+    query: str | None = None
+    results: list[PitfallHit]
+    fragments_scanned: int = 0
 
 
 class ContextQueryResults(BaseModel):

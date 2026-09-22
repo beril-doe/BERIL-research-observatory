@@ -30,10 +30,14 @@ from app.context_manager.openviking import (
     OvProvisioningError,
     ReservedNamespaceError,
     UnauthenticatedError,
+    _collapse_fragments,
+    _grep_nodes,
     context_slugify,
     corpus_root,
     get_user_ov_api_key,
+    is_synthetic_node,
     listing_uri,
+    source_document,
     target_uri,
     user_namespace_root,
     user_target_root,
@@ -1253,3 +1257,132 @@ def test_context_query_defaults():
     assert q.root_path is None
     assert q.limit == 10
     assert q.score_threshold is None
+
+
+# ---------------------------------------------------------------------------
+# Pitfall fragment collapsing
+# ---------------------------------------------------------------------------
+
+# Real URIs from a live backend: the store decomposes each document into a
+# tree, turning section headings into path segments with a content-hash suffix.
+_DOC = "viking://resources/users/beril/docs/pitfalls/pitfalls"
+_FRAG_A = f"{_DOC}/BERDL_Common_Pitfalls/Pandas-Specific_Issues/gene_func_7more_c5df409f_1.md"
+_FRAG_B = f"{_DOC}/BERDL_Common_Pitfalls/Pandas-Specific_Issues/NaN_Handling_2more_41c951d9.md"
+_MEMORY = "viking://resources/users/0009-1/skip_probe/memories/pitfalls.md"
+
+
+def test_is_synthetic_node_flags_backend_stubs():
+    """Directory overviews and generated abstracts are structure, not content."""
+    assert is_synthetic_node(f"{_DOC}/.overview.md")
+    assert is_synthetic_node(f"{_MEMORY}/.abstract.md")
+    assert not is_synthetic_node(_FRAG_A)
+
+
+def test_source_document_collapses_central_doc_fragments():
+    """Central docs decompose under their slug directory, not a file.
+
+    Every segment ends in ``.md`` there, including the leaf, so a
+    first-``.md`` rule would return the fragment and collapse nothing.
+    """
+    root = "viking://resources/users/"
+    assert source_document(_FRAG_A, root) == (
+        "viking://resources/users/beril/docs/pitfalls"
+    )
+    assert source_document(_FRAG_A, root) == source_document(_FRAG_B, root)
+
+
+def test_source_document_separates_distinct_central_docs():
+    root = "viking://resources/users/"
+    pitfalls = source_document(_FRAG_A, root)
+    performance = source_document(
+        "viking://resources/users/beril/docs/performance/performance/G/x.md", root
+    )
+
+    assert pitfalls != performance
+
+
+def test_source_document_takes_the_first_md_segment():
+    root = "viking://resources/users/"
+    assert source_document(f"{_MEMORY}/{'chunk_1.md'}", root) == _MEMORY
+
+
+def test_source_document_returns_the_uri_when_no_document_is_found():
+    """Better to report the node than to guess at a grouping."""
+    root = "viking://resources/users/"
+    assert source_document("viking://resources/users/0009-1", root) == (
+        "viking://resources/users/0009-1"
+    )
+
+
+def test_collapse_fragments_groups_and_ranks():
+    nodes = [
+        {"uri": _FRAG_A, "score": 0.67, "text": "pandas blows up"},
+        {"uri": _FRAG_B, "score": 0.62, "text": "NaN handling"},
+        {"uri": f"{_MEMORY}/c.md", "score": 0.88, "text": "spark OOM"},
+    ]
+    out = _collapse_fragments(nodes, limit=10)
+
+    assert len(out) == 2
+    # The project memory scored highest, so it leads.
+    assert out[0]["uri"] == _MEMORY
+    # The document's score is its best fragment's, not an average.
+    assert out[1]["score"] == 0.67
+    assert len(out[1]["fragment_uris"]) == 2
+
+
+def test_collapse_fragments_drops_synthetic_nodes():
+    nodes = [
+        {"uri": f"{_DOC}/.overview.md", "score": 0.99, "text": ""},
+        {"uri": f"{_MEMORY}/.abstract.md", "score": 0.95, "text": "a summary"},
+        {"uri": _FRAG_A, "score": 0.10, "text": "real content"},
+    ]
+    out = _collapse_fragments(nodes, limit=10)
+
+    # The stubs outscored the real hit and are still gone.
+    assert len(out) == 1
+    assert out[0]["fragment_uris"] == [_FRAG_A]
+
+
+def test_collapse_fragments_caps_excerpts_and_dedups():
+    nodes = [
+        {"uri": f"{_DOC}/f{i}.md", "score": 0.5, "text": "same text"}
+        for i in range(5)
+    ]
+    nodes.append({"uri": f"{_DOC}/f9.md", "score": 0.5, "text": "different"})
+    out = _collapse_fragments(nodes, limit=10)
+
+    assert len(out) == 1
+    # Duplicates collapse; the cap keeps the response from restating the doc.
+    assert out[0]["excerpts"] == ["same text", "different"]
+    assert len(out[0]["fragment_uris"]) == 6
+
+
+def test_collapse_fragments_honors_the_limit():
+    nodes = [
+        {"uri": f"viking://resources/users/o/p{i}/memories/pitfalls.md/x.md",
+         "score": i / 10, "text": "t"}
+        for i in range(10)
+    ]
+    out = _collapse_fragments(nodes, limit=3)
+
+    assert len(out) == 3
+    assert [round(d["score"], 1) for d in out] == [0.9, 0.8, 0.7]
+
+
+def test_grep_nodes_normalizes_matches():
+    """Grep carries no score, so every exact match is equally exact."""
+    payload = {
+        "matches": [
+            {"line": 3, "uri": _FRAG_A, "content": "  pandas blows up  "},
+            {"line": 5, "uri": _FRAG_A, "content": "more"},
+        ]
+    }
+    nodes = _grep_nodes(payload)
+
+    assert [n["score"] for n in nodes] == [1.0, 1.0]
+    assert nodes[0]["text"] == "pandas blows up"
+
+
+def test_grep_nodes_handles_an_empty_payload():
+    assert _grep_nodes({"matches": [], "count": 0}) == []
+    assert _grep_nodes({}) == []

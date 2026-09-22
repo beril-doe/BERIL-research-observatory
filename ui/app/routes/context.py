@@ -44,15 +44,20 @@ from app.context_manager.base import (
     INGEST_UNKNOWN,
     MAX_GREP_NODE_LIMIT,
     MAX_LS_NODE_LIMIT,
+    MAX_PITFALL_LIMIT,
     TERMINAL_INGEST_STATUSES,
     ContextIngestResults,
     ContextQueryResults,
     IngestBatchStatus,
     IngestFileStatus,
     IngestResult,
+    PitfallHit,
+    PitfallResults,
 )
 from app.context_manager.openviking import (
+    HOUSE_ACCOUNT_ID,
     QUERY_FAILURES,
+    USERS_TARGET_URI,
     ContextIngestFile,
     ContextQuery,
     OpenVikingManager,
@@ -252,6 +257,94 @@ async def get_context_files(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The context manager could not list that path.",
         ) from exc
+
+
+def _classify_pitfall(uri: str) -> tuple[str, str | None, str | None]:
+    """Split a document URI into ``(origin, project, owner)``.
+
+    Central docs live under the house account and belong to no project;
+    everything else is a project's own ``memories/pitfalls.md``. Derived from
+    the URI rather than asked of the backend, which does not model ownership.
+    """
+    rest = uri.removeprefix(USERS_TARGET_URI).strip("/")
+    segments = rest.split("/")
+    owner = segments[0] if segments else None
+    if owner == HOUSE_ACCOUNT_ID:
+        return "central", None, owner
+    project = segments[1] if len(segments) > 1 else None
+    return "project_memory", project, owner
+
+
+@ROUTER_CONTEXT.get("/api/context/pitfalls")
+async def get_context_pitfalls(
+    request: Request,
+    q: str | None = Query(
+        default=None, description="Error text, table name, or description."
+    ),
+    project: str | None = Query(
+        default=None, description="Limit to one project. Defaults to all."
+    ),
+    owner: str | None = Query(
+        default=None, description="Owner of `project`. Defaults to the caller."
+    ),
+    exact: bool = Query(
+        default=False,
+        description="Match tokens literally instead of semantically.",
+    ),
+    limit: int = Query(default=10, ge=1, le=MAX_PITFALL_LIMIT),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db)
+) -> PitfallResults:
+    """Has this gotcha been hit before, on any project?
+
+    The question ``pitfall-capture`` asks by protocol, as one call. It spans
+    both halves of the corpus — every project's ``memories/pitfalls.md`` and
+    the central archive — so a caller does not have to know that pitfalls live
+    in two shapes, nor compose a URI to reach them.
+
+    ``exact`` matches tokens literally, which beats semantic search for error
+    strings and table names — the things a user actually pastes in. Semantic is
+    the default because a described symptom rarely shares wording with the
+    entry that documents it.
+
+    Results are documents, not fragments. The backend decomposes each file into
+    section-level nodes, so a raw search returns several pieces of the same
+    pitfall; these are grouped, with the document's best fragment score, and
+    backend-generated stubs dropped.
+    """
+    if project or owner:
+        uri = _read_uri(user, project, None, owner=owner)
+    else:
+        # No project named: search everything readable, both corpora at once.
+        uri = listing_uri()
+
+    manager = await resolve_context_manager(db, user)
+    try:
+        documents, scanned = await manager.find_pitfalls(
+            q, uri=uri, limit=limit, exact=exact
+        )
+    except QUERY_FAILURES as exc:
+        logger.warning("Pitfall query failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not answer that query.",
+        ) from exc
+
+    results = []
+    for doc in documents:
+        origin, doc_project, doc_owner = _classify_pitfall(doc["uri"])
+        results.append(
+            PitfallHit(
+                uri=doc["uri"],
+                origin=origin,
+                project=doc_project,
+                owner=doc_owner,
+                score=doc["score"],
+                excerpts=doc["excerpts"],
+                fragment_uris=doc["fragment_uris"],
+            )
+        )
+    return PitfallResults(query=q, results=results, fragments_scanned=scanned)
 
 
 @ROUTER_CONTEXT.get("/api/context/grep")
