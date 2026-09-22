@@ -188,6 +188,118 @@ def target_uri(target_root: str, relative_path: str) -> str:
     return f"{target_root.rstrip('/')}/{'/'.join(segments)}"
 
 
+# The backend decomposes each document into a tree, turning section headings
+# into path segments and appending a content hash, so one source file yields
+# many nodes. It also synthesizes two kinds of node that are structure rather
+# than content:
+#
+#   .overview.md — a directory stub, usually "[Directory overview is not
+#                  generated]"
+#   .abstract.md — a generated summary that restates its parent
+#
+# Both match a semantic query readily and neither is a pitfall, so they are
+# dropped before results reach a caller.
+_SYNTHETIC_NODES = (".overview.md", ".abstract.md")
+
+
+def is_synthetic_node(uri: str) -> bool:
+    """True when ``uri`` is a backend-generated stub rather than content."""
+    return uri.rsplit("/", 1)[-1] in _SYNTHETIC_NODES
+
+
+def source_document(uri: str, corpus_root: str) -> str:
+    """The source document a fragment came from.
+
+    The two halves of the corpus nest differently, so this cannot key on one
+    rule:
+
+    * a project memory is a file, and its fragments hang below it —
+      ``…/<project>/memories/pitfalls.md/<chunk>.md``, so the first ``.md``
+      segment is the document;
+    * a central doc is decomposed under its *slug directory* —
+      ``…/beril/docs/<slug>/<slug>/<Section>/<chunk>.md``, where every segment
+      including the leaf ends in ``.md``, so the first-``.md`` rule would
+      return the fragment itself and collapse nothing.
+
+    Central docs are therefore cut at the slug directory, which is the unit a
+    caller reads and cites. Returns ``uri`` unchanged when neither shape
+    matches — better to report the node than to guess at a grouping.
+    """
+    if not uri.startswith(corpus_root):
+        return uri
+    segments = uri[len(corpus_root):].strip("/").split("/")
+
+    def _join(count: int) -> str:
+        return f"{corpus_root.rstrip('/')}/{'/'.join(segments[:count])}"
+
+    # Central doc: <owner>/docs/<slug>/…
+    if len(segments) >= 3 and segments[0] == HOUSE_ACCOUNT_ID and segments[1] == "docs":
+        return _join(3)
+
+    # Project memory: the first .md segment is the file itself.
+    for index, segment in enumerate(segments):
+        if segment.endswith(".md"):
+            return _join(index + 1)
+    return uri
+
+
+def _grep_nodes(payload: dict) -> list[dict]:
+    """Normalize a grep payload onto the same node shape ``find`` produces.
+
+    Grep returns ``{"matches": [{"line", "uri", "content"}]}`` and carries no
+    relevance score, so every match scores 1.0 — an exact hit is an exact hit,
+    and ranking them against each other would invent a judgement the backend
+    did not make. Ordering then falls to match count, which ``_collapse_``
+    ``fragments`` applies.
+    """
+    return [
+        {
+            "uri": match.get("uri") or "",
+            "score": 1.0,
+            "text": (match.get("content") or "").strip(),
+        }
+        for match in (payload.get("matches") or [])
+    ]
+
+
+def _collapse_fragments(nodes: list[dict], *, limit: int) -> list[dict]:
+    """Group fragment nodes by source document, best score first.
+
+    One document yields many fragments, so returning nodes directly floods a
+    caller with pieces of the same file. A document's score is its best
+    fragment's: a strong match anywhere in a pitfall entry makes that entry
+    worth reading, and averaging would bury a precise hit inside a long doc.
+
+    Synthetic nodes are dropped first — they match readily and say nothing.
+    """
+    corpus = USERS_TARGET_URI
+    documents: dict[str, dict] = {}
+    for node in nodes:
+        uri = node.get("uri") or ""
+        if not uri or is_synthetic_node(uri):
+            continue
+        doc_uri = source_document(uri, corpus)
+        entry = documents.setdefault(
+            doc_uri,
+            {"uri": doc_uri, "score": 0.0, "excerpts": [], "fragment_uris": []},
+        )
+        entry["score"] = max(entry["score"], float(node.get("score") or 0.0))
+        entry["fragment_uris"].append(uri)
+        text = (node.get("text") or "").strip()
+        # Keep a few excerpts, not every fragment: enough to judge relevance
+        # without returning the document twice over.
+        if text and len(entry["excerpts"]) < 3 and text not in entry["excerpts"]:
+            entry["excerpts"].append(text)
+
+    ranked = sorted(
+        documents.values(),
+        # Score first; then match count, which is the only signal grep gives.
+        key=lambda d: (d["score"], len(d["fragment_uris"])),
+        reverse=True,
+    )
+    return ranked[:limit]
+
+
 class UnauthenticatedError(RuntimeError):
     """Raised when a context-manager call is made without an identified user."""
 
@@ -353,6 +465,49 @@ class OpenVikingManager(ContextManager):
             # the connection.
             await ov_client.close()
         return list(results or [])
+
+    async def find_pitfalls(
+        self,
+        query: str | None,
+        *,
+        uri: str,
+        limit: int,
+        exact: bool = False,
+    ) -> tuple[list[dict], int]:
+        """Search the pitfall corpus, collapsed to source documents.
+
+        Returns ``(documents, fragments_scanned)``. Semantic by default;
+        ``exact`` switches to grep, which beats embeddings for error strings
+        and table names — the tokens a user actually pastes in.
+
+        Fragments are grouped by source document and synthetic nodes dropped,
+        so a caller gets documents rather than section-level noise. The
+        document's score is its best fragment's: a strong match anywhere in a
+        pitfall entry makes that entry worth reading.
+        """
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        try:
+            if exact:
+                raw = await ov_client.grep(uri, query or "", case_insensitive=True)
+                nodes = _grep_nodes(raw)
+            else:
+                # Over-fetch: fragments collapse, so N nodes yield fewer
+                # documents. Bounded so a broad query cannot walk the corpus.
+                raw = await ov_client.find(
+                    query or "", target_uri=uri, limit=min(limit * 5, 100)
+                )
+                nodes = [
+                    {
+                        "uri": r.get("uri") or "",
+                        "score": float(r.get("score") or 0.0),
+                        "text": r.get("abstract") or "",
+                    }
+                    for r in (raw.get("resources") or [])
+                ]
+        finally:
+            await ov_client.close()
+
+        return _collapse_fragments(nodes, limit=limit), len(nodes)
 
     async def grep(
         self,

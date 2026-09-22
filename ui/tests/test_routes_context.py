@@ -1764,3 +1764,161 @@ async def test_grep_rejects_traversal_in_the_exclude_owner(
 
     assert resp.status_code == 422
     manager.grep.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# GET /api/context/pitfalls
+# ---------------------------------------------------------------------------
+
+_CENTRAL_DOC = "viking://resources/users/beril/docs/pitfalls"
+_MEMORY_DOC = "viking://resources/users/0009-1/alpha/memories/pitfalls.md"
+
+
+def _pitfall_docs():
+    return (
+        [
+            {"uri": _MEMORY_DOC, "score": 0.88, "excerpts": ["spark OOM"],
+             "fragment_uris": [f"{_MEMORY_DOC}/c.md"]},
+            {"uri": _CENTRAL_DOC, "score": 0.67, "excerpts": ["pandas"],
+             "fragment_uris": [f"{_CENTRAL_DOC}/a.md", f"{_CENTRAL_DOC}/b.md"]},
+        ],
+        7,
+    )
+
+
+@pytest.fixture
+def pitfall_manager():
+    inst = MagicMock()
+    inst.find_pitfalls = AsyncMock(return_value=_pitfall_docs())
+    with patch("app.routes.context.OpenVikingManager", return_value=inst):
+        yield inst
+
+
+def test_pitfalls_unauthenticated_returns_401(client):
+    assert client.get("/api/context/pitfalls").status_code == 401
+
+
+async def test_pitfalls_classifies_origin(client, credentialed_user, pitfall_manager):
+    """A caller must be able to tell a project's own note from the archive."""
+    _login(client)
+    resp = client.get("/api/context/pitfalls", params={"q": "spark"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [r["origin"] for r in body["results"]] == ["project_memory", "central"]
+    assert body["results"][0]["project"] == "alpha"
+    assert body["results"][0]["owner"] == "0009-1"
+    # A central doc belongs to no project.
+    assert body["results"][1]["project"] is None
+    assert body["results"][1]["owner"] == "beril"
+
+
+async def test_pitfalls_reports_fragments_scanned(
+    client, credentialed_user, pitfall_manager
+):
+    _login(client)
+    body = client.get("/api/context/pitfalls", params={"q": "x"}).json()
+
+    # Two documents, seven underlying fragments.
+    assert len(body["results"]) == 2
+    assert body["fragments_scanned"] == 7
+
+
+async def test_pitfalls_searches_the_whole_corpus_by_default(
+    client, credentialed_user, pitfall_manager
+):
+    """No project named means both halves of the corpus, every owner."""
+    _login(client)
+    client.get("/api/context/pitfalls", params={"q": "spark"})
+
+    assert pitfall_manager.find_pitfalls.await_args.kwargs["uri"] == (
+        "viking://resources/users"
+    )
+
+
+async def test_pitfalls_narrows_to_a_project(
+    client, credentialed_user, pitfall_manager
+):
+    _login(client)
+    client.get("/api/context/pitfalls", params={"q": "x", "project": "alpha"})
+
+    uri = pitfall_manager.find_pitfalls.await_args.kwargs["uri"]
+    assert uri == f"viking://resources/users/{USER_TOKEN['orcid']}/alpha"
+
+
+async def test_pitfalls_narrows_to_another_owner(
+    client, credentialed_user, pitfall_manager
+):
+    """Reads are global, so another owner's pitfalls are readable."""
+    _login(client)
+    client.get(
+        "/api/context/pitfalls",
+        params={"q": "x", "project": "alpha", "owner": "0000-0009-8888-7777"},
+    )
+
+    uri = pitfall_manager.find_pitfalls.await_args.kwargs["uri"]
+    assert uri == "viking://resources/users/0000-0009-8888-7777/alpha"
+
+
+async def test_pitfalls_passes_exact_through(
+    client, credentialed_user, pitfall_manager
+):
+    """Exact beats semantic for error strings — the tokens users paste."""
+    _login(client)
+    client.get("/api/context/pitfalls", params={"q": "maxResultSize", "exact": "true"})
+
+    assert pitfall_manager.find_pitfalls.await_args.kwargs["exact"] is True
+
+
+async def test_pitfalls_defaults_to_semantic(
+    client, credentialed_user, pitfall_manager
+):
+    _login(client)
+    client.get("/api/context/pitfalls", params={"q": "memory blew up"})
+
+    assert pitfall_manager.find_pitfalls.await_args.kwargs["exact"] is False
+
+
+async def test_pitfalls_allows_an_empty_query(
+    client, credentialed_user, pitfall_manager
+):
+    """No q lists the corpus — a legitimate 'what do we know?' call."""
+    _login(client)
+    resp = client.get("/api/context/pitfalls")
+
+    assert resp.status_code == 200
+    assert pitfall_manager.find_pitfalls.await_args.args[0] is None
+
+
+@pytest.mark.parametrize("limit", [0, 500])
+async def test_pitfalls_rejects_out_of_range_limit(
+    client, credentialed_user, pitfall_manager, limit
+):
+    _login(client)
+    resp = client.get("/api/context/pitfalls", params={"q": "x", "limit": limit})
+
+    assert resp.status_code == 422
+    pitfall_manager.find_pitfalls.assert_not_awaited()
+
+
+async def test_pitfalls_rejects_traversal_in_the_owner(
+    client, credentialed_user, pitfall_manager
+):
+    _login(client)
+    resp = client.get(
+        "/api/context/pitfalls", params={"q": "x", "owner": "../.."}
+    )
+
+    assert resp.status_code == 422
+    pitfall_manager.find_pitfalls.assert_not_awaited()
+
+
+async def test_pitfalls_surfaces_backend_failure_as_502(client, credentialed_user):
+    inst = MagicMock()
+    inst.find_pitfalls = AsyncMock(side_effect=UnavailableError("backend down"))
+    _login(client)
+    with patch("app.routes.context.OpenVikingManager", return_value=inst):
+        resp = client.get("/api/context/pitfalls", params={"q": "x"})
+
+    assert resp.status_code == 502
+    assert "backend down" not in resp.text
