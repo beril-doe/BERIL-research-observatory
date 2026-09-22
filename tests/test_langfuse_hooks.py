@@ -122,12 +122,14 @@ def test_mask_covers_the_cborg_credential_the_setup_guide_sets(tmp_path, monkeyp
         "orcid_id": "0000-0001-2345-6789", "display_name": "Alice",
     }))
     monkeypatch.setattr("beril_cli.auth_store.AUTH_PATH", auth)
+    # Distinct values, so each name has to be in the list on its own: the guide
+    # sets them to the same key, but a user can set either one alone.
     monkeypatch.setenv("CBORG_API_KEY", "fake-cborg-credential")
-    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "fake-cborg-credential")
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "fake-anthropic-auth-credential")
 
     mask = _load_artifacts_module().relay_client_kwargs()["mask"]
     env_dump = (
-        "ANTHROPIC_AUTH_TOKEN=fake-cborg-credential\n"
+        "ANTHROPIC_AUTH_TOKEN=fake-anthropic-auth-credential\n"
         "CBORG_API_KEY=fake-cborg-credential\n"
         "ANTHROPIC_BASE_URL=https://api.cborg.lbl.gov"
     )
