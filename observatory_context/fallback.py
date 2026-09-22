@@ -56,12 +56,17 @@ def uri_to_path(config: ContextConfig, uri: str) -> Path | None:
     if rest.startswith("projects/"):
         sub = rest[len("projects/"):].rstrip("/")
         return config.projects_dir / sub if sub else config.projects_dir
-    if rest.startswith("docs/"):
-        sub = rest[len("docs/"):].strip("/")
+
+    # Central docs live under the house account, so their prefix is derived
+    # rather than the literal "docs/" — matching on that would silently miss
+    # them and drop the offline fallback for every central doc.
+    docs_prefix = DOCS_TARGET_URI[len(_RESOURCES_PREFIX):]
+    if rest.startswith(docs_prefix.rstrip("/")):
+        sub = rest[len(docs_prefix.rstrip("/")):].strip("/")
         if not sub:
             return config.docs_dir
         parts = sub.split("/")
-        # dir form (docs/<slug>/) -> docs/<slug>.md; file form -> docs/<file>
+        # dir form (<docs>/<slug>/) -> docs/<slug>.md; file form -> docs/<file>
         return config.docs_dir / (f"{parts[0]}.md" if len(parts) == 1 else parts[-1])
     return None
 

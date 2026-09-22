@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from observatory_context.config import ContextConfig
+from observatory_context.config import DOCS_TARGET_URI, ContextConfig
 from observatory_context.ingest import (
     ingest_all,
     ingest_changed,
@@ -49,7 +49,7 @@ def test_ingest_all_adds_project_and_docs(tmp_path: Path) -> None:
 
     targets = [target for _, target in client.added]
     assert "viking://resources/projects/demo/" in targets
-    assert "viking://resources/docs/pitfalls/" in targets
+    assert f"{DOCS_TARGET_URI}pitfalls/" in targets
     assert client.wait_count == 1
 
 
@@ -120,7 +120,7 @@ def test_ingest_project_keeps_other_pending_changes_visible_to_changed(tmp_path:
     targets = [target for _, target in followup.added]
 
     assert "viking://resources/projects/beta/" in targets
-    assert "viking://resources/docs/pitfalls/" in targets
+    assert f"{DOCS_TARGET_URI}pitfalls/" in targets
     # alpha was just ingested; its manifest entry is current, so it is not re-done.
     assert "viking://resources/projects/alpha/" not in targets
 
@@ -153,7 +153,7 @@ def test_ingest_all_with_limit_ingests_first_n_projects_and_skips_docs(tmp_path:
     assert "viking://resources/projects/alpha/" in targets
     assert "viking://resources/projects/beta/" in targets
     assert "viking://resources/projects/gamma/" not in targets
-    assert "viking://resources/docs/pitfalls/" not in targets
+    assert f"{DOCS_TARGET_URI}pitfalls/" not in targets
 
 
 def test_ingest_all_with_limit_writes_partial_manifest_so_changed_picks_up_remainder(

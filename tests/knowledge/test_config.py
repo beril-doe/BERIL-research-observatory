@@ -14,6 +14,9 @@ from observatory_context import config as ovcfg
 from observatory_context.config import (
     DEFAULT_OPENVIKING_URL,
     DEFAULT_S3_ENDPOINT_URL,
+    DOCS_TARGET_URI,
+    HOUSE_ACCOUNT_ID,
+    PROJECTS_TARGET_URI,
     ContextConfig,
     s3_settings,
 )
@@ -179,3 +182,36 @@ class TestS3Settings:
             "access_key": "s3-ak",
             "secret_key": "minio-sk",
         }
+
+
+def test_central_docs_live_under_the_house_account():
+    """Pinned literally, not derived.
+
+    BERIL's read routes address everything as ``resources/users/<owner>/…``, so
+    the ownerless central docs sit under a reserved owner instead of needing a
+    special case in every read path. A test that derived this value from the
+    constant would not notice the root moving.
+    """
+    assert DOCS_TARGET_URI == "viking://resources/users/beril/docs/"
+
+
+def test_house_account_matches_the_webapps_reserved_name():
+    """The two definitions must agree.
+
+    ``observatory_context`` cannot import the webapp (it must work without it
+    on the path), so the name is duplicated. If they drift, the webapp reserves
+    one name while ingest writes to another — and a real user could claim the
+    namespace ingest is using.
+    """
+    ui_openviking = (
+        Path(__file__).resolve().parents[2]
+        / "ui" / "app" / "context_manager" / "openviking.py"
+    )
+    source = ui_openviking.read_text(encoding="utf-8")
+    assert f'HOUSE_ACCOUNT_ID = "{HOUSE_ACCOUNT_ID}"' in source
+
+
+def test_docs_and_projects_roots_stay_disjoint():
+    """Prefix filters in ``ingest`` assume no target matches both."""
+    assert not DOCS_TARGET_URI.startswith(PROJECTS_TARGET_URI)
+    assert not PROJECTS_TARGET_URI.startswith(DOCS_TARGET_URI)
