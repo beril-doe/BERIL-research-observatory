@@ -30,6 +30,7 @@ from app.context_manager.base import (
 )
 from app.crypto import encrypt_secret
 from app.db.crud import (
+    create_ingest_batch,
     create_user_project,
     get_ingest_batch,
     get_project_by_slug,
@@ -1919,6 +1920,161 @@ async def test_pitfalls_surfaces_backend_failure_as_502(client, credentialed_use
     _login(client)
     with patch("app.routes.context.OpenVikingManager", return_value=inst):
         resp = client.get("/api/context/pitfalls", params={"q": "x"})
+
+    assert resp.status_code == 502
+    assert "backend down" not in resp.text
+
+
+# ---------------------------------------------------------------------------
+# GET /api/context/discoveries
+# ---------------------------------------------------------------------------
+
+_DISC_CENTRAL = "viking://resources/users/beril/docs/discoveries"
+_DISC_MEMORY = "viking://resources/users/0009-1/alpha/memories/discoveries.md"
+
+
+@pytest.fixture
+def discovery_manager():
+    inst = MagicMock()
+    inst.find_discoveries = AsyncMock(
+        return_value=(
+            [
+                {"uri": _DISC_MEMORY, "score": 0.9, "excerpts": ["current"],
+                 "fragment_uris": [f"{_DISC_MEMORY}/c.md"]},
+                {"uri": _DISC_CENTRAL, "score": 0.7,
+                 "excerpts": ["### [legacy_proj] older finding"],
+                 "fragment_uris": [f"{_DISC_CENTRAL}/a.md"]},
+            ],
+            9,
+        )
+    )
+    with patch("app.routes.context.OpenVikingManager", return_value=inst):
+        yield inst
+
+
+def test_discoveries_unauthenticated_returns_401(client):
+    assert client.get("/api/context/discoveries").status_code == 401
+
+
+async def test_discoveries_classifies_origin(
+    client, credentialed_user, discovery_manager
+):
+    _login(client)
+    resp = client.get("/api/context/discoveries", params={"q": "phage"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [r["origin"] for r in body["results"]] == [
+        "project_memory",
+        "central_legacy",
+    ]
+    assert body["results"][0]["project"] == "alpha"
+    assert body["results"][1]["project"] == "legacy_proj"
+
+
+async def test_discoveries_suppresses_stale_central_duplicates(
+    client, credentialed_user, discovery_manager, db_session
+):
+    """A central entry tagged for a project that owns its memory is dropped.
+
+    The precedence rule end-to-end: the DB says which projects have a landed
+    memory, and the route uses that to dedup.
+    """
+    # A project whose memories/discoveries.md completed an ingest.
+    project = await create_user_project(
+        db_session, credentialed_user.id, title="Legacy Proj", slug="legacy_proj"
+    )
+    batch = await create_ingest_batch(
+        db_session,
+        user_id=credentialed_user.id,
+        project_id=project.id,
+        target_root="viking://x",
+        files=[{"relative_path": "memories/discoveries.md", "status": "completed"}],
+    )
+    assert batch.id
+
+    _login(client)
+    body = client.get("/api/context/discoveries", params={"q": "phage"}).json()
+
+    # The central entry named legacy_proj, which now owns its own copy.
+    assert body["suppressed"] == 1
+    assert [r["origin"] for r in body["results"]] == ["project_memory"]
+
+
+async def test_discoveries_reports_counts(
+    client, credentialed_user, discovery_manager
+):
+    _login(client)
+    body = client.get("/api/context/discoveries", params={"q": "x"}).json()
+
+    assert body["fragments_scanned"] == 9
+    # Nothing suppressed: no project has a landed memory in this fixture.
+    assert body["suppressed"] == 0
+
+
+async def test_discoveries_searches_the_whole_corpus_by_default(
+    client, credentialed_user, discovery_manager
+):
+    _login(client)
+    client.get("/api/context/discoveries", params={"q": "x"})
+
+    assert discovery_manager.find_discoveries.await_args.kwargs["uri"] == (
+        "viking://resources/users"
+    )
+
+
+async def test_discoveries_narrows_to_a_project(
+    client, credentialed_user, discovery_manager
+):
+    _login(client)
+    client.get("/api/context/discoveries", params={"q": "x", "project": "alpha"})
+
+    uri = discovery_manager.find_discoveries.await_args.kwargs["uri"]
+    assert uri == f"viking://resources/users/{USER_TOKEN['orcid']}/alpha"
+
+
+async def test_discoveries_passes_exact_through(
+    client, credentialed_user, discovery_manager
+):
+    _login(client)
+    client.get("/api/context/discoveries", params={"q": "x", "exact": "true"})
+
+    assert discovery_manager.find_discoveries.await_args.kwargs["exact"] is True
+
+
+@pytest.mark.parametrize("limit", [0, 500])
+async def test_discoveries_rejects_out_of_range_limit(
+    client, credentialed_user, discovery_manager, limit
+):
+    _login(client)
+    resp = client.get(
+        "/api/context/discoveries", params={"q": "x", "limit": limit}
+    )
+
+    assert resp.status_code == 422
+    discovery_manager.find_discoveries.assert_not_awaited()
+
+
+async def test_discoveries_rejects_traversal_in_the_owner(
+    client, credentialed_user, discovery_manager
+):
+    _login(client)
+    resp = client.get(
+        "/api/context/discoveries", params={"q": "x", "owner": "../.."}
+    )
+
+    assert resp.status_code == 422
+    discovery_manager.find_discoveries.assert_not_awaited()
+
+
+async def test_discoveries_surfaces_backend_failure_as_502(
+    client, credentialed_user
+):
+    inst = MagicMock()
+    inst.find_discoveries = AsyncMock(side_effect=UnavailableError("backend down"))
+    _login(client)
+    with patch("app.routes.context.OpenVikingManager", return_value=inst):
+        resp = client.get("/api/context/discoveries", params={"q": "x"})
 
     assert resp.status_code == 502
     assert "backend down" not in resp.text

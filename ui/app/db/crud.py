@@ -539,6 +539,34 @@ async def completed_file_hashes(
     return {row.relative_path: row.content_sha256 for row in result}
 
 
+async def projects_with_memory(db: AsyncSession, memory: str) -> set[str]:
+    """Project slugs that have completed an ingest of ``memories/<memory>.md``.
+
+    The fact the discovery precedence rule turns on: a central entry tagged for
+    a project that owns its own memory is a stale duplicate. "Owns" means the
+    file actually *landed*, not that it exists on someone's disk — so this
+    reads the same completed-ingest record the skip check does, rather than the
+    filesystem or ``ProjectFile`` (which tracks uploads, not ingests).
+
+    Slugs, not ids: the tags in the central archive are project slugs.
+    """
+    relative_path = f"memories/{memory}.md"
+    result = await db.execute(
+        select(UserProject.slug)
+        .join(ContextIngestBatch, ContextIngestBatch.project_id == UserProject.id)
+        .join(
+            ContextIngestFileRecord,
+            ContextIngestFileRecord.batch_id == ContextIngestBatch.id,
+        )
+        .where(
+            ContextIngestFileRecord.relative_path == relative_path,
+            ContextIngestFileRecord.status == INGEST_COMPLETED,
+        )
+        .distinct()
+    )
+    return {row[0] for row in result}
+
+
 async def get_ingest_batch(
     db: AsyncSession, batch_id: str
 ) -> ContextIngestBatch | None:

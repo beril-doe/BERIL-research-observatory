@@ -12,6 +12,7 @@ MAX_FIND_NODE_LIMIT = 10_000
 MAX_LS_NODE_LIMIT = 10_000
 MAX_GREP_NODE_LIMIT = 10_000
 MAX_PITFALL_LIMIT = 50
+MAX_DISCOVERY_LIMIT = 50
 
 
 class FileMetadata(BaseModel):
@@ -188,6 +189,45 @@ class PitfallResults(BaseModel):
     query: str | None = None
     results: list[PitfallHit]
     fragments_scanned: int = 0
+
+
+class DiscoveryHit(BaseModel):
+    """One discovery document.
+
+    ``origin`` is the precedence class, not merely a location:
+
+    * ``project_memory`` — review-vetted, current. Written at ``/submit``
+      approval, so it is approved findings by construction.
+    * ``central_legacy`` — a central entry tagged for a project that has no
+      per-project memory, i.e. predating the per-project pattern.
+    * ``central_background`` — an untagged central entry, belonging to no
+      project.
+
+    A central entry tagged for a project that *does* have its own memory is a
+    stale duplicate and never appears — see ``PROJECT_MEMORY_WINS``.
+    """
+
+    uri: str
+    origin: Literal["project_memory", "central_legacy", "central_background"]
+    project: str | None = None
+    owner: str | None = None
+    score: float
+    excerpts: list[str] = Field(default_factory=list)
+    fragment_uris: list[str] = Field(default_factory=list)
+
+
+class DiscoveryResults(BaseModel):
+    """Discoveries matching a query, deduplicated, best first.
+
+    ``suppressed`` counts stale central duplicates dropped by the precedence
+    rule — reported rather than hidden so a caller can tell "nothing matched"
+    from "the current copy answered instead".
+    """
+
+    query: str | None = None
+    results: list[DiscoveryHit]
+    fragments_scanned: int = 0
+    suppressed: int = 0
 
 
 class ContextQueryResults(BaseModel):
