@@ -21,8 +21,9 @@ import re
 import sys
 import threading
 from datetime import datetime, timezone
-from functools import lru_cache
+from functools import lru_cache, partial
 from pathlib import Path
+from typing import Any
 
 ARTIFACTS = ("REPORT.md", "RESEARCH_PLAN.md", "WORKLOG.md")
 # .absolute(), not .resolve(): a symlinked hook must act on the tree it is
@@ -43,43 +44,36 @@ def log(msg: str) -> None:
         pass
 
 
-# Traces carry every tool output, so anything a session `cat`s lands in the
-# shared project; live credentials have done exactly that before
-# (langfuse-retro-load#4). The SDK applies this to every observation's
-# input/output/metadata before export. Best-effort by nature: a bare token
-# with no surrounding context can't be recognised, so docs/langfuse.md still
-# says not to trace sessions handling data that must not leave the machine.
-# Group 1, when present, is the prefix to keep; the rest is the secret.
-_SECRET_PATTERNS = [
-    re.compile(r"beril_[0-9a-f]{48}"),                              # BERIL PAT
-    re.compile(r"\b[ps]k-lf-[0-9a-f-]{20,}"),                        # Langfuse keys
-    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),                             # AWS access key id
-    re.compile(r"\beyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}"),           # JWT
-    re.compile(r"(?i)(authorization\s*[:=]\s*(?:bearer|basic|token)\s+)\S+"),
-    re.compile(r"(?i)(-u\s+['\"]?)[^\s'\"]+:[^\s'\"]+"),               # curl -u user:pass
-    re.compile(
-        r"(?i)((?:token|secret|password|passwd|credential|api[_-]?key|access[_-]?key"
-        r"|secret[_-]?key|user[_-]?key|private[_-]?key)\w*[\"']?\s*[=:]\s*[\"']?)"
-        r"[^\s\"',;&]+"
-    ),
-]
-_REDACTED = "[REDACTED]"
+# Match explicit auth headers, not generic research fields named token/secret.
+_AUTH_HEADER = re.compile(
+    r'''(?i)(\b(?:proxy-)?authorization["']?[ \t]*[:=][ \t]*["']?'''
+    r'''(?:bearer|basic|token)[ \t]+)[^\s"'\\,;{}]+'''
+)
+_AUTH_SCHEME = re.compile(r"(?i)^([ \t]*(?:bearer|basic|token)[ \t]+)")
+_CREDENTIAL_ENV = (
+    "LANGFUSE_SECRET_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
+    "KBASE_AUTH_TOKEN", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
+)
 
 
-def _sub(m: re.Match) -> str:
-    return (m.group(1) if m.lastindex else "") + _REDACTED
-
-
-def redact(data=None, **_):
-    """Langfuse `mask` hook: scrub credential-shaped strings, recursively."""
+def redact(data: Any = None, *, secrets: tuple[str, ...] = (), **_: Any) -> Any:
+    """Mask known credential values and auth headers; preserve other content."""
     if isinstance(data, str):
-        for pat in _SECRET_PATTERNS:
-            data = pat.sub(_sub, data)
+        data = _AUTH_HEADER.sub(r"\1[REDACTED]", data)
+        for secret in secrets:
+            data = data.replace(secret, "[REDACTED]")
         return data
     if isinstance(data, dict):
-        return {k: redact(v) for k, v in data.items()}
+        result = {}
+        for key, value in data.items():
+            if isinstance(key, str) and key.lower() in {"authorization", "proxy-authorization"} and isinstance(value, str):
+                scheme = _AUTH_SCHEME.match(value)
+                result[key] = (scheme.group(0) if scheme else "") + "[REDACTED]"
+            else:
+                result[key] = redact(value, secrets=secrets)
+        return result
     if isinstance(data, (list, tuple)):
-        return type(data)(redact(v) for v in data)
+        return type(data)(redact(value, secrets=secrets) for value in data)
     return data
 
 
@@ -137,12 +131,16 @@ def relay_client_kwargs() -> dict | None:
     rec = _login()
     if rec is None:
         return None
+    secrets = tuple(sorted({
+        value for value in (rec.token, rec.ov_user_key, *(os.environ.get(name) for name in _CREDENTIAL_ENV))
+        if isinstance(value, str) and value
+    }, key=len, reverse=True))
     return {
         "public_key": "beril",
         "secret_key": rec.token,
         "base_url": rec.base_url.rstrip("/") + "/lf",
         "additional_headers": {"User-Agent": "beril-langfuse-hook"},
-        "mask": redact,
+        "mask": partial(redact, secrets=secrets),
     }
 
 
@@ -189,8 +187,14 @@ def main() -> int:
         from langfuse.media import LangfuseMedia
 
         langfuse = Langfuse(**client_kwargs)
+        # The SDK masks media references after upload, so sanitize the bytes here.
         media = {
-            p.name: LangfuseMedia(content_bytes=p.read_bytes(), content_type="text/markdown")
+            p.name: LangfuseMedia(
+                content_bytes=client_kwargs["mask"](
+                    p.read_bytes().decode("utf-8", errors="surrogateescape")
+                ).encode("utf-8", errors="surrogateescape"),
+                content_type="text/markdown",
+            )
             for p in files
         }
         prop: dict = {"session_id": session_id, "tags": ["beril", "artifacts", project]}

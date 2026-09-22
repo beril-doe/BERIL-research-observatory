@@ -32,8 +32,8 @@ ROUTER_LANGFUSE = APIRouter(prefix="/lf/api/public", tags=["langfuse"])
 
 _TIMEOUT = httpx.Timeout(30.0)
 # The relay writes with the shared project keys, so bound what one request can
-# push. The SDK's OTLP batches are well under this even at the hook's 20k-char
-# field cap; media bytes never come through here.
+# push. Oversized trace batches are rejected, not silently truncated;
+# media bytes never come through here.
 MAX_BODY_BYTES = 16 * 1024 * 1024
 # Request headers copied upstream. Everything else (Host, Authorization, the
 # client's x-langfuse-public-key) is dropped or replaced.

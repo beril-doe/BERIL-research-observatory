@@ -119,32 +119,35 @@ curl -s "$BERIL_LANGFUSE_BASE_URL/api/public/observations?tag=claude-code&limit=
 
 ## What ends up in the cloud
 
-Traces contain everything a session saw: prompts, responses, and tool inputs
-*and outputs* — so anything a session `cat`s or an API returns (auth tokens,
-unpublished data) lands in Langfuse Cloud. This is not hypothetical: live
-credentials have turned up in BERIL transcripts before
-(langfuse-retro-load#4).
+The hooks preserve prompts, responses, tool inputs and outputs, with narrowly
+targeted credential masking. Both traces and Markdown attachments replace:
 
-Two guards, neither complete on its own:
+- Exact credential values from the BERIL login record (the BERIL token and
+  linked OpenViking key) and these environment variables: `LANGFUSE_SECRET_KEY`,
+  `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `KBASE_AUTH_TOKEN`,
+  `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN`.
+- Bearer, Basic, and Token authorization headers in text, and values under
+  `Authorization` or `Proxy-Authorization` keys in structured data.
 
-- **Credential masking.** Both hooks pass `redact()`
-  (`.claude/hooks/langfuse_artifacts.py`) as the SDK's `mask`, which runs
-  over every observation before export and replaces credential-shaped
-  strings with `[REDACTED]`: BERIL tokens, Langfuse keys, AWS key ids, JWTs,
-  `Authorization:` headers, `curl -u`, and `token|secret|password|api_key|
-  user_key|credential… = value` pairs (so a dumped `.env` or `auth.json` is
-  scrubbed line by line). A bare token with no surrounding context is not
-  recognised.
-- **Per-session off switch.** A regex can't recognise an unpublished dataset.
-  For a session that handles data that must not leave the machine, start it
-  with tracing off:
+Only the credential value becomes `[REDACTED]`; the surrounding trace remains.
+Generic fields or assignments named `token`, `secret`, `password`, or `api_key`
+are preserved unless their values match a known credential. Markdown bytes,
+including line endings, are preserved outside those replacements, and source
+files are never modified. This policy does not detect unknown bare credentials
+or encoded copies, and it does not remove unpublished research content. Access
+to the Langfuse project controls who can read that content.
 
-  ```bash
-  TRACE_TO_LANGFUSE=false claude
-  ```
+Text fields have no hook-level length limit by default. A positive
+`CC_LANGFUSE_MAX_CHARS` explicitly enables truncation; unset, zero, or negative
+values preserve the complete field. The relay still caps each request at
+16 MiB and rejects oversized batches rather than truncating their contents.
+Delivery remains best-effort; check the hook logs for export failures.
 
-The relay also caps a single request at 16 MiB, so a broken client can't
-push unbounded data into the project with the shared keys.
+Tracing remains opt-in. To exclude an entire session from Langfuse:
+
+```bash
+TRACE_TO_LANGFUSE=false claude
+```
 
 The real local transcript path is *not* uploaded — trace metadata carries a
 synthetic `<session_id>.jsonl` instead, since real paths leak usernames and

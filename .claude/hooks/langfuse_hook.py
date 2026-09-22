@@ -43,9 +43,9 @@ LOCK_FILE = STATE_DIR / "langfuse_state.lock"
 
 DEBUG = os.environ.get("CC_LANGFUSE_DEBUG", "").lower() == "true"
 try:
-    MAX_CHARS = int(os.environ.get("CC_LANGFUSE_MAX_CHARS", "20000"))
+    MAX_CHARS = int(os.environ.get("CC_LANGFUSE_MAX_CHARS", "0"))
 except ValueError:
-    MAX_CHARS = 20000
+    MAX_CHARS = 0
 
 # ----------------- Logging -----------------
 _logger: Optional[logging.Logger] = None
@@ -295,10 +295,11 @@ def extract_text(content: Any) -> str:
     return ""
 
 def truncate_text(s: str, max_chars: int = MAX_CHARS) -> Tuple[str, Dict[str, Any]]:
+    """Preserve full text unless a positive limit was explicitly configured."""
     if s is None:
         return "", {"truncated": False, "orig_len": 0}
     orig_len = len(s)
-    if orig_len <= max_chars:
+    if max_chars <= 0 or orig_len <= max_chars:
         return s, {"truncated": False, "orig_len": orig_len}
     head = s[:max_chars]
     return head, {"truncated": True, "orig_len": orig_len, "kept_len": len(head), "sha256": hashlib.sha256(s.encode("utf-8")).hexdigest()}
