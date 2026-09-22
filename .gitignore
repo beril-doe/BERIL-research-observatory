@@ -144,3 +144,6 @@ knowledge/openviking/gcp-key.json
 
 # Superpowers brainstorm session artifacts
 .superpowers/
+
+# Codex config is per-user, never tracked (BERIL ships Claude-only wiring)
+.codex/
