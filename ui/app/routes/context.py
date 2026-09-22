@@ -42,12 +42,15 @@ from app.context_manager.base import (
     INGEST_SKIPPED,
     INGEST_STATUSES,
     INGEST_UNKNOWN,
+    MAX_DISCOVERY_LIMIT,
     MAX_GREP_NODE_LIMIT,
     MAX_LS_NODE_LIMIT,
     MAX_PITFALL_LIMIT,
     TERMINAL_INGEST_STATUSES,
     ContextIngestResults,
     ContextQueryResults,
+    DiscoveryHit,
+    DiscoveryResults,
     IngestBatchStatus,
     IngestFileStatus,
     IngestResult,
@@ -63,6 +66,7 @@ from app.context_manager.openviking import (
     OpenVikingManager,
     OvProvisioningError,
     UnauthenticatedError,
+    apply_discovery_precedence,
     context_slugify,
     get_user_ov_api_key,
     listing_uri,
@@ -75,6 +79,7 @@ from app.db.crud import (
     create_user_project,
     get_ingest_batch,
     get_project_by_slug,
+    projects_with_memory,
     update_ingest_file_statuses,
 )
 from app.db.models import UserProject
@@ -345,6 +350,86 @@ async def get_context_pitfalls(
             )
         )
     return PitfallResults(query=q, results=results, fragments_scanned=scanned)
+
+
+@ROUTER_CONTEXT.get("/api/context/discoveries")
+async def get_context_discoveries(
+    request: Request,
+    q: str | None = Query(
+        default=None, description="Theme, organism, or pattern."
+    ),
+    project: str | None = Query(
+        default=None, description="Limit to one project. Defaults to all."
+    ),
+    owner: str | None = Query(
+        default=None, description="Owner of `project`. Defaults to the caller."
+    ),
+    exact: bool = Query(
+        default=False, description="Match tokens literally instead of semantically."
+    ),
+    limit: int = Query(default=10, ge=1, le=MAX_DISCOVERY_LIMIT),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db)
+) -> DiscoveryResults:
+    """What has already been found, across every project?
+
+    Spans both halves of the corpus like ``/pitfalls``, but applies the
+    precedence rule that ``suggest-research`` Step 4 currently states as prose
+    for an agent to re-implement per call site:
+
+    * a project's own ``memories/discoveries.md`` wins;
+    * a central entry tagged for a project that has one is a **stale
+      duplicate** and is suppressed;
+    * a central entry tagged for a project with no memory is legacy content and
+      still counts;
+    * an untagged central entry is background and always counts.
+
+    Implemented once here so every caller gets the same combined view. The
+    count of suppressed duplicates is reported rather than hidden, so a caller
+    can tell "nothing matched" from "the current copy answered instead".
+
+    Per-project memories are written at ``/submit`` approval, so this corpus is
+    review-vetted by construction — a draft finding never reaches it.
+    """
+    if project or owner:
+        uri = _read_uri(user, project, None, owner=owner)
+    else:
+        uri = listing_uri()
+
+    manager = await resolve_context_manager(db, user)
+    try:
+        documents, scanned = await manager.find_discoveries(
+            q, uri=uri, limit=limit, exact=exact
+        )
+    except QUERY_FAILURES as exc:
+        logger.warning("Discovery query failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not answer that query.",
+        ) from exc
+
+    owned = await projects_with_memory(db, "discoveries")
+    classified, suppressed = apply_discovery_precedence(
+        documents, projects_with_memory=owned
+    )
+
+    return DiscoveryResults(
+        query=q,
+        results=[
+            DiscoveryHit(
+                uri=doc["uri"],
+                origin=doc["origin"],
+                project=doc["project"],
+                owner=doc["owner"],
+                score=doc["score"],
+                excerpts=doc["excerpts"],
+                fragment_uris=doc["fragment_uris"],
+            )
+            for doc in classified
+        ],
+        fragments_scanned=scanned,
+        suppressed=suppressed,
+    )
 
 
 @ROUTER_CONTEXT.get("/api/context/grep")

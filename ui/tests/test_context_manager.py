@@ -32,11 +32,13 @@ from app.context_manager.openviking import (
     UnauthenticatedError,
     _collapse_fragments,
     _grep_nodes,
+    apply_discovery_precedence,
     context_slugify,
     corpus_root,
     get_user_ov_api_key,
     is_synthetic_node,
     listing_uri,
+    project_tags,
     source_document,
     target_uri,
     user_namespace_root,
@@ -1386,3 +1388,115 @@ def test_grep_nodes_normalizes_matches():
 def test_grep_nodes_handles_an_empty_payload():
     assert _grep_nodes({"matches": [], "count": 0}) == []
     assert _grep_nodes({}) == []
+
+
+# ---------------------------------------------------------------------------
+# Discovery precedence (suggest-research Step 4)
+# ---------------------------------------------------------------------------
+
+_CENTRAL = "viking://resources/users/beril/docs/discoveries"
+_ALPHA_MEM = "viking://resources/users/0009-1/alpha/memories/discoveries.md"
+
+
+def _doc(uri, excerpts, score=0.5):
+    return {"uri": uri, "score": score, "excerpts": excerpts, "fragment_uris": [uri]}
+
+
+def test_project_tags_finds_inline_tags():
+    """Tags appear in `### [tag] Title` headings and comment provenance lines."""
+    assert project_tags("### [ibd_phage_targeting] Cross-cohort") == {
+        "ibd_phage_targeting"
+    }
+    assert project_tags(
+        "<!-- [enigma_carbon_census_1] 2026-06-09T15:55:14Z approved -->"
+    ) == {"enigma_carbon_census_1"}
+    assert project_tags("no tags here") == set()
+
+
+def test_project_tags_collects_several():
+    assert project_tags("[a_one] and [b_two]") == {"a_one", "b_two"}
+
+
+def test_precedence_project_memory_always_wins():
+    docs = [_doc(_ALPHA_MEM, ["a finding"])]
+    kept, suppressed = apply_discovery_precedence(docs, projects_with_memory={"alpha"})
+
+    assert suppressed == 0
+    assert kept[0]["origin"] == "project_memory"
+    assert kept[0]["project"] == "alpha"
+
+
+def test_precedence_suppresses_stale_central_duplicates():
+    """The case the rule exists for: the project owns the current copy."""
+    docs = [_doc(_CENTRAL, ["### [alpha] an old finding"])]
+    kept, suppressed = apply_discovery_precedence(docs, projects_with_memory={"alpha"})
+
+    assert kept == []
+    assert suppressed == 1
+
+
+def test_precedence_keeps_legacy_central_entries():
+    """A tagged project with no memory is legacy content, not a duplicate."""
+    docs = [_doc(_CENTRAL, ["### [old_project] a legacy finding"])]
+    kept, suppressed = apply_discovery_precedence(docs, projects_with_memory={"alpha"})
+
+    assert suppressed == 0
+    assert kept[0]["origin"] == "central_legacy"
+    assert kept[0]["project"] == "old_project"
+
+
+def test_precedence_always_keeps_untagged_background():
+    docs = [_doc(_CENTRAL, ["an untagged observation"])]
+    kept, suppressed = apply_discovery_precedence(docs, projects_with_memory={"alpha"})
+
+    assert suppressed == 0
+    assert kept[0]["origin"] == "central_background"
+    assert kept[0]["project"] is None
+
+
+def test_precedence_suppresses_when_any_tag_is_owned():
+    """A multi-tagged entry is stale if any named project owns its content."""
+    docs = [_doc(_CENTRAL, ["[old_project] and [alpha] together"])]
+    kept, suppressed = apply_discovery_precedence(docs, projects_with_memory={"alpha"})
+
+    assert kept == []
+    assert suppressed == 1
+
+
+def test_precedence_reports_no_project_for_multi_tagged_entries():
+    """"The" project is meaningless when an entry names several."""
+    docs = [_doc(_CENTRAL, ["[one_proj] and [two_proj]"])]
+    kept, _ = apply_discovery_precedence(docs, projects_with_memory=set())
+
+    assert kept[0]["project"] is None
+    assert kept[0]["origin"] == "central_legacy"
+
+
+def test_precedence_with_no_memories_keeps_everything():
+    """Today's real state: no tagged project has its own memory yet."""
+    docs = [
+        _doc(_CENTRAL, ["### [ibd_phage_targeting] a finding"]),
+        _doc(_CENTRAL + "2", ["untagged"]),
+    ]
+    kept, suppressed = apply_discovery_precedence(docs, projects_with_memory=set())
+
+    assert suppressed == 0
+    assert len(kept) == 2
+
+
+def test_precedence_mixed_corpus():
+    """The whole rule at once, which is how a real query arrives."""
+    docs = [
+        _doc(_ALPHA_MEM, ["current finding"], score=0.9),
+        _doc(_CENTRAL, ["### [alpha] stale duplicate"], score=0.8),
+        _doc(_CENTRAL + "/l", ["### [legacy_proj] legacy"], score=0.7),
+        _doc(_CENTRAL + "/b", ["background note"], score=0.6),
+    ]
+    kept, suppressed = apply_discovery_precedence(docs, projects_with_memory={"alpha"})
+
+    assert suppressed == 1
+    assert [d["origin"] for d in kept] == [
+        "project_memory",
+        "central_legacy",
+        "central_background",
+    ]

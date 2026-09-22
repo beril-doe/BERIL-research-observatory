@@ -300,6 +300,81 @@ def _collapse_fragments(nodes: list[dict], *, limit: int) -> list[dict]:
     return ranked[:limit]
 
 
+# A central discovery entry names its project inline, as ``[<project_id>]`` —
+# in an ``### [tag] Title`` heading centrally, and in an HTML-comment
+# provenance line in a per-project memory. Project ids are the slug shape
+# ``context_slugify`` produces.
+_PROJECT_TAG = re.compile(r"\[([a-z0-9][a-z0-9_]*)\]")
+
+# The precedence rule, quoted from `suggest-research` Step 4 so the two cannot
+# drift silently:
+#
+#   per-project memory wins. If a project has any per-project
+#   memories/discoveries.md, suppress matches in docs/discoveries.md tagged
+#   with that same [<project_id>] (those are stale duplicates the project
+#   already owns). Central entries tagged with project ids that have NO
+#   per-project memory are still considered (legacy projects). Untagged
+#   central entries are background context — always included.
+PROJECT_MEMORY_WINS = True
+
+
+def project_tags(text: str) -> set[str]:
+    """Every ``[<project_id>]`` tag named in ``text``."""
+    return set(_PROJECT_TAG.findall(text or ""))
+
+
+def apply_discovery_precedence(
+    documents: list[dict], *, projects_with_memory: set[str]
+) -> tuple[list[dict], int]:
+    """Classify discoveries and drop stale central duplicates.
+
+    Returns ``(kept, suppressed_count)``. Implements the three-way rule once,
+    server-side, instead of leaving each caller to re-read it from prose and
+    get it slightly wrong.
+
+    A central entry is suppressed only when it names a project that has its own
+    memory — the project owns the current copy. A central entry naming a
+    project with no memory is legacy content and still counts; an untagged one
+    is background and always counts.
+    """
+    kept: list[dict] = []
+    suppressed = 0
+    for doc in documents:
+        uri = doc.get("uri") or ""
+        segments = uri.removeprefix(USERS_TARGET_URI).strip("/").split("/")
+        owner = segments[0] if segments else None
+
+        if owner != HOUSE_ACCOUNT_ID:
+            # A project's own memory: current by construction.
+            kept.append(
+                {
+                    **doc,
+                    "origin": "project_memory",
+                    "project": segments[1] if len(segments) > 1 else None,
+                    "owner": owner,
+                }
+            )
+            continue
+
+        # Central. Its tags decide whether a project already owns this content.
+        tags = project_tags(" ".join(doc.get("excerpts") or []))
+        stale = tags & projects_with_memory
+        if stale:
+            suppressed += 1
+            continue
+        kept.append(
+            {
+                **doc,
+                "origin": "central_legacy" if tags else "central_background",
+                # Report one tag when the entry names exactly one project;
+                # several tags make "the" project meaningless.
+                "project": next(iter(tags)) if len(tags) == 1 else None,
+                "owner": owner,
+            }
+        )
+    return kept, suppressed
+
+
 class UnauthenticatedError(RuntimeError):
     """Raised when a context-manager call is made without an identified user."""
 
@@ -466,6 +541,23 @@ class OpenVikingManager(ContextManager):
             await ov_client.close()
         return list(results or [])
 
+    async def find_discoveries(
+        self,
+        query: str | None,
+        *,
+        uri: str,
+        limit: int,
+        exact: bool = False,
+    ) -> tuple[list[dict], int]:
+        """Search the discovery corpus, collapsed to source documents.
+
+        Identical retrieval to ``find_pitfalls`` — the corpora have the same
+        two shapes. Precedence is applied above this, by the route, because it
+        needs BERIL's own record of which projects have a memory; that is a
+        database fact, not something the backend models.
+        """
+        return await self._find_documents(query, uri=uri, limit=limit, exact=exact)
+
     async def find_pitfalls(
         self,
         query: str | None,
@@ -474,7 +566,18 @@ class OpenVikingManager(ContextManager):
         limit: int,
         exact: bool = False,
     ) -> tuple[list[dict], int]:
-        """Search the pitfall corpus, collapsed to source documents.
+        """Search the pitfall corpus, collapsed to source documents."""
+        return await self._find_documents(query, uri=uri, limit=limit, exact=exact)
+
+    async def _find_documents(
+        self,
+        query: str | None,
+        *,
+        uri: str,
+        limit: int,
+        exact: bool = False,
+    ) -> tuple[list[dict], int]:
+        """Search below ``uri``, collapsed to source documents.
 
         Returns ``(documents, fragments_scanned)``. Semantic by default;
         ``exact`` switches to grep, which beats embeddings for error strings
