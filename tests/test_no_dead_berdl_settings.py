@@ -19,7 +19,9 @@ already been opened claiming the fix was complete.
 
 from __future__ import annotations
 
+import ast
 import re
+import warnings
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -39,16 +41,38 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # sidesteps all three.
 DEAD_PATTERNS = {
     "settings attribute that no longer exists": re.compile(r"\.MINIO_[A-Z][A-Z0-9_]*\b"),
-    # Import statements only. `scripts/ingest_lib.py` legitimately names the old
-    # module as a string, because it stubs whatever `data_lakehouse_ingest`
-    # imports and the shim is still there for one release.
-    "module renamed to berdl_notebook_utils.governance": re.compile(
-        r"^\s*(?:from\s+berdl_notebook_utils\.minio_governance\s+import"
-        r"|from\s+berdl_notebook_utils\s+import\s+.*\bminio_governance\b"
-        r"|import\s+berdl_notebook_utils\.minio_governance)\b"
-    ),
     "function renamed to get_credentials": re.compile(r"\bget_minio_credentials\b"),
 }
+
+# The module rename is checked on parsed import statements, not on lines, so every
+# layout counts: parenthesised multi-line imports, aliases, and the package-level
+# ``from berdl_notebook_utils import minio_governance``. `scripts/ingest_lib.py`
+# names the old module as a string, because it stubs whatever
+# `data_lakehouse_ingest` imports while the shim lasts, and a string is not an import.
+REMOVED_MODULE = "berdl_notebook_utils.minio_governance"
+MODULE_WHY = "module renamed to berdl_notebook_utils.governance"
+
+
+def removed_module_imports(source: str) -> list[int]:
+    """Line numbers of every import of REMOVED_MODULE in ``source``."""
+    with warnings.catch_warnings():
+        # Old scripts carry invalid escape sequences; that is not this guard's concern.
+        warnings.simplefilter("ignore", SyntaxWarning)
+        tree = ast.parse(source)
+    package, _, leaf = REMOVED_MODULE.rpartition(".")
+    hits = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            if any(a.name == REMOVED_MODULE or a.name.startswith(REMOVED_MODULE + ".")
+                   for a in node.names):
+                hits.append(node.lineno)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            if node.module == REMOVED_MODULE or node.module.startswith(REMOVED_MODULE + "."):
+                hits.append(node.lineno)
+            elif node.module == package and any(a.name == leaf for a in node.names):
+                hits.append(node.lineno)
+    return hits
+
 
 SKIP_DIRS = {".git", ".venv", ".venv-berdl", "node_modules", "__pycache__"}
 
@@ -69,10 +93,19 @@ def test_no_python_file_uses_a_removed_berdl_api():
     offenders = []
     for path in _python_files():
         text = path.read_text(encoding="utf-8", errors="replace")
-        for lineno, line in enumerate(text.splitlines(), 1):
+        rel = path.relative_to(REPO_ROOT)
+        lines = text.splitlines()
+        try:
+            module_hits = removed_module_imports(text)
+        except SyntaxError as exc:
+            # Fail rather than skip: a file this cannot read is a file it cannot vouch for.
+            offenders.append(f"{rel}:{exc.lineno}: cannot be parsed, so imports were not checked")
+            module_hits = []
+        for lineno in module_hits:
+            offenders.append(f"{rel}:{lineno}: {MODULE_WHY}\n      {lines[lineno - 1].strip()}")
+        for lineno, line in enumerate(lines, 1):
             for why, pattern in DEAD_PATTERNS.items():
                 if pattern.search(line):
-                    rel = path.relative_to(REPO_ROOT)
                     offenders.append(f"{rel}:{lineno}: {why}\n      {line.strip()}")
 
     assert not offenders, (
@@ -85,24 +118,27 @@ def test_no_python_file_uses_a_removed_berdl_api():
 def test_the_guard_can_actually_fail():
     """A test that never fails guards nothing, so prove each pattern matches."""
     attr = DEAD_PATTERNS["settings attribute that no longer exists"]
-    module = DEAD_PATTERNS["module renamed to berdl_notebook_utils.governance"]
+    module = removed_module_imports
     func = DEAD_PATTERNS["function renamed to get_credentials"]
 
     assert attr.search("endpoint = settings.MINIO_ENDPOINT_URL.replace(")
     assert attr.search("x = cfg.MINIO_SECRET_KEY")
-    assert module.search(
+    assert module(
         "from berdl_notebook_utils.minio_governance import get_credentials"
     )
-    assert module.search("from berdl_notebook_utils import minio_governance")
-    assert module.search("from berdl_notebook_utils import get_s3_client, minio_governance")
+    assert module("from berdl_notebook_utils import minio_governance")
+    assert module("from berdl_notebook_utils import get_s3_client, minio_governance")
+    assert module("from berdl_notebook_utils import (\n    get_s3_client,\n    minio_governance,\n)\n")
+    assert module("import berdl_notebook_utils.minio_governance as mg")
+    assert module("def f():\n    from berdl_notebook_utils.minio_governance import x\n") == [2]
     # a stub-list entry names the module as data, not as an import
-    assert not module.search('    "berdl_notebook_utils.minio_governance",')
+    assert not module('STUBS = [\n    "berdl_notebook_utils.minio_governance",\n]\n')
     assert func.search("creds = get_minio_credentials()")
 
     # and none of them fire on what they should leave alone
     assert not attr.search('os.environ["MINIO_ENDPOINT_URL"]')
     assert not attr.search("settings.S3_ENDPOINT_URL")
     assert not attr.search("# historically this was MINIO_ENDPOINT_URL")
-    assert not module.search("from berdl_notebook_utils.governance import get_credentials")
-    assert not module.search("from berdl_notebook_utils import governance")
+    assert not module("from berdl_notebook_utils.governance import get_credentials")
+    assert not module("from berdl_notebook_utils import governance")
     assert not func.search("creds = get_credentials()")
