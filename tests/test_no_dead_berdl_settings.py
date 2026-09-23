@@ -44,6 +44,7 @@ DEAD_PATTERNS = {
     # imports and the shim is still there for one release.
     "module renamed to berdl_notebook_utils.governance": re.compile(
         r"^\s*(?:from\s+berdl_notebook_utils\.minio_governance\s+import"
+        r"|from\s+berdl_notebook_utils\s+import\s+.*\bminio_governance\b"
         r"|import\s+berdl_notebook_utils\.minio_governance)\b"
     ),
     "function renamed to get_credentials": re.compile(r"\bget_minio_credentials\b"),
@@ -92,6 +93,8 @@ def test_the_guard_can_actually_fail():
     assert module.search(
         "from berdl_notebook_utils.minio_governance import get_credentials"
     )
+    assert module.search("from berdl_notebook_utils import minio_governance")
+    assert module.search("from berdl_notebook_utils import get_s3_client, minio_governance")
     # a stub-list entry names the module as data, not as an import
     assert not module.search('    "berdl_notebook_utils.minio_governance",')
     assert func.search("creds = get_minio_credentials()")
@@ -101,4 +104,5 @@ def test_the_guard_can_actually_fail():
     assert not attr.search("settings.S3_ENDPOINT_URL")
     assert not attr.search("# historically this was MINIO_ENDPOINT_URL")
     assert not module.search("from berdl_notebook_utils.governance import get_credentials")
+    assert not module.search("from berdl_notebook_utils import governance")
     assert not func.search("creds = get_credentials()")

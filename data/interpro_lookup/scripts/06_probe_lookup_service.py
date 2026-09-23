@@ -164,9 +164,7 @@ def cmd_extract(args):
 def _download_md5s_from_s3(s3_path: str, expected_rows: int):
     """Download CSV part files from S3 and merge into a single local TSV."""
     from berdl_notebook_utils import get_s3_client
-    from berdl_notebook_utils.governance import get_credentials
 
-    creds = get_credentials()
     client = get_s3_client()
 
     # Parse bucket and prefix from s3a:// path
