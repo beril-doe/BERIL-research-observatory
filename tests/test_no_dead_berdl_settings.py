@@ -42,6 +42,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEAD_PATTERNS = {
     "settings attribute that no longer exists": re.compile(r"\.MINIO_[A-Z][A-Z0-9_]*\b"),
     "function renamed to get_credentials": re.compile(r"\bget_minio_credentials\b"),
+    # The renamed result fields. Tied to the `creds` name every script here gives the
+    # result, because `access_key` and `secret_key` are ordinary attributes on other
+    # S3 clients and a bare `.access_key` pattern would flag unrelated code.
+    "credential field renamed to s3_access_key / s3_secret_key": re.compile(
+        r"\bcreds\.(?:access_key|secret_key)\b"
+    ),
 }
 
 # The module rename is checked on parsed import statements, not on lines, so every
@@ -120,6 +126,7 @@ def test_the_guard_can_actually_fail():
     attr = DEAD_PATTERNS["settings attribute that no longer exists"]
     module = removed_module_imports
     func = DEAD_PATTERNS["function renamed to get_credentials"]
+    field = DEAD_PATTERNS["credential field renamed to s3_access_key / s3_secret_key"]
 
     assert attr.search("endpoint = settings.MINIO_ENDPOINT_URL.replace(")
     assert attr.search("x = cfg.MINIO_SECRET_KEY")
@@ -142,3 +149,8 @@ def test_the_guard_can_actually_fail():
     assert not module("from berdl_notebook_utils.governance import get_credentials")
     assert not module("from berdl_notebook_utils import governance")
     assert not func.search("creds = get_credentials()")
+
+    assert field.search("access_key=creds.access_key,")
+    assert field.search("secret_key=creds.secret_key,")
+    assert not field.search("access_key=creds.s3_access_key,")
+    assert not field.search("session.access_key")
