@@ -112,10 +112,15 @@ holding the keypair can count traces via Langfuse's own API (borrowed from
 [langfuse-retro-load](https://github.com/beril-doe/langfuse-retro-load)):
 
 ```bash
-curl -s "$BERIL_LANGFUSE_BASE_URL/api/public/observations?tag=claude-code&limit=1" \
-  -u "$BERIL_LANGFUSE_PUBLIC_KEY:$BERIL_LANGFUSE_SECRET_KEY" | python3 -c \
-  "import json,sys; print(json.load(sys.stdin)['meta']['totalItems'])"
+curl -s -G "$BERIL_LANGFUSE_BASE_URL/api/public/v2/metrics" \
+  -u "$BERIL_LANGFUSE_PUBLIC_KEY:$BERIL_LANGFUSE_SECRET_KEY" \
+  --data-urlencode 'query={"view":"observations","metrics":[{"measure":"count","aggregation":"count"}],"filters":[{"column":"tags","operator":"any of","value":["claude-code"],"type":"arrayOptions"}],"fromTimestamp":"2000-01-01T00:00:00Z","toTimestamp":"2100-01-01T00:00:00Z"}' \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['data'][0]['count_count'])"
 ```
+
+This counts observations tagged `claude-code`. The older
+`/api/public/observations?tag=...` form ignores `tag` and returns the project
+total, and that route is removed from Langfuse Cloud on 2026-11-16.
 
 ## What ends up in the cloud
 
