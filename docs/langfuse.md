@@ -129,8 +129,9 @@ targeted credential masking. Both traces and Markdown attachments replace:
 
 - Exact credential values from the BERIL login record (the BERIL token and
   linked OpenViking key) and these environment variables: `LANGFUSE_SECRET_KEY`,
-  `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `KBASE_AUTH_TOKEN`,
-  `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN`.
+  `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
+  `CBORG_API_KEY`, `KBASE_AUTH_TOKEN`, `AWS_SECRET_ACCESS_KEY`,
+  `AWS_SESSION_TOKEN`, `S3_SECRET_KEY`, and `MINIO_SECRET_KEY`.
 - Bearer, Basic, and Token authorization headers in text, and values under
   `Authorization` or `Proxy-Authorization` keys in structured data.
 
