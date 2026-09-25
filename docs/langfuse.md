@@ -108,7 +108,7 @@ Client logs: `~/.claude/state/langfuse_hook.log` and
 verbose turn-trace logging.
 
 To verify a setup end to end, don't trust the logs alone — a maintainer
-holding the keypair can count traces via Langfuse's own API (borrowed from
+holding the keypair can count observations via Langfuse's own API (borrowed from
 [langfuse-retro-load](https://github.com/beril-doe/langfuse-retro-load)):
 
 ```bash
