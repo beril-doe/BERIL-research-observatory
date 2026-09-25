@@ -125,9 +125,12 @@ class TestCachedCredentialImportGuard:
 
 
 class TestS3Settings:
-    """`S3_*` env vars take precedence over legacy `MINIO_*`, symmetrically for
-    endpoint and both keys. This is what makes the Ceph cutover an env change
-    rather than a code edit — regression on any leg would silently break that."""
+    """Only the `S3_*` env vars are read, for the endpoint and both keys.
+
+    BERDL renamed these from `MINIO_*` to `S3_*` and sets only the new names on a
+    pod (verified there 2026-08-14). Reading `MINIO_*` as well would let a stale
+    value on a developer machine resolve instead of the real one, so the tests
+    below assert those names are ignored rather than merely unused."""
 
     def test_defaults_when_no_env(self, clear_s3_env):
         result = s3_settings()
@@ -137,19 +140,21 @@ class TestS3Settings:
             "secret_key": None,
         }
 
-    def test_minio_legacy_env_still_works(self, clear_s3_env, monkeypatch):
+    def test_minio_names_are_ignored(self, clear_s3_env, monkeypatch):
+        # A machine still carrying the old exports must resolve as unconfigured,
+        # not as configured with stale values.
         monkeypatch.setenv("MINIO_ENDPOINT_URL", "https://minio.example/")
         monkeypatch.setenv("MINIO_ACCESS_KEY", "minio-ak")
         monkeypatch.setenv("MINIO_SECRET_KEY", "minio-sk")
 
         result = s3_settings()
         assert result == {
-            "endpoint_url": "https://minio.example/",
-            "access_key": "minio-ak",
-            "secret_key": "minio-sk",
+            "endpoint_url": DEFAULT_S3_ENDPOINT_URL,
+            "access_key": None,
+            "secret_key": None,
         }
 
-    def test_s3_env_wins_over_minio(self, clear_s3_env, monkeypatch):
+    def test_s3_names_win_when_both_are_set(self, clear_s3_env, monkeypatch):
         monkeypatch.setenv("S3_ENDPOINT_URL", "https://ceph.example/")
         monkeypatch.setenv("MINIO_ENDPOINT_URL", "https://minio.example/")
         monkeypatch.setenv("S3_ACCESS_KEY", "s3-ak")
@@ -164,10 +169,9 @@ class TestS3Settings:
             "secret_key": "s3-sk",
         }
 
-    def test_mixed_precedence_per_field(self, clear_s3_env, monkeypatch):
-        # Each of endpoint/access/secret independently prefers S3_ over MINIO_,
-        # so a partial rollout (S3_ACCESS_KEY set but not yet S3_SECRET_KEY)
-        # still resolves cleanly instead of silently going all-legacy.
+    def test_partial_s3_config_does_not_fall_back(self, clear_s3_env, monkeypatch):
+        # Endpoint and both keys resolve independently. With only S3_ACCESS_KEY
+        # set, the other two stay unset rather than picking up a MINIO_ value.
         monkeypatch.setenv("S3_ACCESS_KEY", "s3-ak")
         monkeypatch.setenv("MINIO_ACCESS_KEY", "minio-ak")
         monkeypatch.setenv("MINIO_SECRET_KEY", "minio-sk")
@@ -175,7 +179,7 @@ class TestS3Settings:
 
         result = s3_settings()
         assert result == {
-            "endpoint_url": "https://minio.example/",
+            "endpoint_url": DEFAULT_S3_ENDPOINT_URL,
             "access_key": "s3-ak",
-            "secret_key": "minio-sk",
+            "secret_key": None,
         }
