@@ -140,6 +140,31 @@ def test_mask_covers_the_cborg_credential_the_setup_guide_sets(tmp_path, monkeyp
     )
 
 
+def test_mask_covers_the_lakehouse_storage_secrets(tmp_path, monkeypatch):
+    # The berdl-minio skill and scripts read S3_SECRET_KEY / MINIO_SECRET_KEY from the
+    # environment; a traced session that prints them must not ship either value.
+    auth = tmp_path / "auth.json"
+    auth.write_text(json.dumps({
+        "token": "beril_abc", "base_url": "https://beril.test/",
+        "orcid_id": "0000-0001-2345-6789", "display_name": "Alice",
+    }))
+    monkeypatch.setattr("beril_cli.auth_store.AUTH_PATH", auth)
+    monkeypatch.setenv("S3_SECRET_KEY", "fake-s3-secret-value")
+    monkeypatch.setenv("MINIO_SECRET_KEY", "fake-minio-secret-value")
+
+    mask = _load_artifacts_module().relay_client_kwargs()["mask"]
+    env_dump = (
+        "S3_SECRET_KEY=fake-s3-secret-value\n"
+        "MINIO_SECRET_KEY=fake-minio-secret-value\n"
+        "S3_ENDPOINT_URL=https://minio.test"
+    )
+    assert mask(data=env_dump) == (
+        "S3_SECRET_KEY=[REDACTED]\n"
+        "MINIO_SECRET_KEY=[REDACTED]\n"
+        "S3_ENDPOINT_URL=https://minio.test"
+    )
+
+
 def test_turn_text_is_complete_unless_a_limit_is_requested(monkeypatch):
     monkeypatch.delenv("CC_LANGFUSE_MAX_CHARS", raising=False)
     monkeypatch.syspath_prepend(str(ARTIFACTS_HOOK.parent))
