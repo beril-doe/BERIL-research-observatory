@@ -1,0 +1,183 @@
+name: Smoke test UI image
+
+# Builds the UI image and boots it against a throwaway Postgres to prove the
+# image actually starts: migrations apply, the local project/docs/atlas parse
+# succeeds, and the app serves pages. This is deliberately separate from
+# build-image.yml, which publishes to GHCR — here nothing is pushed, the image
+# is only loaded into the runner's local docker daemon.
+#
+# OpenViking is intentionally NOT run. Nothing in the startup path contacts it:
+# app/clients/openviking.py builds its httpx client per call, so BERIL_OV_URL is
+# not dialed until a request hits an /api/ov/* route, and this job never does.
+# Standing up the real OV image would dominate CI time and needs GCP credentials
+# and an ov.conf that CI has no business holding.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ui/**'
+      - 'projects/**'
+      - 'docs/**'
+      - 'atlas/**'
+      - 'data/**'
+      - 'Dockerfile'
+      - '.github/workflows/smoke-test-image.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ui/**'
+      - 'projects/**'
+      - 'docs/**'
+      - 'atlas/**'
+      - 'data/**'
+      - 'Dockerfile'
+      - '.github/workflows/smoke-test-image.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    # A real Postgres, not a fake. `alembic upgrade head` runs on container
+    # start (see the Dockerfile CMD) and asyncpg talks the wire protocol, so
+    # there is nothing useful to stub here — and running the migrations for
+    # real is the most valuable assertion this job makes. Values match the
+    # defaults in ui/app/config.py so the app needs almost no configuration.
+    services:
+      postgres:
+        image: postgres:18.3
+        env:
+          POSTGRES_USER: beril_user
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: beril
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U beril_user -d beril"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true          # put the image in the local daemon so we can run it
+          tags: beril-ui:smoke
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=smoke-test
+          # Shares the cache with build-image.yml, so on main the publish job
+          # typically reuses these layers instead of rebuilding them.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start container
+        run: |
+          docker run -d --name beril-smoke \
+            --network host \
+            -e BERIL_DB_HOST=127.0.0.1 \
+            -e BERIL_DB_PORT=5432 \
+            -e BERIL_DB_USER=beril_user \
+            -e BERIL_DB_PASSWORD=changeme \
+            -e BERIL_DB_NAME=beril \
+            -e BERIL_SESSION_SECRET_KEY=smoke-test-not-a-real-secret \
+            -e BERIL_FORCE_LOCAL_DATA=true \
+            -e BERIL_OV_URL=http://127.0.0.1:1 \
+            beril-ui:smoke
+
+      # BERIL_FORCE_LOCAL_DATA pins initialize_data() to the local-parse branch
+      # instead of cloning the data-cache repo, so the job exercises the
+      # projects/docs/atlas content baked into the image and makes no network
+      # calls. BERIL_OV_URL points at a closed port on purpose: if some future
+      # startup path does start dialing OpenViking, this fails loudly here
+      # rather than silently reaching something real.
+
+      - name: Wait for /health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/health -o /tmp/health.json 2>/dev/null; then
+              echo "Responded after ${i}s"
+              cat /tmp/health.json
+              exit 0
+            fi
+            if ! docker ps --filter name=beril-smoke --filter status=running -q | grep -q .; then
+              echo "::error::Container exited before serving traffic"
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "::error::/health did not respond within 60s"
+          exit 1
+
+      # /health returns HTTP 200 with status "degraded" when the database is
+      # unreachable, so `curl -f` alone would happily pass a broken image.
+      # Assert on the body instead.
+      - name: Assert healthy, not degraded
+        run: |
+          jq -e '.status == "healthy"' /tmp/health.json > /dev/null \
+            || { echo "::error::Expected status=healthy, got: $(jq -r .status /tmp/health.json)"; exit 1; }
+          jq -e '.services.database.status == "ok"' /tmp/health.json > /dev/null \
+            || { echo "::error::Database not ok: $(jq -c .services.database /tmp/health.json)"; exit 1; }
+          jq -e '.git_commit == "${{ github.sha }}"' /tmp/health.json > /dev/null \
+            || { echo "::error::Build args did not reach the image: $(jq -r .git_commit /tmp/health.json)"; exit 1; }
+
+      # Proves the migration chain actually applied, rather than alembic having
+      # silently no-opped. `alembic current` is deliberate here: `alembic check`
+      # would autogenerate-diff the models against the DB, and alembic/env.py
+      # sets compare_type=True, so benign type drift would fail this job for
+      # reasons that have nothing to do with whether the image boots.
+      - name: Assert migrations are at head
+        run: |
+          docker exec beril-smoke alembic current --verbose > /tmp/alembic.txt
+          cat /tmp/alembic.txt
+          grep -q "(head)" /tmp/alembic.txt \
+            || { echo "::error::Applied revision is not head — a migration did not run"; exit 1; }
+
+      # The parsed-content assertion: generate_base_context() counts what
+      # load_repository_data() found. A zero project count means the image
+      # built but shipped no content, which /health alone would not catch.
+      - name: Assert repository content parsed
+        run: |
+          jq -e '.session.project_count > 0' /tmp/health.json > /dev/null \
+            || { echo "::error::No projects parsed from the image"; exit 1; }
+          jq -e '.session.atlas_count > 0' /tmp/health.json > /dev/null \
+            || { echo "::error::No atlas pages parsed from the image"; exit 1; }
+          echo "projects=$(jq -r .session.project_count /tmp/health.json)" \
+               "atlas=$(jq -r .session.atlas_count /tmp/health.json)"
+
+      # Render real pages. /health never touches Jinja, so a broken template or
+      # a missing static mount would otherwise sail through.
+      - name: Assert pages render
+        run: |
+          for path in / /about; do
+            code=$(curl -s -o /tmp/page.html -w '%{http_code}' "http://127.0.0.1:8000${path}")
+            if [ "$code" != "200" ]; then
+              echo "::error::GET ${path} returned ${code}"
+              head -c 2000 /tmp/page.html
+              exit 1
+            fi
+          done
+          curl -fsS -o /dev/null http://127.0.0.1:8000/static/css/main.css \
+            || echo "::warning::/static/css/main.css not found — adjust this path if the asset moved"
+
+      - name: Dump container logs
+        if: always()
+        run: docker logs beril-smoke
+
+      - name: Tear down
+        if: always()
+        run: docker rm -f beril-smoke || true
