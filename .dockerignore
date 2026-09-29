@@ -37,8 +37,6 @@ Thumbs.db
 
 # uv cache
 .uv
-uv.lock
-ui/uv.lock
 
 # Development
 .env
