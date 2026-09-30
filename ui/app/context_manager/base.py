@@ -3,8 +3,6 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from app.db.models import BerilUser
-
 
 class FileMetadata(BaseModel):
     created: datetime
@@ -39,15 +37,15 @@ class ContextManager:
     url: str
     config: dict[str, str]
 
-    async def get_file(self, user: BerilUser, path: Path) -> ContextFile:
+    async def get_file(self, path: Path) -> ContextFile:
         ...
 
-    async def insert_file(self, user: BerilUser, file: ContextFile) -> bool:
+    async def insert_file(self, file: ContextFile) -> bool:
         ...
 
-    async def list_files(self, user: BerilUser) -> list[ContextFile]:
+    async def list_files(self) -> list[ContextFile]:
         ...
 
-    async def query(self, user: BerilUser, query: ContextQuery) -> ContextQueryResults:
+    async def query(self, query: ContextQuery) -> ContextQueryResults:
         ...
 

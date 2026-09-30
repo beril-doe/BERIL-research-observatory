@@ -14,15 +14,25 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from cryptography.fernet import Fernet
 
-from app.clients.openviking import OpenVikingClient
+from app.clients.openviking import OpenVikingClient, OpenVikingError
 from app.context_manager.base import ContextQuery, ContextQueryResults
-from app.context_manager.openviking import OpenVikingManager
+from app.context_manager.openviking import (
+    OpenVikingManager,
+    OvProvisioningError,
+    UnauthenticatedError,
+    get_user_ov_api_key,
+)
+from app.crypto import decrypt_secret, encrypt_secret
+from app.db.crud import get_ov_credential
+from app.db.models import BerilUser, OvUserCredential
+
+_CREDENTIAL_KEY = Fernet.generate_key().decode()
 
 _ENV = {
     "BERIL_OV_URL": "http://ov.test:1933",
     "BERIL_OV_ACCOUNT_ID": "beril",
     "BERIL_OV_ADMIN_KEY": "admin-key",
-    "BERIL_OV_CREDENTIAL_KEY": Fernet.generate_key().decode(),
+    "BERIL_OV_CREDENTIAL_KEY": _CREDENTIAL_KEY,
     "BERIL_SESSION_SECRET_KEY": "test-session-secret",
 }
 
@@ -242,6 +252,135 @@ async def test_list_files_closes_the_client(settings, patched_sdk):
     await manager.list_files()
 
     patched_sdk.close.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# get_user_ov_api_key
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def ov_user(db_session):
+    u = BerilUser(orcid_id="0000-0001-2345-6789", display_name="Alice Researcher")
+    db_session.add(u)
+    await db_session.commit()
+    await db_session.refresh(u)
+    return u
+
+
+def _already_exists() -> OpenVikingError:
+    return OpenVikingError("exists", status_code=409, code="ALREADY_EXISTS")
+
+
+async def test_get_key_requires_a_user(settings, db_session):
+    with pytest.raises(UnauthenticatedError):
+        await get_user_ov_api_key(db_session, None)
+
+
+async def test_get_key_requires_a_persisted_user(settings, db_session):
+    """A BerilUser that was never committed has no id — treat as unauthenticated."""
+    with pytest.raises(UnauthenticatedError):
+        await get_user_ov_api_key(db_session, BerilUser(orcid_id="0000-0001-2345-6789"))
+
+
+async def test_get_key_returns_decrypted_stored_key(settings, db_session, ov_user):
+    db_session.add(
+        OvUserCredential(
+            user_id=ov_user.id,
+            account_id="beril",
+            ov_user_id=ov_user.orcid_id,
+            encrypted_key=encrypt_secret("stored-key", _CREDENTIAL_KEY),
+        )
+    )
+    await db_session.commit()
+
+    with patch("app.context_manager.openviking.register_ov_user") as register:
+        key = await get_user_ov_api_key(db_session, ov_user)
+
+    assert key == "stored-key"
+    # An existing credential must never trigger an upstream call.
+    register.assert_not_called()
+
+
+async def test_get_key_provisions_and_stores_on_first_use(settings, db_session, ov_user):
+    register = AsyncMock(return_value={"user_key": "minted-key"})
+    with patch("app.context_manager.openviking.register_ov_user", register):
+        key = await get_user_ov_api_key(db_session, ov_user)
+
+    assert key == "minted-key"
+    register.assert_awaited_once_with(ov_user.orcid_id)
+
+    cred = await get_ov_credential(db_session, ov_user.id)
+    assert cred is not None
+    assert cred.ov_user_id == ov_user.orcid_id
+    assert cred.account_id == "beril"
+    # Persisted encrypted, but round-trips to the plaintext we returned.
+    assert cred.encrypted_key != "minted-key"
+    assert decrypt_secret(cred.encrypted_key, _CREDENTIAL_KEY) == "minted-key"
+
+
+async def test_get_key_regenerates_when_ov_user_exists_without_key(
+    settings, db_session, ov_user
+):
+    """The 409 case resolves silently — the user never sees an OV conflict."""
+    register = AsyncMock(side_effect=_already_exists())
+    regenerate = AsyncMock(return_value={"user_key": "regen-key"})
+    with patch("app.context_manager.openviking.register_ov_user", register), patch(
+        "app.context_manager.openviking.regenerate_ov_user_key", regenerate
+    ):
+        key = await get_user_ov_api_key(db_session, ov_user)
+
+    assert key == "regen-key"
+    regenerate.assert_awaited_once_with(ov_user.orcid_id)
+
+    cred = await get_ov_credential(db_session, ov_user.id)
+    assert decrypt_secret(cred.encrypted_key, _CREDENTIAL_KEY) == "regen-key"
+
+
+async def test_get_key_regenerates_on_bare_already_exists_code(
+    settings, db_session, ov_user
+):
+    """OV signals the conflict by code even when the status isn't 409."""
+    register = AsyncMock(
+        side_effect=OpenVikingError("exists", code="ALREADY_EXISTS")
+    )
+    regenerate = AsyncMock(return_value={"user_key": "regen-key"})
+    with patch("app.context_manager.openviking.register_ov_user", register), patch(
+        "app.context_manager.openviking.regenerate_ov_user_key", regenerate
+    ):
+        assert await get_user_ov_api_key(db_session, ov_user) == "regen-key"
+
+
+async def test_get_key_raises_when_registration_fails(settings, db_session, ov_user):
+    register = AsyncMock(
+        side_effect=OpenVikingError("boom", status_code=500, code="INTERNAL")
+    )
+    with patch("app.context_manager.openviking.register_ov_user", register):
+        with pytest.raises(OvProvisioningError):
+            await get_user_ov_api_key(db_session, ov_user)
+
+    assert await get_ov_credential(db_session, ov_user.id) is None
+
+
+async def test_get_key_raises_when_regeneration_fails(settings, db_session, ov_user):
+    """A conflict we then can't recover from is a real upstream fault."""
+    register = AsyncMock(side_effect=_already_exists())
+    regenerate = AsyncMock(side_effect=OpenVikingError("nope", status_code=502))
+    with patch("app.context_manager.openviking.register_ov_user", register), patch(
+        "app.context_manager.openviking.regenerate_ov_user_key", regenerate
+    ):
+        with pytest.raises(OvProvisioningError):
+            await get_user_ov_api_key(db_session, ov_user)
+
+
+async def test_get_key_raises_when_no_key_returned(settings, db_session, ov_user):
+    """A success envelope without a ``user_key`` is unusable."""
+    register = AsyncMock(return_value={"user_id": "someone"})
+    with patch("app.context_manager.openviking.register_ov_user", register):
+        with pytest.raises(OvProvisioningError):
+            await get_user_ov_api_key(db_session, ov_user)
+
+    assert await get_ov_credential(db_session, ov_user.id) is None
 
 
 # ---------------------------------------------------------------------------
