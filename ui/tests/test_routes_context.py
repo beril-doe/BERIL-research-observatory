@@ -8,7 +8,9 @@ OV payload to ``ContextQueryResults`` is covered in ``test_context_manager.py``.
 
 from __future__ import annotations
 
+import io
 import os
+import zipfile
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -17,8 +19,20 @@ from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 
 from app.clients.openviking import OpenVikingError
-from app.context_manager.base import ContextQueryResults, QueryResult
+from app.config import get_settings
+from app.context_manager.base import (
+    ContextIngestResults,
+    ContextQueryResults,
+    IngestResult,
+    QueryResult,
+)
 from app.crypto import encrypt_secret
+from app.db.crud import (
+    create_user_project,
+    get_ingest_batch,
+    get_project_by_slug,
+    get_projects_for_user,
+)
 from app.db.models import BerilUser, OvUserCredential
 from app.db.session import get_db
 from app.main import create_app
@@ -301,3 +315,568 @@ async def test_ls_returns_502_when_provisioning_fails(client, user, manager):
 
     assert resp.status_code == 502
     manager.list_files.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/context/ingest_files
+# ---------------------------------------------------------------------------
+
+
+def _zip_bytes(members: dict[str, bytes]) -> bytes:
+    """Build an in-memory zip archive from ``{relative_path: content}``."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, content in members.items():
+            zf.writestr(name, content)
+    return buf.getvalue()
+
+
+def _ingest(
+    client,
+    *,
+    project="My Project",
+    members=None,
+    manifest=None,
+    archive=None,
+):
+    """Post an ingest request.
+
+    Defaults to a one-file archive whose manifest lists exactly that file.
+    ``manifest`` defaults to every member of the archive, so a test that only
+    cares about the archive contents does not have to restate them.
+    """
+    members = {"notes.md": b"hi"} if members is None else members
+    manifest = list(members) if manifest is None else manifest
+    archive = _zip_bytes(members) if archive is None else archive
+    manifest_bytes = (
+        manifest if isinstance(manifest, bytes) else "\n".join(manifest).encode()
+    )
+    return client.post(
+        "/api/context/ingest_files",
+        data={"project": project},
+        files={
+            "archive": ("upload.zip", archive, "application/zip"),
+            "manifest": ("manifest.txt", manifest_bytes, "text/plain"),
+        },
+    )
+
+
+def _queued(n: int) -> ContextIngestResults:
+    return ContextIngestResults(
+        results=[
+            IngestResult(relative_path=f"f{i}.md", status="queued", uri=f"viking://{i}")
+            for i in range(n)
+        ],
+        queued=n,
+        failed=0,
+    )
+
+
+@pytest.fixture
+def ingest_manager():
+    """Patch OpenVikingManager for the ingest path; yields the instance."""
+    inst = MagicMock()
+    inst.insert_files = AsyncMock(return_value=_queued(1))
+    # Default to "nothing new" so status tests opt in to a refresh explicitly.
+    inst.task_statuses = AsyncMock(return_value={})
+    with patch("app.routes.context.OpenVikingManager", return_value=inst):
+        yield inst
+
+
+def test_ingest_unauthenticated_returns_401(client):
+    assert _ingest(client).status_code == 401
+
+
+async def test_ingest_queues_file_and_returns_results(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    resp = _ingest(client)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["queued"] == 1
+    assert body["failed"] == 0
+    ingest_manager.insert_files.assert_awaited_once()
+
+
+async def test_ingest_targets_user_orcid_and_project_slug(
+    client, credentialed_user, ingest_manager
+):
+    """The target root is keyed on the uploader's ORCiD, then the slug."""
+    _login(client)
+    _ingest(client, project="Acinetobacter ADP1 Explorer")
+
+    root = ingest_manager.insert_files.await_args.kwargs["target_root"]
+    assert root == (
+        f"viking://resources/users/{USER_TOKEN['orcid']}/acinetobacter_adp1_explorer"
+    )
+
+
+async def test_ingest_forwards_file_content_and_path(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    _ingest(client, members={"sub/dir/data.csv": b"a,b\n1,2\n"})
+
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert len(sent) == 1
+    # Nested paths survive so the structure is preserved below the root.
+    assert sent[0].relative_path == "sub/dir/data.csv"
+    assert sent[0].content == b"a,b\n1,2\n"
+
+
+async def test_ingest_accepts_multiple_files(client, credentialed_user, ingest_manager):
+    ingest_manager.insert_files.return_value = _queued(3)
+    _login(client)
+    resp = _ingest(
+        client, members={"a.md": b"a", "b.md": b"b", "c.md": b"c"}
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["queued"] == 3
+    assert len(ingest_manager.insert_files.await_args.args[0]) == 3
+
+
+async def test_ingest_only_takes_files_named_by_the_manifest(
+    client, credentialed_user, ingest_manager
+):
+    """The archive may carry more than it ingests — the manifest decides."""
+    _login(client)
+    resp = _ingest(
+        client,
+        members={"keep/a.md": b"a", "skip/b.md": b"b"},
+        manifest=["keep/a.md"],
+    )
+
+    assert resp.status_code == 200
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["keep/a.md"]
+
+
+async def test_ingest_ignores_blank_manifest_lines(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    resp = _ingest(client, members={"a.md": b"a"}, manifest=b"\na.md\n\n  \n")
+
+    assert resp.status_code == 200
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["a.md"]
+
+
+async def test_ingest_deduplicates_repeated_manifest_paths(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    resp = _ingest(client, members={"a.md": b"a"}, manifest=["a.md", "a.md"])
+
+    assert resp.status_code == 200
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert [f.relative_path for f in sent] == ["a.md"]
+
+
+async def test_ingest_rejects_unreadable_archive(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    resp = _ingest(client, archive=b"not a zip file", manifest=["a.md"])
+
+    assert resp.status_code == 400
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_rejects_archive_with_symlink(
+    client, credentialed_user, ingest_manager
+):
+    """A symlink member could redirect a later write outside the temp root."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        info = zipfile.ZipInfo("link")
+        info.external_attr = (0xA1FF) << 16
+        zf.writestr(info, "/etc/passwd")
+    _login(client)
+    resp = _ingest(client, archive=buf.getvalue(), manifest=["link"])
+
+    assert resp.status_code == 400
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_rejects_manifest_naming_a_missing_file(
+    client, credentialed_user, ingest_manager
+):
+    """A manifest that names anything absent queues nothing at all."""
+    _login(client)
+    resp = _ingest(
+        client, members={"a.md": b"a"}, manifest=["a.md", "gone.md"]
+    )
+
+    assert resp.status_code == 422
+    assert "gone.md" in resp.json()["detail"]
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_rejects_manifest_naming_a_directory(
+    client, credentialed_user, ingest_manager
+):
+    """A directory is not an ingestable file, even though the path exists."""
+    _login(client)
+    resp = _ingest(client, members={"sub/a.md": b"a"}, manifest=["sub"])
+
+    assert resp.status_code == 422
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_rejects_empty_manifest(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    resp = _ingest(client, members={"a.md": b"a"}, manifest=b"\n  \n")
+
+    assert resp.status_code == 422
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_reports_partial_failure_as_200(
+    client, credentialed_user, ingest_manager
+):
+    """A partly-failed batch still returns 200 with the failures named."""
+    ingest_manager.insert_files.return_value = ContextIngestResults(
+        results=[
+            IngestResult(relative_path="a.md", status="queued", uri="viking://a"),
+            IngestResult(relative_path="b.md", status="failed", reason="rejected"),
+        ],
+        queued=1,
+        failed=1,
+    )
+    _login(client)
+    resp = _ingest(client)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["queued"], body["failed"]) == (1, 1)
+    assert body["results"][1]["status"] == "failed"
+
+
+async def test_ingest_creates_project_when_absent(
+    client, credentialed_user, ingest_manager, db_session
+):
+    _login(client)
+    resp = _ingest(client, project="Brand New Project")
+
+    assert resp.status_code == 200
+    created = await get_project_by_slug(
+        db_session, credentialed_user.id, "brand_new_project"
+    )
+    assert created is not None
+    # The human-readable form is preserved as the title.
+    assert created.title == "Brand New Project"
+
+
+async def test_ingest_reuses_existing_project(
+    client, credentialed_user, ingest_manager, db_session
+):
+    existing = await create_user_project(
+        db_session, credentialed_user.id, title="Existing", slug="existing_project"
+    )
+    _login(client)
+    resp = _ingest(client, project="Existing Project")
+
+    assert resp.status_code == 200
+    projects = await get_projects_for_user(db_session, credentialed_user.id)
+    assert [p.id for p in projects] == [existing.id]
+
+
+async def test_ingest_rejects_unusable_project_name(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    resp = _ingest(client, project="!!!")
+
+    assert resp.status_code == 422
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_sanitizes_traversal_in_manifest_path(
+    client, credentialed_user, ingest_manager
+):
+    """Traversal segments are stripped, so a manifest cannot reach outside the
+    archive — the sanitized path then has to exist in it like any other."""
+    _login(client)
+    resp = _ingest(client, members={"escape.md": b"b"}, manifest=["../../escape.md"])
+
+    assert resp.status_code == 200
+    sent = ingest_manager.insert_files.await_args.args[0]
+    assert sent[0].relative_path == "escape.md"
+
+
+async def test_ingest_rejects_unusable_manifest_path_without_queueing_any(
+    client, credentialed_user, ingest_manager
+):
+    """A path that sanitizes to nothing fails the whole batch — nothing queued."""
+    _login(client)
+    resp = _ingest(client, members={"good.md": b"a"}, manifest=["good.md", ".."])
+
+    assert resp.status_code == 422
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_enforces_file_count_cap(client, credentialed_user, ingest_manager):
+    _login(client)
+    with patch.object(get_settings(), "context_max_ingest_files", 2):
+        resp = _ingest(client, members={f"f{i}.md": b"x" for i in range(3)})
+
+    assert resp.status_code == 413
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_enforces_file_size_cap(client, credentialed_user, ingest_manager):
+    _login(client)
+    with patch.object(get_settings(), "context_max_file_bytes", 4):
+        resp = _ingest(client, members={"big.md": b"way too long"})
+
+    assert resp.status_code == 413
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_provisions_credential_on_first_use(client, user, ingest_manager):
+    """An uncredentialed user gets a key minted, same as the read paths."""
+    register = AsyncMock(return_value={"user_key": "minted-key"})
+    _login(client)
+    with patch("app.context_manager.openviking.register_ov_user", register):
+        resp = _ingest(client)
+
+    assert resp.status_code == 200
+    register.assert_awaited_once_with(USER_TOKEN["orcid"])
+
+
+async def test_ingest_returns_502_when_provisioning_fails(
+    client, user, ingest_manager
+):
+    register = AsyncMock(
+        side_effect=OpenVikingError("boom", status_code=500, code="INTERNAL")
+    )
+    _login(client)
+    with patch("app.context_manager.openviking.register_ov_user", register):
+        resp = _ingest(client)
+
+    assert resp.status_code == 502
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# GET /api/context/ingest_status/{batch_id}
+# ---------------------------------------------------------------------------
+
+
+def _queued_with_tasks(paths_and_tasks) -> ContextIngestResults:
+    return ContextIngestResults(
+        results=[
+            IngestResult(
+                relative_path=p,
+                status="queued",
+                uri=f"viking://root/{p}",
+                task_id=t,
+            )
+            for p, t in paths_and_tasks
+        ],
+        queued=len(paths_and_tasks),
+        failed=0,
+    )
+
+
+async def _start_batch(client, ingest_manager, paths_and_tasks) -> str:
+    """Run an ingest and return its batch_id."""
+    ingest_manager.insert_files.return_value = _queued_with_tasks(paths_and_tasks)
+    resp = _ingest(client)
+    assert resp.status_code == 200
+    return resp.json()["batch_id"]
+
+
+async def test_ingest_returns_a_batch_id(client, credentialed_user, ingest_manager):
+    _login(client)
+    batch_id = await _start_batch(client, ingest_manager, [("a.md", "t1")])
+
+    assert batch_id
+
+
+def test_ingest_status_unauthenticated_returns_401(client):
+    assert client.get("/api/context/ingest_status/anything").status_code == 401
+
+
+async def test_ingest_status_unknown_batch_returns_404(client, credentialed_user):
+    _login(client)
+    assert client.get("/api/context/ingest_status/nope").status_code == 404
+
+
+async def test_ingest_status_hides_another_users_batch(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """A foreign batch is 404, not 403 — a probe must not confirm it exists."""
+    _login(client)
+    batch_id = await _start_batch(client, ingest_manager, [("a.md", "t1")])
+
+    other = BerilUser(orcid_id="0000-0009-8888-7777", display_name="Bob")
+    db_session.add(other)
+    await db_session.commit()
+    batch = await get_ingest_batch(db_session, batch_id)
+    batch.user_id = other.id
+    await db_session.commit()
+
+    assert client.get(f"/api/context/ingest_status/{batch_id}").status_code == 404
+
+
+async def test_ingest_status_reports_refreshed_progress(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    batch_id = await _start_batch(
+        client, ingest_manager, [("a.md", "t1"), ("b.md", "t2")]
+    )
+
+    ingest_manager.task_statuses = AsyncMock(
+        return_value={"t1": ("completed", None), "t2": ("processing", None)}
+    )
+    resp = client.get(f"/api/context/ingest_status/{batch_id}")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "processing"
+    assert body["counts"]["completed"] == 1
+    assert body["counts"]["processing"] == 1
+    assert {f["relative_path"]: f["status"] for f in body["files"]} == {
+        "a.md": "completed",
+        "b.md": "processing",
+    }
+
+
+async def test_ingest_status_completes_when_all_land(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    batch_id = await _start_batch(
+        client, ingest_manager, [("a.md", "t1"), ("b.md", "t2")]
+    )
+
+    ingest_manager.task_statuses = AsyncMock(
+        return_value={"t1": ("completed", None), "t2": ("completed", None)}
+    )
+    body = client.get(f"/api/context/ingest_status/{batch_id}").json()
+
+    assert body["status"] == "completed"
+    assert body["counts"]["completed"] == 2
+
+
+async def test_ingest_status_failure_outranks_success(
+    client, credentialed_user, ingest_manager
+):
+    """One failed file makes the batch failed, however many others landed."""
+    _login(client)
+    batch_id = await _start_batch(
+        client, ingest_manager, [("a.md", "t1"), ("b.md", "t2")]
+    )
+
+    ingest_manager.task_statuses = AsyncMock(
+        return_value={"t1": ("completed", None), "t2": ("failed", "parse blew up")}
+    )
+    body = client.get(f"/api/context/ingest_status/{batch_id}").json()
+
+    assert body["status"] == "failed"
+    failed = [f for f in body["files"] if f["status"] == "failed"][0]
+    assert failed["error"] == "parse blew up"
+
+
+async def test_ingest_status_does_not_repoll_terminal_files(
+    client, credentialed_user, ingest_manager
+):
+    """A settled result survives the backend forgetting the task."""
+    _login(client)
+    batch_id = await _start_batch(client, ingest_manager, [("a.md", "t1")])
+
+    ingest_manager.task_statuses = AsyncMock(
+        return_value={"t1": ("completed", None)}
+    )
+    client.get(f"/api/context/ingest_status/{batch_id}")
+
+    # Second poll: nothing is outstanding, so the backend is not consulted.
+    ingest_manager.task_statuses.reset_mock()
+    body = client.get(f"/api/context/ingest_status/{batch_id}").json()
+
+    ingest_manager.task_statuses.assert_not_awaited()
+    assert body["status"] == "completed"
+
+
+async def test_ingest_status_keeps_last_known_when_backend_unreachable(
+    client, credentialed_user, ingest_manager
+):
+    """An unreachable backend must not erase what we already recorded."""
+    _login(client)
+    batch_id = await _start_batch(client, ingest_manager, [("a.md", "t1")])
+
+    ingest_manager.task_statuses = AsyncMock(return_value={"t1": ("unknown", None)})
+    resp = client.get(f"/api/context/ingest_status/{batch_id}")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["files"][0]["status"] == "queued"
+    assert body["status"] == "processing"
+
+
+async def test_ingest_status_reports_submission_failure(
+    client, credentialed_user, ingest_manager
+):
+    """A file that never queued has no task to poll and stays failed."""
+    ingest_manager.insert_files.return_value = ContextIngestResults(
+        results=[
+            IngestResult(
+                relative_path="a.md", status="failed", reason="rejected", task_id=None
+            )
+        ],
+        queued=0,
+        failed=1,
+    )
+    _login(client)
+    batch_id = _ingest(client).json()["batch_id"]
+
+    ingest_manager.task_statuses = AsyncMock(return_value={})
+    body = client.get(f"/api/context/ingest_status/{batch_id}").json()
+
+    ingest_manager.task_statuses.assert_not_awaited()
+    assert body["status"] == "failed"
+    assert body["files"][0]["error"] == "rejected"
+
+
+async def test_ingest_status_includes_project_slug(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t1")])
+    batch_id = _ingest(client, project="My Test Project").json()["batch_id"]
+
+    ingest_manager.task_statuses = AsyncMock(
+        return_value={"t1": ("completed", None)}
+    )
+    body = client.get(f"/api/context/ingest_status/{batch_id}").json()
+
+    assert body["project"] == "my_test_project"
+
+
+async def test_ingest_status_counts_cover_every_status(
+    client, credentialed_user, ingest_manager
+):
+    """counts always carries all five keys, so clients can index it blindly."""
+    _login(client)
+    batch_id = await _start_batch(client, ingest_manager, [("a.md", "t1")])
+
+    ingest_manager.task_statuses = AsyncMock(
+        return_value={"t1": ("completed", None)}
+    )
+    counts = client.get(f"/api/context/ingest_status/{batch_id}").json()["counts"]
+
+    assert set(counts) == {
+        "queued",
+        "processing",
+        "completed",
+        "failed",
+        "unknown",
+    }

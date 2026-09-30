@@ -281,6 +281,73 @@ class OvUserCredential(Base):
     user: Mapped["BerilUser"] = relationship("BerilUser", back_populates="ov_credential")
 
 
+class ContextIngestBatch(Base):
+    """One ``/api/context/ingest_file`` submission, as the unit users poll.
+
+    ``user_id`` is the authorization key for the status endpoint: the backing
+    context manager's own task records carry no owner, so ownership has to be
+    recorded here or any caller could poll any batch.
+
+    Distinct from :class:`ProjectFile` — a batch records an ingest *attempt*
+    and its outcome, not a file that exists in the user's store. Rows are never
+    pruned today; retention is a follow-up.
+    """
+
+    __tablename__ = "context_ingest_batch"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("beril_user.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user_project.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    target_root: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    user: Mapped["BerilUser"] = relationship("BerilUser")
+    project: Mapped["UserProject"] = relationship("UserProject")
+    files: Mapped[list["ContextIngestFileRecord"]] = relationship(
+        "ContextIngestFileRecord",
+        back_populates="batch",
+        cascade="all, delete-orphan",
+        order_by="ContextIngestFileRecord.created_at",
+    )
+
+
+class ContextIngestFileRecord(Base):
+    """One file within a :class:`ContextIngestBatch`.
+
+    ``ov_task_id`` is the backing context manager's async task handle, null
+    when the submission itself failed and there is nothing to poll. ``status``
+    is BERIL's own vocabulary (``queued``/``processing``/``completed``/
+    ``failed``/``unknown``), not the backend's — see ``INGEST_STATUS`` in the
+    context_manager package.
+    """
+
+    __tablename__ = "context_ingest_file"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
+    batch_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("context_ingest_batch.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    relative_path: Mapped[str] = mapped_column(Text, nullable=False)
+    uri: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ov_task_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    batch: Mapped["ContextIngestBatch"] = relationship(
+        "ContextIngestBatch", back_populates="files"
+    )
+
+
 class ProjectCollection(Base):
     """Join table: BERDL collections referenced by a user project."""
 

@@ -7,9 +7,12 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db.models import (
     BerilUser,
+    ContextIngestBatch,
+    ContextIngestFileRecord,
     OvUserCredential,
     ProjectFile,
     UserApiToken,
@@ -61,6 +64,22 @@ async def get_or_create_user(
 
 async def get_project_by_id(db: AsyncSession, project_id: str) -> UserProject | None:
     result = await db.execute(select(UserProject).where(UserProject.id == project_id))
+    return result.scalar_one_or_none()
+
+
+async def get_project_by_slug(
+    db: AsyncSession, user_id: str, slug: str
+) -> UserProject | None:
+    """Look up one of a user's projects by slug.
+
+    ``(owner_id, slug)`` is unique, so this identifies at most one row.
+    """
+    result = await db.execute(
+        select(UserProject).where(
+            UserProject.owner_id == user_id,
+            UserProject.slug == slug,
+        )
+    )
     return result.scalar_one_or_none()
 
 
@@ -430,6 +449,85 @@ async def get_user_by_api_token(
         select(BerilUser).where(BerilUser.id == record.user_id)
     )
     return user_result.scalar_one_or_none()
+
+
+# ---------------------------------------------------------------------------
+# Context ingest records
+# ---------------------------------------------------------------------------
+
+
+async def create_ingest_batch(
+    db: AsyncSession,
+    *,
+    user_id: str,
+    project_id: str,
+    target_root: str,
+    files: list[dict],
+) -> ContextIngestBatch:
+    """Record one ingest submission and its per-file outcomes.
+
+    ``files`` entries carry ``relative_path``, ``status``, and optionally
+    ``uri``, ``ov_task_id``, and ``error``.
+    """
+    batch = ContextIngestBatch(
+        user_id=user_id, project_id=project_id, target_root=target_root
+    )
+    db.add(batch)
+    await db.flush()
+    for f in files:
+        db.add(
+            ContextIngestFileRecord(
+                batch_id=batch.id,
+                relative_path=f["relative_path"],
+                uri=f.get("uri"),
+                ov_task_id=f.get("ov_task_id"),
+                status=f["status"],
+                error=f.get("error"),
+            )
+        )
+    await db.commit()
+    await db.refresh(batch)
+    return batch
+
+
+async def get_ingest_batch(
+    db: AsyncSession, batch_id: str
+) -> ContextIngestBatch | None:
+    """Fetch a batch with its files loaded.
+
+    Callers must check ``batch.user_id`` themselves — the backing context
+    manager's task records carry no owner, so this is the only ownership
+    signal available.
+    """
+    result = await db.execute(
+        select(ContextIngestBatch)
+        .where(ContextIngestBatch.id == batch_id)
+        .options(
+            selectinload(ContextIngestBatch.files),
+            # Eager-loaded too: the status response reports the project slug,
+            # and a lazy load there would fail under async sessions.
+            selectinload(ContextIngestBatch.project),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_ingest_file_statuses(
+    db: AsyncSession, updates: dict[str, tuple[str, str | None]]
+) -> None:
+    """Persist refreshed ``{file_record_id: (status, error)}`` values."""
+    if not updates:
+        return
+    result = await db.execute(
+        select(ContextIngestFileRecord).where(
+            ContextIngestFileRecord.id.in_(list(updates))
+        )
+    )
+    for record in result.scalars():
+        status, error = updates[record.id]
+        record.status = status
+        record.error = error
+    await db.commit()
 
 
 # ---------------------------------------------------------------------------
