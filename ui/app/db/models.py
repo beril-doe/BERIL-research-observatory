@@ -324,9 +324,19 @@ class ContextIngestFileRecord(Base):
     is BERIL's own vocabulary (``queued``/``processing``/``completed``/
     ``failed``/``unknown``), not the backend's — see ``INGEST_STATUS`` in the
     context_manager package.
+
+    ``content_sha256`` is the hash of the bytes submitted, letting a later
+    ingest skip a file whose content already landed. It is nullable because
+    rows written before the column existed have no hash: a null must never
+    compare equal to anything, so those files always re-ingest.
     """
 
     __tablename__ = "context_ingest_file"
+    __table_args__ = (
+        # Supports the "has this path already completed?" lookup that drives
+        # skip-on-unchanged, which filters on both columns.
+        Index("ix_context_ingest_file_path_status", "relative_path", "status"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
     batch_id: Mapped[str] = mapped_column(
@@ -340,6 +350,7 @@ class ContextIngestFileRecord(Base):
     ov_task_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 

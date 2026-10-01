@@ -797,12 +797,41 @@ async def test_task_statuses_maps_backend_states(
     assert out["t1"][0] == expected
 
 
-async def test_task_statuses_reports_expired_task_as_unknown(settings, patched_sdk):
-    """An expired record is not proof of failure — say we don't know."""
+async def test_task_statuses_reports_expired_task_as_expired(settings, patched_sdk):
+    """A record the backend no longer has is *gone*, not merely unreachable.
+
+    Not proof of failure — but terminal, because asking again can never learn
+    more. Reporting it as ``unknown`` left the row stuck non-terminal forever.
+    """
     patched_sdk.get_task = AsyncMock(return_value=None)
     manager = OpenVikingManager(settings, "user-key")
 
-    assert (await manager.task_statuses(["t1"]))["t1"] == ("unknown", None)
+    assert (await manager.task_statuses(["t1"]))["t1"] == ("expired", None)
+
+
+async def test_task_statuses_distinguishes_gone_from_unreachable(
+    settings, patched_sdk
+):
+    """The split, in one call: None is expired, an exception is unknown.
+
+    They call for opposite reactions downstream — stop polling vs. keep the
+    last recording — so they must never collapse onto one value.
+    """
+    async def per_task(task_id):
+        if task_id == "gone":
+            return None
+        if task_id == "down":
+            raise httpx.ConnectError("down")
+        return {"status": "completed"}
+
+    patched_sdk.get_task = AsyncMock(side_effect=per_task)
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.task_statuses(["gone", "down", "fine"])
+
+    assert out["gone"] == ("expired", None)
+    assert out["down"] == ("unknown", None)
+    assert out["fine"][0] == "completed"
 
 
 async def test_task_statuses_returns_error_detail(settings, patched_sdk):
