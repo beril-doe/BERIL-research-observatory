@@ -53,12 +53,15 @@ from app.context_manager.openviking import (
     ContextQuery,
     OpenVikingManager,
     OvProvisioningError,
+    SelfHealingContextManager,
     UnauthenticatedError,
     context_slugify,
     get_user_ov_api_key,
+    regenerate_user_ov_api_key,
     target_uri,
     user_target_root,
 )
+from app.crypto import CredentialEncryptionError
 from app.db.crud import (
     completed_file_hashes,
     create_ingest_batch,
@@ -79,24 +82,37 @@ def get_context_manager(api_key: str) -> OpenVikingManager:
 
 async def resolve_context_manager(
     db: AsyncSession, user: BerilUser
-) -> OpenVikingManager:
+) -> SelfHealingContextManager:
     """Build a context manager for ``user``, provisioning their backing
     credential on first use.
 
     The backing store is an implementation detail, so its failures surface as
     a generic 502 rather than anything the user is expected to act on.
+
+    The manager comes back wrapped so that a stored key the store no longer
+    accepts — revoked out of band, or left stale by a race — is rotated and
+    the call retried once, transparently. Without that, such a user got a 502
+    on every call with nothing pointing them at the fix.
     """
     try:
         api_key = await get_user_ov_api_key(db, user)
     except UnauthenticatedError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED) from exc
-    except OvProvisioningError as exc:
+    except (OvProvisioningError, CredentialEncryptionError) as exc:
+        # CredentialEncryptionError here means encryption itself failed (an
+        # unusable key at runtime despite the startup check). A merely
+        # unreadable stored credential never reaches this point — the getter
+        # re-provisions on that.
         logger.warning("Context manager unavailable for user %s: %s", user.id, exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The context manager is currently unavailable.",
         ) from exc
-    return get_context_manager(api_key)
+
+    async def rotate() -> str:
+        return await regenerate_user_ov_api_key(db, user)
+
+    return SelfHealingContextManager(get_context_manager(api_key), rotate=rotate)
 
 
 ROUTER_CONTEXT = APIRouter(tags=["context"])

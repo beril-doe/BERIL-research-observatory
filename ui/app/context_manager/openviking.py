@@ -6,6 +6,7 @@ from pathlib import Path
 
 import httpx
 from openviking_sdk.errors import OpenVikingError as SdkOpenVikingError
+from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticatedError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.openviking import (
@@ -15,8 +16,12 @@ from app.clients.openviking import (
     register_ov_user,
 )
 from app.config import Settings, get_settings
-from app.crypto import decrypt_secret, encrypt_secret
-from app.db.crud import get_ov_credential, upsert_ov_credential
+from app.crypto import CredentialEncryptionError, decrypt_secret, encrypt_secret
+from app.db.crud import (
+    get_ov_credential,
+    upsert_ov_credential,
+    users_without_ov_credential,
+)
 from app.db.models import BerilUser
 
 from .base import (
@@ -234,6 +239,12 @@ class OpenVikingManager(ContextManager):
                 submitted = await ov_client.add_resource(
                     str(spill), uri, reason=f"BERIL user upload {file.relative_path}"
                 )
+        except SdkUnauthenticatedError:
+            # Not a bad file: the credential itself was refused, so every file
+            # in the batch would fail identically. Let it escape so the caller
+            # can rotate the key and retry the batch, instead of recording N
+            # spurious "rejected" rows for a problem that is not per-file.
+            raise
         except INGEST_FAILURES as exc:
             # One bad file must not abort the batch, so expected failures are
             # recorded rather than raised — including an unreachable backend.
@@ -304,12 +315,23 @@ async def get_user_ov_api_key(db: AsyncSession, user: BerilUser) -> str:
 
     existing = await get_ov_credential(db, user.id)
     if existing is not None:
-        return decrypt_secret(existing.encrypted_key, settings.ov_credential_key)
+        try:
+            return decrypt_secret(existing.encrypted_key, settings.ov_credential_key)
+        except CredentialEncryptionError as exc:
+            # The row exists but is unreadable — the Fernet key was rotated, or
+            # the ciphertext is corrupt. Functionally that is "no credential":
+            # a key BERIL cannot read is unusable here. Re-provision over the
+            # dead row rather than 500 on every call. (A key that is not
+            # configured at all is refused at startup, so that is not this.)
+            logger.warning(
+                "Stored context credential for %s is unreadable (%s); re-provisioning",
+                user.id,
+                exc,
+            )
 
     # ov_user_id is always the authenticated user's ORCiD — never caller input.
-    ov_user_id = user.orcid_id
     try:
-        result = await register_ov_user(ov_user_id)
+        result = await register_ov_user(user.orcid_id)
     except OpenVikingError as exc:
         if exc.status_code != 409 and exc.code != "ALREADY_EXISTS":
             logger.warning("OpenViking register_user failed for %s: %s", user.id, exc)
@@ -319,29 +341,55 @@ async def get_user_ov_api_key(db: AsyncSession, user: BerilUser) -> str:
         # so the user never has to know OpenViking is involved.
         logger.info(
             "OpenViking user %s exists without a stored BERIL key; regenerating",
-            ov_user_id,
+            user.orcid_id,
         )
-        try:
-            result = await regenerate_ov_user_key(ov_user_id)
-        except OpenVikingError as regen_exc:
-            logger.warning(
-                "OpenViking regenerate_key failed for %s: %s", user.id, regen_exc
-            )
-            raise OvProvisioningError(
-                f"OpenViking key regeneration failed: {regen_exc}"
-            ) from regen_exc
+        result = await _regenerate(user)
 
+    return await _store_key(db, user, result, settings)
+
+
+async def regenerate_user_ov_api_key(db: AsyncSession, user: BerilUser) -> str:
+    """Mint a fresh key for ``user`` and store it, invalidating the old one.
+
+    The repair path for a stored key the store no longer accepts — revoked out
+    of band, or left stale by a provisioning race. Unlike
+    :func:`get_user_ov_api_key` it never returns what is stored: the point is
+    that what is stored is wrong.
+
+    Raises :class:`UnauthenticatedError` without a persisted user, and
+    :class:`OvProvisioningError` if the store will not mint a key.
+    """
+    if user is None or not getattr(user, "id", None):
+        raise UnauthenticatedError(
+            "An authenticated user is required to access OpenViking."
+        )
+    result = await _regenerate(user)
+    return await _store_key(db, user, result, get_settings())
+
+
+async def _regenerate(user: BerilUser) -> dict:
+    try:
+        return await regenerate_ov_user_key(user.orcid_id)
+    except OpenVikingError as exc:
+        logger.warning("OpenViking regenerate_key failed for %s: %s", user.id, exc)
+        raise OvProvisioningError(
+            f"OpenViking key regeneration failed: {exc}"
+        ) from exc
+
+
+async def _store_key(
+    db: AsyncSession, user: BerilUser, result: dict | None, settings: Settings
+) -> str:
+    """Persist the key from a register/regenerate envelope; return it plain."""
     user_key = (result or {}).get("user_key")
     if not user_key:
-        raise OvProvisioningError(
-            "OpenViking did not return a user key."
-        )
+        raise OvProvisioningError("OpenViking did not return a user key.")
 
     await upsert_ov_credential(
         db,
         user.id,
         account_id=settings.ov_account_id,
-        ov_user_id=ov_user_id,
+        ov_user_id=user.orcid_id,
         encrypted_key=encrypt_secret(user_key, settings.ov_credential_key),
     )
     logger.info(
@@ -350,4 +398,72 @@ async def get_user_ov_api_key(db: AsyncSession, user: BerilUser) -> str:
         user.orcid_id,
     )
     return user_key
+
+
+class SelfHealingContextManager:
+    """A manager that rotates its key and retries once when the store refuses it.
+
+    A stored key can be dead through no fault of the current request: revoked
+    out of band, or left stale by a race. Before this, such a user got a 502
+    on every call forever, with nothing pointing them at the fix. Now the
+    first refusal mints a replacement and the call is retried transparently.
+
+    Retried **once**, and only on the store's own ``UnauthenticatedError`` —
+    never on a 404, an outage, or a bad file. Rotating a key on those would be
+    both pointless and destructive. If two workers hit a dead key together,
+    both rotate and the loser's retry fails once more; the next call uses the
+    stored (winning) key and succeeds. Self-correcting within one extra
+    failure, so no lock is needed here.
+
+    Proxies every attribute of the wrapped manager, so new methods inherit the
+    behaviour without being listed.
+    """
+
+    def __init__(self, inner: OpenVikingManager, *, rotate) -> None:
+        self._inner = inner
+        self._rotate = rotate
+
+    def __getattr__(self, name: str):
+        attr = getattr(self._inner, name)
+        if not callable(attr):
+            return attr
+
+        async def call(*args, **kwargs):
+            try:
+                return await attr(*args, **kwargs)
+            except SdkUnauthenticatedError:
+                logger.warning(
+                    "Context store refused the stored key during %s; "
+                    "rotating and retrying once",
+                    name,
+                )
+                self._inner.api_key = await self._rotate()
+                return await getattr(self._inner, name)(*args, **kwargs)
+
+        return call
+
+
+async def backfill_ov_credentials(
+    db: AsyncSession, *, dry_run: bool = False
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Provision a credential for every user who has none.
+
+    Returns ``(attempted, failed)`` as ORCiDs — with ``dry_run`` the worklist is
+    returned as ``attempted`` and nothing is provisioned. Runs serially in one
+    process, so it is race-free by construction; and it reuses
+    :func:`get_user_ov_api_key`, so a user already present upstream is handled
+    by the same 409-then-regenerate path as first use.
+    """
+    attempted: list[str] = []
+    failed: list[tuple[str, str]] = []
+    for user in await users_without_ov_credential(db):
+        attempted.append(user.orcid_id)
+        if dry_run:
+            continue
+        try:
+            await get_user_ov_api_key(db, user)
+        except (OvProvisioningError, CredentialEncryptionError) as exc:
+            logger.warning("Backfill failed for %s: %s", user.orcid_id, exc)
+            failed.append((user.orcid_id, str(exc)))
+    return attempted, failed
 

@@ -89,6 +89,9 @@ ATLAS_SECTIONS = [
 async def lifespan(app: FastAPI):
     settings = get_settings()
     if not settings.test_skip_lifespan:
+        # A missing Fernet key would surface as a 500 on every context request
+        # for every user. Refuse to start instead, like a missing DB password.
+        settings.require_ov_credential_key()
         await init_db(settings.db_url)
         app.state.repo_data = await initialize_data(settings)
         app.state.base_context = generate_base_context(settings, app.state.repo_data)

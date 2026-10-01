@@ -937,3 +937,266 @@ def test_context_query_defaults():
     assert q.root_path is None
     assert q.limit == 10
     assert q.score_threshold is None
+
+
+# ---------------------------------------------------------------------------
+# Credential lifecycle: regenerate, unreadable ciphertext, self-heal, backfill
+# ---------------------------------------------------------------------------
+
+
+def _refused():
+    from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticated
+
+    return SdkUnauthenticated("key revoked")
+
+
+async def _seed_credential(db_session, user, plaintext, key=None):
+    db_session.add(
+        OvUserCredential(
+            user_id=user.id,
+            account_id="beril",
+            ov_user_id=user.orcid_id,
+            encrypted_key=encrypt_secret(plaintext, key or _CREDENTIAL_KEY),
+        )
+    )
+    await db_session.commit()
+
+
+async def test_regenerate_replaces_the_stored_key(settings, db_session, ov_user):
+    """The repair path never returns what is stored — that is the point."""
+    from app.context_manager.openviking import regenerate_user_ov_api_key
+
+    await _seed_credential(db_session, ov_user, "dead-key")
+    regenerate = AsyncMock(return_value={"user_key": "fresh-key"})
+    with patch("app.context_manager.openviking.regenerate_ov_user_key", regenerate), patch(
+        "app.context_manager.openviking.register_ov_user"
+    ) as register:
+        key = await regenerate_user_ov_api_key(db_session, ov_user)
+
+    assert key == "fresh-key"
+    regenerate.assert_awaited_once_with(ov_user.orcid_id)
+    register.assert_not_called()
+    cred = await get_ov_credential(db_session, ov_user.id)
+    assert decrypt_secret(cred.encrypted_key, _CREDENTIAL_KEY) == "fresh-key"
+
+
+async def test_regenerate_requires_a_user(settings, db_session):
+    from app.context_manager.openviking import regenerate_user_ov_api_key
+
+    with pytest.raises(UnauthenticatedError):
+        await regenerate_user_ov_api_key(db_session, None)
+
+
+async def test_regenerate_raises_when_the_store_refuses(settings, db_session, ov_user):
+    from app.context_manager.openviking import regenerate_user_ov_api_key
+
+    regenerate = AsyncMock(side_effect=OpenVikingError("nope", status_code=502))
+    with patch("app.context_manager.openviking.regenerate_ov_user_key", regenerate):
+        with pytest.raises(OvProvisioningError):
+            await regenerate_user_ov_api_key(db_session, ov_user)
+
+
+async def test_get_key_reprovisions_when_stored_credential_is_unreadable(
+    settings, db_session, ov_user
+):
+    """A row encrypted under a rotated Fernet key is functionally no row.
+
+    Before, this was an unhandled CredentialEncryptionError → 500 on every
+    call. Now it re-provisions over the dead row.
+    """
+    other_key = Fernet.generate_key().decode()
+    await _seed_credential(db_session, ov_user, "unreadable", key=other_key)
+    register = AsyncMock(return_value={"user_key": "fresh"})
+    with patch("app.context_manager.openviking.register_ov_user", register):
+        key = await get_user_ov_api_key(db_session, ov_user)
+
+    assert key == "fresh"
+    register.assert_awaited_once_with(ov_user.orcid_id)
+    cred = await get_ov_credential(db_session, ov_user.id)
+    assert decrypt_secret(cred.encrypted_key, _CREDENTIAL_KEY) == "fresh"
+
+
+# --- SelfHealingContextManager ----------------------------------------------
+
+
+def _healing(inner_query, rotate=None):
+    from app.context_manager.openviking import SelfHealingContextManager
+
+    inner = MagicMock()
+    inner.api_key = "dead"
+    inner.url = "http://store"
+    inner.query = inner_query
+    rotate = rotate or AsyncMock(return_value="fresh")
+    return SelfHealingContextManager(inner, rotate=rotate), inner, rotate
+
+
+async def test_self_healing_rotates_and_retries_once():
+    manager, inner, rotate = _healing(AsyncMock(side_effect=[_refused(), "result"]))
+
+    assert await manager.query("q") == "result"
+
+    rotate.assert_awaited_once()
+    assert inner.api_key == "fresh"
+    assert inner.query.await_count == 2
+
+
+async def test_self_healing_does_not_rotate_on_other_errors():
+    """A 404 or an outage must never rotate a key — pointless and destructive."""
+    from openviking_sdk.errors import NotFoundError
+
+    manager, inner, rotate = _healing(AsyncMock(side_effect=NotFoundError("gone")))
+
+    with pytest.raises(NotFoundError):
+        await manager.query("q")
+
+    rotate.assert_not_awaited()
+    assert inner.api_key == "dead"
+
+
+async def test_self_healing_retries_exactly_once():
+    """Two refusals in a row surface the second — no rotate loop."""
+    from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticated
+
+    manager, inner, rotate = _healing(AsyncMock(side_effect=[_refused(), _refused()]))
+
+    with pytest.raises(SdkUnauthenticated):
+        await manager.query("q")
+
+    rotate.assert_awaited_once()
+    assert inner.query.await_count == 2
+
+
+async def test_self_healing_propagates_a_failed_rotation():
+    manager, _, _ = _healing(
+        AsyncMock(side_effect=_refused()),
+        rotate=AsyncMock(side_effect=OvProvisioningError("store down")),
+    )
+
+    with pytest.raises(OvProvisioningError):
+        await manager.query("q")
+
+
+async def test_self_healing_passes_plain_attributes_through():
+    manager, _, _ = _healing(AsyncMock())
+
+    assert manager.url == "http://store"
+    assert manager.api_key == "dead"
+
+
+# --- insert_files: a refused key is not a per-file failure -------------------
+
+
+async def test_insert_files_lets_a_refused_key_escape(settings, patched_sdk):
+    """Every file would fail identically, so it is the batch's problem to
+    retry with a fresh key — not N 'rejected' rows."""
+    from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticated
+
+    patched_sdk.add_resource = AsyncMock(side_effect=_refused())
+    manager = OpenVikingManager(settings, "user-key")
+
+    with pytest.raises(SdkUnauthenticated):
+        await manager.insert_files(
+            [ContextIngestFile(relative_path="a.md", content=b"x")],
+            target_root="viking://resources/users/o/p",
+        )
+
+
+async def test_insert_files_still_records_other_errors_per_file(settings, patched_sdk):
+    from openviking_sdk.errors import NotFoundError
+
+    patched_sdk.add_resource = AsyncMock(side_effect=NotFoundError("bad target"))
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.insert_files(
+        [ContextIngestFile(relative_path="a.md", content=b"x")],
+        target_root="viking://resources/users/o/p",
+    )
+
+    assert out.failed == 1
+    assert out.results[0].status == "failed"
+
+
+# --- backfill ----------------------------------------------------------------
+
+
+async def _users(db_session, *orcids):
+    users = [BerilUser(orcid_id=o, display_name=o) for o in orcids]
+    db_session.add_all(users)
+    await db_session.commit()
+    for u in users:
+        await db_session.refresh(u)
+    return users
+
+
+async def test_backfill_provisions_only_users_without_a_credential(settings, db_session):
+    from app.context_manager.openviking import backfill_ov_credentials
+
+    a, b, c = await _users(db_session, "0000-0001-0000-000A", "0000-0001-0000-000B", "0000-0001-0000-000C")
+    await _seed_credential(db_session, b, "already")
+    register = AsyncMock(return_value={"user_key": "k"})
+    with patch("app.context_manager.openviking.register_ov_user", register):
+        attempted, failed = await backfill_ov_credentials(db_session)
+
+    assert attempted == [a.orcid_id, c.orcid_id]
+    assert failed == []
+    assert register.await_count == 2
+    for u in (a, b, c):
+        assert await get_ov_credential(db_session, u.id) is not None
+    # The user who already had one was left alone.
+    b_cred = await get_ov_credential(db_session, b.id)
+    assert decrypt_secret(b_cred.encrypted_key, _CREDENTIAL_KEY) == "already"
+
+
+async def test_backfill_dry_run_changes_nothing(settings, db_session):
+    from app.context_manager.openviking import backfill_ov_credentials
+
+    a, = await _users(db_session, "0000-0001-0000-000A")
+    register = AsyncMock()
+    with patch("app.context_manager.openviking.register_ov_user", register):
+        attempted, failed = await backfill_ov_credentials(db_session, dry_run=True)
+
+    assert attempted == [a.orcid_id]
+    assert failed == []
+    register.assert_not_awaited()
+    assert await get_ov_credential(db_session, a.id) is None
+
+
+async def test_backfill_records_failures_and_continues(settings, db_session):
+    from app.context_manager.openviking import backfill_ov_credentials
+
+    a, c = await _users(db_session, "0000-0001-0000-000A", "0000-0001-0000-000C")
+
+    async def per_user(orcid):
+        if orcid == a.orcid_id:
+            raise OpenVikingError("down", status_code=502, code="UNAVAILABLE")
+        return {"user_key": "k"}
+
+    with patch("app.context_manager.openviking.register_ov_user", AsyncMock(side_effect=per_user)):
+        attempted, failed = await backfill_ov_credentials(db_session)
+
+    assert attempted == [a.orcid_id, c.orcid_id]
+    assert [o for o, _ in failed] == [a.orcid_id]
+    assert await get_ov_credential(db_session, a.id) is None
+    assert await get_ov_credential(db_session, c.id) is not None
+
+
+async def test_backfill_with_nothing_to_do(settings, db_session):
+    from app.context_manager.openviking import backfill_ov_credentials
+
+    assert await backfill_ov_credentials(db_session) == ([], [])
+
+
+# --- startup: an unset Fernet key is refused once, not 500 per request --------
+
+
+def test_require_ov_credential_key_refuses_an_unset_key():
+    from app.config import Settings
+
+    with pytest.raises(ValueError, match="BERIL_OV_CREDENTIAL_KEY"):
+        Settings(ov_credential_key=None, _env_file=None).require_ov_credential_key()
+
+
+def test_require_ov_credential_key_returns_it():
+    from app.config import Settings
+
+    assert Settings(ov_credential_key="k", _env_file=None).require_ov_credential_key() == "k"

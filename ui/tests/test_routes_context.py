@@ -1272,3 +1272,48 @@ async def test_skipped_files_write_no_batch_rows(
 
     batch = await get_ingest_batch(db_session, resp.json()["batch_id"])
     assert [f.relative_path for f in batch.files] == ["b.md"]
+
+
+# ---------------------------------------------------------------------------
+# Credential lifecycle through the routes
+# ---------------------------------------------------------------------------
+
+
+async def test_find_reports_502_when_credential_encryption_fails(
+    client, credentialed_user, manager
+):
+    """An unusable encryption key at runtime is a 502, not a traceback."""
+    from app.crypto import CredentialEncryptionError
+
+    _login(client)
+    with patch(
+        "app.routes.context.get_user_ov_api_key",
+        AsyncMock(side_effect=CredentialEncryptionError("bad key material")),
+    ):
+        resp = client.post("/api/context/find", json={"query": "alpha"})
+
+    assert resp.status_code == 502
+    assert "bad key material" not in resp.text
+    manager.query.assert_not_awaited()
+
+
+async def test_find_rotates_a_refused_key_and_retries(client, credentialed_user, manager):
+    """A stored key the store refuses is rotated once and the call retried.
+
+    Before, such a user got a 502 on every call with nothing pointing at the
+    fix; now the first refusal repairs itself.
+    """
+    from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticated
+
+    manager.query = AsyncMock(side_effect=[SdkUnauthenticated("revoked"), QUERY_RESULTS])
+    regenerate = AsyncMock(return_value="fresh-key")
+    _login(client)
+    with patch("app.routes.context.regenerate_user_ov_api_key", regenerate):
+        resp = client.post("/api/context/find", json={"query": "alpha"})
+
+    assert resp.status_code == 200
+    assert resp.json()["query"] == "alpha"
+    regenerate.assert_awaited_once()
+    assert manager.query.await_count == 2
+    # The retried call went out with the fresh key.
+    assert manager.api_key == "fresh-key"

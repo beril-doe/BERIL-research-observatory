@@ -17,6 +17,17 @@ from app.main import create_app
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def minted_key():
+    """Signup now provisions a context credential, which would otherwise reach
+    a real store at ``settings.ov_url`` from every callback test. Mock the mint
+    so the suite stays hermetic; tests that care assert on or override this.
+    """
+    minted = AsyncMock(return_value={"user_key": "signup-key"})
+    with patch("app.context_manager.openviking.register_ov_user", minted):
+        yield minted
+
+
 @pytest.fixture
 def client(repository_data, app_data_context, db_session):
     """TestClient with ORCiD credentials configured, lifespan skipped."""
@@ -26,6 +37,10 @@ def client(repository_data, app_data_context, db_session):
         "BERIL_ORCID_CLIENT_SECRET": "test-secret",
         "BERIL_ORCID_BASE_URL": "https://sandbox.orcid.org",
         "BERIL_SESSION_SECRET_KEY": "test-session-secret",
+        "BERIL_OV_ACCOUNT_ID": "beril",
+        # Any 32 urlsafe-base64 bytes is a valid Fernet key; without one,
+        # signup provisioning cannot store what it mints.
+        "BERIL_OV_CREDENTIAL_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     }
     with patch.dict(os.environ, env):
         # Reset cached settings so the new env vars are picked up
@@ -498,3 +513,80 @@ class TestGetCurrentUserOrToken:
         result = await get_current_user_session_or_token(request, db_session)
         assert result is not None
         assert result.id == user.id
+
+
+# ---------------------------------------------------------------------------
+# Signup provisioning: the context credential is minted at user creation
+# ---------------------------------------------------------------------------
+
+
+def _callback(client, token=GOOD_TOKEN, code="fake-code"):
+    mock_class, _ = make_mock_oauth_client(token=token)
+    with patch("app.routes.auth.AsyncOAuth2Client", mock_class):
+        return client.get(
+            "/auth/orcid/callback", params={"code": code}, follow_redirects=False
+        )
+
+
+class TestSignupProvisioning:
+    async def test_first_login_provisions_a_context_credential(
+        self, client, db_session, minted_key
+    ):
+        """The request that creates the user also mints its credential.
+
+        This is what retires the first-use race: the unique orcid_id means
+        exactly one request ever sees created=True, so there is exactly one
+        provisioning call per user and nothing to serialise.
+        """
+        from app.db.crud import get_ov_credential
+
+        resp = _callback(client)
+        assert resp.status_code == 302
+
+        user = await get_user_by_orcid(db_session, GOOD_TOKEN["orcid"])
+        cred = await get_ov_credential(db_session, user.id)
+        assert cred is not None
+        assert cred.ov_user_id == GOOD_TOKEN["orcid"]
+        minted_key.assert_awaited_once_with(GOOD_TOKEN["orcid"])
+
+    async def test_repeat_login_does_not_reprovision(self, client, db_session, minted_key):
+        """Only the creating request mints; a returning user is left alone."""
+        _callback(client, code="c1")
+        _callback(client, code="c2")
+
+        minted_key.assert_awaited_once()
+
+    async def test_store_failure_at_signup_does_not_block_login(
+        self, client, db_session, minted_key
+    ):
+        """The store is an implementation detail; login must not depend on it.
+
+        The user is created and logged in regardless. The lazy path still
+        provisions on first context use, so nothing is lost but a log line.
+        """
+        from app.clients.openviking import OpenVikingError
+        from app.db.crud import get_ov_credential
+
+        minted_key.side_effect = OpenVikingError("down", status_code=502, code="UNAVAILABLE")
+
+        resp = _callback(client)
+
+        assert resp.status_code == 302
+        assert resp.headers["location"] == "/"
+        assert "beril_session" in client.cookies
+        user = await get_user_by_orcid(db_session, GOOD_TOKEN["orcid"])
+        assert user is not None
+        assert await get_ov_credential(db_session, user.id) is None
+
+    async def test_unexpected_provisioning_error_does_not_block_login(
+        self, client, db_session, minted_key
+    ):
+        """A bug in provisioning is ours to find in the log, not the user's
+        problem at the login screen — hence the deliberately broad catch."""
+        minted_key.side_effect = RuntimeError("something unforeseen")
+
+        resp = _callback(client)
+
+        assert resp.status_code == 302
+        assert resp.headers["location"] == "/"
+        assert await get_user_by_orcid(db_session, GOOD_TOKEN["orcid"]) is not None
