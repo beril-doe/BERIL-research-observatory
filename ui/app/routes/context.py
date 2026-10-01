@@ -35,6 +35,7 @@ from app.auth import BerilUser, require_user_api
 from app.config import get_settings
 from app.context_manager.base import (
     INGEST_COMPLETED,
+    INGEST_EXPIRED,
     INGEST_FAILED,
     INGEST_PROCESSING,
     INGEST_QUEUED,
@@ -440,8 +441,11 @@ def _rollup_status(files: list[IngestFileStatus]) -> str:
     """Collapse per-file statuses into one batch verdict.
 
     Failure wins over everything — a batch with a failed file is not a success,
-    however many others landed. Unfinished work outranks a clean sweep, and
-    ``unknown`` only surfaces once nothing is still in flight.
+    however many others landed. Unfinished work outranks a clean sweep. Then
+    ``expired`` outranks ``unknown``: both mean "outcome not confirmed", but
+    expired is the stronger claim (the backend will never tell us) where
+    unknown may still resolve on a later poll. Neither is a clean sweep — a
+    batch is ``completed`` only when every file was *seen* to complete.
 
     ``skipped`` never appears here: a skipped file is not submitted and so
     writes no batch row. It is reported only in the ingest response.
@@ -451,6 +455,8 @@ def _rollup_status(files: list[IngestFileStatus]) -> str:
         return INGEST_FAILED
     if statuses & {INGEST_QUEUED, INGEST_PROCESSING}:
         return INGEST_PROCESSING
+    if INGEST_EXPIRED in statuses:
+        return INGEST_EXPIRED
     if INGEST_UNKNOWN in statuses:
         return INGEST_UNKNOWN
     return INGEST_COMPLETED

@@ -949,12 +949,95 @@ async def test_ingest_status_counts_cover_every_status(
         "processing",
         "completed",
         "failed",
+        "expired",
         "unknown",
         # Present for a stable mapping, though a skipped file never reaches a
         # batch: it is not submitted, so it writes no row.
         "skipped",
     }
     assert counts["skipped"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Expired tasks: gone is not the same as unreachable
+# ---------------------------------------------------------------------------
+
+
+async def test_ingest_status_records_expired_and_stops_repolling(
+    client, credentialed_user, ingest_manager
+):
+    """A task the backend has forgotten advances the row to a terminal state.
+
+    Before the split, "gone" reported as ``unknown``, the route discarded it,
+    and the row stayed ``queued`` — re-polled on every call with no way to
+    ever advance. Now it lands as ``expired`` and is never asked about again.
+    """
+    _login(client)
+    batch_id = await _start_batch(client, ingest_manager, [("a.md", "t1")])
+
+    ingest_manager.task_statuses = AsyncMock(return_value={"t1": ("expired", None)})
+    body = client.get(f"/api/context/ingest_status/{batch_id}").json()
+
+    assert body["files"][0]["status"] == "expired"
+    assert body["status"] == "expired"
+
+    # Terminal: the second poll has nothing outstanding and skips the backend.
+    ingest_manager.task_statuses.reset_mock()
+    body = client.get(f"/api/context/ingest_status/{batch_id}").json()
+
+    ingest_manager.task_statuses.assert_not_awaited()
+    assert body["status"] == "expired"
+
+
+async def test_expired_does_not_restore_the_skip(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Expired is terminal but NOT completed, so identical content re-ingests.
+
+    This is the deliberate limit of the split. Nothing proves the file landed,
+    so a later submit must re-send rather than skip. Restoring the skip needs
+    a reconcile against the store itself (does the target URI exist?) — the
+    documented follow-up, not something this status implies.
+    """
+    _login(client)
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t1")])
+    batch_id = _ingest(client, members={"a.md": b"same"}).json()["batch_id"]
+
+    ingest_manager.task_statuses = AsyncMock(return_value={"t1": ("expired", None)})
+    assert client.get(f"/api/context/ingest_status/{batch_id}").json()["status"] == "expired"
+
+    ingest_manager.insert_files.reset_mock()
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t2")])
+    resp = _ingest(client, members={"a.md": b"same"})
+
+    assert resp.status_code == 200
+    assert resp.json()["skipped"] == 0
+    ingest_manager.insert_files.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    "statuses, expected",
+    [
+        (["expired", "completed"], "expired"),
+        (["expired", "unknown"], "expired"),
+        (["expired", "processing"], "processing"),
+        (["expired", "queued"], "processing"),
+        (["expired", "failed"], "failed"),
+        (["completed", "completed"], "completed"),
+    ],
+    ids=["beats-completed", "beats-unknown", "loses-to-processing",
+         "loses-to-queued", "loses-to-failed", "clean-sweep"],
+)
+def test_rollup_ranks_expired_between_in_flight_and_unknown(statuses, expected):
+    """Expired outranks unknown (the stronger non-answer) but never a live
+    verdict: in-flight work and failure both win, and only an all-seen
+    completion is a clean sweep."""
+    from app.context_manager.base import IngestFileStatus
+    from app.routes.context import _rollup_status
+
+    files = [IngestFileStatus(relative_path=f"{i}.md", status=s) for i, s in enumerate(statuses)]
+
+    assert _rollup_status(files) == expected
 
 
 # ---------------------------------------------------------------------------

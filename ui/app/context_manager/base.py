@@ -36,7 +36,17 @@ INGEST_QUEUED = "queued"
 INGEST_PROCESSING = "processing"
 INGEST_COMPLETED = "completed"
 INGEST_FAILED = "failed"
-# The backend forgot the task before we saw it finish — we genuinely don't know.
+# The backend forgot the task before we saw it finish. It expires task records
+# (24h completed / 7d failed), so once a poll stops before completion and the
+# record ages out, the outcome is unrecoverable from the task alone. Terminal:
+# re-polling can never learn more. NOT a success — the file may well have
+# landed, but nothing here proves it, so a later ingest treats it as unknown
+# content and re-sends. Reconciling against the store itself (does the target
+# URI exist?) is the follow-up that would restore the skip.
+INGEST_EXPIRED = "expired"
+# Could not reach the backend to ask. Transient: the task is still there and a
+# later poll may resolve it, so the status route keeps what it last recorded
+# rather than overwriting it with this.
 INGEST_UNKNOWN = "unknown"
 # Identical content already completed for this project, so nothing was sent.
 # Reported per-file rather than silently omitted: a missing file in the response
@@ -44,7 +54,7 @@ INGEST_UNKNOWN = "unknown"
 INGEST_SKIPPED = "skipped"
 
 TERMINAL_INGEST_STATUSES = frozenset(
-    {INGEST_COMPLETED, INGEST_FAILED, INGEST_SKIPPED}
+    {INGEST_COMPLETED, INGEST_FAILED, INGEST_EXPIRED, INGEST_SKIPPED}
 )
 
 # Every status, in lifecycle order — used to render a stable counts mapping.
@@ -53,6 +63,7 @@ INGEST_STATUSES = (
     INGEST_PROCESSING,
     INGEST_COMPLETED,
     INGEST_FAILED,
+    INGEST_EXPIRED,
     INGEST_UNKNOWN,
     INGEST_SKIPPED,
 )

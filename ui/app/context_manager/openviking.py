@@ -21,6 +21,7 @@ from app.db.models import BerilUser
 
 from .base import (
     INGEST_COMPLETED,
+    INGEST_EXPIRED,
     INGEST_FAILED,
     INGEST_PROCESSING,
     INGEST_QUEUED,
@@ -144,9 +145,20 @@ class OpenVikingManager(ContextManager):
     async def task_statuses(self, task_ids: list[str]) -> dict[str, tuple[str, str | None]]:
         """Look up the current status of each task id.
 
-        Returns ``{task_id: (status, error)}`` in BERIL's vocabulary. A task the
-        backend no longer knows maps to ``unknown`` rather than a guess — its
-        record may simply have aged out.
+        Returns ``{task_id: (status, error)}`` in BERIL's vocabulary. Two
+        non-answers are kept distinct because they call for opposite
+        reactions:
+
+        * the backend **could not be asked** (transport or SDK error) →
+          ``unknown``. Transient; the caller keeps its last recording and a
+          later poll may resolve it.
+        * the backend **no longer has the task** (``get_task`` → ``None``, the
+          record aged out) → ``expired``. Permanent; re-polling can never
+          learn more, so it is terminal and the caller stops asking.
+
+        Conflating them left rows stuck non-terminal forever: an expired task
+        reported ``unknown``, the status route discarded ``unknown``, and the
+        row was re-polled on every call with no way to ever advance.
 
         Never raises: a backend that is unreachable mid-poll yields ``unknown``
         for every id, so the caller falls back to what it already recorded
@@ -171,7 +183,9 @@ class OpenVikingManager(ContextManager):
                 statuses[task_id] = (INGEST_UNKNOWN, None)
                 continue
             if not task:
-                statuses[task_id] = (INGEST_UNKNOWN, None)
+                # Gone, not unreachable: the backend answered and has no such
+                # task. Nothing further can be learned by asking again.
+                statuses[task_id] = (INGEST_EXPIRED, None)
                 continue
             raw = str(task.get("status") or "").lower()
             statuses[task_id] = (
