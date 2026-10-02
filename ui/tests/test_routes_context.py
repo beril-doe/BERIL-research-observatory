@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
+from openviking_sdk.errors import UnavailableError
 
 from app.clients.openviking import OpenVikingError
 from app.config import get_settings
@@ -173,6 +174,10 @@ async def test_find_returns_mapped_results(client, credentialed_user, manager):
             "context_type": "document",
             "score": 0.93,
             "text": "Alpha project overview.",
+            # Absent from this fixture's hit, so they serialize as null rather
+            # than being omitted — clients can index them unconditionally.
+            "match_reason": None,
+            "content": None,
         }
     ]
 
@@ -233,6 +238,105 @@ async def test_find_rejects_malformed_limit(client, credentialed_user, manager):
 
     assert resp.status_code == 422
     manager.query.assert_not_awaited()
+
+
+async def test_find_forwards_the_extended_options(client, credentialed_user, manager):
+    _login(client)
+    resp = client.post(
+        "/api/context/find",
+        json={
+            "query": "alpha",
+            "filter": {"op": "must", "field": "uri", "conds": ["viking://x/"]},
+            "since": "7d",
+            "until": "2026-01-01",
+            "time_field": "created_at",
+            "node_limit": 50,
+            "read_content": True,
+        },
+    )
+
+    assert resp.status_code == 200
+    sent = manager.query.await_args.args[0]
+    assert sent.filter == {"op": "must", "field": "uri", "conds": ["viking://x/"]}
+    assert (sent.since, sent.until, sent.time_field) == ("7d", "2026-01-01", "created_at")
+    assert sent.node_limit == 50
+    assert sent.read_content is True
+
+
+async def test_find_applies_extended_defaults(client, credentialed_user, manager):
+    """The new options are all opt-in; none changes behavior when omitted."""
+    _login(client)
+    client.post("/api/context/find", json={"query": "alpha"})
+
+    sent = manager.query.await_args.args[0]
+    assert sent.filter is None
+    assert (sent.since, sent.until, sent.time_field) == (None, None, None)
+    assert sent.node_limit is None
+    assert sent.read_content is False
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"query": "a", "limit": 0},
+        {"query": "a", "limit": 100000},
+        {"query": "a", "node_limit": 0},
+        {"query": "a", "node_limit": 10_000_000},
+    ],
+)
+async def test_find_rejects_out_of_range_limits(
+    client, credentialed_user, manager, payload
+):
+    """An absurd limit is refused rather than forwarded to the backend."""
+    _login(client)
+    resp = client.post("/api/context/find", json=payload)
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+async def test_find_rejects_a_non_object_filter(client, credentialed_user, manager):
+    _login(client)
+    resp = client.post(
+        "/api/context/find", json={"query": "a", "filter": ["not", "an", "object"]}
+    )
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+async def test_find_rejects_an_unknown_time_field(client, credentialed_user, manager):
+    _login(client)
+    resp = client.post(
+        "/api/context/find", json={"query": "a", "time_field": "whenever"}
+    )
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+async def test_find_surfaces_backend_failure_as_502(client, credentialed_user):
+    """The store is an implementation detail; its errors are not the user's."""
+    inst = MagicMock()
+    inst.query = AsyncMock(side_effect=UnavailableError("backend down"))
+    _login(client)
+    with patch("app.routes.context.OpenVikingManager", return_value=inst):
+        resp = client.post("/api/context/find", json={"query": "alpha"})
+
+    assert resp.status_code == 502
+    # The backend's own message must not leak into the response.
+    assert "backend down" not in resp.text
+
+
+async def test_find_reports_total(client, credentialed_user, manager):
+    manager.query = AsyncMock(
+        return_value=ContextQueryResults(query="alpha", results=[], total=42)
+    )
+    _login(client)
+    resp = client.post("/api/context/find", json={"query": "alpha"})
+
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 42
 
 
 # ---------------------------------------------------------------------------

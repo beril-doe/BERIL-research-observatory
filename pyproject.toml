@@ -9,7 +9,15 @@ dependencies = [
   "certifi",
   "httpx",
   "langfuse>=4.0,<5",
-  "openviking==0.4.15",
+  # OpenViking server + SDK are released in step but only loosely coupled in
+  # metadata (the server declares a floor on the SDK; the SDK declares nothing).
+  # The server rejects request fields it does not know (extra="forbid"), and the
+  # SDK forwards every field it declares — so an SDK newer than the server
+  # breaks, while a newer server tolerates an older SDK. Keep these two pins at
+  # a matching pair, upgrade the server first, and keep the SDK pin identical
+  # to ui/pyproject.toml so both projects resolve the same version.
+  "openviking==0.4.22",
+  "openviking_sdk==0.1.12",
   "pyyaml",
   "rich",
 ]
