@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.context_manager.openviking import get_user_ov_api_key
 from app.db.crud import get_or_create_user
 from app.db.session import get_db
 
@@ -81,6 +82,26 @@ async def orcid_callback(
         user, created = await get_or_create_user(db, orcid_id=orcid_id, display_name=name)
         if created:
             logger.info(f"New BERIL user created: {orcid_id} ({name}) → {user.id}")
+            # Provision the context credential here, in the one request that
+            # won the user insert. The unique orcid_id constraint means exactly
+            # one request ever sees created=True, which is what makes this
+            # race-free without a lock — two concurrent first-use requests
+            # against the lazy path could otherwise each mint a key and store
+            # the revoked one last.
+            #
+            # Never let it block login: the backing store is an implementation
+            # detail, and the lazy path still provisions on first context use
+            # if this is skipped. Broad on purpose — a bug here is still not
+            # the user's problem at the login screen; it is ours, in the log.
+            try:
+                await get_user_ov_api_key(db, user)
+            except Exception:
+                logger.warning(
+                    "Context credential provisioning at signup failed for %s; "
+                    "deferring to first use",
+                    user.id,
+                    exc_info=True,
+                )
 
         request.session["orcid_id"] = orcid_id
         request.session["orcid_name"] = name
