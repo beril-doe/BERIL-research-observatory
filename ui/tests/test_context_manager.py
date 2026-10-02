@@ -56,6 +56,9 @@ _ENV = {
     "BERIL_SESSION_SECRET_KEY": "test-session-secret",
 }
 
+# The backend's grep payload for no matches, as server 0.4.22 returns it.
+EMPTY_GREP = {"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
+
 # The default read target: the whole corpus. ``query`` requires one — the
 # route resolves it, so a test that does not care about scope passes this.
 CORPUS = "viking://resources/users"
@@ -104,7 +107,7 @@ def sdk_client():
     inst.close = AsyncMock(return_value=None)
     inst.find = AsyncMock(return_value=FIND_PAYLOAD)
     inst.ls = AsyncMock(return_value=["alpha.md", "beta.md"])
-    inst.grep = AsyncMock(return_value={"matches": [], "total": 0})
+    inst.grep = AsyncMock(return_value=dict(EMPTY_GREP))
     inst.glob = AsyncMock(return_value={"matches": [], "count": 0})
     return inst
 
@@ -532,8 +535,10 @@ async def test_list_files_with_no_uris_never_reaches_the_backend(
 
 
 async def test_glob_returns_the_matched_uris(settings, patched_sdk):
+    """Directory matches arrive with a trailing slash (as the live backend
+    returns them); they are normalized to the form ``listing_uri`` produces."""
     patched_sdk.glob.return_value = {
-        "matches": ["viking://resources/users/a/alpha", "viking://resources/users/b/alpha"],
+        "matches": ["viking://resources/users/a/alpha/", "viking://resources/users/b/alpha/"],
         "count": 2,
     }
     manager = OpenVikingManager(settings, "user-key")
@@ -595,7 +600,7 @@ async def test_grep_passes_uri_and_pattern(settings, patched_sdk):
         "metal binding",
         case_insensitive=False,
     )
-    assert out == {"matches": [], "total": 0}
+    assert out == EMPTY_GREP
 
 
 async def test_grep_forwards_options(settings, patched_sdk):
@@ -652,12 +657,14 @@ async def test_grep_closes_the_client_when_grep_raises(settings, patched_sdk):
 
 
 async def test_grep_fans_out_over_several_uris_and_merges(settings, patched_sdk):
-    """Several URIs are searched in turn; their matches are merged and the
-    total recounted, with the exclusion applied to each."""
+    """Several URIs are searched in turn and merged into the backend's own
+    payload shape — counts recounted, files scanned summed — with the
+    exclusion applied to each."""
     patched_sdk.grep.side_effect = [
-        {"matches": [{"uri": "viking://x/one/a.md"}], "total": 1},
+        {"matches": [{"uri": "viking://x/one/a.md"}],
+         "count": 1, "match_count": 1, "files_scanned": 4},
         {"matches": [{"uri": "viking://x/two/b.md"}, {"uri": "viking://x/two/c.md"}],
-         "total": 2},
+         "count": 2, "match_count": 2, "files_scanned": 6},
     ]
     manager = OpenVikingManager(settings, "user-key")
     out = await manager.grep(
@@ -670,7 +677,9 @@ async def test_grep_fans_out_over_several_uris_and_merges(settings, patched_sdk)
             {"uri": "viking://x/two/b.md"},
             {"uri": "viking://x/two/c.md"},
         ],
-        "total": 3,
+        "count": 3,
+        "match_count": 3,
+        "files_scanned": 10,
     }
     assert [c.args[0] for c in patched_sdk.grep.await_args_list] == [
         "viking://x/one", "viking://x/two"
@@ -687,18 +696,20 @@ async def test_grep_with_one_uri_in_a_list_returns_the_backend_payload(
 ):
     """A single-element list is the single-URI case: the payload comes back
     untouched rather than re-shaped."""
-    patched_sdk.grep.return_value = {"matches": [], "total": 0, "extra": "kept"}
+    patched_sdk.grep.return_value = {**EMPTY_GREP, "extra": "kept"}
     manager = OpenVikingManager(settings, "user-key")
 
     out = await manager.grep(["viking://x"], "pat")
 
-    assert out == {"matches": [], "total": 0, "extra": "kept"}
+    assert out == {**EMPTY_GREP, "extra": "kept"}
 
 
 async def test_grep_with_no_uris_never_reaches_the_backend(settings, patched_sdk):
+    """The answer has the backend's own empty shape, so a consumer cannot tell
+    whether the backend was asked — and it was not."""
     manager = OpenVikingManager(settings, "user-key")
 
-    assert await manager.grep([], "pat") == {"matches": [], "total": 0}
+    assert await manager.grep([], "pat") == EMPTY_GREP
     patched_sdk.grep.assert_not_awaited()
     patched_sdk.initialize.assert_not_awaited()
 

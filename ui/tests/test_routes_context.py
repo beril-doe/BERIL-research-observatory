@@ -138,7 +138,9 @@ def manager():
     inst = MagicMock()
     inst.query = AsyncMock(return_value=QUERY_RESULTS)
     inst.list_files = AsyncMock(return_value=["alpha.md", "beta.md"])
-    inst.grep = AsyncMock(return_value={"matches": [], "total": 0})
+    inst.grep = AsyncMock(
+        return_value={"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
+    )
     inst.glob = AsyncMock(return_value=[])
     with patch("app.routes.context.OpenVikingManager", return_value=inst):
         yield inst
@@ -1528,12 +1530,18 @@ def test_grep_unauthenticated_returns_401(client):
 
 
 async def test_grep_returns_the_backend_payload(client, credentialed_user, manager):
-    manager.grep = AsyncMock(return_value={"matches": [{"uri": "viking://x"}], "total": 1})
+    payload = {
+        "matches": [{"uri": "viking://x", "line": 1, "content": "x"}],
+        "count": 1,
+        "match_count": 1,
+        "files_scanned": 3,
+    }
+    manager.grep = AsyncMock(return_value=payload)
     _login(client)
     resp = _grep(client)
 
     assert resp.status_code == 200
-    assert resp.json() == {"matches": [{"uri": "viking://x"}], "total": 1}
+    assert resp.json() == payload
 
 
 async def test_grep_requires_a_pattern(client, credentialed_user, manager):

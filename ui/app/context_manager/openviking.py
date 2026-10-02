@@ -75,6 +75,11 @@ _OV_STATUS_MAP = {
 
 USERS_TARGET_URI = "viking://resources/users/"
 
+# The backend's own shape for a grep that matched nothing (verified against
+# server 0.4.22). Returned, rather than invented, when there is nowhere to
+# search, so a consumer sees one shape whether or not the backend was asked.
+_EMPTY_GREP: dict = {"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
+
 # The house account: central docs (pitfalls, discoveries, performance,
 # research_ideas) have no owner, so they live under a reserved name in the same
 # per-user tree rather than needing an ownerless special case in every read.
@@ -336,6 +341,11 @@ class OpenVikingManager(ContextManager):
         ``uri`` is resolved by the caller (see ``listing_uri``); this method
         does not scope it. A ``uri`` the backend does not know yields no
         matches rather than an error — an empty corpus is a legitimate state.
+
+        A directory match comes back with a trailing slash; it is stripped so
+        an expanded URI has the same form ``listing_uri`` produces. The
+        backend reads either form identically — this is for consistency of
+        what the routes hand on, not correctness.
         """
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         try:
@@ -344,7 +354,11 @@ class OpenVikingManager(ContextManager):
             return []
         finally:
             await ov_client.close()
-        return [m for m in (results or {}).get("matches") or [] if isinstance(m, str)]
+        return [
+            m.rstrip("/")
+            for m in (results or {}).get("matches") or []
+            if isinstance(m, str) and m.rstrip("/")
+        ]
 
     async def list_files(
         self,
@@ -396,9 +410,11 @@ class OpenVikingManager(ContextManager):
 
         Both URIs are resolved by the caller (see ``listing_uri``); this method
         does not scope them, so it must never be handed unvalidated input.
-        Several URIs are searched one after another and their ``matches``
-        merged, with ``total`` recounted. An empty list is an empty result and
-        never reaches the backend.
+        Several URIs are searched one after another and merged into one
+        payload of the backend's own shape: ``matches`` concatenated,
+        ``count``/``match_count`` recounted (the backend reports both, always
+        equal to the number of matches), ``files_scanned`` summed. An empty
+        list is an empty result and never reaches the backend.
 
         Returns the backend's own payload shape. Unlike ``query``, there is no
         mapping layer: grep results are structural (matching nodes and their
@@ -407,7 +423,7 @@ class OpenVikingManager(ContextManager):
         """
         uris = [uri] if isinstance(uri, str) else list(uri)
         if not uris:
-            return {"matches": [], "total": 0}
+            return _EMPTY_GREP.copy()
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         try:
             payloads = [
@@ -426,7 +442,12 @@ class OpenVikingManager(ContextManager):
         if len(payloads) == 1:
             return payloads[0]
         matches = [m for p in payloads for m in p.get("matches") or []]
-        return {"matches": matches, "total": len(matches)}
+        return {
+            "matches": matches,
+            "count": len(matches),
+            "match_count": len(matches),
+            "files_scanned": sum(int(p.get("files_scanned") or 0) for p in payloads),
+        }
 
     async def query(
         self, query: ContextQuery, *, target_uri: str | list[str]
