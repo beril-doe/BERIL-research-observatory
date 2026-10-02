@@ -139,8 +139,14 @@ def manager():
     inst.query = AsyncMock(return_value=QUERY_RESULTS)
     inst.list_files = AsyncMock(return_value=["alpha.md", "beta.md"])
     inst.grep = AsyncMock(return_value={"matches": [], "total": 0})
+    inst.glob = AsyncMock(return_value=[])
     with patch("app.routes.context.OpenVikingManager", return_value=inst):
         yield inst
+
+
+def _find_target(manager):
+    """The resolved target the route handed to ``manager.query``."""
+    return manager.query.await_args.kwargs["target_uri"]
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +195,7 @@ async def test_find_forwards_body_to_manager(client, credentialed_user, manager)
         "/api/context/find",
         json={
             "query": "alpha",
-            "root_path": "viking://resources/projects",
+            "project": "alpha",
             "limit": 3,
             "score_threshold": 0.5,
         },
@@ -198,9 +204,11 @@ async def test_find_forwards_body_to_manager(client, credentialed_user, manager)
     assert resp.status_code == 200
     sent = manager.query.await_args.args[0]
     assert sent.query == "alpha"
-    assert sent.root_path == "viking://resources/projects"
     assert sent.limit == 3
     assert sent.score_threshold == 0.5
+    assert _find_target(manager) == (
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha"
+    )
 
 
 async def test_find_applies_query_defaults(client, credentialed_user, manager):
@@ -209,9 +217,22 @@ async def test_find_applies_query_defaults(client, credentialed_user, manager):
     client.post("/api/context/find", json={"query": "alpha"})
 
     sent = manager.query.await_args.args[0]
-    assert sent.root_path is None
+    assert (sent.project, sent.owner, sent.all_owners, sent.path) == (
+        None, None, False, None
+    )
     assert sent.limit == 10
     assert sent.score_threshold is None
+
+
+async def test_find_without_a_project_searches_the_whole_corpus(
+    client, credentialed_user, manager
+):
+    """A bare query targets exactly the corpus root — not the caller's own
+    namespace, and not the backend's default scope, which is wider."""
+    _login(client)
+    client.post("/api/context/find", json={"query": "alpha"})
+
+    assert _find_target(manager) == "viking://resources/users"
 
 
 async def test_find_decrypts_stored_key_for_manager(client, credentialed_user):
@@ -247,7 +268,6 @@ async def test_find_forwards_the_extended_options(client, credentialed_user, man
         "/api/context/find",
         json={
             "query": "alpha",
-            "filter": {"op": "must", "field": "uri", "conds": ["viking://x/"]},
             "since": "7d",
             "until": "2026-01-01",
             "time_field": "created_at",
@@ -258,7 +278,6 @@ async def test_find_forwards_the_extended_options(client, credentialed_user, man
 
     assert resp.status_code == 200
     sent = manager.query.await_args.args[0]
-    assert sent.filter == {"op": "must", "field": "uri", "conds": ["viking://x/"]}
     assert (sent.since, sent.until, sent.time_field) == ("7d", "2026-01-01", "created_at")
     assert sent.node_limit == 50
     assert sent.read_content is True
@@ -270,7 +289,6 @@ async def test_find_applies_extended_defaults(client, credentialed_user, manager
     client.post("/api/context/find", json={"query": "alpha"})
 
     sent = manager.query.await_args.args[0]
-    assert sent.filter is None
     assert (sent.since, sent.until, sent.time_field) == (None, None, None)
     assert sent.node_limit is None
     assert sent.read_content is False
@@ -296,14 +314,28 @@ async def test_find_rejects_out_of_range_limits(
     manager.query.assert_not_awaited()
 
 
-async def test_find_rejects_a_non_object_filter(client, credentialed_user, manager):
-    _login(client)
-    resp = client.post(
-        "/api/context/find", json={"query": "a", "filter": ["not", "an", "object"]}
-    )
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("root_path", "viking://resources"),
+        ("filter", {"op": "must", "field": "uri", "conds": ["viking://x/"]}),
+    ],
+)
+async def test_find_does_not_honor_a_raw_backend_scope(
+    client, credentialed_user, manager, field, value
+):
+    """``root_path`` and ``filter`` are not part of the API.
 
-    assert resp.status_code == 422
-    manager.query.assert_not_awaited()
+    Either would let a caller name a backend location directly — outside the
+    corpus, or through a filter tree BERIL cannot bound — so neither reaches
+    the manager. Scope is addressed by project/owner/path, like ``/ls``.
+    """
+    _login(client)
+    resp = client.post("/api/context/find", json={"query": "a", field: value})
+
+    assert resp.status_code == 200
+    assert _find_target(manager) == "viking://resources/users"
+    assert not hasattr(manager.query.await_args.args[0], field)
 
 
 async def test_find_rejects_an_unknown_time_field(client, credentialed_user, manager):
@@ -465,7 +497,12 @@ async def test_ls_rejects_out_of_range_node_limit(
 async def test_ls_does_not_use_a_caller_supplied_orcid(
     client, credentialed_user, manager
 ):
-    """An `orcid` parameter is not part of the API and must not be honored."""
+    """``orcid`` is not an API field — ``owner`` is.
+
+    Reads are global, so naming another owner is allowed; this guards the
+    vocabulary, not the scope. An unknown parameter is ignored, and the
+    default (the caller's own) applies.
+    """
     _login(client)
     client.get(
         "/api/context/ls",
@@ -829,6 +866,21 @@ async def test_ingest_creates_project_when_absent(
     assert created.title == "Brand New Project"
 
 
+async def test_ingest_creates_the_project_public(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Ingest publishes: the corpus is readable by everyone, so the project
+    page must not hide what ``/find`` already returns. ``is_public`` is the one
+    visibility flag, and it is set rather than a second one introduced."""
+    _login(client)
+    _ingest(client, project="Brand New Project")
+
+    created = await get_project_by_slug(
+        db_session, credentialed_user.id, "brand_new_project"
+    )
+    assert created.is_public is True
+
+
 async def test_ingest_reuses_existing_project(
     client, credentialed_user, ingest_manager, db_session
 ):
@@ -841,6 +893,27 @@ async def test_ingest_reuses_existing_project(
     assert resp.status_code == 200
     projects = await get_projects_for_user(db_session, credentialed_user.id)
     assert [p.id for p in projects] == [existing.id]
+
+
+async def test_ingest_publishes_a_reused_private_project(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """A private row that gets ingested into becomes public — its content is
+    now in the corpus, whatever the flag said before."""
+    existing = await create_user_project(
+        db_session,
+        credentialed_user.id,
+        title="Existing",
+        slug="existing_project",
+        is_public=False,
+    )
+    assert existing.is_public is False
+    _login(client)
+    resp = _ingest(client, project="Existing Project")
+
+    assert resp.status_code == 200
+    await db_session.refresh(existing)
+    assert existing.is_public is True
 
 
 async def test_ingest_rejects_unusable_project_name(
@@ -1607,6 +1680,7 @@ async def test_grep_rejects_out_of_range_node_limit(
 async def test_grep_does_not_use_a_caller_supplied_orcid(
     client, credentialed_user, manager
 ):
+    """``orcid`` is not an API field — ``owner`` is (see the ``ls`` twin)."""
     _login(client)
     _grep(client, project="alpha", orcid="0000-0009-8888-7777")
 
@@ -1658,16 +1732,84 @@ async def test_ls_spans_every_owner(client, credentialed_user, manager):
     assert manager.list_files.await_args.args[0] == "viking://resources/users"
 
 
-async def test_ls_all_owners_drops_the_project_name(
+async def test_ls_all_owners_expands_the_project_across_owners(
     client, credentialed_user, manager
 ):
-    """A project name many owners share cannot be part of a corpus-wide path."""
+    """"Project alpha, whoever owns it" — a name many owners may share is not
+    an address, so the backend is asked which owners have it and each copy is
+    listed. Dropping the name would silently widen the read to the corpus."""
+    manager.glob.return_value = [
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha",
+        f"viking://resources/users/{OTHER_ORCID}/alpha",
+    ]
     _login(client)
-    client.get(
+    resp = client.get(
         "/api/context/ls", params={"project": "alpha", "all_owners": "true"}
     )
 
-    assert manager.list_files.await_args.args[0] == "viking://resources/users"
+    assert resp.status_code == 200
+    manager.glob.assert_awaited_once_with("*/alpha", "viking://resources/users")
+    assert manager.list_files.await_args.args[0] == manager.glob.return_value
+
+
+async def test_ls_all_owners_keeps_the_path_below_the_project(
+    client, credentialed_user, manager
+):
+    _login(client)
+    client.get(
+        "/api/context/ls",
+        params={"project": "alpha", "path": "notes/2026", "all_owners": "true"},
+    )
+
+    manager.glob.assert_awaited_once_with(
+        "*/alpha/notes/2026", "viking://resources/users"
+    )
+
+
+async def test_ls_all_owners_escapes_glob_characters_in_the_path(
+    client, credentialed_user, manager
+):
+    """Only the owner segment is a wildcard; a path is matched literally."""
+    _login(client)
+    client.get(
+        "/api/context/ls",
+        params={"project": "alpha", "path": "a*b", "all_owners": "true"},
+    )
+
+    assert manager.glob.await_args.args[0] == "*/alpha/a[*]b"
+
+
+async def test_ls_all_owners_with_no_copies_lists_nothing(
+    client, credentialed_user, manager
+):
+    """No owner has the project: the listing is empty, and the manager is
+    handed an empty target rather than a wider one."""
+    manager.glob.return_value = []
+    manager.list_files.return_value = []
+    _login(client)
+    resp = client.get(
+        "/api/context/ls", params={"project": "alpha", "all_owners": "true"}
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == []
+    assert manager.list_files.await_args.args[0] == []
+
+
+@pytest.mark.parametrize("path", ["..", "../other", "a/../../escape"])
+async def test_ls_all_owners_rejects_traversal_in_the_path(
+    client, credentialed_user, manager, path
+):
+    """The wildcard target gets the same traversal check as a concrete one."""
+    _login(client)
+    resp = client.get(
+        "/api/context/ls",
+        params={"project": "alpha", "path": path, "all_owners": "true"},
+    )
+
+    assert resp.status_code == 422
+    manager.glob.assert_not_awaited()
+    manager.list_files.assert_not_awaited()
 
 
 async def test_ls_bare_project_defaults_to_the_caller(
@@ -1729,6 +1871,32 @@ async def test_grep_spans_every_owner(client, credentialed_user, manager):
     assert manager.grep.await_args.args[0] == "viking://resources/users"
 
 
+async def test_grep_all_owners_expands_the_project_across_owners(
+    client, credentialed_user, manager
+):
+    manager.glob.return_value = [
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha",
+        f"viking://resources/users/{OTHER_ORCID}/alpha",
+    ]
+    _login(client)
+    resp = _grep(client, project="alpha", all_owners="true")
+
+    assert resp.status_code == 200
+    manager.glob.assert_awaited_once_with("*/alpha", "viking://resources/users")
+    assert manager.grep.await_args.args[0] == manager.glob.return_value
+
+
+async def test_grep_all_owners_with_no_copies_matches_nothing(
+    client, credentialed_user, manager
+):
+    manager.glob.return_value = []
+    _login(client)
+    resp = _grep(client, project="alpha", all_owners="true")
+
+    assert resp.status_code == 200
+    assert manager.grep.await_args.args[0] == []
+
+
 async def test_grep_excludes_another_owners_project(
     client, credentialed_user, manager
 ):
@@ -1764,3 +1932,146 @@ async def test_grep_rejects_traversal_in_the_exclude_owner(
 
     assert resp.status_code == 422
     manager.grep.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/context/find — scoped like ls and grep
+# ---------------------------------------------------------------------------
+
+
+def _find(client, **body):
+    return client.post("/api/context/find", json={"query": "alpha", **body})
+
+
+async def test_find_bare_project_defaults_to_the_caller(
+    client, credentialed_user, manager
+):
+    _login(client)
+    _find(client, project="alpha")
+
+    assert _find_target(manager) == (
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha"
+    )
+
+
+async def test_find_searches_another_owners_project(
+    client, credentialed_user, manager
+):
+    """Reads are global: ``owner`` narrows the target, it does not authorize."""
+    _login(client)
+    resp = _find(client, project="alpha", owner=OTHER_ORCID)
+
+    assert resp.status_code == 200
+    assert _find_target(manager) == f"viking://resources/users/{OTHER_ORCID}/alpha"
+
+
+async def test_find_appends_a_relative_path(client, credentialed_user, manager):
+    _login(client)
+    _find(client, project="alpha", path="notes/2026")
+
+    assert _find_target(manager) == (
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha/notes/2026"
+    )
+
+
+async def test_find_spans_every_owner(client, credentialed_user, manager):
+    _login(client)
+    resp = _find(client, all_owners=True)
+
+    assert resp.status_code == 200
+    assert _find_target(manager) == "viking://resources/users"
+
+
+async def test_find_all_owners_expands_the_project_across_owners(
+    client, credentialed_user, manager
+):
+    """The expanded list is handed to the manager as one target — the backend
+    ranks across several URIs natively, so there is no fan-out here."""
+    manager.glob.return_value = [
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha",
+        f"viking://resources/users/{OTHER_ORCID}/alpha",
+    ]
+    _login(client)
+    resp = _find(client, project="alpha", all_owners=True)
+
+    assert resp.status_code == 200
+    manager.glob.assert_awaited_once_with("*/alpha", "viking://resources/users")
+    assert _find_target(manager) == manager.glob.return_value
+
+
+async def test_find_all_owners_with_no_copies_targets_nothing(
+    client, credentialed_user, manager
+):
+    manager.glob.return_value = []
+    _login(client)
+    resp = _find(client, project="alpha", all_owners=True)
+
+    assert resp.status_code == 200
+    assert _find_target(manager) == []
+
+
+async def test_find_rejects_owner_with_all_owners(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = _find(client, owner=OTHER_ORCID, all_owners=True)
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+async def test_find_rejects_a_path_without_a_project(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = _find(client, path="notes")
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+async def test_find_rejects_an_unusable_project_name(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = _find(client, project="!!!")
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "path", ["../0000-9999-9999-9999", "../../users/other", "..", "a/../../escape"]
+)
+async def test_find_rejects_traversal_in_the_path(
+    client, credentialed_user, manager, path
+):
+    """The corpus root is the boundary; it is refused before the backend is
+    asked, and before the query could fall back to a wider scope."""
+    _login(client)
+    resp = _find(client, project="alpha", path=path)
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+@pytest.mark.parametrize("bad_owner", ["../..", "..", "a/../../.."])
+async def test_find_rejects_traversal_in_the_owner(
+    client, credentialed_user, manager, bad_owner
+):
+    _login(client)
+    resp = _find(client, owner=bad_owner)
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+async def test_find_surfaces_glob_failure_as_502(client, credentialed_user, manager):
+    """Expanding the owner wildcard is a backend call like any other."""
+    manager.glob.side_effect = UnavailableError("backend down")
+    _login(client)
+    resp = _find(client, project="alpha", all_owners=True)
+
+    assert resp.status_code == 502
+    assert "backend down" not in resp.text
+    manager.query.assert_not_awaited()

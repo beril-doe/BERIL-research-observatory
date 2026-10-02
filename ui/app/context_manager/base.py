@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -115,11 +115,16 @@ class IngestBatchStatus(BaseModel):
 class ContextQuery(BaseModel):
     """One semantic search against the context layer.
 
-    ``filter`` is a backend metadata filter tree, passed through as given —
-    callers that need one are already reaching past the simple case. The time
-    bounds accept whatever the backend accepts (an ISO date, or a relative form
-    like ``7d``); they are validated as non-empty strings here and interpreted
-    downstream, so a malformed bound is the backend's to reject.
+    Scope is addressed the same way ``ls`` and ``grep`` are — by ``project``
+    (a slug), ``owner`` (an ORCiD, defaulting to the caller), ``all_owners``,
+    and an optional ``path`` below the project — never by a raw backend URI.
+    The route resolves those into the target the manager searches, so a caller
+    cannot name a location outside the corpus.
+
+    The time bounds accept whatever the backend accepts (an ISO date, or a
+    relative form like ``7d``); they are validated as non-empty strings here
+    and interpreted downstream, so a malformed bound is the backend's to
+    reject.
 
     ``read_content`` asks for each hit's full text, not just its abstract. It
     is off by default because a broad query would otherwise return every
@@ -127,10 +132,12 @@ class ContextQuery(BaseModel):
     """
 
     query: str
-    root_path: str | None = None
+    project: str | None = None
+    owner: str | None = None
+    all_owners: bool = False
+    path: str | None = None
     limit: int = Field(default=10, ge=1, le=MAX_FIND_LIMIT)
     score_threshold: float | None = None
-    filter: dict[str, Any] | None = None
     since: str | None = None
     until: str | None = None
     time_field: Literal["updated_at", "created_at"] | None = None
@@ -188,6 +195,10 @@ class ContextManager:
     async def list_files(self) -> list[ContextFile]:
         ...
 
-    async def query(self, query: ContextQuery) -> ContextQueryResults:
-        ...
+    async def query(
+        self, query: ContextQuery, *, target_uri: str | list[str]
+    ) -> ContextQueryResults:
+        """Search below ``target_uri`` — one location, or several searched as
+        one. The route resolves the query's addressing into the target; the
+        manager never derives it from the query itself."""
 

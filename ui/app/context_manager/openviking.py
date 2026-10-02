@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 import httpx
+from openviking_sdk.errors import NotFoundError as SdkNotFoundError
 from openviking_sdk.errors import OpenVikingError as SdkOpenVikingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -327,74 +328,128 @@ class OpenVikingManager(ContextManager):
             task_id=(submitted or {}).get("task_id"),
         )
 
+    async def glob(
+        self, pattern: str, uri: str, *, node_limit: int | None = None
+    ) -> list[str]:
+        """URIs beneath ``uri`` matching ``pattern``, as a plain list.
+
+        ``uri`` is resolved by the caller (see ``listing_uri``); this method
+        does not scope it. A ``uri`` the backend does not know yields no
+        matches rather than an error — an empty corpus is a legitimate state.
+        """
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        try:
+            results = await ov_client.glob(pattern, uri, node_limit=node_limit)
+        except SdkNotFoundError:
+            return []
+        finally:
+            await ov_client.close()
+        return [m for m in (results or {}).get("matches") or [] if isinstance(m, str)]
+
     async def list_files(
         self,
-        uri: str,
+        uri: str | list[str],
         *,
         recursive: bool = False,
         simple: bool = False,
         node_limit: int | None = None,
     ) -> list:
-        """List the resources at ``uri``.
+        """List the resources at ``uri``, or at each of several in turn.
 
         ``uri`` is resolved by the caller (see ``listing_uri``) — this method
         does not scope it, so it must never be handed unvalidated caller input.
+        Several URIs are listed one after another and concatenated; the backend
+        lists one location at a time, so the fan-out lives here. An empty list
+        is an empty listing and never reaches the backend — asking it to list
+        nothing is not the same as asking it to list nowhere.
 
         A listing of a path the backend does not know is an empty list, not an
         error: an un-ingested project is a legitimate state, not a failure.
         """
+        uris = [uri] if isinstance(uri, str) else list(uri)
+        if not uris:
+            return []
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        listed: list = []
         try:
-            results = await ov_client.list_files(
-                uri, recursive=recursive, simple=simple, node_limit=node_limit
-            )
+            for one in uris:
+                results = await ov_client.list_files(
+                    one, recursive=recursive, simple=simple, node_limit=node_limit
+                )
+                listed.extend(results or [])
         finally:
             # Closed even when the listing raises, so a failure does not leak
             # the connection.
             await ov_client.close()
-        return list(results or [])
+        return listed
 
     async def grep(
         self,
-        uri: str,
+        uri: str | list[str],
         pattern: str,
         *,
         case_insensitive: bool = False,
         exclude_uri: str | None = None,
         node_limit: int | None = None,
     ) -> dict:
-        """Exact-pattern search beneath ``uri``.
+        """Exact-pattern search beneath ``uri``, or beneath each of several.
 
         Both URIs are resolved by the caller (see ``listing_uri``); this method
         does not scope them, so it must never be handed unvalidated input.
+        Several URIs are searched one after another and their ``matches``
+        merged, with ``total`` recounted. An empty list is an empty result and
+        never reaches the backend.
 
         Returns the backend's own payload shape. Unlike ``query``, there is no
         mapping layer: grep results are structural (matching nodes and their
         lines), and inventing a BERIL-side schema for them would be guesswork
         until a consumer needs one.
         """
+        uris = [uri] if isinstance(uri, str) else list(uri)
+        if not uris:
+            return {"matches": [], "total": 0}
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         try:
-            results = await ov_client.grep(
-                uri,
-                pattern,
-                case_insensitive=case_insensitive,
-                exclude_uri=exclude_uri,
-                node_limit=node_limit,
-            )
+            payloads = [
+                await ov_client.grep(
+                    one,
+                    pattern,
+                    case_insensitive=case_insensitive,
+                    exclude_uri=exclude_uri,
+                    node_limit=node_limit,
+                )
+                or {}
+                for one in uris
+            ]
         finally:
             await ov_client.close()
-        return results or {}
+        if len(payloads) == 1:
+            return payloads[0]
+        matches = [m for p in payloads for m in p.get("matches") or []]
+        return {"matches": matches, "total": len(matches)}
 
-    async def query(self, query: ContextQuery) -> ContextQueryResults:
+    async def query(
+        self, query: ContextQuery, *, target_uri: str | list[str]
+    ) -> ContextQueryResults:
+        """Search below ``target_uri``.
+
+        The target is resolved by the caller (see ``listing_uri``) — the query
+        carries addressing fields, but this method never derives a backend
+        location from them. Several URIs are searched as one scope: the backend
+        ranks across them, which a fan-out here could not reproduce. An empty
+        list is an empty result and never reaches the backend — a missing
+        target would fall back to the backend's own default scope, which is
+        wider than the corpus.
+        """
+        if not isinstance(target_uri, str) and not target_uri:
+            return ContextQueryResults(query=query.query, results=[], total=0)
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         try:
             results = await ov_client.find(
                 query.query,
-                target_uri=query.root_path,
+                target_uri=target_uri,
                 limit=query.limit,
                 score_threshold=query.score_threshold,
-                filter=query.filter,
                 since=query.since,
                 until=query.until,
                 time_field=query.time_field,

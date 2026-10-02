@@ -91,11 +91,10 @@ class OpenVikingClient:
     async def find(
         self,
         query: str,
-        target_uri: str | None = None,
+        target_uri: str | list[str] | None = None,
         limit: int = 10,
         score_threshold: float | None = None,
         *,
-        filter: dict | None = None,
         since: str | None = None,
         until: str | None = None,
         time_field: str | None = None,
@@ -103,6 +102,10 @@ class OpenVikingClient:
         read_content: bool = False,
     ) -> dict:
         """Semantic search.
+
+        ``target_uri`` may be several URIs, searched as one scope and ranked
+        together — the backend accepts a list natively. Callers resolve it and
+        must already have scoped it; this wrapper does not constrain it.
 
         Options are built by omission: a key absent from the dict lets the
         backend apply its own default, which is not the same as passing None.
@@ -114,7 +117,6 @@ class OpenVikingClient:
             key: value
             for key, value in (
                 ("score_threshold", score_threshold),
-                ("filter", filter),
                 ("since", since),
                 ("until", until),
                 ("time_field", time_field),
@@ -171,6 +173,21 @@ class OpenVikingClient:
         if node_limit is not None:
             options["node_limit"] = node_limit
         return await self._client.grep(uri, pattern, **options)
+
+    async def glob(
+        self, pattern: str, uri: str, *, node_limit: int | None = None
+    ) -> dict:
+        """Match resource URIs beneath ``uri`` by shell-style ``pattern``.
+
+        Used to expand a wildcard segment — "every owner's copy of this
+        project" — into concrete URIs before a read. The backend answers
+        ``{"matches": [<uri>, ...], "count": n}``, and raises not-found when
+        ``uri`` itself does not exist; the manager normalizes both.
+        """
+        options = {}
+        if node_limit is not None:
+            options["node_limit"] = node_limit
+        return await self._client.glob(pattern, uri=uri, **options)
 
     async def get_task(self, task_id: str) -> dict | None:
         """Fetch an async task record, or None if the backend no longer has it.
