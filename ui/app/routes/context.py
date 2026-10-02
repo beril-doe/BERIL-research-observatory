@@ -398,12 +398,10 @@ async def _resolve_project(
 ) -> UserProject:
     """Find the caller's project by slug, creating it if it doesn't exist.
 
-    Ingest publishes: the context corpus is readable by everyone, so a project
-    that has been ingested is public by definition, and ``is_public`` — the one
-    visibility flag, which gates the project page and the public listing — is
-    set to match. A row created here starts public, and a private row that is
-    reused is made public, so the project page never hides what ``/find``
-    already returns.
+    Never publishes: a row created here starts private, and a reused row keeps
+    its flag. Publishing waits for ``_publish``, after the ingest has actually
+    put something in the corpus — a submission that fails validation or has
+    every file rejected must not expose a project that has nothing to show.
 
     Ownership is not enforced: an existing project of the same slug is reused
     whoever owns it, because the ingest target is keyed on the *uploader's*
@@ -418,21 +416,36 @@ async def _resolve_project(
         )
 
     existing = await get_project_by_slug(db, user.id, slug)
-    if existing is None:
-        try:
-            return await create_user_project(
-                db, user.id, title=project, slug=slug, is_public=True
-            )
-        except IntegrityError:
-            # A concurrent request created it first; take theirs.
-            await db.rollback()
-            existing = await get_project_by_slug(db, user.id, slug)
-            if existing is None:
-                raise
-    if not existing.is_public:
-        existing.is_public = True
+    if existing is not None:
+        return existing
+    try:
+        return await create_user_project(db, user.id, title=project, slug=slug)
+    except IntegrityError:
+        # A concurrent request created it first; take theirs.
+        await db.rollback()
+        existing = await get_project_by_slug(db, user.id, slug)
+        if existing is None:
+            raise
+        return existing
+
+
+async def _publish(db: AsyncSession, project: UserProject) -> None:
+    """Ingest publishes: mark ``project`` public once its content is in the corpus.
+
+    The context corpus is readable by everyone, so a project with content in
+    it is public by definition, and ``is_public`` — the one visibility flag,
+    which gates the project page and the public listing — is set to match, so
+    the project page never hides what ``/find`` already returns.
+
+    Called only once content has landed: at least one file queued, or every
+    file skipped because identical content already completed. "Queued" means
+    the backend accepted the file, not that indexing finished; a file that
+    later fails asynchronously has still published the row. Publishing from
+    the status poll instead would tie visibility to whether anyone polls.
+    """
+    if not project.is_public:
+        project.is_public = True
         await db.commit()
-    return existing
 
 
 def _extract_archive(archive_bytes: bytes, dest: Path) -> None:
@@ -631,11 +644,17 @@ async def post_context_ingest_files(
     # Everything was unchanged: nothing to submit, so no batch and nothing to
     # poll. Answered as a success with the skips enumerated.
     if not ingest_files:
+        # Skipped means identical content already completed for this project:
+        # it is in the corpus, so the rule holds even with nothing sent.
+        await _publish(db, db_project)
         return ContextIngestResults(
             results=skipped, queued=0, failed=0, skipped=len(skipped)
         )
 
     results = await manager.insert_files(ingest_files, target_root=target_root)
+    # Skips count too: their identical content already completed here.
+    if results.queued or skipped:
+        await _publish(db, db_project)
 
     # Record the submission so its progress stays pollable: the context
     # manager expires its own task records and does not track who owns them.

@@ -13,12 +13,13 @@ import io
 import os
 import zipfile
 from collections.abc import AsyncGenerator
+from contextlib import nullcontext
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
-from openviking_sdk.errors import UnavailableError
+from openviking_sdk.errors import NotFoundError, UnavailableError
 
 from app.clients.openviking import OpenVikingError
 from app.config import get_settings
@@ -526,6 +527,31 @@ async def test_ls_empty_listing_is_not_an_error(client, credentialed_user, manag
     assert resp.json() == []
 
 
+@pytest.mark.parametrize("route", ["ls", "grep"])
+async def test_an_unknown_project_is_empty_end_to_end(
+    client, credentialed_user, route
+):
+    """Through the real manager: the backend raises not-found for a project it
+    does not know, and the route answers 200-empty rather than 502."""
+    sdk = MagicMock()
+    sdk.initialize = AsyncMock()
+    sdk.close = AsyncMock()
+    sdk.ls = AsyncMock(side_effect=NotFoundError("viking://x"))
+    sdk.grep = AsyncMock(side_effect=NotFoundError("viking://x"))
+    _login(client)
+    with patch("app.clients.openviking.AsyncHTTPClient", return_value=sdk):
+        if route == "ls":
+            resp = client.get("/api/context/ls", params={"project": "never_ingested"})
+        else:
+            resp = _grep(client, project="never_ingested")
+
+    assert resp.status_code == 200
+    assert resp.json() == (
+        [] if route == "ls"
+        else {"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
+    )
+
+
 async def test_ls_surfaces_backend_failure_as_502(client, credentialed_user):
     inst = MagicMock()
     inst.list_files = AsyncMock(side_effect=UnavailableError("backend down"))
@@ -916,6 +942,99 @@ async def test_ingest_publishes_a_reused_private_project(
     assert resp.status_code == 200
     await db_session.refresh(existing)
     assert existing.is_public is True
+
+
+async def test_ingest_publishes_on_partial_success(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """One file queued is enough: that content is in the corpus."""
+    ingest_manager.insert_files.return_value = ContextIngestResults(
+        results=[
+            IngestResult(relative_path="a.md", status="queued", uri="viking://a"),
+            IngestResult(relative_path="b.md", status="failed", reason="rejected"),
+        ],
+        queued=1,
+        failed=1,
+    )
+    _login(client)
+    _ingest(client, project="Brand New Project")
+
+    created = await get_project_by_slug(
+        db_session, credentialed_user.id, "brand_new_project"
+    )
+    assert created.is_public is True
+
+
+def _all_rejected() -> ContextIngestResults:
+    return ContextIngestResults(
+        results=[IngestResult(relative_path="notes.md", status="failed", reason="no")],
+        queued=0,
+        failed=1,
+    )
+
+
+async def test_ingest_does_not_publish_when_every_file_is_rejected(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Nothing reached the corpus, so nothing is published — a new row stays
+    private and a reused private row is left as it was."""
+    existing = await create_user_project(
+        db_session, credentialed_user.id, title="Existing", slug="existing_project"
+    )
+    ingest_manager.insert_files.return_value = _all_rejected()
+    _login(client)
+    assert _ingest(client, project="Existing Project").status_code == 200
+    assert _ingest(client, project="Brand New Project").status_code == 200
+
+    await db_session.refresh(existing)
+    assert existing.is_public is False
+    created = await get_project_by_slug(
+        db_session, credentialed_user.id, "brand_new_project"
+    )
+    assert created.is_public is False
+
+
+_FAILING_SUBMISSIONS = {
+    "unreadable archive": ({"archive": b"not a zip file", "manifest": ["a.md"]}, None),
+    "manifest names a missing file": (
+        {"members": {"a.md": b"a"}, "manifest": ["a.md", "gone.md"]}, None
+    ),
+    "too many files": (
+        {"members": {f"f{i}.md": b"x" for i in range(3)}},
+        ("context_max_ingest_files", 2),
+    ),
+    "file too large": (
+        {"members": {"big.md": b"way too long"}}, ("context_max_file_bytes", 4)
+    ),
+}
+
+
+@pytest.mark.parametrize("case", list(_FAILING_SUBMISSIONS))
+async def test_a_rejected_submission_does_not_publish(
+    client, credentialed_user, ingest_manager, db_session, case
+):
+    """Regression: publishing used to happen before validation, so a malformed
+    upload made a private project public with nothing new in the corpus — and
+    a first upload that failed left an empty public project in the listing."""
+    kwargs, setting = _FAILING_SUBMISSIONS[case]
+    existing = await create_user_project(
+        db_session, credentialed_user.id, title="Existing", slug="existing_project"
+    )
+    _login(client)
+    with (
+        patch.object(get_settings(), *setting) if setting else nullcontext()
+    ):
+        reused = _ingest(client, project="Existing Project", **kwargs)
+        fresh = _ingest(client, project="Brand New Project", **kwargs)
+
+    assert reused.status_code >= 400 and fresh.status_code >= 400
+    ingest_manager.insert_files.assert_not_awaited()
+    await db_session.refresh(existing)
+    assert existing.is_public is False
+    created = await get_project_by_slug(
+        db_session, credentialed_user.id, "brand_new_project"
+    )
+    assert created is None or created.is_public is False
 
 
 async def test_ingest_rejects_unusable_project_name(
@@ -1472,6 +1591,47 @@ async def test_ingest_all_skipped_returns_no_batch_id(
     assert body["batch_id"] is None
     assert (body["queued"], body["failed"], body["skipped"]) == (0, 0, 1)
     ingest_manager.insert_files.assert_not_awaited()
+
+
+async def test_ingest_all_skipped_publishes(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Nothing is sent, but a skip means identical content already completed
+    for this project — it is in the corpus, so the project is published."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+    project = await get_project_by_slug(db_session, credentialed_user.id, "my_project")
+    project.is_public = False
+    await db_session.commit()
+
+    resp = _ingest(client, members={"a.md": b"same"})
+
+    assert resp.json()["skipped"] == 1
+    await db_session.refresh(project)
+    assert project.is_public is True
+
+
+async def test_ingest_publishes_when_the_rest_are_skipped(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Every submitted file rejected, but a skipped one is already in the
+    corpus — that alone publishes."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+    project = await get_project_by_slug(db_session, credentialed_user.id, "my_project")
+    project.is_public = False
+    await db_session.commit()
+
+    ingest_manager.insert_files.return_value = ContextIngestResults(
+        results=[IngestResult(relative_path="b.md", status="failed", reason="no")],
+        queued=0,
+        failed=1,
+    )
+    resp = _ingest(client, members={"a.md": b"same", "b.md": b"new"})
+
+    assert (resp.json()["queued"], resp.json()["skipped"]) == (0, 1)
+    await db_session.refresh(project)
+    assert project.is_public is True
 
 
 async def test_ingest_mixed_batch_accounts_for_every_file(

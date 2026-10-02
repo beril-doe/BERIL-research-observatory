@@ -475,12 +475,36 @@ async def test_list_files_lists_the_given_uri(settings, patched_sdk):
     assert out == ["alpha.md", "beta.md"]
 
 
-async def test_list_files_returns_empty_for_an_unknown_path(settings, patched_sdk):
-    """An un-ingested project is empty, not an error."""
+async def test_list_files_returns_empty_for_no_payload(settings, patched_sdk):
     patched_sdk.ls.return_value = None
     manager = OpenVikingManager(settings, "user-key")
 
+    assert await manager.list_files("viking://x") == []
+
+
+async def test_list_files_returns_empty_for_an_unknown_path(settings, patched_sdk):
+    """An un-ingested project is empty, not an error.
+
+    The backend raises not-found for a path it does not know (verified against
+    server 0.4.22) — it never answers with an empty payload — so that is what
+    this must absorb.
+    """
+    patched_sdk.ls.side_effect = SdkNotFoundError("viking://x/never-ingested")
+    manager = OpenVikingManager(settings, "user-key")
+
     assert await manager.list_files("viking://x/never-ingested") == []
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_list_files_skips_an_unknown_path_in_a_fan_out(settings, patched_sdk):
+    """One owner's copy vanishing between the glob and the read must not fail
+    the others."""
+    patched_sdk.ls.side_effect = [["a.md"], SdkNotFoundError("gone"), ["c.md"]]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.list_files(["viking://x/1", "viking://x/2", "viking://x/3"])
+
+    assert out == ["a.md", "c.md"]
 
 
 async def test_list_files_closes_the_client(settings, patched_sdk):
@@ -637,6 +661,36 @@ async def test_grep_returns_empty_dict_for_no_payload(settings, patched_sdk):
     manager = OpenVikingManager(settings, "user-key")
 
     assert await manager.grep("viking://x", "pat") == {}
+
+
+async def test_grep_returns_empty_for_an_unknown_path(settings, patched_sdk):
+    """The backend raises not-found for a path it does not know; that matches
+    nothing, in the backend's own empty shape."""
+    patched_sdk.grep.side_effect = SdkNotFoundError("viking://x/never-ingested")
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert await manager.grep("viking://x/never-ingested", "pat") == EMPTY_GREP
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_grep_skips_an_unknown_path_in_a_fan_out(settings, patched_sdk):
+    patched_sdk.grep.side_effect = [
+        {"matches": [{"uri": "viking://x/1/a.md"}],
+         "count": 1, "match_count": 1, "files_scanned": 2},
+        SdkNotFoundError("gone"),
+        {"matches": [{"uri": "viking://x/3/c.md"}],
+         "count": 1, "match_count": 1, "files_scanned": 5},
+    ]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.grep(["viking://x/1", "viking://x/2", "viking://x/3"], "pat")
+
+    assert out == {
+        "matches": [{"uri": "viking://x/1/a.md"}, {"uri": "viking://x/3/c.md"}],
+        "count": 2,
+        "match_count": 2,
+        "files_scanned": 7,
+    }
 
 
 async def test_grep_closes_the_client(settings, patched_sdk):

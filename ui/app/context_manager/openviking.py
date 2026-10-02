@@ -387,9 +387,15 @@ class OpenVikingManager(ContextManager):
         listed: list = []
         try:
             for one in uris:
-                results = await ov_client.list_files(
-                    one, recursive=recursive, simple=simple, node_limit=node_limit
-                )
+                try:
+                    results = await ov_client.list_files(
+                        one, recursive=recursive, simple=simple, node_limit=node_limit
+                    )
+                except SdkNotFoundError:
+                    # The backend raises for a path it does not know. Per URI,
+                    # so one owner's copy vanishing between the glob and this
+                    # read does not fail the others.
+                    continue
                 listed.extend(results or [])
         finally:
             # Closed even when the listing raises, so a failure does not leak
@@ -414,7 +420,8 @@ class OpenVikingManager(ContextManager):
         payload of the backend's own shape: ``matches`` concatenated,
         ``count``/``match_count`` recounted (the backend reports both, always
         equal to the number of matches), ``files_scanned`` summed. An empty
-        list is an empty result and never reaches the backend.
+        list is an empty result and never reaches the backend, and a path the
+        backend does not know matches nothing rather than failing.
 
         Returns the backend's own payload shape. Unlike ``query``, there is no
         mapping layer: grep results are structural (matching nodes and their
@@ -426,17 +433,20 @@ class OpenVikingManager(ContextManager):
             return _EMPTY_GREP.copy()
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         try:
-            payloads = [
-                await ov_client.grep(
-                    one,
-                    pattern,
-                    case_insensitive=case_insensitive,
-                    exclude_uri=exclude_uri,
-                    node_limit=node_limit,
-                )
-                or {}
-                for one in uris
-            ]
+            payloads = []
+            for one in uris:
+                try:
+                    payload = await ov_client.grep(
+                        one,
+                        pattern,
+                        case_insensitive=case_insensitive,
+                        exclude_uri=exclude_uri,
+                        node_limit=node_limit,
+                    )
+                except SdkNotFoundError:
+                    # Same as list_files: an unknown path matches nothing.
+                    payload = _EMPTY_GREP.copy()
+                payloads.append(payload or {})
         finally:
             await ov_client.close()
         if len(payloads) == 1:
