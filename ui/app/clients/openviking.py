@@ -91,11 +91,10 @@ class OpenVikingClient:
     async def find(
         self,
         query: str,
-        target_uri: str | None = None,
+        target_uri: str | list[str] | None = None,
         limit: int = 10,
         score_threshold: float | None = None,
         *,
-        filter: dict | None = None,
         since: str | None = None,
         until: str | None = None,
         time_field: str | None = None,
@@ -103,6 +102,10 @@ class OpenVikingClient:
         read_content: bool = False,
     ) -> dict:
         """Semantic search.
+
+        ``target_uri`` may be several URIs, searched as one scope and ranked
+        together — the backend accepts a list natively. Callers resolve it and
+        must already have scoped it; this wrapper does not constrain it.
 
         Options are built by omission: a key absent from the dict lets the
         backend apply its own default, which is not the same as passing None.
@@ -114,7 +117,6 @@ class OpenVikingClient:
             key: value
             for key, value in (
                 ("score_threshold", score_threshold),
-                ("filter", filter),
                 ("since", since),
                 ("until", until),
                 ("time_field", time_field),
@@ -132,9 +134,60 @@ class OpenVikingClient:
             options=options or None,
         )
 
-    async def list_files(self, root_path: str) -> dict:
-        result = await self._client.ls(f"viking://{root_path}")
-        return result
+    async def list_files(
+        self,
+        uri: str,
+        *,
+        recursive: bool = False,
+        simple: bool = False,
+        node_limit: int | None = None,
+    ) -> list:
+        """List resources at a full ``viking://`` URI.
+
+        Takes a complete URI rather than a bare path: callers now resolve the
+        target themselves (scoping it to the authenticated user), so prepending
+        a scheme here would mean parsing it back off again.
+        """
+        options = {"recursive": recursive, "simple": simple}
+        if node_limit is not None:
+            options["node_limit"] = node_limit
+        return await self._client.ls(uri, **options)
+
+    async def grep(
+        self,
+        uri: str,
+        pattern: str,
+        *,
+        case_insensitive: bool = False,
+        exclude_uri: str | None = None,
+        node_limit: int | None = None,
+    ) -> dict:
+        """Exact-pattern search beneath a full ``viking://`` URI.
+
+        Both URIs are resolved by the caller and must already be scoped to the
+        authenticated user — this wrapper does not constrain them.
+        """
+        options: dict = {"case_insensitive": case_insensitive}
+        if exclude_uri is not None:
+            options["exclude_uri"] = exclude_uri
+        if node_limit is not None:
+            options["node_limit"] = node_limit
+        return await self._client.grep(uri, pattern, **options)
+
+    async def glob(
+        self, pattern: str, uri: str, *, node_limit: int | None = None
+    ) -> dict:
+        """Match resource URIs beneath ``uri`` by shell-style ``pattern``.
+
+        Used to expand a wildcard segment — "every owner's copy of this
+        project" — into concrete URIs before a read. The backend answers
+        ``{"matches": [<uri>, ...], "count": n}``, and raises not-found when
+        ``uri`` itself does not exist; the manager normalizes both.
+        """
+        options = {}
+        if node_limit is not None:
+            options["node_limit"] = node_limit
+        return await self._client.glob(pattern, uri=uri, **options)
 
     async def get_task(self, task_id: str) -> dict | None:
         """Fetch an async task record, or None if the backend no longer has it.
