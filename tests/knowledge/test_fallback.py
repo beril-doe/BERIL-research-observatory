@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from observatory_context import fallback
-from observatory_context.config import ContextConfig
+from observatory_context.config import DOCS_TARGET_URI, ContextConfig
+
+# Derived, not hardcoded: central docs live under the house account, and a
+# literal URI here would drift the next time that root moves.
+_DOC_PITFALLS = f"{DOCS_TARGET_URI}pitfalls/pitfalls.md"
+_DOCS_ROOT = DOCS_TARGET_URI
 
 
 def _repo(tmp_path: Path) -> ContextConfig:
@@ -33,13 +38,13 @@ def test_file_uri_and_uri_to_path_round_trip(tmp_path: Path) -> None:
     assert fallback.file_uri(config, memory) == (
         "viking://resources/projects/alpha/memories/pitfalls.md"
     )
-    assert fallback.file_uri(config, pitfalls_doc) == "viking://resources/docs/pitfalls/pitfalls.md"
+    assert fallback.file_uri(config, pitfalls_doc) == _DOC_PITFALLS
 
     assert fallback.uri_to_path(config, fallback.file_uri(config, readme)) == readme
     assert fallback.uri_to_path(config, fallback.file_uri(config, memory)) == memory
     assert fallback.uri_to_path(config, fallback.file_uri(config, pitfalls_doc)) == pitfalls_doc
     # Directory form of a doc URI resolves to docs/<slug>.md too.
-    assert fallback.uri_to_path(config, "viking://resources/docs/pitfalls/") == pitfalls_doc
+    assert fallback.uri_to_path(config, f"{DOCS_TARGET_URI}pitfalls/") == pitfalls_doc
 
 
 def test_local_find_is_degraded_scoped_and_skips_non_corpus(tmp_path: Path) -> None:
@@ -61,10 +66,10 @@ def test_local_find_is_degraded_scoped_and_skips_non_corpus(tmp_path: Path) -> N
 def test_local_find_scope_filters_to_docs(tmp_path: Path) -> None:
     config = _repo(tmp_path)
 
-    result = fallback.local_find(config, "Spark", "viking://resources/docs/", 10)
+    result = fallback.local_find(config, "Spark", _DOCS_ROOT, 10)
 
     uris = [r["uri"] for r in result["resources"]]
-    assert uris == ["viking://resources/docs/pitfalls/pitfalls.md"]
+    assert uris == [_DOC_PITFALLS]
 
 
 def test_local_grep_matches_and_excludes(tmp_path: Path) -> None:
@@ -74,12 +79,12 @@ def test_local_grep_matches_and_excludes(tmp_path: Path) -> None:
     assert result["degraded"] is True
     hit_uris = {m["uri"] for m in result["matches"]}
     assert "viking://resources/projects/alpha/memories/pitfalls.md" in hit_uris
-    assert "viking://resources/docs/pitfalls/pitfalls.md" in hit_uris
+    assert _DOC_PITFALLS in hit_uris
 
     excluded = fallback.local_grep(
-        config, "Spark", "viking://resources/", exclude_uri="viking://resources/docs/"
+        config, "Spark", "viking://resources/", exclude_uri=_DOCS_ROOT
     )
-    assert all(not m["uri"].startswith("viking://resources/docs/") for m in excluded["matches"])
+    assert all(not m["uri"].startswith(_DOCS_ROOT) for m in excluded["matches"])
 
 
 def test_local_read_resolves_uri_to_file(tmp_path: Path) -> None:
