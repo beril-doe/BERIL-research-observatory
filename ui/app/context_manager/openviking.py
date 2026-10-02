@@ -74,6 +74,21 @@ _OV_STATUS_MAP = {
 
 USERS_TARGET_URI = "viking://resources/users/"
 
+# The house account: central docs (pitfalls, discoveries, performance,
+# research_ideas) have no owner, so they live under a reserved name in the same
+# per-user tree rather than needing an ownerless special case in every read.
+#
+# Reserved, not merely conventional: ``BerilUser.orcid_id`` is an unvalidated
+# String(64), so without this guard a row carrying orcid_id="beril" would own
+# the shared central docs and be able to rewrite them. Distinct from
+# ``settings.ov_account_id`` (also "beril"), which appears in a different part
+# of the URI — the admin path, not a namespace segment.
+HOUSE_ACCOUNT_ID = "beril"
+
+
+class ReservedNamespaceError(ValueError):
+    """Raised when a user's identity would claim the house namespace."""
+
 
 def context_slugify(name: str) -> str:
     """Normalize a project name into a url-safe, underscore-separated slug.
@@ -93,7 +108,15 @@ def user_target_root(orcid_id: str, project_slug: str) -> str:
 
     Keyed on ORCiD rather than project slug alone so two users' identically
     named projects never share a namespace.
+
+    Refuses the house account: a user whose ORCiD is the reserved name would
+    otherwise be able to write the shared central docs. Checked here rather
+    than only at user creation so an already-stored row cannot reach it.
     """
+    if orcid_id == HOUSE_ACCOUNT_ID:
+        raise ReservedNamespaceError(
+            f"{HOUSE_ACCOUNT_ID!r} is reserved for BERIL's own central docs."
+        )
     return f"{USERS_TARGET_URI}{orcid_id}/{project_slug}"
 
 
@@ -102,26 +125,54 @@ def user_namespace_root(orcid_id: str) -> str:
     return f"{USERS_TARGET_URI}{orcid_id}"
 
 
-def listing_uri(
-    orcid_id: str, project_slug: str | None = None, relative_path: str | None = None
-) -> str:
-    """Resolve a listing target inside ``orcid_id``'s own namespace.
+def corpus_root() -> str:
+    """Every owner's namespace — the root of readable content.
 
-    The ORCiD comes from the authenticated session, never from caller input, so
-    a caller cannot address another user's files however they spell the
-    arguments. This is the whole reason the API takes a project and a relative
-    path rather than a URI: a URI would have to be validated against the
-    caller's prefix, and a missed check would read someone else's data.
-
-    Raises ``ValueError`` on a traversal attempt, which would otherwise climb
-    out of the namespace the ORCiD pins.
+    Reads span this; writes never do. A submitted project is owned by one user
+    but readable by all, so the read boundary is the tree root while the write
+    boundary stays the owner's ORCiD.
     """
-    root = user_namespace_root(orcid_id)
-    if project_slug:
-        root = f"{root}/{project_slug}"
-    if not relative_path:
+    return USERS_TARGET_URI.rstrip("/")
+
+
+def listing_uri(
+    owner_id: str | None = None,
+    project_slug: str | None = None,
+    relative_path: str | None = None,
+) -> str:
+    """Resolve a read target within the corpus.
+
+    Reads are global: a submitted project is owned by one user and readable by
+    everyone, like a public repository. ``owner_id`` therefore narrows the
+    target rather than authorizing it — omit it to span every owner.
+
+    The boundary is the corpus root, not the owner: a relative path may not
+    climb out of ``resources/users/`` into the wider resource tree. Traversal
+    is rejected rather than normalized, so ``..`` cannot be used to probe
+    outside the corpus.
+
+    This is the asymmetric half of the model. The *write* path
+    (``user_target_root``) stays pinned to the authenticated ORCiD; only reads
+    are unscoped. Callers must not route a write through here.
+
+    Raises ``ValueError`` on traversal, or on a ``project_slug`` or
+    ``relative_path`` given without an owner to hang it on — a project name
+    alone does not identify a resource when every owner may have one.
+    """
+    if (project_slug or relative_path) and not owner_id:
+        raise ValueError("A project or path requires an owner.")
+
+    root = corpus_root()
+    if not owner_id:
         return root
-    return target_uri(root, relative_path)
+    # The owner segment is itself untrusted when it comes from a caller
+    # (``?owner=``), so it goes through the same traversal check as the path.
+    segments = [owner_id]
+    if project_slug:
+        segments.append(project_slug)
+    if relative_path:
+        segments.append(relative_path)
+    return target_uri(root, "/".join(segments))
 
 
 def target_uri(target_root: str, relative_path: str) -> str:
@@ -302,6 +353,38 @@ class OpenVikingManager(ContextManager):
             # the connection.
             await ov_client.close()
         return list(results or [])
+
+    async def grep(
+        self,
+        uri: str,
+        pattern: str,
+        *,
+        case_insensitive: bool = False,
+        exclude_uri: str | None = None,
+        node_limit: int | None = None,
+    ) -> dict:
+        """Exact-pattern search beneath ``uri``.
+
+        Both URIs are resolved by the caller (see ``listing_uri``); this method
+        does not scope them, so it must never be handed unvalidated input.
+
+        Returns the backend's own payload shape. Unlike ``query``, there is no
+        mapping layer: grep results are structural (matching nodes and their
+        lines), and inventing a BERIL-side schema for them would be guesswork
+        until a consumer needs one.
+        """
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        try:
+            results = await ov_client.grep(
+                uri,
+                pattern,
+                case_insensitive=case_insensitive,
+                exclude_uri=exclude_uri,
+                node_limit=node_limit,
+            )
+        finally:
+            await ov_client.close()
+        return results or {}
 
     async def query(self, query: ContextQuery) -> ContextQueryResults:
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)

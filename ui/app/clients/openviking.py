@@ -151,6 +151,27 @@ class OpenVikingClient:
             options["node_limit"] = node_limit
         return await self._client.ls(uri, **options)
 
+    async def grep(
+        self,
+        uri: str,
+        pattern: str,
+        *,
+        case_insensitive: bool = False,
+        exclude_uri: str | None = None,
+        node_limit: int | None = None,
+    ) -> dict:
+        """Exact-pattern search beneath a full ``viking://`` URI.
+
+        Both URIs are resolved by the caller and must already be scoped to the
+        authenticated user — this wrapper does not constrain them.
+        """
+        options: dict = {"case_insensitive": case_insensitive}
+        if exclude_uri is not None:
+            options["exclude_uri"] = exclude_uri
+        if node_limit is not None:
+            options["node_limit"] = node_limit
+        return await self._client.grep(uri, pattern, **options)
+
     async def get_task(self, task_id: str) -> dict | None:
         """Fetch an async task record, or None if the backend no longer has it.
 

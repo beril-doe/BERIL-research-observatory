@@ -42,6 +42,7 @@ from app.context_manager.base import (
     INGEST_SKIPPED,
     INGEST_STATUSES,
     INGEST_UNKNOWN,
+    MAX_GREP_NODE_LIMIT,
     MAX_LS_NODE_LIMIT,
     TERMINAL_INGEST_STATUSES,
     ContextIngestResults,
@@ -135,42 +136,42 @@ async def post_context_find(
             detail="The context manager could not answer that query.",
         ) from exc
 
-@ROUTER_CONTEXT.get("/api/context/ls")
-async def get_context_files(
-    request: Request,
-    project: str | None = Query(
-        default=None,
-        description="Project to list. Omitted lists the caller's projects.",
-    ),
-    path: str | None = Query(
-        default=None, description="Relative path within the project."
-    ),
-    recursive: bool = Query(default=False),
-    simple: bool = Query(default=False, description="Return paths only."),
-    node_limit: int | None = Query(default=None, ge=1, le=MAX_LS_NODE_LIMIT),
-    user: BerilUser = Depends(require_user_api),
-    db: AsyncSession = Depends(get_db)
-) -> list:
-    """List what the caller has ingested.
+def _read_uri(
+    user: BerilUser,
+    project: str | None,
+    path: str | None,
+    *,
+    owner: str | None = None,
+    all_owners: bool = False,
+    path_field: str = "path",
+    project_field: str = "project",
+    owner_field: str = "owner",
+) -> str:
+    """Resolve a **read** target. The single place caller input becomes an address.
 
-    Addressed by project and relative path, not by URI: the namespace is
-    resolved from the authenticated ORCiD, so a caller cannot name another
-    user's files however they spell the arguments. A URI parameter would have
-    to be validated against the caller's own prefix, and one missed check would
-    expose someone else's data — so the API simply cannot express it.
+    Reads are global — a submitted project is owned by one user and readable by
+    everyone — so the owner narrows the target rather than authorizing it:
 
-    With no ``project``, lists the caller's projects. ``path`` without a
-    ``project`` is rejected: it would otherwise silently resolve against the
-    namespace root and list across projects.
+    * ``project`` alone → the **caller's own**. The safe default: a typo must
+      not silently read someone else's work, and it matches how ``/submit``
+      names projects.
+    * ``owner`` → that owner's, whoever they are.
+    * ``all_owners`` → every owner's, so ``project`` is dropped from the path
+      (the backend walks the corpus and each owner may have that name).
 
-    An un-ingested project lists empty rather than 404 — it is a legitimate
-    state, and distinguishing it would report on a namespace the caller may not
-    have written yet.
+    Traversal is refused, with the corpus root as the boundary rather than any
+    one owner. Writes must not be routed through here — they stay pinned to the
+    authenticated ORCiD via ``user_target_root``.
     """
+    if owner and all_owners:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"`{owner_field}` and `all_{owner_field}s` are mutually exclusive.",
+        )
     if path and not project:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="`path` requires `project`.",
+            detail=f"`{path_field}` requires `{project_field}`.",
         )
 
     slug = None
@@ -182,15 +183,63 @@ async def get_context_files(
                 detail=f"Invalid project name: {project!r}",
             )
 
+    # Spanning every owner means the project name cannot be part of the path —
+    # it is a name many owners may share, so the search widens to the corpus.
+    if all_owners:
+        return listing_uri()
+
     try:
-        uri = listing_uri(user.orcid_id, slug, path)
+        return listing_uri(owner or user.orcid_id, slug, path)
     except ValueError as exc:
-        # A traversal segment, which would climb out of the caller's namespace.
-        logger.warning("Rejected listing path %r for user %s: %s", path, user.id, exc)
+        logger.warning("Rejected read target for user %s: %s", user.id, exc)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Invalid path: {path!r}",
+            detail=f"Invalid {path_field} or {owner_field}.",
         ) from exc
+
+
+@ROUTER_CONTEXT.get("/api/context/ls")
+async def get_context_files(
+    request: Request,
+    project: str | None = Query(
+        default=None,
+        description="Project to list. Omitted lists the owner's projects.",
+    ),
+    path: str | None = Query(
+        default=None, description="Relative path within the project."
+    ),
+    owner: str | None = Query(
+        default=None,
+        description="Owner's ORCiD. Defaults to the caller.",
+    ),
+    all_owners: bool = Query(
+        default=False, description="List across every owner's projects."
+    ),
+    recursive: bool = Query(default=False),
+    simple: bool = Query(default=False, description="Return paths only."),
+    node_limit: int | None = Query(default=None, ge=1, le=MAX_LS_NODE_LIMIT),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db)
+) -> list:
+    """List ingested content.
+
+    Every submitted project is readable by everyone — owned by one user, like a
+    public repository — so a listing is not restricted to the caller. ``owner``
+    narrows to one person and ``all_owners`` spans the corpus; a bare
+    ``project`` means the caller's own, which is the safe default for a name
+    many owners may share.
+
+    Addressed by project and path rather than by URI. A URI would let a caller
+    name anything in the resource tree, including places outside the corpus;
+    this way traversal is refused and the address is always well-formed.
+
+    ``path`` without a ``project`` is rejected: it would otherwise resolve
+    against a namespace root and list across projects.
+
+    An un-ingested project lists empty rather than 404 — a legitimate state,
+    and distinguishing it would report on what an owner has yet to write.
+    """
+    uri = _read_uri(user, project, path, owner=owner, all_owners=all_owners)
 
     manager = await resolve_context_manager(db, user)
     try:
@@ -202,6 +251,80 @@ async def get_context_files(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The context manager could not list that path.",
+        ) from exc
+
+
+@ROUTER_CONTEXT.get("/api/context/grep")
+async def get_context_grep(
+    request: Request,
+    pattern: str = Query(min_length=1, description="Pattern to match."),
+    project: str | None = Query(
+        default=None,
+        description="Project to search. Omitted searches the owner's projects.",
+    ),
+    path: str | None = Query(
+        default=None, description="Relative path within the project."
+    ),
+    owner: str | None = Query(
+        default=None, description="Owner's ORCiD. Defaults to the caller."
+    ),
+    all_owners: bool = Query(
+        default=False, description="Search across every owner's projects."
+    ),
+    case_insensitive: bool = Query(default=False),
+    exclude_project: str | None = Query(
+        default=None, description="Project to exclude from the search."
+    ),
+    exclude_path: str | None = Query(
+        default=None, description="Relative path within `exclude_project`."
+    ),
+    exclude_owner: str | None = Query(
+        default=None,
+        description="Owner of the excluded project. Defaults to the caller.",
+    ),
+    node_limit: int | None = Query(default=None, ge=1, le=MAX_GREP_NODE_LIMIT),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """Exact-pattern search across ingested content.
+
+    Addressed exactly like ``/ls`` — global reads, ``owner``/``all_owners`` to
+    widen, a bare ``project`` meaning the caller's own — and the exclusion is
+    resolved the same way, so it cannot name a path outside the corpus.
+
+    Returns the backend's own payload. Unlike ``/find`` there is no mapped
+    schema: grep results are structural, and inventing one before a consumer
+    needs it would be guesswork.
+    """
+    uri = _read_uri(user, project, path, owner=owner, all_owners=all_owners)
+    exclude_uri = (
+        _read_uri(
+            user,
+            exclude_project,
+            exclude_path,
+            owner=exclude_owner,
+            path_field="exclude_path",
+            project_field="exclude_project",
+            owner_field="exclude_owner",
+        )
+        if exclude_project or exclude_path or exclude_owner
+        else None
+    )
+
+    manager = await resolve_context_manager(db, user)
+    try:
+        return await manager.grep(
+            uri,
+            pattern,
+            case_insensitive=case_insensitive,
+            exclude_uri=exclude_uri,
+            node_limit=node_limit,
+        )
+    except QUERY_FAILURES as exc:
+        logger.warning("Context grep failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not run that search.",
         ) from exc
 
 async def _resolve_project(
