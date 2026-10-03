@@ -3,8 +3,8 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #   "pyspark",
-#   "spark_connect_remote @ git+https://github.com/BERDataLakehouse/spark_connect_remote.git",
-#   "berdl_remote @ git+https://github.com/BERDataLakehouse/berdl_remote.git",
+#   "spark_connect_remote @ git+https://github.com/KBaseDataLakehouse/spark_connect_remote.git",
+#   "berdl_remote @ git+https://github.com/KBaseDataLakehouse/berdl_remote.git",
 # ]
 # ///
 """Run SQL on BERDL Spark Connect from a local machine.
