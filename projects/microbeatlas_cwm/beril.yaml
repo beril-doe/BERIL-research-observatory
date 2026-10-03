@@ -1,0 +1,43 @@
+project_id: microbeatlas_cwm
+status: analysis
+title: "MicrobeAtlas × ke_pangenome: Community-Weighted Mean Metal Ecology"
+thesis_chapter: "Chapter 3 — Community Genomic Survey: CWM Analysis"
+description: >
+  Clean, notebook-first analysis of community-weighted mean (CWM) functional
+  potential across spatially-thinned MicrobeAtlas 16S samples × ke_pangenome
+  KO prevalence. Tests whether metal exposure predicts shifts in community
+  functional gene content (L0–L6 causal levels, USA USGS metals). Regional
+  replication in EUR (GEMAS) and AUS (NGSA). All analyses fetch from Spark;
+  no large intermediate files saved to disk.
+branch: hrm-projects-v3
+created_at: "2026-08-23T00:00:00Z"
+last_session_at: "2026-08-24T00:00:00Z"
+authors:
+  - name: "Heather MacGregor"
+    affiliation: "Lawrence Berkeley National Laboratory"
+    orcid: "0000-0003-1112-3009"
+data_sources:
+  - arkinlab.microbeatlas.otu_counts_long
+  - arkinlab.microbeatlas.sample_metadata
+  - arkinlab.microbeatlas.otu_metadata
+  - kbase.ke_pangenome
+  - arkinlab.envdbs.soilgrids_master
+  - arkinlab.envdbs.worldclim_master
+  - arkinlab.envdbs.global_lithology_glim
+  - arkinlab.envdbs.gemas (EUR measured metals)
+  - arkinlab.envdbs.ngsa_geochemistry (AUS measured metals)
+  - arkinlab.envdbs.mining_operations (mine proximity supplement)
+  - /data/envdbs/usgs_geochem/usgs_geochem.parquet (USA measured metals, many elements)
+  - /projects/microbeatlas_metal_ecology/data/mindat.csv (mine proximity primary, 157K localities)
+artifacts:
+  readme: true
+  research_plan: true
+  report: true
+  review: false
+notebooks:
+  - NB00_data_qc: "MicrobeAtlas spatial thinning, sample QC, genus coverage"
+  - NB01_cwm_construction: "ke_pangenome join, CWM computation, matrix QC"
+  - NB02_usa_metal_associations: "L0–L6 FWL vs USGS metals, FDR hits, attrition figure"
+  - NB03_functional_interpretation: "Hit characterization, pathway context, figures"
+  - NB04_regional_replication: "EUR GEMAS, AUS NGSA, mine proximity"
+submissions: []

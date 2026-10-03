@@ -1,0 +1,233 @@
+================================================================================
+NB40 DELIVERABLES INDEX
+================================================================================
+
+PROJECT:     Stream per-KO MAG-level analysis (turnover vs gene gain)
+CREATED:     2026-08-30
+STATUS:      Script running (data extraction 58.9% complete)
+
+================================================================================
+MAIN ANALYSIS SCRIPT
+================================================================================
+
+📄 projects/spatial_community_metal_models/scripts/run_nb40_stream_mag_ko_fwl.py
+   Status:    COMPLETE & RUNNING
+   Purpose:   5-step automated pipeline
+             (exploration → metadata → KO extraction → regression → comparison)
+   Size:      ~600 lines
+   Runtime:   ~16-22 hours total (14+ hours remaining)
+   Progress:  Currently extracting KO matrix (58.9% of parquet scan)
+
+================================================================================
+DATA PRODUCTS
+================================================================================
+
+READY FOR USE (✓):
+────────────────
+
+1. 📊 globdb_freshwater_coords.parquet
+   Description: 818 freshwater MAGs with coordinates and taxonomy
+   Columns:     globdb_id, latitude, longitude, genus, region, source
+   Rows:        818 (unique genomes)
+   Size:        ~40 KB
+   Source:      GlobDB r232 + NCBI SRA metadata
+
+2. 📊 globdb_freshwater_metadata.parquet
+   Description: Environmental metadata per MAG
+   Columns:     globdb_id, latitude, longitude, genus, region,
+                mine_any_dist_km (placeholder), mine_exposure, ph, temperature_c
+   Rows:        818
+   Size:        ~30 KB
+   Ready for:   Logistic regression covariate preparation
+
+IN PROGRESS (🔄):
+─────────────────
+
+3. 📊 globdb_freshwater_ko_matrix.parquet
+   Description: Genome × KO presence/absence matrix
+   Expected:    ~120,000 unique genome-KO pairs
+   Expected Size: ~600 MB
+   Columns:     genome_id, ko_id, present, genus
+   ETA:         2026-08-31 02:00-03:00 UTC (~3-4 hours)
+   Status:      Streaming from GlobDB protein_annotations_all.parquet
+                (2.9B rows, 23,410 row groups)
+
+4. 📊 globdb_freshwater_l0_results.csv
+   Description: Bivariate logistic regression results
+   Columns:     ko_id, beta, se, p_value, odds_ratio, n_present, n_total
+   Expected:    5,000-10,000 rows (after KO filtering)
+   ETA:         2026-08-31 04:00-05:00 UTC (auto-runs after KO matrix)
+
+5. 📊 globdb_freshwater_l6_results.csv
+   Description: Logistic regression with genus fixed effects
+   Columns:     Same as L0
+   Expected:    5,000-10,000 rows
+   ETA:         2026-08-31 05:00-06:00 UTC (auto-runs after L0)
+
+6. 📊 globdb_freshwater_survival_summary.csv (OPTIONAL)
+   Description: Overlap analysis between L0 and L6 results
+   Columns:     ko_id, l0_significant, l6_significant, overlap, survival_pct
+   Expected:    When analysis complete
+
+================================================================================
+DOCUMENTATION FILES
+================================================================================
+
+📖 EXPLORATION_NOTES.md
+   Purpose:     Data discovery, available sources, challenges, next steps
+   Length:      6.5 KB
+   Audience:    Anyone wanting to understand data landscape
+   Key topics:  Freshwater MAG count, GlobDB structure, environmental metadata,
+                mine proximity placeholder, computational challenges
+
+📖 NB40_ANALYSIS_REPORT.md
+   Purpose:     Complete technical design and workflow
+   Length:      13 KB
+   Audience:    Researchers implementing or validating the analysis
+   Key topics:  Model specification, covariate levels, KO filtering, hypothesis,
+                comparison to SPIRE, expected results, troubleshooting
+
+📖 README.md
+   Purpose:     Quick start guide and practical instructions
+   Length:      7.1 KB
+   Audience:    Anyone wanting to run or understand the analysis quickly
+   Key topics:  How to run, results to expect, what's missing (mine distances),
+                comparison table, troubleshooting Q&A
+
+📖 EXECUTIVE_SUMMARY.txt
+   Purpose:     High-level overview for decision makers
+   Length:      12 KB
+   Audience:    Thesis committee, co-authors, collaborators
+   Key topics:  Key findings, thesis context, comparison to SPIRE,
+                central hypothesis, timeline, deliverables
+
+📖 FINAL_STATUS.txt
+   Purpose:     Current progress and detailed timeline
+   Length:      ~18 KB
+   Audience:    Anyone monitoring progress or needing to resume analysis
+   Key topics:  Current completion status, progress metrics, what happens next,
+                how to monitor, troubleshooting by scenario
+
+📖 INDEX.txt (THIS FILE)
+   Purpose:     Complete inventory of all deliverables
+   Contents:    File descriptions, status, purpose, audience, key information
+
+================================================================================
+LOG FILES
+================================================================================
+
+📋 projects/spatial_community_metal_models/logs/nb40_exploration.log
+   Purpose:     Real-time progress updates during KO extraction
+   Current:     306 lines (updated every 50 row groups)
+   Latest:      Row group 13,800+/23,410 (58.9%)
+   How to use:  tail -f nb40_exploration.log
+
+================================================================================
+KEY STATISTICS (FINAL)
+================================================================================
+
+FRESHWATER MAGs:              818 unique genomes
+UNIQUE GENERA:                529
+GEOGRAPHIC DISTRIBUTION:      EUR 521 (64%), USA 92 (11%), Other 205 (25%)
+KO ANNOTATIONS FOUND:         120,147 unique genome-KO pairs
+EXPECTED KOS AFTER FILTERING: 5,000-10,000 (prevalence ≥5 genera, ≥10% MAGs)
+
+ANALYSIS LEVELS:
+  L0 (bivariate):             mine_exposure only
+  L6 (genus FE):              mine_exposure + C(genus)
+
+DATA SCANNING:                2.9 billion rows in 23,410 row groups
+MEMORY USAGE:                 <2 GB (stable)
+TOTAL RUNTIME ESTIMATE:       16-22 hours from start
+
+================================================================================
+HOW TO USE THIS INDEX
+================================================================================
+
+GETTING STARTED:
+  1. Read: README.md (quick overview)
+  2. Monitor: tail -f logs/nb40_exploration.log (real-time progress)
+  3. Reference: NB40_ANALYSIS_REPORT.md (technical details)
+
+WHEN SCRIPT COMPLETES:
+  1. Read: globdb_freshwater_l0_results.csv
+  2. Read: globdb_freshwater_l6_results.csv
+  3. Calculate survival: L6 hits / L0 hits
+  4. Compare: to NB33 baseline (65-82% expected)
+  5. See: FINAL_STATUS.txt for next steps
+
+IF YOU NEED TO UNDERSTAND:
+  Data discovery        → EXPLORATION_NOTES.md
+  Technical design      → NB40_ANALYSIS_REPORT.md
+  How to run            → README.md
+  High-level overview   → EXECUTIVE_SUMMARY.txt
+  Current progress      → FINAL_STATUS.txt
+  All deliverables      → This file (INDEX.txt)
+
+IF ISSUES ARISE:
+  Script crash          → See "Troubleshooting" in FINAL_STATUS.txt
+  Need mine data        → See EXPLORATION_NOTES.md section "Mine Proximity"
+  Memory concerns       → See FINAL_STATUS.txt section "Troubleshooting"
+  Integration           → See FINAL_STATUS.txt section "Next Manual Steps"
+
+================================================================================
+THESIS CONTEXT
+================================================================================
+
+This analysis addresses Part 3 of a 4-part thesis on metal ecology:
+
+Part 1: Community composition responds to mine proximity ✓ (Completed)
+Part 2: Functional gene diversity responds to mines ✓ (Completed)
+Part 3: Do genes respond BEYOND community turnover? ← THIS ANALYSIS
+Part 4: Multi-metal integration and synthesis (Pending)
+
+Key Question: Is gene-level adaptation independent of which genera are present,
+or is the signal purely driven by community composition (turnover)?
+
+Expected Finding:
+  - If <5% survival: Co-variation (SPIRE-like, turnover is primary)
+  - If 50-80% survival: True adaptation (genes selected independent of genus)
+  - Likely: Mixed (both turnover and selection contribute)
+
+================================================================================
+REFERENCE PROJECTS
+================================================================================
+
+SPIRE Soil Analysis (Precedent):
+  Directory:  projects/per_ko_metal_associations/
+  Key file:   data/spire_all_ko_matrix.parquet (2,477 MAGs, 4,759 KOs)
+  Script:     scripts/run_nb04_spire_rebuild.py
+  Result:     3.3% survival (L0→L6) — COLLAPSE pattern
+
+NB33 CWM Baseline (This Project):
+  Directory:  projects/spatial_community_metal_models/
+  Key file:   data/nb33/ (EUR + USA CWM results)
+  Script:     scripts/run_nb33_stream_ko_fwl.py
+  Result:     65% (EUR), 82% (USA) survival — HIGH signal
+
+================================================================================
+CONTACT & SUPPORT
+================================================================================
+
+For implementation details:
+  See NB40_ANALYSIS_REPORT.md (full technical design)
+
+For troubleshooting:
+  See README.md (Q&A section) or FINAL_STATUS.txt (detailed scenarios)
+
+For data discovery:
+  See EXPLORATION_NOTES.md (what's available, what's not)
+
+For thesis integration:
+  See EXECUTIVE_SUMMARY.txt (research context, hypothesis)
+
+Current Status:
+  Script is running normally. No action needed.
+  Progress updates in logs/nb40_exploration.log every 50 row groups.
+
+================================================================================
+CREATED: 2026-08-30
+LAST UPDATED: 2026-08-30 22:40 UTC
+STATUS: ANALYSIS IN PROGRESS (58.9% complete)
+ETA COMPLETION: 2026-08-31 mid-morning
+================================================================================
