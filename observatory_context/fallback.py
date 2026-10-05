@@ -60,9 +60,12 @@ def uri_to_path(config: ContextConfig, uri: str) -> Path | None:
     # Central docs live under the house account, so their prefix is derived
     # rather than the literal "docs/" — matching on that would silently miss
     # them and drop the offline fallback for every central doc.
-    docs_prefix = DOCS_TARGET_URI[len(_RESOURCES_PREFIX):]
-    if rest.startswith(docs_prefix.rstrip("/")):
-        sub = rest[len(docs_prefix.rstrip("/")):].strip("/")
+    # Matched on a segment boundary: the root itself, or the root followed by
+    # "/". A bare prefix match would map a sibling like ``…/beril/docsfoo`` to
+    # ``docs/foo.md``.
+    docs_root = DOCS_TARGET_URI[len(_RESOURCES_PREFIX):].rstrip("/")
+    if rest == docs_root or rest.startswith(docs_root + "/"):
+        sub = rest[len(docs_root):].strip("/")
         if not sub:
             return config.docs_dir
         parts = sub.split("/")
