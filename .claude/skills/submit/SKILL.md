@@ -242,7 +242,7 @@ Phase 2c is split into a **pre-write validation pass** (no state mutation) follo
   ```
   If `REPORT.md` doesn't have a clear one-liner, write a brief summary based on the report's findings.
 - **Apply staged memory actions** captured in 2c-pre:
-  - For each `delete-if-exists` action → if `projects/{project_id}/memories/{kind}.md` exists, delete it. (`mkdir -p projects/{project_id}/memories` is unnecessary in this branch.) Don't write a tombstone or empty file.
+  - For each `delete-if-exists` action → if `projects/{project_id}/memories/{kind}.md` exists, delete it. (`mkdir -p projects/{project_id}/memories` is unnecessary in this branch.) Don't write a tombstone or empty file. The Phase 3 context mirror withdraws the matching copy from the context service on its own — see "Re-submission is add-only" below — so nothing else is needed here.
   - For each `write` action → create `projects/{project_id}/memories/` if needed, then write `projects/{project_id}/memories/{kind}.md`:
     ```markdown
     # {SectionName} — {project_id}
@@ -286,9 +286,11 @@ The mirror goes through BERIL's own HTTP API. `knowledge/scripts/ingest_context.
 
 The context service skips any file whose exact content it already holds, so re-running `/submit` on an unchanged project sends nothing and completes immediately. Only a file that actually *landed* counts as current — one that failed or is still indexing is sent again, so a retry after a failure always does real work.
 
+**Re-submission is add-only in the context service.** A file that is missing from a later submission is left as it was, not deleted — absence alone can't say whether the author meant "remove it" or "leave it". Withdrawing a file is always explicit, as a `!remove <path>` line in the ingest manifest. The mirror sends one automatically for each approval-gated memory (`memories/discoveries.md`, `memories/performance.md`) that the project no longer has, which is exactly what a `delete-if-exists` action in 2c-write leaves behind: once the approved REPORT drops that section, the context service drops the memory too, and the project stops suppressing its central `docs/discoveries.md` entries. Withdrawing a memory the service never held is a harmless no-op, so this is sent on every submission. To withdraw any other file, run `knowledge/scripts/ingest_context.py --project <id> --json --remove <relative/path>` (repeatable); `/submit` never infers other removals.
+
 Verdict mapping in the tool's `context_submission` JSON:
 
-- all files `completed` → `"ok"`
+- all files `completed` (withdrawn memories count as done) → `"ok"`
 - every file already current, nothing sent → `"ok"` (reported as "already current")
 - any file `failed` → `"failed"` (the reason names the offending files)
 - poll cap reached with files still queued/processing → `"skipped"` — the files remain queued and may still land, so an unfinished batch is not treated as a failure

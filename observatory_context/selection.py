@@ -34,6 +34,11 @@ DOC_SOURCE_PATHS = [f"docs/{name}" for name in CENTRAL_DOC_NAMES]
 # alongside the project's curated docs so OpenViking carries cross-project
 # semantic recall.
 MEMORY_DIR_NAME = "memories"
+# Memories `/submit` writes from the approved REPORT and deletes when the
+# approved REPORT drops the section. Their absence after approval is itself
+# the approved state, so a mirror withdraws them from the context layer
+# explicitly rather than leaving the last-ingested copy searchable.
+APPROVAL_GATED_MEMORIES = ("discoveries.md", "performance.md")
 _REFUTATION_NAME = re.compile(r"REFUTATION_([1-9][0-9]*)\.md$")
 
 
