@@ -12,6 +12,18 @@ MAX_FIND_NODE_LIMIT = 10_000
 MAX_LS_NODE_LIMIT = 10_000
 MAX_GREP_NODE_LIMIT = 10_000
 
+# The backend's own per-call defaults (server 0.4.22, and the SDK fills them in
+# when a caller omits node_limit). A read that fans out over several owners
+# uses these as the budget for the whole request, so omitting node_limit
+# returns no more than a single-location read would.
+DEFAULT_LS_NODE_LIMIT = 1000
+DEFAULT_GREP_NODE_LIMIT = 256
+
+# How many owners' copies of one project a single read may expand to. Past
+# this the read is refused rather than silently narrowed to a subset — the
+# caller is asked to name an owner instead.
+MAX_OWNER_EXPANSION = 256
+
 
 class FileMetadata(BaseModel):
     created: datetime

@@ -24,6 +24,7 @@ from openviking_sdk.errors import NotFoundError, UnavailableError
 from app.clients.openviking import OpenVikingError
 from app.config import get_settings
 from app.context_manager.base import (
+    MAX_OWNER_EXPANSION,
     ContextIngestResults,
     ContextQueryResults,
     IngestResult,
@@ -1916,7 +1917,9 @@ async def test_ls_all_owners_expands_the_project_across_owners(
     )
 
     assert resp.status_code == 200
-    manager.glob.assert_awaited_once_with("*/alpha", "viking://resources/users")
+    manager.glob.assert_awaited_once_with(
+        "*/alpha", "viking://resources/users", node_limit=MAX_OWNER_EXPANSION + 1
+    )
     assert manager.list_files.await_args.args[0] == manager.glob.return_value
 
 
@@ -1930,7 +1933,9 @@ async def test_ls_all_owners_keeps_the_path_below_the_project(
     )
 
     manager.glob.assert_awaited_once_with(
-        "*/alpha/notes/2026", "viking://resources/users"
+        "*/alpha/notes/2026",
+        "viking://resources/users",
+        node_limit=MAX_OWNER_EXPANSION + 1,
     )
 
 
@@ -2050,7 +2055,9 @@ async def test_grep_all_owners_expands_the_project_across_owners(
     resp = _grep(client, project="alpha", all_owners="true")
 
     assert resp.status_code == 200
-    manager.glob.assert_awaited_once_with("*/alpha", "viking://resources/users")
+    manager.glob.assert_awaited_once_with(
+        "*/alpha", "viking://resources/users", node_limit=MAX_OWNER_EXPANSION + 1
+    )
     assert manager.grep.await_args.args[0] == manager.glob.return_value
 
 
@@ -2163,7 +2170,9 @@ async def test_find_all_owners_expands_the_project_across_owners(
     resp = _find(client, project="alpha", all_owners=True)
 
     assert resp.status_code == 200
-    manager.glob.assert_awaited_once_with("*/alpha", "viking://resources/users")
+    manager.glob.assert_awaited_once_with(
+        "*/alpha", "viking://resources/users", node_limit=MAX_OWNER_EXPANSION + 1
+    )
     assert _find_target(manager) == manager.glob.return_value
 
 
@@ -2232,6 +2241,45 @@ async def test_find_rejects_traversal_in_the_owner(
 
     assert resp.status_code == 422
     manager.query.assert_not_awaited()
+
+
+def _owners(n: int) -> list[str]:
+    return [f"viking://resources/users/0000-0000-0000-{i:04d}/alpha" for i in range(n)]
+
+
+@pytest.mark.parametrize("route", ["ls", "grep", "find"])
+async def test_all_owners_refuses_more_owners_than_the_cap(
+    client, credentialed_user, manager, route
+):
+    """Past the cap the backend would stop matching and silently drop owners,
+    so the read is refused and the caller asked to name one — nothing is read."""
+    manager.glob.return_value = _owners(MAX_OWNER_EXPANSION + 1)
+    _login(client)
+    if route == "ls":
+        resp = client.get(
+            "/api/context/ls", params={"project": "alpha", "all_owners": "true"}
+        )
+    elif route == "grep":
+        resp = _grep(client, project="alpha", all_owners="true")
+    else:
+        resp = _find(client, project="alpha", all_owners=True)
+
+    assert resp.status_code == 422
+    assert "owner" in resp.json()["detail"]
+    manager.list_files.assert_not_awaited()
+    manager.grep.assert_not_awaited()
+    manager.query.assert_not_awaited()
+
+
+async def test_all_owners_reads_exactly_the_cap(client, credentialed_user, manager):
+    manager.glob.return_value = _owners(MAX_OWNER_EXPANSION)
+    _login(client)
+    resp = client.get(
+        "/api/context/ls", params={"project": "alpha", "all_owners": "true"}
+    )
+
+    assert resp.status_code == 200
+    assert len(manager.list_files.await_args.args[0]) == MAX_OWNER_EXPANSION
 
 
 async def test_find_surfaces_glob_failure_as_502(client, credentialed_user, manager):

@@ -46,6 +46,7 @@ from app.context_manager.base import (
     INGEST_UNKNOWN,
     MAX_GREP_NODE_LIMIT,
     MAX_LS_NODE_LIMIT,
+    MAX_OWNER_EXPANSION,
     TERMINAL_INGEST_STATUSES,
     ContextIngestResults,
     ContextQueryResults,
@@ -181,10 +182,27 @@ async def _expand_read_target(
     A plain URI passes through. An every-owner target becomes the list of
     concrete URIs the backend knows — possibly empty, which the manager treats
     as "search nothing" rather than falling back to a wider scope.
+
+    The expansion is capped at ``MAX_OWNER_EXPANSION`` and refused beyond it
+    (422, asking for an ``owner``) rather than silently narrowed: the backend
+    stops matching at its limit, so a read past the cap would quietly drop
+    owners. One extra match is asked for, to tell "exactly the cap" from
+    "more than the cap".
     """
     if isinstance(target, str):
         return target
-    return await manager.glob(target.pattern, corpus_root())
+    uris = await manager.glob(
+        target.pattern, corpus_root(), node_limit=MAX_OWNER_EXPANSION + 1
+    )
+    if len(uris) > MAX_OWNER_EXPANSION:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"More than {MAX_OWNER_EXPANSION} owners have this project; "
+                "name an `owner` to narrow the read."
+            ),
+        )
+    return uris
 
 
 def _read_uri(

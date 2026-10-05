@@ -20,6 +20,8 @@ from app.clients.openviking import (
     OpenVikingError,
 )
 from app.context_manager.base import (
+    DEFAULT_GREP_NODE_LIMIT,
+    DEFAULT_LS_NODE_LIMIT,
     ContextIngestFile,
     ContextQuery,
     ContextQueryResults,
@@ -541,6 +543,46 @@ async def test_list_files_fans_out_over_several_uris(settings, patched_sdk):
     patched_sdk.close.assert_awaited_once()
 
 
+async def test_list_files_shares_one_node_budget_across_a_fan_out(
+    settings, patched_sdk
+):
+    """``node_limit`` bounds the whole request, not each URI: each call is
+    asked for what remains, and once it is spent the rest are not listed."""
+    patched_sdk.ls.side_effect = [["a", "b", "c"], ["d", "e"], ["never"]]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.list_files(
+        ["viking://x/1", "viking://x/2", "viking://x/3"], node_limit=5
+    )
+
+    assert out == ["a", "b", "c", "d", "e"]
+    assert [c.kwargs["node_limit"] for c in patched_sdk.ls.await_args_list] == [5, 2]
+
+
+async def test_list_files_trims_a_backend_that_overshoots(settings, patched_sdk):
+    patched_sdk.ls.side_effect = [["a", "b", "c"], ["d", "e", "f"]]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.list_files(["viking://x/1", "viking://x/2"], node_limit=4)
+
+    assert out == ["a", "b", "c", "d"]
+
+
+async def test_list_files_fan_out_defaults_to_the_backends_single_call_budget(
+    settings, patched_sdk
+):
+    """Omitted, the budget is what one backend call would allow — so a fan-out
+    returns no more than a single-location listing would."""
+    patched_sdk.ls.side_effect = [["a"], ["b"]]
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.list_files(["viking://x/1", "viking://x/2"])
+
+    assert [c.kwargs["node_limit"] for c in patched_sdk.ls.await_args_list] == [
+        DEFAULT_LS_NODE_LIMIT, DEFAULT_LS_NODE_LIMIT - 1
+    ]
+
+
 async def test_list_files_with_no_uris_never_reaches_the_backend(
     settings, patched_sdk
 ):
@@ -743,6 +785,54 @@ async def test_grep_fans_out_over_several_uris_and_merges(settings, patched_sdk)
         for c in patched_sdk.grep.await_args_list
     )
     patched_sdk.close.assert_awaited_once()
+
+
+def _hits(prefix: str, n: int, scanned: int) -> dict:
+    return {
+        "matches": [{"uri": f"{prefix}/{i}.md"} for i in range(n)],
+        "count": n,
+        "match_count": n,
+        "files_scanned": scanned,
+    }
+
+
+async def test_grep_shares_one_match_budget_across_a_fan_out(settings, patched_sdk):
+    patched_sdk.grep.side_effect = [
+        _hits("viking://x/1", 3, 10),
+        _hits("viking://x/2", 2, 4),
+        _hits("viking://x/3", 9, 9),
+    ]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.grep(
+        ["viking://x/1", "viking://x/2", "viking://x/3"], "pat", node_limit=5
+    )
+
+    assert out["count"] == out["match_count"] == len(out["matches"]) == 5
+    assert out["files_scanned"] == 14
+    assert [c.kwargs["node_limit"] for c in patched_sdk.grep.await_args_list] == [5, 2]
+
+
+async def test_grep_fan_out_defaults_to_the_backends_single_call_budget(
+    settings, patched_sdk
+):
+    patched_sdk.grep.side_effect = [_hits("viking://x/1", 1, 1), _hits("viking://x/2", 0, 1)]
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.grep(["viking://x/1", "viking://x/2"], "pat")
+
+    assert [c.kwargs["node_limit"] for c in patched_sdk.grep.await_args_list] == [
+        DEFAULT_GREP_NODE_LIMIT, DEFAULT_GREP_NODE_LIMIT - 1
+    ]
+
+
+async def test_grep_trims_a_backend_that_overshoots(settings, patched_sdk):
+    patched_sdk.grep.side_effect = [_hits("viking://x/1", 3, 3), _hits("viking://x/2", 3, 3)]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.grep(["viking://x/1", "viking://x/2"], "pat", node_limit=4)
+
+    assert out["count"] == len(out["matches"]) == 4
 
 
 async def test_grep_with_one_uri_in_a_list_returns_the_backend_payload(

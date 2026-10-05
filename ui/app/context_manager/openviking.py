@@ -21,6 +21,8 @@ from app.db.crud import get_ov_credential, upsert_ov_credential
 from app.db.models import BerilUser
 
 from .base import (
+    DEFAULT_GREP_NODE_LIMIT,
+    DEFAULT_LS_NODE_LIMIT,
     INGEST_COMPLETED,
     INGEST_FAILED,
     INGEST_PROCESSING,
@@ -192,6 +194,36 @@ def target_uri(target_root: str, relative_path: str) -> str:
     if not segments or any(s in {".", ".."} for s in segments):
         raise ValueError(f"Unsafe relative path: {relative_path!r}")
     return f"{target_root.rstrip('/')}/{'/'.join(segments)}"
+
+
+class _Budget:
+    """One node budget spent across a fan-out of backend calls.
+
+    A single-location read is passed through untouched — ``node_limit`` as the
+    caller gave it, omitted when they omitted it — so the backend's own
+    default applies exactly as before. Across several locations the limit is
+    shared: each call is asked for what remains, and ``take`` trims a result
+    to it in case the backend returns more than asked.
+    """
+
+    def __init__(self, node_limit: int | None, default: int, *, single: bool):
+        self.single = single
+        self._given = node_limit
+        self.remaining = node_limit if node_limit is not None else default
+
+    @property
+    def spent(self) -> bool:
+        return not self.single and self.remaining <= 0
+
+    def for_call(self) -> int | None:
+        return self._given if self.single else self.remaining
+
+    def take(self, items: list) -> list:
+        if self.single:
+            return items
+        kept = items[: self.remaining]
+        self.remaining -= len(kept)
+        return kept
 
 
 class UnauthenticatedError(RuntimeError):
@@ -373,7 +405,10 @@ class OpenVikingManager(ContextManager):
         ``uri`` is resolved by the caller (see ``listing_uri``) — this method
         does not scope it, so it must never be handed unvalidated caller input.
         Several URIs are listed one after another and concatenated; the backend
-        lists one location at a time, so the fan-out lives here. An empty list
+        lists one location at a time, so the fan-out lives here. ``node_limit``
+        is one budget for the whole request, not per URI — each call gets what
+        is left, and the fan-out stops once it is spent; omitted, the budget is
+        the backend's own single-call default. An empty list
         is an empty listing and never reaches the backend — asking it to list
         nothing is not the same as asking it to list nowhere.
 
@@ -383,20 +418,26 @@ class OpenVikingManager(ContextManager):
         uris = [uri] if isinstance(uri, str) else list(uri)
         if not uris:
             return []
+        budget = _Budget(node_limit, DEFAULT_LS_NODE_LIMIT, single=len(uris) == 1)
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         listed: list = []
         try:
             for one in uris:
+                if budget.spent:
+                    break
                 try:
                     results = await ov_client.list_files(
-                        one, recursive=recursive, simple=simple, node_limit=node_limit
+                        one,
+                        recursive=recursive,
+                        simple=simple,
+                        node_limit=budget.for_call(),
                     )
                 except SdkNotFoundError:
                     # The backend raises for a path it does not know. Per URI,
                     # so one owner's copy vanishing between the glob and this
                     # read does not fail the others.
                     continue
-                listed.extend(results or [])
+                listed.extend(budget.take(list(results or [])))
         finally:
             # Closed even when the listing raises, so a failure does not leak
             # the connection.
@@ -419,7 +460,12 @@ class OpenVikingManager(ContextManager):
         Several URIs are searched one after another and merged into one
         payload of the backend's own shape: ``matches`` concatenated,
         ``count``/``match_count`` recounted (the backend reports both, always
-        equal to the number of matches), ``files_scanned`` summed. An empty
+        equal to the number of matches), ``files_scanned`` summed.
+        ``node_limit`` is one budget of matches for the whole request, spent
+        across the URIs as ``list_files`` spends its own. It bounds what comes
+        back, not what the backend reads: grep scans every candidate file under
+        a target whatever the limit, so the scan cost of a fan-out grows with
+        the number of URIs. An empty
         list is an empty result and never reaches the backend, and a path the
         backend does not know matches nothing rather than failing.
 
@@ -431,22 +477,31 @@ class OpenVikingManager(ContextManager):
         uris = [uri] if isinstance(uri, str) else list(uri)
         if not uris:
             return _EMPTY_GREP.copy()
+        budget = _Budget(node_limit, DEFAULT_GREP_NODE_LIMIT, single=len(uris) == 1)
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         try:
             payloads = []
             for one in uris:
+                if budget.spent:
+                    break
                 try:
                     payload = await ov_client.grep(
                         one,
                         pattern,
                         case_insensitive=case_insensitive,
                         exclude_uri=exclude_uri,
-                        node_limit=node_limit,
+                        node_limit=budget.for_call(),
                     )
                 except SdkNotFoundError:
                     # Same as list_files: an unknown path matches nothing.
                     payload = _EMPTY_GREP.copy()
-                payloads.append(payload or {})
+                payload = payload or {}
+                if not budget.single:
+                    payload = {
+                        **payload,
+                        "matches": budget.take(list(payload.get("matches") or [])),
+                    }
+                payloads.append(payload)
         finally:
             await ov_client.close()
         if len(payloads) == 1:
