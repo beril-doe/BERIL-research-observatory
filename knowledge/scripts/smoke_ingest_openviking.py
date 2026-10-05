@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "openviking==0.4.15",
+#     "openviking==0.4.22",
 #     "pyyaml",
 #     "rich",
 # ]

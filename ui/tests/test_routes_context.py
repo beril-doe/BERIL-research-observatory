@@ -13,16 +13,18 @@ import io
 import os
 import zipfile
 from collections.abc import AsyncGenerator
+from contextlib import nullcontext
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
-from openviking_sdk.errors import UnavailableError
+from openviking_sdk.errors import NotFoundError, UnavailableError
 
 from app.clients.openviking import OpenVikingError
 from app.config import get_settings
 from app.context_manager.base import (
+    MAX_OWNER_EXPANSION,
     ContextIngestResults,
     ContextQueryResults,
     IngestResult,
@@ -138,9 +140,17 @@ def manager():
     inst = MagicMock()
     inst.query = AsyncMock(return_value=QUERY_RESULTS)
     inst.list_files = AsyncMock(return_value=["alpha.md", "beta.md"])
-    inst.grep = AsyncMock(return_value={"matches": [], "total": 0})
+    inst.grep = AsyncMock(
+        return_value={"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
+    )
+    inst.glob = AsyncMock(return_value=[])
     with patch("app.routes.context.OpenVikingManager", return_value=inst):
         yield inst
+
+
+def _find_target(manager):
+    """The resolved target the route handed to ``manager.query``."""
+    return manager.query.await_args.kwargs["target_uri"]
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +199,7 @@ async def test_find_forwards_body_to_manager(client, credentialed_user, manager)
         "/api/context/find",
         json={
             "query": "alpha",
-            "root_path": "viking://resources/projects",
+            "project": "alpha",
             "limit": 3,
             "score_threshold": 0.5,
         },
@@ -198,9 +208,11 @@ async def test_find_forwards_body_to_manager(client, credentialed_user, manager)
     assert resp.status_code == 200
     sent = manager.query.await_args.args[0]
     assert sent.query == "alpha"
-    assert sent.root_path == "viking://resources/projects"
     assert sent.limit == 3
     assert sent.score_threshold == 0.5
+    assert _find_target(manager) == (
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha"
+    )
 
 
 async def test_find_applies_query_defaults(client, credentialed_user, manager):
@@ -209,9 +221,22 @@ async def test_find_applies_query_defaults(client, credentialed_user, manager):
     client.post("/api/context/find", json={"query": "alpha"})
 
     sent = manager.query.await_args.args[0]
-    assert sent.root_path is None
+    assert (sent.project, sent.owner, sent.all_owners, sent.path) == (
+        None, None, False, None
+    )
     assert sent.limit == 10
     assert sent.score_threshold is None
+
+
+async def test_find_without_a_project_searches_the_whole_corpus(
+    client, credentialed_user, manager
+):
+    """A bare query targets exactly the corpus root — not the caller's own
+    namespace, and not the backend's default scope, which is wider."""
+    _login(client)
+    client.post("/api/context/find", json={"query": "alpha"})
+
+    assert _find_target(manager) == "viking://resources/users"
 
 
 async def test_find_decrypts_stored_key_for_manager(client, credentialed_user):
@@ -247,7 +272,6 @@ async def test_find_forwards_the_extended_options(client, credentialed_user, man
         "/api/context/find",
         json={
             "query": "alpha",
-            "filter": {"op": "must", "field": "uri", "conds": ["viking://x/"]},
             "since": "7d",
             "until": "2026-01-01",
             "time_field": "created_at",
@@ -258,7 +282,6 @@ async def test_find_forwards_the_extended_options(client, credentialed_user, man
 
     assert resp.status_code == 200
     sent = manager.query.await_args.args[0]
-    assert sent.filter == {"op": "must", "field": "uri", "conds": ["viking://x/"]}
     assert (sent.since, sent.until, sent.time_field) == ("7d", "2026-01-01", "created_at")
     assert sent.node_limit == 50
     assert sent.read_content is True
@@ -270,7 +293,6 @@ async def test_find_applies_extended_defaults(client, credentialed_user, manager
     client.post("/api/context/find", json={"query": "alpha"})
 
     sent = manager.query.await_args.args[0]
-    assert sent.filter is None
     assert (sent.since, sent.until, sent.time_field) == (None, None, None)
     assert sent.node_limit is None
     assert sent.read_content is False
@@ -296,14 +318,28 @@ async def test_find_rejects_out_of_range_limits(
     manager.query.assert_not_awaited()
 
 
-async def test_find_rejects_a_non_object_filter(client, credentialed_user, manager):
-    _login(client)
-    resp = client.post(
-        "/api/context/find", json={"query": "a", "filter": ["not", "an", "object"]}
-    )
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("root_path", "viking://resources"),
+        ("filter", {"op": "must", "field": "uri", "conds": ["viking://x/"]}),
+    ],
+)
+async def test_find_does_not_honor_a_raw_backend_scope(
+    client, credentialed_user, manager, field, value
+):
+    """``root_path`` and ``filter`` are not part of the API.
 
-    assert resp.status_code == 422
-    manager.query.assert_not_awaited()
+    Either would let a caller name a backend location directly — outside the
+    corpus, or through a filter tree BERIL cannot bound — so neither reaches
+    the manager. Scope is addressed by project/owner/path, like ``/ls``.
+    """
+    _login(client)
+    resp = client.post("/api/context/find", json={"query": "a", field: value})
+
+    assert resp.status_code == 200
+    assert _find_target(manager) == "viking://resources/users"
+    assert not hasattr(manager.query.await_args.args[0], field)
 
 
 async def test_find_rejects_an_unknown_time_field(client, credentialed_user, manager):
@@ -465,7 +501,12 @@ async def test_ls_rejects_out_of_range_node_limit(
 async def test_ls_does_not_use_a_caller_supplied_orcid(
     client, credentialed_user, manager
 ):
-    """An `orcid` parameter is not part of the API and must not be honored."""
+    """``orcid`` is not an API field — ``owner`` is.
+
+    Reads are global, so naming another owner is allowed; this guards the
+    vocabulary, not the scope. An unknown parameter is ignored, and the
+    default (the caller's own) applies.
+    """
     _login(client)
     client.get(
         "/api/context/ls",
@@ -485,6 +526,31 @@ async def test_ls_empty_listing_is_not_an_error(client, credentialed_user, manag
 
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+@pytest.mark.parametrize("route", ["ls", "grep"])
+async def test_an_unknown_project_is_empty_end_to_end(
+    client, credentialed_user, route
+):
+    """Through the real manager: the backend raises not-found for a project it
+    does not know, and the route answers 200-empty rather than 502."""
+    sdk = MagicMock()
+    sdk.initialize = AsyncMock()
+    sdk.close = AsyncMock()
+    sdk.ls = AsyncMock(side_effect=NotFoundError("viking://x"))
+    sdk.grep = AsyncMock(side_effect=NotFoundError("viking://x"))
+    _login(client)
+    with patch("app.clients.openviking.AsyncHTTPClient", return_value=sdk):
+        if route == "ls":
+            resp = client.get("/api/context/ls", params={"project": "never_ingested"})
+        else:
+            resp = _grep(client, project="never_ingested")
+
+    assert resp.status_code == 200
+    assert resp.json() == (
+        [] if route == "ls"
+        else {"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
+    )
 
 
 async def test_ls_surfaces_backend_failure_as_502(client, credentialed_user):
@@ -829,6 +895,21 @@ async def test_ingest_creates_project_when_absent(
     assert created.title == "Brand New Project"
 
 
+async def test_ingest_creates_the_project_public(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Ingest publishes: the corpus is readable by everyone, so the project
+    page must not hide what ``/find`` already returns. ``is_public`` is the one
+    visibility flag, and it is set rather than a second one introduced."""
+    _login(client)
+    _ingest(client, project="Brand New Project")
+
+    created = await get_project_by_slug(
+        db_session, credentialed_user.id, "brand_new_project"
+    )
+    assert created.is_public is True
+
+
 async def test_ingest_reuses_existing_project(
     client, credentialed_user, ingest_manager, db_session
 ):
@@ -841,6 +922,120 @@ async def test_ingest_reuses_existing_project(
     assert resp.status_code == 200
     projects = await get_projects_for_user(db_session, credentialed_user.id)
     assert [p.id for p in projects] == [existing.id]
+
+
+async def test_ingest_publishes_a_reused_private_project(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """A private row that gets ingested into becomes public — its content is
+    now in the corpus, whatever the flag said before."""
+    existing = await create_user_project(
+        db_session,
+        credentialed_user.id,
+        title="Existing",
+        slug="existing_project",
+        is_public=False,
+    )
+    assert existing.is_public is False
+    _login(client)
+    resp = _ingest(client, project="Existing Project")
+
+    assert resp.status_code == 200
+    await db_session.refresh(existing)
+    assert existing.is_public is True
+
+
+async def test_ingest_publishes_on_partial_success(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """One file queued is enough: that content is in the corpus."""
+    ingest_manager.insert_files.return_value = ContextIngestResults(
+        results=[
+            IngestResult(relative_path="a.md", status="queued", uri="viking://a"),
+            IngestResult(relative_path="b.md", status="failed", reason="rejected"),
+        ],
+        queued=1,
+        failed=1,
+    )
+    _login(client)
+    _ingest(client, project="Brand New Project")
+
+    created = await get_project_by_slug(
+        db_session, credentialed_user.id, "brand_new_project"
+    )
+    assert created.is_public is True
+
+
+def _all_rejected() -> ContextIngestResults:
+    return ContextIngestResults(
+        results=[IngestResult(relative_path="notes.md", status="failed", reason="no")],
+        queued=0,
+        failed=1,
+    )
+
+
+async def test_ingest_does_not_publish_when_every_file_is_rejected(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Nothing reached the corpus, so nothing is published — a new row stays
+    private and a reused private row is left as it was."""
+    existing = await create_user_project(
+        db_session, credentialed_user.id, title="Existing", slug="existing_project"
+    )
+    ingest_manager.insert_files.return_value = _all_rejected()
+    _login(client)
+    assert _ingest(client, project="Existing Project").status_code == 200
+    assert _ingest(client, project="Brand New Project").status_code == 200
+
+    await db_session.refresh(existing)
+    assert existing.is_public is False
+    created = await get_project_by_slug(
+        db_session, credentialed_user.id, "brand_new_project"
+    )
+    assert created.is_public is False
+
+
+_FAILING_SUBMISSIONS = {
+    "unreadable archive": ({"archive": b"not a zip file", "manifest": ["a.md"]}, None),
+    "manifest names a missing file": (
+        {"members": {"a.md": b"a"}, "manifest": ["a.md", "gone.md"]}, None
+    ),
+    "too many files": (
+        {"members": {f"f{i}.md": b"x" for i in range(3)}},
+        ("context_max_ingest_files", 2),
+    ),
+    "file too large": (
+        {"members": {"big.md": b"way too long"}}, ("context_max_file_bytes", 4)
+    ),
+}
+
+
+@pytest.mark.parametrize("case", list(_FAILING_SUBMISSIONS))
+async def test_a_rejected_submission_does_not_publish(
+    client, credentialed_user, ingest_manager, db_session, case
+):
+    """Regression: publishing used to happen before validation, so a malformed
+    upload made a private project public with nothing new in the corpus — and
+    a first upload that failed left an empty public project in the listing."""
+    kwargs, setting = _FAILING_SUBMISSIONS[case]
+    existing = await create_user_project(
+        db_session, credentialed_user.id, title="Existing", slug="existing_project"
+    )
+    _login(client)
+    with (
+        patch.object(get_settings(), *setting) if setting else nullcontext()
+    ):
+        reused = _ingest(client, project="Existing Project", **kwargs)
+        fresh = _ingest(client, project="Brand New Project", **kwargs)
+
+    assert reused.status_code >= 400 and fresh.status_code >= 400
+    ingest_manager.insert_files.assert_not_awaited()
+    await db_session.refresh(existing)
+    assert existing.is_public is False
+    created = await get_project_by_slug(
+        db_session, credentialed_user.id, "brand_new_project"
+    )
+    assert created is None or created.is_public is False
 
 
 async def test_ingest_rejects_unusable_project_name(
@@ -1198,12 +1393,95 @@ async def test_ingest_status_counts_cover_every_status(
         "processing",
         "completed",
         "failed",
+        "expired",
         "unknown",
         # Present for a stable mapping, though a skipped file never reaches a
         # batch: it is not submitted, so it writes no row.
         "skipped",
     }
     assert counts["skipped"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Expired tasks: gone is not the same as unreachable
+# ---------------------------------------------------------------------------
+
+
+async def test_ingest_status_records_expired_and_stops_repolling(
+    client, credentialed_user, ingest_manager
+):
+    """A task the backend has forgotten advances the row to a terminal state.
+
+    Before the split, "gone" reported as ``unknown``, the route discarded it,
+    and the row stayed ``queued`` — re-polled on every call with no way to
+    ever advance. Now it lands as ``expired`` and is never asked about again.
+    """
+    _login(client)
+    batch_id = await _start_batch(client, ingest_manager, [("a.md", "t1")])
+
+    ingest_manager.task_statuses = AsyncMock(return_value={"t1": ("expired", None)})
+    body = client.get(f"/api/context/ingest_status/{batch_id}").json()
+
+    assert body["files"][0]["status"] == "expired"
+    assert body["status"] == "expired"
+
+    # Terminal: the second poll has nothing outstanding and skips the backend.
+    ingest_manager.task_statuses.reset_mock()
+    body = client.get(f"/api/context/ingest_status/{batch_id}").json()
+
+    ingest_manager.task_statuses.assert_not_awaited()
+    assert body["status"] == "expired"
+
+
+async def test_expired_does_not_restore_the_skip(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Expired is terminal but NOT completed, so identical content re-ingests.
+
+    This is the deliberate limit of the split. Nothing proves the file landed,
+    so a later submit must re-send rather than skip. Restoring the skip needs
+    a reconcile against the store itself (does the target URI exist?) — the
+    documented follow-up, not something this status implies.
+    """
+    _login(client)
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t1")])
+    batch_id = _ingest(client, members={"a.md": b"same"}).json()["batch_id"]
+
+    ingest_manager.task_statuses = AsyncMock(return_value={"t1": ("expired", None)})
+    assert client.get(f"/api/context/ingest_status/{batch_id}").json()["status"] == "expired"
+
+    ingest_manager.insert_files.reset_mock()
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("a.md", "t2")])
+    resp = _ingest(client, members={"a.md": b"same"})
+
+    assert resp.status_code == 200
+    assert resp.json()["skipped"] == 0
+    ingest_manager.insert_files.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    "statuses, expected",
+    [
+        (["expired", "completed"], "expired"),
+        (["expired", "unknown"], "expired"),
+        (["expired", "processing"], "processing"),
+        (["expired", "queued"], "processing"),
+        (["expired", "failed"], "failed"),
+        (["completed", "completed"], "completed"),
+    ],
+    ids=["beats-completed", "beats-unknown", "loses-to-processing",
+         "loses-to-queued", "loses-to-failed", "clean-sweep"],
+)
+def test_rollup_ranks_expired_between_in_flight_and_unknown(statuses, expected):
+    """Expired outranks unknown (the stronger non-answer) but never a live
+    verdict: in-flight work and failure both win, and only an all-seen
+    completion is a clean sweep."""
+    from app.context_manager.base import IngestFileStatus
+    from app.routes.context import _rollup_status
+
+    files = [IngestFileStatus(relative_path=f"{i}.md", status=s) for i, s in enumerate(statuses)]
+
+    assert _rollup_status(files) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -1399,6 +1677,47 @@ async def test_ingest_all_skipped_returns_no_batch_id(
     ingest_manager.insert_files.assert_not_awaited()
 
 
+async def test_ingest_all_skipped_publishes(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Nothing is sent, but a skip means identical content already completed
+    for this project — it is in the corpus, so the project is published."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+    project = await get_project_by_slug(db_session, credentialed_user.id, "my_project")
+    project.is_public = False
+    await db_session.commit()
+
+    resp = _ingest(client, members={"a.md": b"same"})
+
+    assert resp.json()["skipped"] == 1
+    await db_session.refresh(project)
+    assert project.is_public is True
+
+
+async def test_ingest_publishes_when_the_rest_are_skipped(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Every submitted file rejected, but a skipped one is already in the
+    corpus — that alone publishes."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"a.md": b"same"})
+    project = await get_project_by_slug(db_session, credentialed_user.id, "my_project")
+    project.is_public = False
+    await db_session.commit()
+
+    ingest_manager.insert_files.return_value = ContextIngestResults(
+        results=[IngestResult(relative_path="b.md", status="failed", reason="no")],
+        queued=0,
+        failed=1,
+    )
+    resp = _ingest(client, members={"a.md": b"same", "b.md": b"new"})
+
+    assert (resp.json()["queued"], resp.json()["skipped"]) == (0, 1)
+    await db_session.refresh(project)
+    assert project.is_public is True
+
+
 async def test_ingest_mixed_batch_accounts_for_every_file(
     client, credentialed_user, ingest_manager, db_session
 ):
@@ -1455,12 +1774,18 @@ def test_grep_unauthenticated_returns_401(client):
 
 
 async def test_grep_returns_the_backend_payload(client, credentialed_user, manager):
-    manager.grep = AsyncMock(return_value={"matches": [{"uri": "viking://x"}], "total": 1})
+    payload = {
+        "matches": [{"uri": "viking://x", "line": 1, "content": "x"}],
+        "count": 1,
+        "match_count": 1,
+        "files_scanned": 3,
+    }
+    manager.grep = AsyncMock(return_value=payload)
     _login(client)
     resp = _grep(client)
 
     assert resp.status_code == 200
-    assert resp.json() == {"matches": [{"uri": "viking://x"}], "total": 1}
+    assert resp.json() == payload
 
 
 async def test_grep_requires_a_pattern(client, credentialed_user, manager):
@@ -1607,6 +1932,7 @@ async def test_grep_rejects_out_of_range_node_limit(
 async def test_grep_does_not_use_a_caller_supplied_orcid(
     client, credentialed_user, manager
 ):
+    """``orcid`` is not an API field — ``owner`` is (see the ``ls`` twin)."""
     _login(client)
     _grep(client, project="alpha", orcid="0000-0009-8888-7777")
 
@@ -1658,16 +1984,88 @@ async def test_ls_spans_every_owner(client, credentialed_user, manager):
     assert manager.list_files.await_args.args[0] == "viking://resources/users"
 
 
-async def test_ls_all_owners_drops_the_project_name(
+async def test_ls_all_owners_expands_the_project_across_owners(
     client, credentialed_user, manager
 ):
-    """A project name many owners share cannot be part of a corpus-wide path."""
+    """"Project alpha, whoever owns it" — a name many owners may share is not
+    an address, so the backend is asked which owners have it and each copy is
+    listed. Dropping the name would silently widen the read to the corpus."""
+    manager.glob.return_value = [
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha",
+        f"viking://resources/users/{OTHER_ORCID}/alpha",
+    ]
     _login(client)
-    client.get(
+    resp = client.get(
         "/api/context/ls", params={"project": "alpha", "all_owners": "true"}
     )
 
-    assert manager.list_files.await_args.args[0] == "viking://resources/users"
+    assert resp.status_code == 200
+    manager.glob.assert_awaited_once_with(
+        "*/alpha", "viking://resources/users", node_limit=MAX_OWNER_EXPANSION + 1
+    )
+    assert manager.list_files.await_args.args[0] == manager.glob.return_value
+
+
+async def test_ls_all_owners_keeps_the_path_below_the_project(
+    client, credentialed_user, manager
+):
+    _login(client)
+    client.get(
+        "/api/context/ls",
+        params={"project": "alpha", "path": "notes/2026", "all_owners": "true"},
+    )
+
+    manager.glob.assert_awaited_once_with(
+        "*/alpha/notes/2026",
+        "viking://resources/users",
+        node_limit=MAX_OWNER_EXPANSION + 1,
+    )
+
+
+async def test_ls_all_owners_escapes_glob_characters_in_the_path(
+    client, credentialed_user, manager
+):
+    """Only the owner segment is a wildcard; a path is matched literally."""
+    _login(client)
+    client.get(
+        "/api/context/ls",
+        params={"project": "alpha", "path": "a*b", "all_owners": "true"},
+    )
+
+    assert manager.glob.await_args.args[0] == "*/alpha/a[*]b"
+
+
+async def test_ls_all_owners_with_no_copies_lists_nothing(
+    client, credentialed_user, manager
+):
+    """No owner has the project: the listing is empty, and the manager is
+    handed an empty target rather than a wider one."""
+    manager.glob.return_value = []
+    manager.list_files.return_value = []
+    _login(client)
+    resp = client.get(
+        "/api/context/ls", params={"project": "alpha", "all_owners": "true"}
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == []
+    assert manager.list_files.await_args.args[0] == []
+
+
+@pytest.mark.parametrize("path", ["..", "../other", "a/../../escape"])
+async def test_ls_all_owners_rejects_traversal_in_the_path(
+    client, credentialed_user, manager, path
+):
+    """The wildcard target gets the same traversal check as a concrete one."""
+    _login(client)
+    resp = client.get(
+        "/api/context/ls",
+        params={"project": "alpha", "path": path, "all_owners": "true"},
+    )
+
+    assert resp.status_code == 422
+    manager.glob.assert_not_awaited()
+    manager.list_files.assert_not_awaited()
 
 
 async def test_ls_bare_project_defaults_to_the_caller(
@@ -1729,6 +2127,34 @@ async def test_grep_spans_every_owner(client, credentialed_user, manager):
     assert manager.grep.await_args.args[0] == "viking://resources/users"
 
 
+async def test_grep_all_owners_expands_the_project_across_owners(
+    client, credentialed_user, manager
+):
+    manager.glob.return_value = [
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha",
+        f"viking://resources/users/{OTHER_ORCID}/alpha",
+    ]
+    _login(client)
+    resp = _grep(client, project="alpha", all_owners="true")
+
+    assert resp.status_code == 200
+    manager.glob.assert_awaited_once_with(
+        "*/alpha", "viking://resources/users", node_limit=MAX_OWNER_EXPANSION + 1
+    )
+    assert manager.grep.await_args.args[0] == manager.glob.return_value
+
+
+async def test_grep_all_owners_with_no_copies_matches_nothing(
+    client, credentialed_user, manager
+):
+    manager.glob.return_value = []
+    _login(client)
+    resp = _grep(client, project="alpha", all_owners="true")
+
+    assert resp.status_code == 200
+    assert manager.grep.await_args.args[0] == []
+
+
 async def test_grep_excludes_another_owners_project(
     client, credentialed_user, manager
 ):
@@ -1764,6 +2190,190 @@ async def test_grep_rejects_traversal_in_the_exclude_owner(
 
     assert resp.status_code == 422
     manager.grep.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/context/find — scoped like ls and grep
+# ---------------------------------------------------------------------------
+
+
+def _find(client, **body):
+    return client.post("/api/context/find", json={"query": "alpha", **body})
+
+
+async def test_find_bare_project_defaults_to_the_caller(
+    client, credentialed_user, manager
+):
+    _login(client)
+    _find(client, project="alpha")
+
+    assert _find_target(manager) == (
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha"
+    )
+
+
+async def test_find_searches_another_owners_project(
+    client, credentialed_user, manager
+):
+    """Reads are global: ``owner`` narrows the target, it does not authorize."""
+    _login(client)
+    resp = _find(client, project="alpha", owner=OTHER_ORCID)
+
+    assert resp.status_code == 200
+    assert _find_target(manager) == f"viking://resources/users/{OTHER_ORCID}/alpha"
+
+
+async def test_find_appends_a_relative_path(client, credentialed_user, manager):
+    _login(client)
+    _find(client, project="alpha", path="notes/2026")
+
+    assert _find_target(manager) == (
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha/notes/2026"
+    )
+
+
+async def test_find_spans_every_owner(client, credentialed_user, manager):
+    _login(client)
+    resp = _find(client, all_owners=True)
+
+    assert resp.status_code == 200
+    assert _find_target(manager) == "viking://resources/users"
+
+
+async def test_find_all_owners_expands_the_project_across_owners(
+    client, credentialed_user, manager
+):
+    """The expanded list is handed to the manager as one target — the backend
+    ranks across several URIs natively, so there is no fan-out here."""
+    manager.glob.return_value = [
+        f"viking://resources/users/{USER_TOKEN['orcid']}/alpha",
+        f"viking://resources/users/{OTHER_ORCID}/alpha",
+    ]
+    _login(client)
+    resp = _find(client, project="alpha", all_owners=True)
+
+    assert resp.status_code == 200
+    manager.glob.assert_awaited_once_with(
+        "*/alpha", "viking://resources/users", node_limit=MAX_OWNER_EXPANSION + 1
+    )
+    assert _find_target(manager) == manager.glob.return_value
+
+
+async def test_find_all_owners_with_no_copies_targets_nothing(
+    client, credentialed_user, manager
+):
+    manager.glob.return_value = []
+    _login(client)
+    resp = _find(client, project="alpha", all_owners=True)
+
+    assert resp.status_code == 200
+    assert _find_target(manager) == []
+
+
+async def test_find_rejects_owner_with_all_owners(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = _find(client, owner=OTHER_ORCID, all_owners=True)
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+async def test_find_rejects_a_path_without_a_project(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = _find(client, path="notes")
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+async def test_find_rejects_an_unusable_project_name(
+    client, credentialed_user, manager
+):
+    _login(client)
+    resp = _find(client, project="!!!")
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "path", ["../0000-9999-9999-9999", "../../users/other", "..", "a/../../escape"]
+)
+async def test_find_rejects_traversal_in_the_path(
+    client, credentialed_user, manager, path
+):
+    """The corpus root is the boundary; it is refused before the backend is
+    asked, and before the query could fall back to a wider scope."""
+    _login(client)
+    resp = _find(client, project="alpha", path=path)
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+@pytest.mark.parametrize("bad_owner", ["../..", "..", "a/../../.."])
+async def test_find_rejects_traversal_in_the_owner(
+    client, credentialed_user, manager, bad_owner
+):
+    _login(client)
+    resp = _find(client, owner=bad_owner)
+
+    assert resp.status_code == 422
+    manager.query.assert_not_awaited()
+
+
+def _owners(n: int) -> list[str]:
+    return [f"viking://resources/users/0000-0000-0000-{i:04d}/alpha" for i in range(n)]
+
+
+@pytest.mark.parametrize("route", ["ls", "grep", "find"])
+async def test_all_owners_refuses_more_owners_than_the_cap(
+    client, credentialed_user, manager, route
+):
+    """Past the cap the backend would stop matching and silently drop owners,
+    so the read is refused and the caller asked to name one — nothing is read."""
+    manager.glob.return_value = _owners(MAX_OWNER_EXPANSION + 1)
+    _login(client)
+    if route == "ls":
+        resp = client.get(
+            "/api/context/ls", params={"project": "alpha", "all_owners": "true"}
+        )
+    elif route == "grep":
+        resp = _grep(client, project="alpha", all_owners="true")
+    else:
+        resp = _find(client, project="alpha", all_owners=True)
+
+    assert resp.status_code == 422
+    assert "owner" in resp.json()["detail"]
+    manager.list_files.assert_not_awaited()
+    manager.grep.assert_not_awaited()
+    manager.query.assert_not_awaited()
+
+
+async def test_all_owners_reads_exactly_the_cap(client, credentialed_user, manager):
+    manager.glob.return_value = _owners(MAX_OWNER_EXPANSION)
+    _login(client)
+    resp = client.get(
+        "/api/context/ls", params={"project": "alpha", "all_owners": "true"}
+    )
+
+    assert resp.status_code == 200
+    assert len(manager.list_files.await_args.args[0]) == MAX_OWNER_EXPANSION
+
+
+async def test_find_surfaces_glob_failure_as_502(client, credentialed_user, manager):
+    """Expanding the owner wildcard is a backend call like any other."""
+    manager.glob.side_effect = UnavailableError("backend down")
+    _login(client)
+    resp = _find(client, project="alpha", all_owners=True)
+
+    assert resp.status_code == 502
+    assert "backend down" not in resp.text
+    manager.query.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
