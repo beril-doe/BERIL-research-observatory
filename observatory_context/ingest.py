@@ -116,9 +116,14 @@ def ingest_all(
             load_manifest(_manifest_path(config)), new_manifest, ingested
         )
     else:
-        _remove_stale(client, config, new_manifest)
         manifest_to_save = new_manifest
     obs.wait_processed(client)
+    # Deletions wait until the uploads above are processed: a stale entry may
+    # be the old copy of something just re-uploaded (a retired-root doc), and
+    # uploads are not waited on individually, so removing first would leave a
+    # window with neither copy searchable.
+    if not limit:
+        _remove_stale(client, config, new_manifest)
     if docs:
         _retire_legacy_docs(client)
     save_manifest(_manifest_path(config), manifest_to_save)
@@ -265,8 +270,10 @@ def ingest_docs(
     docs_prefixes = (DOCS_TARGET_URI, LEGACY_DOCS_TARGET_URI)
     old_manifest = load_manifest(_manifest_path(config))
     new_manifest = _current_manifest(config)
-    _remove_stale(client, config, new_manifest, prefix=docs_prefixes)
+    # Deletions only after the new copies are processed, so a cutover never
+    # leaves a doc missing from both roots — the same ordering as ingest_all.
     obs.wait_processed(client)
+    _remove_stale(client, config, new_manifest, prefix=docs_prefixes)
     _retire_legacy_docs(client)
     touched = {
         uri

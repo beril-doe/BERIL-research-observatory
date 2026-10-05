@@ -315,3 +315,32 @@ def test_ingest_all_with_limit_skips_docs_and_their_cleanup(tmp_path: Path) -> N
     ingest_all(make_config(tmp_path), client, limit=1)
 
     assert all(uri != LEGACY_DOCS_TARGET_URI for uri, _ in client.removed)
+
+
+def test_ingest_docs_removes_legacy_manifest_entries_only_after_processing(
+    tmp_path: Path,
+) -> None:
+    """Regression (Codex, #441): manifest-driven deletes ran before the wait,
+    so a cutover could briefly leave a doc in neither root."""
+    write(tmp_path / "docs" / "pitfalls.md", "# Pitfalls\n")
+    config = make_config(tmp_path)
+    legacy_uri = f"{LEGACY_DOCS_TARGET_URI}pitfalls/"
+    _seed_manifest(config, {legacy_uri: {"x": "1"}})
+    client = OrderedClient()
+
+    ingest_docs(config, client)
+
+    assert client.events.index("wait") < client.events.index(f"rm {legacy_uri}")
+
+
+def test_ingest_all_removes_stale_entries_only_after_processing(tmp_path: Path) -> None:
+    write(tmp_path / "projects" / "demo" / "README.md", "# Demo\n")
+    write(tmp_path / "docs" / "pitfalls.md", "# Pitfalls\n")
+    config = make_config(tmp_path)
+    legacy_uri = f"{LEGACY_DOCS_TARGET_URI}pitfalls/"
+    _seed_manifest(config, {legacy_uri: {"x": "1"}})
+    client = OrderedClient()
+
+    ingest_all(config, client)
+
+    assert client.events.index("wait") < client.events.index(f"rm {legacy_uri}")
