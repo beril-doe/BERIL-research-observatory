@@ -91,3 +91,19 @@ def test_local_read_resolves_uri_to_file(tmp_path: Path) -> None:
     config = _repo(tmp_path)
     content = fallback.local_read(config, "viking://resources/projects/alpha/README.md")
     assert "phage timing in soil" in content
+
+
+def test_uri_to_path_matches_the_docs_root_on_a_segment_boundary(tmp_path: Path) -> None:
+    """A sibling that merely shares the root's spelling is not a doc.
+
+    Regression: the prefix was matched without its trailing slash, so
+    ``…/beril/docsfoo`` mapped to ``docs/foo.md``.
+    """
+    config = _repo(tmp_path)
+    root = _DOCS_ROOT.rstrip("/")
+
+    assert fallback.uri_to_path(config, f"{root}foo") is None
+    assert fallback.uri_to_path(config, f"{root}foo/pitfalls.md") is None
+    # The root itself, with or without its slash, is still the docs directory.
+    assert fallback.uri_to_path(config, root) == config.docs_dir
+    assert fallback.uri_to_path(config, _DOCS_ROOT) == config.docs_dir

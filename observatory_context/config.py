@@ -23,6 +23,10 @@ PROJECTS_TARGET_URI = "viking://resources/projects/"
 HOUSE_ACCOUNT_ID = "beril"
 USERS_TARGET_URI = "viking://resources/users/"
 DOCS_TARGET_URI = f"{USERS_TARGET_URI}{HOUSE_ACCOUNT_ID}/docs/"
+# Where central docs lived before the house account. Retired: nothing writes
+# here, and ``--docs`` deletes it as part of the cutover so the old copies do
+# not linger as duplicates in search.
+LEGACY_DOCS_TARGET_URI = "viking://resources/docs/"
 
 # --- BERDL lakehouse object storage --------------------------------------
 #
