@@ -213,7 +213,9 @@ uv run --env-file .env $QUERY read viking://resources/projects/<project_id>/REPO
 Target layout:
 
 - Projects: `viking://resources/projects/<project_id>/`
-- Central docs: `viking://resources/docs/<doc_slug>/`
+- Central docs: `viking://resources/users/beril/docs/<doc_slug>/` (under the
+  reserved `beril` house account; the old `viking://resources/docs/` root is
+  retired and removed by `--docs`)
 
 Per-project metadata (id, title, status, authors, branch, engine, dates) is
 ingested as `PROJECT_METADATA.md` inside each project URI — search it with
