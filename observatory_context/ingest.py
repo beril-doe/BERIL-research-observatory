@@ -179,13 +179,18 @@ def ingest_changed(
             ingested_uris.add(target_uri)
             obs.advance(f"docs/{docs[target_uri].name}")
 
+    # Removals wait until the uploads above are processed, as in ingest_all and
+    # ingest_docs: a removal may be the old copy of something just uploaded —
+    # on a machine whose manifest predates the house account, every retired-
+    # root doc is a removal and its replacement a new target — and uploads are
+    # not waited on individually, so removing first would leave neither copy
+    # searchable for a while.
+    if targets or removed:
+        obs.wait_processed(client)
     for target_uri in removed:
         _remove_resource(client, target_uri)
         ingested_uris.add(target_uri)
         obs.advance(f"removed: {target_uri}")
-
-    if targets or removed:
-        obs.wait_processed(client)
     if limit:
         manifest_to_save = _partial_manifest(old_manifest, new_manifest, ingested_uris)
     else:
