@@ -20,15 +20,19 @@ dependencies = [
     "mcp>=1.0",
     "nbconvert==7.17.0",
     "nbformat==5.9.2",
-    "openviking_sdk==0.1.10",
+    # Must not be newer than the deployed OpenViking server's companion release
+    # (knowledge/openviking/Dockerfile): the server forbids unknown request
+    # fields and the SDK forwards every field it declares. Keep identical to the
+    # pin in the root pyproject.toml.
+    "openviking_sdk==0.1.12",
     "psycopg2-binary>=2.9.0",
-    "pydantic>=2.11.0",
     "pydantic-settings>=2.5.2",
+    "pydantic>=2.11.0",
+    "pygments>=2.19.2",
     "pymdown-extensions==10.11",
     "python-dotenv==1.0.0",
-    "pyyaml==6.0.1",
-    "pygments>=2.19.2",
     "python-multipart>=0.0.24",
+    "pyyaml==6.0.1",
     "sqlalchemy[asyncio]>=2.0.0",
     "uvicorn[standard]>=0.27.0",
     "whoosh==2.7.4",

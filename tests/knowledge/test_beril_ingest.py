@@ -212,24 +212,59 @@ def test_poll_batch_times_out_without_failing():
     assert "still in flight" in outcome.summary()
 
 
-def test_poll_batch_retries_through_a_transport_blip():
-    """A blip mid-poll keeps polling — the batch is queued server-side."""
+_COMPLETED = _status_body(
+    "completed",
+    [{"relative_path": "a.md", "status": "completed"}],
+    counts={"completed": 1},
+)
+
+
+def test_poll_batch_retries_through_an_http_error_response():
+    """A non-2xx mid-poll keeps polling — the batch is queued server-side.
+
+    This is the *response* shape of a blip: BERIL answered, but with an error.
+    It reaches the retry branch as a BerilIngestError raised by ``_guard``.
+    """
     responses = [
         httpx.Response(503, text="upstream down"),
-        httpx.Response(
-            200,
-            json=_status_body(
-                "completed",
-                [{"relative_path": "a.md", "status": "completed"}],
-                counts={"completed": 1},
-            ),
-        ),
+        httpx.Response(200, json=_COMPLETED),
     ]
     calls = []
 
     def handler(request):
         calls.append(1)
         return responses[min(len(calls) - 1, len(responses) - 1)]
+
+    with _client(handler) as http:
+        outcome = poll_batch(
+            BASE_URL, TOKEN, "batch-1", client=http, interval=0, sleep=lambda _: None
+        )
+
+    assert outcome.ok
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize(
+    "blip",
+    [httpx.ConnectError("connection dropped"), httpx.ReadTimeout("read timed out")],
+    ids=["connect-error", "read-timeout"],
+)
+def test_poll_batch_retries_through_a_transport_blip(blip):
+    """A dropped connection mid-poll keeps polling too.
+
+    This is the *transport* shape of a blip: no response at all, so the
+    handler raises rather than returns. It never touches ``_guard`` — the
+    exception is httpx's own — so a retry branch that catches only
+    BerilIngestError lets it escape and reports the mirror failed for a batch
+    that was accepted and is landing.
+    """
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        if len(calls) == 1:
+            raise blip
+        return httpx.Response(200, json=_COMPLETED)
 
     with _client(handler) as http:
         outcome = poll_batch(

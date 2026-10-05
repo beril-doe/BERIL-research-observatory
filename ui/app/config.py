@@ -83,6 +83,12 @@ class Settings(BaseSettings):
     context_max_ingest_files: int = 50
     context_max_file_bytes: int = 50 * 1024 * 1024
 
+    # Langfuse relay (app/routes/langfuse.py): the shared project keypair lives
+    # only here. Leave the keys unset to disable the relay (503).
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+    langfuse_base_url: str = "https://us.cloud.langfuse.com"
+
     # Derived paths
     @property
     def db_url(self) -> str:
