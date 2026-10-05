@@ -20,6 +20,8 @@ from app.clients.openviking import (
     OpenVikingError,
 )
 from app.context_manager.base import (
+    DEFAULT_GREP_NODE_LIMIT,
+    DEFAULT_LS_NODE_LIMIT,
     ContextIngestFile,
     ContextQuery,
     ContextQueryResults,
@@ -42,6 +44,7 @@ from app.crypto import decrypt_secret, encrypt_secret
 from app.db.crud import get_ov_credential
 from app.db.models import BerilUser, OvUserCredential
 from cryptography.fernet import Fernet
+from openviking_sdk.errors import NotFoundError as SdkNotFoundError
 from openviking_sdk.errors import OpenVikingError as SdkOpenVikingError
 from openviking_sdk.errors import UnavailableError
 
@@ -54,6 +57,13 @@ _ENV = {
     "BERIL_OV_CREDENTIAL_KEY": _CREDENTIAL_KEY,
     "BERIL_SESSION_SECRET_KEY": "test-session-secret",
 }
+
+# The backend's grep payload for no matches, as server 0.4.22 returns it.
+EMPTY_GREP = {"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
+
+# The default read target: the whole corpus. ``query`` requires one — the
+# route resolves it, so a test that does not care about scope passes this.
+CORPUS = "viking://resources/users"
 
 # A representative OpenViking ``find`` payload. Note the manager reads the
 # ``abstract`` field into ``QueryResult.text``.
@@ -99,7 +109,8 @@ def sdk_client():
     inst.close = AsyncMock(return_value=None)
     inst.find = AsyncMock(return_value=FIND_PAYLOAD)
     inst.ls = AsyncMock(return_value=["alpha.md", "beta.md"])
-    inst.grep = AsyncMock(return_value={"matches": [], "total": 0})
+    inst.grep = AsyncMock(return_value=dict(EMPTY_GREP))
+    inst.glob = AsyncMock(return_value={"matches": [], "count": 0})
     return inst
 
 
@@ -216,7 +227,7 @@ async def test_close_closes_underlying_client(settings, patched_sdk):
 
 async def test_query_maps_payload_into_results(settings, patched_sdk):
     manager = OpenVikingManager(settings, "user-key")
-    out = await manager.query(ContextQuery(query="alpha"))
+    out = await manager.query(ContextQuery(query="alpha"), target_uri=CORPUS)
 
     assert isinstance(out, ContextQueryResults)
     assert out.query == "alpha"
@@ -233,43 +244,73 @@ async def test_query_maps_payload_into_results(settings, patched_sdk):
 async def test_query_forwards_all_query_fields(settings, patched_sdk):
     manager = OpenVikingManager(settings, "user-key")
     await manager.query(
-        ContextQuery(
-            query="alpha",
-            root_path="viking://resources/projects",
-            limit=5,
-            score_threshold=0.5,
-        )
+        ContextQuery(query="alpha", limit=5, score_threshold=0.5),
+        target_uri="viking://resources/users/0000-1/alpha",
     )
 
     patched_sdk.find.assert_awaited_once_with(
         "alpha",
         limit=5,
-        target_uri="viking://resources/projects",
+        target_uri="viking://resources/users/0000-1/alpha",
         options={"score_threshold": 0.5},
     )
 
 
+async def test_query_searches_the_given_target_not_the_query(settings, patched_sdk):
+    """The query's addressing fields are the route's to resolve; the manager
+    searches exactly the target it is handed and never derives one itself."""
+    manager = OpenVikingManager(settings, "user-key")
+    await manager.query(
+        ContextQuery(query="alpha", project="alpha", owner="0000-9", path="x"),
+        target_uri="viking://resources/users/0000-1/beta",
+    )
+
+    assert patched_sdk.find.await_args.kwargs["target_uri"] == (
+        "viking://resources/users/0000-1/beta"
+    )
+
+
+async def test_query_forwards_several_targets_as_one_scope(settings, patched_sdk):
+    """A list is passed through natively — the backend ranks across the
+    URIs together, which a fan-out could not reproduce."""
+    manager = OpenVikingManager(settings, "user-key")
+    targets = ["viking://resources/users/a/alpha", "viking://resources/users/b/alpha"]
+    await manager.query(ContextQuery(query="alpha"), target_uri=targets)
+
+    assert patched_sdk.find.await_args.kwargs["target_uri"] == targets
+
+
+async def test_query_with_no_targets_never_reaches_the_backend(settings, patched_sdk):
+    """An empty target would fall back to the backend's own scope, which is
+    wider than the corpus — so it is answered here, with nothing."""
+    manager = OpenVikingManager(settings, "user-key")
+    out = await manager.query(ContextQuery(query="alpha"), target_uri=[])
+
+    assert isinstance(out, ContextQueryResults)
+    assert (out.query, out.results, out.total) == ("alpha", [], 0)
+    patched_sdk.find.assert_not_awaited()
+    patched_sdk.initialize.assert_not_awaited()
+
+
 async def test_query_forwards_the_extended_options(settings, patched_sdk):
-    """Filter, time bounds, node limit and read_content all reach the backend."""
+    """Time bounds, node limit and read_content all reach the backend."""
     manager = OpenVikingManager(settings, "user-key")
     await manager.query(
         ContextQuery(
             query="alpha",
-            root_path="viking://resources/projects",
             limit=5,
             score_threshold=0.5,
-            filter={"op": "must", "field": "uri", "conds": ["viking://x/"]},
             since="7d",
             until="2026-01-01",
             time_field="created_at",
             node_limit=50,
             read_content=True,
-        )
+        ),
+        target_uri=CORPUS,
     )
 
     assert patched_sdk.find.await_args.kwargs["options"] == {
         "score_threshold": 0.5,
-        "filter": {"op": "must", "field": "uri", "conds": ["viking://x/"]},
         "since": "7d",
         "until": "2026-01-01",
         "time_field": "created_at",
@@ -285,7 +326,7 @@ async def test_query_omits_unset_options(settings, patched_sdk):
     caller never chose.
     """
     manager = OpenVikingManager(settings, "user-key")
-    await manager.query(ContextQuery(query="alpha"))
+    await manager.query(ContextQuery(query="alpha"), target_uri=CORPUS)
 
     assert patched_sdk.find.await_args.kwargs["options"] is None
 
@@ -293,7 +334,9 @@ async def test_query_omits_unset_options(settings, patched_sdk):
 async def test_query_omits_read_content_when_false(settings, patched_sdk):
     """``read_content=False`` is the default, so it is not sent at all."""
     manager = OpenVikingManager(settings, "user-key")
-    await manager.query(ContextQuery(query="alpha", read_content=False))
+    await manager.query(
+        ContextQuery(query="alpha", read_content=False), target_uri=CORPUS
+    )
 
     assert patched_sdk.find.await_args.kwargs["options"] is None
 
@@ -313,7 +356,9 @@ async def test_query_maps_match_reason_and_content(settings, patched_sdk):
         "total": 1,
     }
     manager = OpenVikingManager(settings, "user-key")
-    out = await manager.query(ContextQuery(query="alpha", read_content=True))
+    out = await manager.query(
+        ContextQuery(query="alpha", read_content=True), target_uri=CORPUS
+    )
 
     assert out.results[0].match_reason == "matched on title"
     assert out.results[0].content == "the whole document"
@@ -331,7 +376,7 @@ async def test_query_reports_backend_total_over_row_count(settings, patched_sdk)
         "total": 97,
     }
     manager = OpenVikingManager(settings, "user-key")
-    out = await manager.query(ContextQuery(query="alpha", limit=1))
+    out = await manager.query(ContextQuery(query="alpha", limit=1), target_uri=CORPUS)
 
     assert out.total == 97
     assert len(out.results) == 1
@@ -347,7 +392,7 @@ async def test_query_falls_back_to_row_count_without_a_total(settings, patched_s
         ]
     }
     manager = OpenVikingManager(settings, "user-key")
-    out = await manager.query(ContextQuery(query="alpha"))
+    out = await manager.query(ContextQuery(query="alpha"), target_uri=CORPUS)
 
     assert out.total == 2
 
@@ -356,7 +401,7 @@ async def test_query_tolerates_missing_fields_in_a_hit(settings, patched_sdk):
     """A hit missing uri/score/abstract maps to empty values, not a 500."""
     patched_sdk.find.return_value = {"resources": [{}]}
     manager = OpenVikingManager(settings, "user-key")
-    out = await manager.query(ContextQuery(query="alpha"))
+    out = await manager.query(ContextQuery(query="alpha"), target_uri=CORPUS)
 
     r = out.results[0]
     assert (r.uri, r.context_type, r.score, r.text) == ("", "", 0.0, "")
@@ -368,7 +413,7 @@ async def test_query_closes_the_client_when_find_raises(settings, patched_sdk):
     manager = OpenVikingManager(settings, "user-key")
 
     with pytest.raises(UnavailableError):
-        await manager.query(ContextQuery(query="alpha"))
+        await manager.query(ContextQuery(query="alpha"), target_uri=CORPUS)
 
     patched_sdk.close.assert_awaited_once()
 
@@ -377,7 +422,7 @@ async def test_query_handles_empty_resources(settings, patched_sdk):
     patched_sdk.find.return_value = {"resources": []}
     manager = OpenVikingManager(settings, "user-key")
 
-    out = await manager.query(ContextQuery(query="nothing"))
+    out = await manager.query(ContextQuery(query="nothing"), target_uri=CORPUS)
 
     assert out.results == []
     assert out.query == "nothing"
@@ -388,7 +433,7 @@ async def test_query_handles_missing_resources_key(settings, patched_sdk):
     patched_sdk.find.return_value = {}
     manager = OpenVikingManager(settings, "user-key")
 
-    out = await manager.query(ContextQuery(query="nothing"))
+    out = await manager.query(ContextQuery(query="nothing"), target_uri=CORPUS)
 
     assert out.results == []
 
@@ -398,7 +443,9 @@ async def test_query_uses_the_credentialed_api_key(settings, sdk_client):
     with patch(
         "app.clients.openviking.AsyncHTTPClient", return_value=sdk_client
     ) as sdk_cls:
-        await OpenVikingManager(settings, "per-user-key").query(ContextQuery(query="q"))
+        await OpenVikingManager(settings, "per-user-key").query(
+            ContextQuery(query="q"), target_uri=CORPUS
+        )
 
     assert sdk_cls.call_args.kwargs["api_key"] == "per-user-key"
 
@@ -410,7 +457,7 @@ async def test_query_closes_the_client(settings, patched_sdk):
     leaves it un-awaited and the connection open.
     """
     manager = OpenVikingManager(settings, "user-key")
-    await manager.query(ContextQuery(query="alpha"))
+    await manager.query(ContextQuery(query="alpha"), target_uri=CORPUS)
 
     patched_sdk.close.assert_awaited_once()
 
@@ -430,12 +477,36 @@ async def test_list_files_lists_the_given_uri(settings, patched_sdk):
     assert out == ["alpha.md", "beta.md"]
 
 
-async def test_list_files_returns_empty_for_an_unknown_path(settings, patched_sdk):
-    """An un-ingested project is empty, not an error."""
+async def test_list_files_returns_empty_for_no_payload(settings, patched_sdk):
     patched_sdk.ls.return_value = None
     manager = OpenVikingManager(settings, "user-key")
 
+    assert await manager.list_files("viking://x") == []
+
+
+async def test_list_files_returns_empty_for_an_unknown_path(settings, patched_sdk):
+    """An un-ingested project is empty, not an error.
+
+    The backend raises not-found for a path it does not know (verified against
+    server 0.4.22) — it never answers with an empty payload — so that is what
+    this must absorb.
+    """
+    patched_sdk.ls.side_effect = SdkNotFoundError("viking://x/never-ingested")
+    manager = OpenVikingManager(settings, "user-key")
+
     assert await manager.list_files("viking://x/never-ingested") == []
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_list_files_skips_an_unknown_path_in_a_fan_out(settings, patched_sdk):
+    """One owner's copy vanishing between the glob and the read must not fail
+    the others."""
+    patched_sdk.ls.side_effect = [["a.md"], SdkNotFoundError("gone"), ["c.md"]]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.list_files(["viking://x/1", "viking://x/2", "viking://x/3"])
+
+    assert out == ["a.md", "c.md"]
 
 
 async def test_list_files_closes_the_client(settings, patched_sdk):
@@ -456,6 +527,131 @@ async def test_list_files_closes_the_client_when_ls_raises(settings, patched_sdk
     patched_sdk.close.assert_awaited_once()
 
 
+async def test_list_files_fans_out_over_several_uris(settings, patched_sdk):
+    """The backend lists one location at a time, so several are listed in
+    turn and concatenated, in order, over one client."""
+    patched_sdk.ls.side_effect = [["a.md"], ["b.md", "c.md"]]
+    manager = OpenVikingManager(settings, "user-key")
+    out = await manager.list_files(["viking://x/one", "viking://x/two"], simple=True)
+
+    assert out == ["a.md", "b.md", "c.md"]
+    assert [c.args[0] for c in patched_sdk.ls.await_args_list] == [
+        "viking://x/one", "viking://x/two"
+    ]
+    assert all(c.kwargs["simple"] is True for c in patched_sdk.ls.await_args_list)
+    patched_sdk.initialize.assert_awaited_once()
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_list_files_shares_one_node_budget_across_a_fan_out(
+    settings, patched_sdk
+):
+    """``node_limit`` bounds the whole request, not each URI: each call is
+    asked for what remains, and once it is spent the rest are not listed."""
+    patched_sdk.ls.side_effect = [["a", "b", "c"], ["d", "e"], ["never"]]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.list_files(
+        ["viking://x/1", "viking://x/2", "viking://x/3"], node_limit=5
+    )
+
+    assert out == ["a", "b", "c", "d", "e"]
+    assert [c.kwargs["node_limit"] for c in patched_sdk.ls.await_args_list] == [5, 2]
+
+
+async def test_list_files_trims_a_backend_that_overshoots(settings, patched_sdk):
+    patched_sdk.ls.side_effect = [["a", "b", "c"], ["d", "e", "f"]]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.list_files(["viking://x/1", "viking://x/2"], node_limit=4)
+
+    assert out == ["a", "b", "c", "d"]
+
+
+async def test_list_files_fan_out_defaults_to_the_backends_single_call_budget(
+    settings, patched_sdk
+):
+    """Omitted, the budget is what one backend call would allow — so a fan-out
+    returns no more than a single-location listing would."""
+    patched_sdk.ls.side_effect = [["a"], ["b"]]
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.list_files(["viking://x/1", "viking://x/2"])
+
+    assert [c.kwargs["node_limit"] for c in patched_sdk.ls.await_args_list] == [
+        DEFAULT_LS_NODE_LIMIT, DEFAULT_LS_NODE_LIMIT - 1
+    ]
+
+
+async def test_list_files_with_no_uris_never_reaches_the_backend(
+    settings, patched_sdk
+):
+    """Listing nothing is not listing nowhere: an empty target must not fall
+    back to the backend's own default scope."""
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert await manager.list_files([]) == []
+    patched_sdk.ls.assert_not_awaited()
+    patched_sdk.initialize.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# OpenVikingManager.glob
+# ---------------------------------------------------------------------------
+
+
+async def test_glob_returns_the_matched_uris(settings, patched_sdk):
+    """Directory matches arrive with a trailing slash (as the live backend
+    returns them); they are normalized to the form ``listing_uri`` produces."""
+    patched_sdk.glob.return_value = {
+        "matches": ["viking://resources/users/a/alpha/", "viking://resources/users/b/alpha/"],
+        "count": 2,
+    }
+    manager = OpenVikingManager(settings, "user-key")
+    out = await manager.glob("*/alpha", "viking://resources/users", node_limit=50)
+
+    assert out == ["viking://resources/users/a/alpha", "viking://resources/users/b/alpha"]
+    patched_sdk.glob.assert_awaited_once_with(
+        "*/alpha", uri="viking://resources/users", node_limit=50
+    )
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_glob_omits_an_unset_node_limit(settings, patched_sdk):
+    manager = OpenVikingManager(settings, "user-key")
+    await manager.glob("*/alpha", "viking://resources/users")
+
+    assert "node_limit" not in patched_sdk.glob.await_args.kwargs
+
+
+@pytest.mark.parametrize("payload", [None, {}, {"matches": [], "count": 0}])
+async def test_glob_with_no_matches_is_empty(settings, patched_sdk, payload):
+    patched_sdk.glob.return_value = payload
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert await manager.glob("*/alpha", "viking://resources/users") == []
+
+
+async def test_glob_on_an_unknown_root_is_empty(settings, patched_sdk):
+    """The backend raises not-found for a root nobody has written under yet —
+    an empty corpus, which is a legitimate state rather than an error."""
+    patched_sdk.glob.side_effect = SdkNotFoundError("viking://resources/users")
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert await manager.glob("*/alpha", "viking://resources/users") == []
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_glob_closes_the_client_when_glob_raises(settings, patched_sdk):
+    patched_sdk.glob.side_effect = UnavailableError("backend down")
+    manager = OpenVikingManager(settings, "user-key")
+
+    with pytest.raises(UnavailableError):
+        await manager.glob("*/alpha", "viking://resources/users")
+
+    patched_sdk.close.assert_awaited_once()
+
+
 # ---------------------------------------------------------------------------
 # OpenVikingManager.grep
 # ---------------------------------------------------------------------------
@@ -470,7 +666,7 @@ async def test_grep_passes_uri_and_pattern(settings, patched_sdk):
         "metal binding",
         case_insensitive=False,
     )
-    assert out == {"matches": [], "total": 0}
+    assert out == EMPTY_GREP
 
 
 async def test_grep_forwards_options(settings, patched_sdk):
@@ -509,6 +705,36 @@ async def test_grep_returns_empty_dict_for_no_payload(settings, patched_sdk):
     assert await manager.grep("viking://x", "pat") == {}
 
 
+async def test_grep_returns_empty_for_an_unknown_path(settings, patched_sdk):
+    """The backend raises not-found for a path it does not know; that matches
+    nothing, in the backend's own empty shape."""
+    patched_sdk.grep.side_effect = SdkNotFoundError("viking://x/never-ingested")
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert await manager.grep("viking://x/never-ingested", "pat") == EMPTY_GREP
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_grep_skips_an_unknown_path_in_a_fan_out(settings, patched_sdk):
+    patched_sdk.grep.side_effect = [
+        {"matches": [{"uri": "viking://x/1/a.md"}],
+         "count": 1, "match_count": 1, "files_scanned": 2},
+        SdkNotFoundError("gone"),
+        {"matches": [{"uri": "viking://x/3/c.md"}],
+         "count": 1, "match_count": 1, "files_scanned": 5},
+    ]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.grep(["viking://x/1", "viking://x/2", "viking://x/3"], "pat")
+
+    assert out == {
+        "matches": [{"uri": "viking://x/1/a.md"}, {"uri": "viking://x/3/c.md"}],
+        "count": 2,
+        "match_count": 2,
+        "files_scanned": 7,
+    }
+
+
 async def test_grep_closes_the_client(settings, patched_sdk):
     manager = OpenVikingManager(settings, "user-key")
     await manager.grep("viking://x", "pat")
@@ -524,6 +750,112 @@ async def test_grep_closes_the_client_when_grep_raises(settings, patched_sdk):
         await manager.grep("viking://x", "pat")
 
     patched_sdk.close.assert_awaited_once()
+
+
+async def test_grep_fans_out_over_several_uris_and_merges(settings, patched_sdk):
+    """Several URIs are searched in turn and merged into the backend's own
+    payload shape — counts recounted, files scanned summed — with the
+    exclusion applied to each."""
+    patched_sdk.grep.side_effect = [
+        {"matches": [{"uri": "viking://x/one/a.md"}],
+         "count": 1, "match_count": 1, "files_scanned": 4},
+        {"matches": [{"uri": "viking://x/two/b.md"}, {"uri": "viking://x/two/c.md"}],
+         "count": 2, "match_count": 2, "files_scanned": 6},
+    ]
+    manager = OpenVikingManager(settings, "user-key")
+    out = await manager.grep(
+        ["viking://x/one", "viking://x/two"], "pat", exclude_uri="viking://x/skip"
+    )
+
+    assert out == {
+        "matches": [
+            {"uri": "viking://x/one/a.md"},
+            {"uri": "viking://x/two/b.md"},
+            {"uri": "viking://x/two/c.md"},
+        ],
+        "count": 3,
+        "match_count": 3,
+        "files_scanned": 10,
+    }
+    assert [c.args[0] for c in patched_sdk.grep.await_args_list] == [
+        "viking://x/one", "viking://x/two"
+    ]
+    assert all(
+        c.kwargs["exclude_uri"] == "viking://x/skip"
+        for c in patched_sdk.grep.await_args_list
+    )
+    patched_sdk.close.assert_awaited_once()
+
+
+def _hits(prefix: str, n: int, scanned: int) -> dict:
+    return {
+        "matches": [{"uri": f"{prefix}/{i}.md"} for i in range(n)],
+        "count": n,
+        "match_count": n,
+        "files_scanned": scanned,
+    }
+
+
+async def test_grep_shares_one_match_budget_across_a_fan_out(settings, patched_sdk):
+    patched_sdk.grep.side_effect = [
+        _hits("viking://x/1", 3, 10),
+        _hits("viking://x/2", 2, 4),
+        _hits("viking://x/3", 9, 9),
+    ]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.grep(
+        ["viking://x/1", "viking://x/2", "viking://x/3"], "pat", node_limit=5
+    )
+
+    assert out["count"] == out["match_count"] == len(out["matches"]) == 5
+    assert out["files_scanned"] == 14
+    assert [c.kwargs["node_limit"] for c in patched_sdk.grep.await_args_list] == [5, 2]
+
+
+async def test_grep_fan_out_defaults_to_the_backends_single_call_budget(
+    settings, patched_sdk
+):
+    patched_sdk.grep.side_effect = [_hits("viking://x/1", 1, 1), _hits("viking://x/2", 0, 1)]
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.grep(["viking://x/1", "viking://x/2"], "pat")
+
+    assert [c.kwargs["node_limit"] for c in patched_sdk.grep.await_args_list] == [
+        DEFAULT_GREP_NODE_LIMIT, DEFAULT_GREP_NODE_LIMIT - 1
+    ]
+
+
+async def test_grep_trims_a_backend_that_overshoots(settings, patched_sdk):
+    patched_sdk.grep.side_effect = [_hits("viking://x/1", 3, 3), _hits("viking://x/2", 3, 3)]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.grep(["viking://x/1", "viking://x/2"], "pat", node_limit=4)
+
+    assert out["count"] == len(out["matches"]) == 4
+
+
+async def test_grep_with_one_uri_in_a_list_returns_the_backend_payload(
+    settings, patched_sdk
+):
+    """A single-element list is the single-URI case: the payload comes back
+    untouched rather than re-shaped."""
+    patched_sdk.grep.return_value = {**EMPTY_GREP, "extra": "kept"}
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.grep(["viking://x"], "pat")
+
+    assert out == {**EMPTY_GREP, "extra": "kept"}
+
+
+async def test_grep_with_no_uris_never_reaches_the_backend(settings, patched_sdk):
+    """The answer has the backend's own empty shape, so a consumer cannot tell
+    whether the backend was asked — and it was not."""
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert await manager.grep([], "pat") == EMPTY_GREP
+    patched_sdk.grep.assert_not_awaited()
+    patched_sdk.initialize.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
@@ -1142,12 +1474,41 @@ async def test_task_statuses_maps_backend_states(
     assert out["t1"][0] == expected
 
 
-async def test_task_statuses_reports_expired_task_as_unknown(settings, patched_sdk):
-    """An expired record is not proof of failure — say we don't know."""
+async def test_task_statuses_reports_expired_task_as_expired(settings, patched_sdk):
+    """A record the backend no longer has is *gone*, not merely unreachable.
+
+    Not proof of failure — but terminal, because asking again can never learn
+    more. Reporting it as ``unknown`` left the row stuck non-terminal forever.
+    """
     patched_sdk.get_task = AsyncMock(return_value=None)
     manager = OpenVikingManager(settings, "user-key")
 
-    assert (await manager.task_statuses(["t1"]))["t1"] == ("unknown", None)
+    assert (await manager.task_statuses(["t1"]))["t1"] == ("expired", None)
+
+
+async def test_task_statuses_distinguishes_gone_from_unreachable(
+    settings, patched_sdk
+):
+    """The split, in one call: None is expired, an exception is unknown.
+
+    They call for opposite reactions downstream — stop polling vs. keep the
+    last recording — so they must never collapse onto one value.
+    """
+    async def per_task(task_id):
+        if task_id == "gone":
+            return None
+        if task_id == "down":
+            raise httpx.ConnectError("down")
+        return {"status": "completed"}
+
+    patched_sdk.get_task = AsyncMock(side_effect=per_task)
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.task_statuses(["gone", "down", "fine"])
+
+    assert out["gone"] == ("expired", None)
+    assert out["down"] == ("unknown", None)
+    assert out["fine"][0] == "completed"
 
 
 async def test_task_statuses_returns_error_detail(settings, patched_sdk):
@@ -1250,6 +1611,6 @@ async def test_add_resource_does_not_retry_other_errors(settings, patched_sdk):
 def test_context_query_defaults():
     q = ContextQuery(query="hello")
 
-    assert q.root_path is None
+    assert (q.project, q.owner, q.all_owners, q.path) == (None, None, False, None)
     assert q.limit == 10
     assert q.score_threshold is None

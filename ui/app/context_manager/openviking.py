@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 import httpx
+from openviking_sdk.errors import NotFoundError as SdkNotFoundError
 from openviking_sdk.errors import OpenVikingError as SdkOpenVikingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +21,10 @@ from app.db.crud import get_ov_credential, upsert_ov_credential
 from app.db.models import BerilUser
 
 from .base import (
+    DEFAULT_GREP_NODE_LIMIT,
+    DEFAULT_LS_NODE_LIMIT,
     INGEST_COMPLETED,
+    INGEST_EXPIRED,
     INGEST_FAILED,
     INGEST_PROCESSING,
     INGEST_QUEUED,
@@ -73,6 +77,11 @@ _OV_STATUS_MAP = {
 }
 
 USERS_TARGET_URI = "viking://resources/users/"
+
+# The backend's own shape for a grep that matched nothing (verified against
+# server 0.4.22). Returned, rather than invented, when there is nowhere to
+# search, so a consumer sees one shape whether or not the backend was asked.
+_EMPTY_GREP: dict = {"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
 
 # The house account: central docs (pitfalls, discoveries, performance,
 # research_ideas) have no owner, so they live under a reserved name in the same
@@ -188,6 +197,36 @@ def target_uri(target_root: str, relative_path: str) -> str:
     return f"{target_root.rstrip('/')}/{'/'.join(segments)}"
 
 
+class _Budget:
+    """One node budget spent across a fan-out of backend calls.
+
+    A single-location read is passed through untouched — ``node_limit`` as the
+    caller gave it, omitted when they omitted it — so the backend's own
+    default applies exactly as before. Across several locations the limit is
+    shared: each call is asked for what remains, and ``take`` trims a result
+    to it in case the backend returns more than asked.
+    """
+
+    def __init__(self, node_limit: int | None, default: int, *, single: bool):
+        self.single = single
+        self._given = node_limit
+        self.remaining = node_limit if node_limit is not None else default
+
+    @property
+    def spent(self) -> bool:
+        return not self.single and self.remaining <= 0
+
+    def for_call(self) -> int | None:
+        return self._given if self.single else self.remaining
+
+    def take(self, items: list) -> list:
+        if self.single:
+            return items
+        kept = items[: self.remaining]
+        self.remaining -= len(kept)
+        return kept
+
+
 class UnauthenticatedError(RuntimeError):
     """Raised when a context-manager call is made without an identified user."""
 
@@ -233,9 +272,20 @@ class OpenVikingManager(ContextManager):
     async def task_statuses(self, task_ids: list[str]) -> dict[str, tuple[str, str | None]]:
         """Look up the current status of each task id.
 
-        Returns ``{task_id: (status, error)}`` in BERIL's vocabulary. A task the
-        backend no longer knows maps to ``unknown`` rather than a guess — its
-        record may simply have aged out.
+        Returns ``{task_id: (status, error)}`` in BERIL's vocabulary. Two
+        non-answers are kept distinct because they call for opposite
+        reactions:
+
+        * the backend **could not be asked** (transport or SDK error) →
+          ``unknown``. Transient; the caller keeps its last recording and a
+          later poll may resolve it.
+        * the backend **no longer has the task** (``get_task`` → ``None``, the
+          record aged out) → ``expired``. Permanent; re-polling can never
+          learn more, so it is terminal and the caller stops asking.
+
+        Conflating them left rows stuck non-terminal forever: an expired task
+        reported ``unknown``, the status route discarded ``unknown``, and the
+        row was re-polled on every call with no way to ever advance.
 
         Never raises: a backend that is unreachable mid-poll yields ``unknown``
         for every id, so the caller falls back to what it already recorded
@@ -260,7 +310,9 @@ class OpenVikingManager(ContextManager):
                 statuses[task_id] = (INGEST_UNKNOWN, None)
                 continue
             if not task:
-                statuses[task_id] = (INGEST_UNKNOWN, None)
+                # Gone, not unreachable: the backend answered and has no such
+                # task. Nothing further can be learned by asking again.
+                statuses[task_id] = (INGEST_EXPIRED, None)
                 continue
             raw = str(task.get("status") or "").lower()
             statuses[task_id] = (
@@ -327,74 +379,177 @@ class OpenVikingManager(ContextManager):
             task_id=(submitted or {}).get("task_id"),
         )
 
+    async def glob(
+        self, pattern: str, uri: str, *, node_limit: int | None = None
+    ) -> list[str]:
+        """URIs beneath ``uri`` matching ``pattern``, as a plain list.
+
+        ``uri`` is resolved by the caller (see ``listing_uri``); this method
+        does not scope it. A ``uri`` the backend does not know yields no
+        matches rather than an error — an empty corpus is a legitimate state.
+
+        A directory match comes back with a trailing slash; it is stripped so
+        an expanded URI has the same form ``listing_uri`` produces. The
+        backend reads either form identically — this is for consistency of
+        what the routes hand on, not correctness.
+        """
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        try:
+            results = await ov_client.glob(pattern, uri, node_limit=node_limit)
+        except SdkNotFoundError:
+            return []
+        finally:
+            await ov_client.close()
+        return [
+            m.rstrip("/")
+            for m in (results or {}).get("matches") or []
+            if isinstance(m, str) and m.rstrip("/")
+        ]
+
     async def list_files(
         self,
-        uri: str,
+        uri: str | list[str],
         *,
         recursive: bool = False,
         simple: bool = False,
         node_limit: int | None = None,
     ) -> list:
-        """List the resources at ``uri``.
+        """List the resources at ``uri``, or at each of several in turn.
 
         ``uri`` is resolved by the caller (see ``listing_uri``) — this method
         does not scope it, so it must never be handed unvalidated caller input.
+        Several URIs are listed one after another and concatenated; the backend
+        lists one location at a time, so the fan-out lives here. ``node_limit``
+        is one budget for the whole request, not per URI — each call gets what
+        is left, and the fan-out stops once it is spent; omitted, the budget is
+        the backend's own single-call default. An empty list
+        is an empty listing and never reaches the backend — asking it to list
+        nothing is not the same as asking it to list nowhere.
 
         A listing of a path the backend does not know is an empty list, not an
         error: an un-ingested project is a legitimate state, not a failure.
         """
+        uris = [uri] if isinstance(uri, str) else list(uri)
+        if not uris:
+            return []
+        budget = _Budget(node_limit, DEFAULT_LS_NODE_LIMIT, single=len(uris) == 1)
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        listed: list = []
         try:
-            results = await ov_client.list_files(
-                uri, recursive=recursive, simple=simple, node_limit=node_limit
-            )
+            for one in uris:
+                if budget.spent:
+                    break
+                try:
+                    results = await ov_client.list_files(
+                        one,
+                        recursive=recursive,
+                        simple=simple,
+                        node_limit=budget.for_call(),
+                    )
+                except SdkNotFoundError:
+                    # The backend raises for a path it does not know. Per URI,
+                    # so one owner's copy vanishing between the glob and this
+                    # read does not fail the others.
+                    continue
+                listed.extend(budget.take(list(results or [])))
         finally:
             # Closed even when the listing raises, so a failure does not leak
             # the connection.
             await ov_client.close()
-        return list(results or [])
+        return listed
 
     async def grep(
         self,
-        uri: str,
+        uri: str | list[str],
         pattern: str,
         *,
         case_insensitive: bool = False,
         exclude_uri: str | None = None,
         node_limit: int | None = None,
     ) -> dict:
-        """Exact-pattern search beneath ``uri``.
+        """Exact-pattern search beneath ``uri``, or beneath each of several.
 
         Both URIs are resolved by the caller (see ``listing_uri``); this method
         does not scope them, so it must never be handed unvalidated input.
+        Several URIs are searched one after another and merged into one
+        payload of the backend's own shape: ``matches`` concatenated,
+        ``count``/``match_count`` recounted (the backend reports both, always
+        equal to the number of matches), ``files_scanned`` summed.
+        ``node_limit`` is one budget of matches for the whole request, spent
+        across the URIs as ``list_files`` spends its own. It bounds what comes
+        back, not what the backend reads: grep scans every candidate file under
+        a target whatever the limit, so the scan cost of a fan-out grows with
+        the number of URIs. An empty
+        list is an empty result and never reaches the backend, and a path the
+        backend does not know matches nothing rather than failing.
 
         Returns the backend's own payload shape. Unlike ``query``, there is no
         mapping layer: grep results are structural (matching nodes and their
         lines), and inventing a BERIL-side schema for them would be guesswork
         until a consumer needs one.
         """
+        uris = [uri] if isinstance(uri, str) else list(uri)
+        if not uris:
+            return _EMPTY_GREP.copy()
+        budget = _Budget(node_limit, DEFAULT_GREP_NODE_LIMIT, single=len(uris) == 1)
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         try:
-            results = await ov_client.grep(
-                uri,
-                pattern,
-                case_insensitive=case_insensitive,
-                exclude_uri=exclude_uri,
-                node_limit=node_limit,
-            )
+            payloads = []
+            for one in uris:
+                if budget.spent:
+                    break
+                try:
+                    payload = await ov_client.grep(
+                        one,
+                        pattern,
+                        case_insensitive=case_insensitive,
+                        exclude_uri=exclude_uri,
+                        node_limit=budget.for_call(),
+                    )
+                except SdkNotFoundError:
+                    # Same as list_files: an unknown path matches nothing.
+                    payload = _EMPTY_GREP.copy()
+                payload = payload or {}
+                if not budget.single:
+                    payload = {
+                        **payload,
+                        "matches": budget.take(list(payload.get("matches") or [])),
+                    }
+                payloads.append(payload)
         finally:
             await ov_client.close()
-        return results or {}
+        if len(payloads) == 1:
+            return payloads[0]
+        matches = [m for p in payloads for m in p.get("matches") or []]
+        return {
+            "matches": matches,
+            "count": len(matches),
+            "match_count": len(matches),
+            "files_scanned": sum(int(p.get("files_scanned") or 0) for p in payloads),
+        }
 
-    async def query(self, query: ContextQuery) -> ContextQueryResults:
+    async def query(
+        self, query: ContextQuery, *, target_uri: str | list[str]
+    ) -> ContextQueryResults:
+        """Search below ``target_uri``.
+
+        The target is resolved by the caller (see ``listing_uri``) — the query
+        carries addressing fields, but this method never derives a backend
+        location from them. Several URIs are searched as one scope: the backend
+        ranks across them, which a fan-out here could not reproduce. An empty
+        list is an empty result and never reaches the backend — a missing
+        target would fall back to the backend's own default scope, which is
+        wider than the corpus.
+        """
+        if not isinstance(target_uri, str) and not target_uri:
+            return ContextQueryResults(query=query.query, results=[], total=0)
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         try:
             results = await ov_client.find(
                 query.query,
-                target_uri=query.root_path,
+                target_uri=target_uri,
                 limit=query.limit,
                 score_threshold=query.score_threshold,
-                filter=query.filter,
                 since=query.since,
                 until=query.until,
                 time_field=query.time_field,

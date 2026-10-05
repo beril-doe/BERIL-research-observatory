@@ -196,10 +196,15 @@ def poll_batch(
                 )
                 _guard(resp, "check ingest status")
                 last = _json(resp)
-            except BerilIngestError:
+            except (BerilIngestError, httpx.HTTPError):
                 # Keep the last good reading and try again; only a timeout ends
-                # the loop. A 404 would be permanent, but the batch id came
-                # from a 200 submission, so treating it as transient is safe.
+                # the loop. A blip takes two shapes and both are transient
+                # here: a non-2xx or bad body (BerilIngestError, via _guard/
+                # _json), or the transport dropping before any response
+                # (httpx.ConnectError, ReadTimeout — all httpx.HTTPError). The
+                # batch is queued server-side either way. A 404 would be
+                # permanent, but the batch id came from a 200 submission, so
+                # treating it as transient is safe.
                 last = last or {}
             else:
                 status = str(last.get("status") or UNKNOWN)
