@@ -84,6 +84,11 @@ USERS_TARGET_URI = "viking://resources/users/"
 # The backend's own shape for a grep that matched nothing (verified against
 # server 0.4.22). Returned, rather than invented, when there is nowhere to
 # search, so a consumer sees one shape whether or not the backend was asked.
+# The most fragments a by-protocol semantic search asks the backend for.
+# Bounded so a broad query cannot walk the corpus; the backend's find has no
+# offset, so this is also the furthest a search can see.
+FIND_CANDIDATE_WINDOW = 100
+
 _EMPTY_GREP: dict = {"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
 
 # The house account: central docs (pitfalls, discoveries, performance,
@@ -715,7 +720,8 @@ class OpenVikingManager(ContextManager):
         """
         documents, scanned = await self._find_documents(
             query, slug="pitfalls", memory_pattern=memory_pattern,
-            limit=limit, exact=exact,
+            # Over-fetch: fragments collapse, so N nodes yield fewer documents.
+            fetch=min(limit * 5, FIND_CANDIDATE_WINDOW), exact=exact,
         )
         return documents[:limit], scanned, len(documents)
 
@@ -734,10 +740,19 @@ class OpenVikingManager(ContextManager):
         take a page slot and leave the current copy off it. Precedence lives
         above this because it needs BERIL's own record of which projects have
         a memory — a database fact the backend does not model.
+
+        Always fetches the full candidate window, whatever ``limit`` is.
+        Suppression happens after retrieval, so a window sized to the page
+        (``limit * 5``) could be filled entirely by fragments of one stale
+        central entry and miss the current copy ranked just below it. The
+        backend's ``find`` has no offset, so retrieval cannot page on until
+        enough documents survive; the guarantee is "precedence before the
+        limit, within the window", and the window is as wide as allowed.
+        ``limit`` is accepted for symmetry and applied by the route.
         """
         return await self._find_documents(
             query, slug="discoveries", memory_pattern=memory_pattern,
-            limit=limit, exact=exact,
+            fetch=FIND_CANDIDATE_WINDOW, exact=exact,
         )
 
     async def _find_documents(
@@ -746,7 +761,7 @@ class OpenVikingManager(ContextManager):
         *,
         slug: str,
         memory_pattern: str,
-        limit: int,
+        fetch: int,
         exact: bool = False,
     ) -> tuple[list[dict], int]:
         """Search, or list, one by-protocol corpus: ``slug`` is ``pitfalls``
@@ -754,7 +769,8 @@ class OpenVikingManager(ContextManager):
 
         Returns ``(documents, fragments_scanned)`` with every document that
         qualified (up to ``MAX_MEMORY_DOCUMENTS``); callers apply the limit.
-        ``limit`` here only sizes the backend over-fetch.
+        ``fetch`` is how many fragments a semantic search asks the backend
+        for — the candidate window everything downstream works within.
 
         The scope is the corpus documents themselves, never the corpus at
         large: the central archive (``beril/docs/<slug>``) plus each project's
@@ -826,11 +842,7 @@ class OpenVikingManager(ContextManager):
         else:
             ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
             try:
-                # Over-fetch: fragments collapse, so N nodes yield fewer
-                # documents. Bounded so a broad query cannot walk the corpus.
-                raw = await ov_client.find(
-                    query, target_uri=targets, limit=min(limit * 5, 100)
-                )
+                raw = await ov_client.find(query, target_uri=targets, limit=fetch)
             finally:
                 await ov_client.close()
             nodes = [

@@ -2168,3 +2168,28 @@ async def test_find_discoveries_is_not_trimmed_to_the_limit(settings, patched_sd
     )
 
     assert len(docs) == 2
+
+
+async def test_find_discoveries_fetches_the_full_window_whatever_the_limit(
+    settings, patched_sdk
+):
+    """Regression (Codex, #442): suppression runs after retrieval, so at
+    ``limit=1`` a page-sized window (5 fragments) could be filled by one stale
+    central entry while the current copy ranked sixth was never fetched."""
+    patched_sdk.glob.return_value = {"matches": [f"{_DISC_ALPHA}/"], "count": 1}
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.find_discoveries(
+        "x", memory_pattern="*/*/memories/discoveries.md", limit=1
+    )
+
+    assert patched_sdk.find.await_args.kwargs["limit"] == 100
+
+
+async def test_find_pitfalls_window_still_scales_with_the_limit(settings, pitfall_sdk):
+    """Pitfalls suppress nothing, so their window stays sized to the page."""
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.find_pitfalls("x", memory_pattern="*/*/memories/pitfalls.md", limit=2)
+
+    assert pitfall_sdk.find.await_args.kwargs["limit"] == 10
