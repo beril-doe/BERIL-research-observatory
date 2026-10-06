@@ -1,7 +1,15 @@
+import json
 from pathlib import Path
 
-from observatory_context.config import ContextConfig
+import pytest
+
+from observatory_context.config import (
+    DOCS_TARGET_URI,
+    LEGACY_DOCS_TARGET_URI,
+    ContextConfig,
+)
 from observatory_context.ingest import (
+    MANIFEST_FILENAME,
     ingest_all,
     ingest_changed,
     ingest_docs,
@@ -49,7 +57,7 @@ def test_ingest_all_adds_project_and_docs(tmp_path: Path) -> None:
 
     targets = [target for _, target in client.added]
     assert "viking://resources/projects/demo/" in targets
-    assert "viking://resources/docs/pitfalls/" in targets
+    assert f"{DOCS_TARGET_URI}pitfalls/" in targets
     assert client.wait_count == 1
 
 
@@ -120,7 +128,7 @@ def test_ingest_project_keeps_other_pending_changes_visible_to_changed(tmp_path:
     targets = [target for _, target in followup.added]
 
     assert "viking://resources/projects/beta/" in targets
-    assert "viking://resources/docs/pitfalls/" in targets
+    assert f"{DOCS_TARGET_URI}pitfalls/" in targets
     # alpha was just ingested; its manifest entry is current, so it is not re-done.
     assert "viking://resources/projects/alpha/" not in targets
 
@@ -153,7 +161,7 @@ def test_ingest_all_with_limit_ingests_first_n_projects_and_skips_docs(tmp_path:
     assert "viking://resources/projects/alpha/" in targets
     assert "viking://resources/projects/beta/" in targets
     assert "viking://resources/projects/gamma/" not in targets
-    assert "viking://resources/docs/pitfalls/" not in targets
+    assert f"{DOCS_TARGET_URI}pitfalls/" not in targets
 
 
 def test_ingest_all_with_limit_writes_partial_manifest_so_changed_picks_up_remainder(
@@ -210,3 +218,146 @@ def test_ingest_changed_with_limit_caps_project_targets(tmp_path: Path) -> None:
     ]
 
 
+
+
+# --- retiring the pre-house-account docs root -------------------------------
+
+
+class OrderedClient(FakeClient):
+    """Records every call in order, to check cleanup comes after processing."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.events: list[str] = []
+
+    def add_resource(self, path: str, to: str, reason: str, wait: bool = False):
+        self.events.append(f"add {to}")
+        return super().add_resource(path, to, reason, wait)
+
+    def wait_processed(self):
+        self.events.append("wait")
+        super().wait_processed()
+
+    def rm(self, uri: str, recursive: bool = False):
+        self.events.append(f"rm {uri}")
+        super().rm(uri, recursive)
+
+
+def _seed_manifest(config: ContextConfig, entries: dict) -> None:
+    path = config.state_dir / MANIFEST_FILENAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(entries), encoding="utf-8")
+
+
+def test_ingest_docs_retires_the_legacy_root_after_processing(tmp_path: Path) -> None:
+    """The cutover is "run --docs once": the old root is deleted, recursively,
+    and only once the new copies are written and processed — the docs are
+    never missing from both roots."""
+    write(tmp_path / "docs" / "pitfalls.md", "# Pitfalls\n")
+    client = OrderedClient()
+
+    ingest_docs(make_config(tmp_path), client)
+
+    assert (LEGACY_DOCS_TARGET_URI, True) in client.removed
+    legacy = client.events.index(f"rm {LEGACY_DOCS_TARGET_URI}")
+    assert client.events.index(f"add {DOCS_TARGET_URI}pitfalls/") < legacy
+    assert client.events.index("wait") < legacy
+
+
+def test_ingest_docs_reconciles_legacy_manifest_entries_away(tmp_path: Path) -> None:
+    """Old-root entries the manifest recorded are removed and dropped from the
+    manifest; project entries are left untouched."""
+    write(tmp_path / "docs" / "pitfalls.md", "# Pitfalls\n")
+    config = make_config(tmp_path)
+    project_uri = "viking://resources/projects/demo/"
+    legacy_uri = f"{LEGACY_DOCS_TARGET_URI}pitfalls/"
+    _seed_manifest(config, {legacy_uri: {"x": "1"}, project_uri: {"x": "2"}})
+    client = FakeClient()
+    ingest_docs(config, client)
+
+    assert (legacy_uri, True) in client.removed
+    saved = json.loads((config.state_dir / MANIFEST_FILENAME).read_text())
+    assert legacy_uri not in saved
+    assert saved[project_uri] == {"x": "2"}
+    assert f"{DOCS_TARGET_URI}pitfalls/" in saved
+
+
+def test_ingest_docs_leaves_the_legacy_root_when_ingest_fails(tmp_path: Path) -> None:
+    write(tmp_path / "docs" / "pitfalls.md", "# Pitfalls\n")
+
+    class Failing(FakeClient):
+        def add_resource(self, *args, **kwargs):
+            raise RuntimeError("backend down")
+
+    client = Failing()
+    with pytest.raises(RuntimeError):
+        ingest_docs(make_config(tmp_path), client)
+
+    assert client.removed == []
+
+
+def test_ingest_all_retires_the_legacy_root(tmp_path: Path) -> None:
+    write(tmp_path / "projects" / "demo" / "README.md", "# Demo\n")
+    write(tmp_path / "docs" / "pitfalls.md", "# Pitfalls\n")
+    client = FakeClient()
+
+    ingest_all(make_config(tmp_path), client)
+
+    assert (LEGACY_DOCS_TARGET_URI, True) in client.removed
+
+
+def test_ingest_all_with_limit_skips_docs_and_their_cleanup(tmp_path: Path) -> None:
+    """A limited run writes no docs, so it has no business retiring the old root."""
+    write(tmp_path / "projects" / "demo" / "README.md", "# Demo\n")
+    write(tmp_path / "docs" / "pitfalls.md", "# Pitfalls\n")
+    client = FakeClient()
+
+    ingest_all(make_config(tmp_path), client, limit=1)
+
+    assert all(uri != LEGACY_DOCS_TARGET_URI for uri, _ in client.removed)
+
+
+def test_ingest_docs_removes_legacy_manifest_entries_only_after_processing(
+    tmp_path: Path,
+) -> None:
+    """Regression (Codex, #441): manifest-driven deletes ran before the wait,
+    so a cutover could briefly leave a doc in neither root."""
+    write(tmp_path / "docs" / "pitfalls.md", "# Pitfalls\n")
+    config = make_config(tmp_path)
+    legacy_uri = f"{LEGACY_DOCS_TARGET_URI}pitfalls/"
+    _seed_manifest(config, {legacy_uri: {"x": "1"}})
+    client = OrderedClient()
+
+    ingest_docs(config, client)
+
+    assert client.events.index("wait") < client.events.index(f"rm {legacy_uri}")
+
+
+def test_ingest_all_removes_stale_entries_only_after_processing(tmp_path: Path) -> None:
+    write(tmp_path / "projects" / "demo" / "README.md", "# Demo\n")
+    write(tmp_path / "docs" / "pitfalls.md", "# Pitfalls\n")
+    config = make_config(tmp_path)
+    legacy_uri = f"{LEGACY_DOCS_TARGET_URI}pitfalls/"
+    _seed_manifest(config, {legacy_uri: {"x": "1"}})
+    client = OrderedClient()
+
+    ingest_all(config, client)
+
+    assert client.events.index("wait") < client.events.index(f"rm {legacy_uri}")
+
+
+def test_ingest_changed_removes_retired_docs_only_after_processing(tmp_path: Path) -> None:
+    """Regression (Codex, #441): on a machine whose manifest predates the house
+    account, ``--changed`` sees each house-account doc as new and each retired-
+    root doc as removed — and deleted the old copies before the replacements
+    were processed."""
+    write(tmp_path / "docs" / "pitfalls.md", "# Pitfalls\n")
+    config = make_config(tmp_path)
+    legacy_uri = f"{LEGACY_DOCS_TARGET_URI}pitfalls/"
+    _seed_manifest(config, {legacy_uri: {"x": "1"}})
+    client = OrderedClient()
+
+    ingest_changed(config, client)
+
+    assert f"add {DOCS_TARGET_URI}pitfalls/" in client.events
+    assert client.events.index("wait") < client.events.index(f"rm {legacy_uri}")

@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 import httpx
+from openviking_sdk.errors import NotFoundError as SdkNotFoundError
 from openviking_sdk.errors import OpenVikingError as SdkOpenVikingError
 from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticatedError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +26,8 @@ from app.db.crud import (
 from app.db.models import BerilUser
 
 from .base import (
+    DEFAULT_GREP_NODE_LIMIT,
+    DEFAULT_LS_NODE_LIMIT,
     INGEST_COMPLETED,
     INGEST_EXPIRED,
     INGEST_FAILED,
@@ -80,6 +83,26 @@ _OV_STATUS_MAP = {
 
 USERS_TARGET_URI = "viking://resources/users/"
 
+# The backend's own shape for a grep that matched nothing (verified against
+# server 0.4.22). Returned, rather than invented, when there is nowhere to
+# search, so a consumer sees one shape whether or not the backend was asked.
+_EMPTY_GREP: dict = {"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
+
+# The house account: central docs (pitfalls, discoveries, performance,
+# research_ideas) have no owner, so they live under a reserved name in the same
+# per-user tree rather than needing an ownerless special case in every read.
+#
+# Reserved, not merely conventional: ``BerilUser.orcid_id`` is an unvalidated
+# String(64), so without this guard a row carrying orcid_id="beril" would own
+# the shared central docs and be able to rewrite them. Distinct from
+# ``settings.ov_account_id`` (also "beril"), which appears in a different part
+# of the URI — the admin path, not a namespace segment.
+HOUSE_ACCOUNT_ID = "beril"
+
+
+class ReservedNamespaceError(ValueError):
+    """Raised when a user's identity would claim the house namespace."""
+
 
 def context_slugify(name: str) -> str:
     """Normalize a project name into a url-safe, underscore-separated slug.
@@ -99,8 +122,71 @@ def user_target_root(orcid_id: str, project_slug: str) -> str:
 
     Keyed on ORCiD rather than project slug alone so two users' identically
     named projects never share a namespace.
+
+    Refuses the house account: a user whose ORCiD is the reserved name would
+    otherwise be able to write the shared central docs. Checked here rather
+    than only at user creation so an already-stored row cannot reach it.
     """
+    if orcid_id == HOUSE_ACCOUNT_ID:
+        raise ReservedNamespaceError(
+            f"{HOUSE_ACCOUNT_ID!r} is reserved for BERIL's own central docs."
+        )
     return f"{USERS_TARGET_URI}{orcid_id}/{project_slug}"
+
+
+def user_namespace_root(orcid_id: str) -> str:
+    """Everything one user has ingested, across all their projects."""
+    return f"{USERS_TARGET_URI}{orcid_id}"
+
+
+def corpus_root() -> str:
+    """Every owner's namespace — the root of readable content.
+
+    Reads span this; writes never do. A submitted project is owned by one user
+    but readable by all, so the read boundary is the tree root while the write
+    boundary stays the owner's ORCiD.
+    """
+    return USERS_TARGET_URI.rstrip("/")
+
+
+def listing_uri(
+    owner_id: str | None = None,
+    project_slug: str | None = None,
+    relative_path: str | None = None,
+) -> str:
+    """Resolve a read target within the corpus.
+
+    Reads are global: a submitted project is owned by one user and readable by
+    everyone, like a public repository. ``owner_id`` therefore narrows the
+    target rather than authorizing it — omit it to span every owner.
+
+    The boundary is the corpus root, not the owner: a relative path may not
+    climb out of ``resources/users/`` into the wider resource tree. Traversal
+    is rejected rather than normalized, so ``..`` cannot be used to probe
+    outside the corpus.
+
+    This is the asymmetric half of the model. The *write* path
+    (``user_target_root``) stays pinned to the authenticated ORCiD; only reads
+    are unscoped. Callers must not route a write through here.
+
+    Raises ``ValueError`` on traversal, or on a ``project_slug`` or
+    ``relative_path`` given without an owner to hang it on — a project name
+    alone does not identify a resource when every owner may have one.
+    """
+    if (project_slug or relative_path) and not owner_id:
+        raise ValueError("A project or path requires an owner.")
+
+    root = corpus_root()
+    if not owner_id:
+        return root
+    # The owner segment is itself untrusted when it comes from a caller
+    # (``?owner=``), so it goes through the same traversal check as the path.
+    segments = [owner_id]
+    if project_slug:
+        segments.append(project_slug)
+    if relative_path:
+        segments.append(relative_path)
+    return target_uri(root, "/".join(segments))
 
 
 def target_uri(target_root: str, relative_path: str) -> str:
@@ -114,6 +200,36 @@ def target_uri(target_root: str, relative_path: str) -> str:
     if not segments or any(s in {".", ".."} for s in segments):
         raise ValueError(f"Unsafe relative path: {relative_path!r}")
     return f"{target_root.rstrip('/')}/{'/'.join(segments)}"
+
+
+class _Budget:
+    """One node budget spent across a fan-out of backend calls.
+
+    A single-location read is passed through untouched — ``node_limit`` as the
+    caller gave it, omitted when they omitted it — so the backend's own
+    default applies exactly as before. Across several locations the limit is
+    shared: each call is asked for what remains, and ``take`` trims a result
+    to it in case the backend returns more than asked.
+    """
+
+    def __init__(self, node_limit: int | None, default: int, *, single: bool):
+        self.single = single
+        self._given = node_limit
+        self.remaining = node_limit if node_limit is not None else default
+
+    @property
+    def spent(self) -> bool:
+        return not self.single and self.remaining <= 0
+
+    def for_call(self) -> int | None:
+        return self._given if self.single else self.remaining
+
+    def take(self, items: list) -> list:
+        if self.single:
+            return items
+        kept = items[: self.remaining]
+        self.remaining -= len(kept)
+        return kept
 
 
 class UnauthenticatedError(RuntimeError):
@@ -274,21 +390,177 @@ class OpenVikingManager(ContextManager):
             task_id=(submitted or {}).get("task_id"),
         )
 
-    async def list_files(self) -> list[ContextFile]:
-        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
-        results = await ov_client.list_files("resources/projects")
-        await ov_client.close()
-        return results
+    async def glob(
+        self, pattern: str, uri: str, *, node_limit: int | None = None
+    ) -> list[str]:
+        """URIs beneath ``uri`` matching ``pattern``, as a plain list.
 
-    async def query(self, query: ContextQuery) -> ContextQueryResults:
+        ``uri`` is resolved by the caller (see ``listing_uri``); this method
+        does not scope it. A ``uri`` the backend does not know yields no
+        matches rather than an error — an empty corpus is a legitimate state.
+
+        A directory match comes back with a trailing slash; it is stripped so
+        an expanded URI has the same form ``listing_uri`` produces. The
+        backend reads either form identically — this is for consistency of
+        what the routes hand on, not correctness.
+        """
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        try:
+            results = await ov_client.glob(pattern, uri, node_limit=node_limit)
+        except SdkNotFoundError:
+            return []
+        finally:
+            await ov_client.close()
+        return [
+            m.rstrip("/")
+            for m in (results or {}).get("matches") or []
+            if isinstance(m, str) and m.rstrip("/")
+        ]
+
+    async def list_files(
+        self,
+        uri: str | list[str],
+        *,
+        recursive: bool = False,
+        simple: bool = False,
+        node_limit: int | None = None,
+    ) -> list:
+        """List the resources at ``uri``, or at each of several in turn.
+
+        ``uri`` is resolved by the caller (see ``listing_uri``) — this method
+        does not scope it, so it must never be handed unvalidated caller input.
+        Several URIs are listed one after another and concatenated; the backend
+        lists one location at a time, so the fan-out lives here. ``node_limit``
+        is one budget for the whole request, not per URI — each call gets what
+        is left, and the fan-out stops once it is spent; omitted, the budget is
+        the backend's own single-call default. An empty list
+        is an empty listing and never reaches the backend — asking it to list
+        nothing is not the same as asking it to list nowhere.
+
+        A listing of a path the backend does not know is an empty list, not an
+        error: an un-ingested project is a legitimate state, not a failure.
+        """
+        uris = [uri] if isinstance(uri, str) else list(uri)
+        if not uris:
+            return []
+        budget = _Budget(node_limit, DEFAULT_LS_NODE_LIMIT, single=len(uris) == 1)
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        listed: list = []
+        try:
+            for one in uris:
+                if budget.spent:
+                    break
+                try:
+                    results = await ov_client.list_files(
+                        one,
+                        recursive=recursive,
+                        simple=simple,
+                        node_limit=budget.for_call(),
+                    )
+                except SdkNotFoundError:
+                    # The backend raises for a path it does not know. Per URI,
+                    # so one owner's copy vanishing between the glob and this
+                    # read does not fail the others.
+                    continue
+                listed.extend(budget.take(list(results or [])))
+        finally:
+            # Closed even when the listing raises, so a failure does not leak
+            # the connection.
+            await ov_client.close()
+        return listed
+
+    async def grep(
+        self,
+        uri: str | list[str],
+        pattern: str,
+        *,
+        case_insensitive: bool = False,
+        exclude_uri: str | None = None,
+        node_limit: int | None = None,
+    ) -> dict:
+        """Exact-pattern search beneath ``uri``, or beneath each of several.
+
+        Both URIs are resolved by the caller (see ``listing_uri``); this method
+        does not scope them, so it must never be handed unvalidated input.
+        Several URIs are searched one after another and merged into one
+        payload of the backend's own shape: ``matches`` concatenated,
+        ``count``/``match_count`` recounted (the backend reports both, always
+        equal to the number of matches), ``files_scanned`` summed.
+        ``node_limit`` is one budget of matches for the whole request, spent
+        across the URIs as ``list_files`` spends its own. It bounds what comes
+        back, not what the backend reads: grep scans every candidate file under
+        a target whatever the limit, so the scan cost of a fan-out grows with
+        the number of URIs. An empty
+        list is an empty result and never reaches the backend, and a path the
+        backend does not know matches nothing rather than failing.
+
+        Returns the backend's own payload shape. Unlike ``query``, there is no
+        mapping layer: grep results are structural (matching nodes and their
+        lines), and inventing a BERIL-side schema for them would be guesswork
+        until a consumer needs one.
+        """
+        uris = [uri] if isinstance(uri, str) else list(uri)
+        if not uris:
+            return _EMPTY_GREP.copy()
+        budget = _Budget(node_limit, DEFAULT_GREP_NODE_LIMIT, single=len(uris) == 1)
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        try:
+            payloads = []
+            for one in uris:
+                if budget.spent:
+                    break
+                try:
+                    payload = await ov_client.grep(
+                        one,
+                        pattern,
+                        case_insensitive=case_insensitive,
+                        exclude_uri=exclude_uri,
+                        node_limit=budget.for_call(),
+                    )
+                except SdkNotFoundError:
+                    # Same as list_files: an unknown path matches nothing.
+                    payload = _EMPTY_GREP.copy()
+                payload = payload or {}
+                if not budget.single:
+                    payload = {
+                        **payload,
+                        "matches": budget.take(list(payload.get("matches") or [])),
+                    }
+                payloads.append(payload)
+        finally:
+            await ov_client.close()
+        if len(payloads) == 1:
+            return payloads[0]
+        matches = [m for p in payloads for m in p.get("matches") or []]
+        return {
+            "matches": matches,
+            "count": len(matches),
+            "match_count": len(matches),
+            "files_scanned": sum(int(p.get("files_scanned") or 0) for p in payloads),
+        }
+
+    async def query(
+        self, query: ContextQuery, *, target_uri: str | list[str]
+    ) -> ContextQueryResults:
+        """Search below ``target_uri``.
+
+        The target is resolved by the caller (see ``listing_uri``) — the query
+        carries addressing fields, but this method never derives a backend
+        location from them. Several URIs are searched as one scope: the backend
+        ranks across them, which a fan-out here could not reproduce. An empty
+        list is an empty result and never reaches the backend — a missing
+        target would fall back to the backend's own default scope, which is
+        wider than the corpus.
+        """
+        if not isinstance(target_uri, str) and not target_uri:
+            return ContextQueryResults(query=query.query, results=[], total=0)
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         try:
             results = await ov_client.find(
                 query.query,
-                target_uri=query.root_path,
+                target_uri=target_uri,
                 limit=query.limit,
                 score_threshold=query.score_threshold,
-                filter=query.filter,
                 since=query.since,
                 until=query.until,
                 time_field=query.time_field,

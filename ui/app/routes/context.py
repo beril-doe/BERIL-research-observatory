@@ -16,6 +16,8 @@ import mimetypes
 import tempfile
 import zipfile
 from collections import Counter
+from dataclasses import dataclass
+from glob import escape as glob_escape
 from pathlib import Path
 
 from fastapi import (
@@ -24,6 +26,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     Request,
     UploadFile,
     status,
@@ -42,6 +45,9 @@ from app.context_manager.base import (
     INGEST_SKIPPED,
     INGEST_STATUSES,
     INGEST_UNKNOWN,
+    MAX_GREP_NODE_LIMIT,
+    MAX_LS_NODE_LIMIT,
+    MAX_OWNER_EXPANSION,
     TERMINAL_INGEST_STATUSES,
     ContextIngestResults,
     ContextQueryResults,
@@ -58,8 +64,10 @@ from app.context_manager.openviking import (
     SelfHealingContextManager,
     UnauthenticatedError,
     context_slugify,
+    corpus_root,
     get_user_ov_api_key,
     regenerate_user_ov_api_key,
+    listing_uri,
     target_uri,
     user_target_root,
 )
@@ -126,7 +134,17 @@ async def post_context_find(
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db)
 ) -> ContextQueryResults:
-    """Semantic search over the caller's context layer.
+    """Semantic search over ingested content.
+
+    Addressed like ``/ls`` and ``/grep`` — global reads, ``owner``/
+    ``all_owners`` to widen, a bare ``project`` meaning the caller's own — with
+    one deliberate difference: a query with no addressing at all spans the
+    whole corpus, where a bare listing shows the caller's own projects. A
+    listing answers "what do I have"; a search answers "what does anyone
+    know", and defaulting it to one namespace would hide the shared work the
+    corpus exists for. The query never names a backend location directly:
+    that would let it search outside the corpus, and the backend's own
+    default scope is wider than the corpus too.
 
     Bounds and types are enforced by ``ContextQuery``, so a malformed request
     is a 422 before the backend is touched. A backend that rejects or cannot
@@ -139,9 +157,19 @@ async def post_context_find(
         query.limit,
         user.orcid_id,
     )
+    unaddressed = query.project is None and query.owner is None
+    target = _read_uri(
+        user,
+        query.project,
+        query.path,
+        owner=query.owner,
+        all_owners=query.all_owners or unaddressed,
+    )
     manager = await resolve_context_manager(db, user)
     try:
-        return await manager.query(query)
+        return await manager.query(
+            query, target_uri=await _expand_read_target(manager, target)
+        )
     except QUERY_FAILURES as exc:
         logger.warning("Context query failed for user %s: %s", user.id, exc)
         raise HTTPException(
@@ -149,19 +177,266 @@ async def post_context_find(
             detail="The context manager could not answer that query.",
         ) from exc
 
+@dataclass(frozen=True)
+class _EveryOwner:
+    """A read target naming one project under every owner.
+
+    The owner segment is a wildcard, so this cannot be a URI until the backend
+    says which owners have the project. ``_read_uri`` returns it unresolved
+    because it deliberately runs before any backend is in hand — validation
+    must not depend on provisioning — and ``_expand_read_target`` finishes it.
+    ``pattern`` is relative to the corpus root and already traversal-checked.
+    """
+
+    pattern: str
+
+
+async def _expand_read_target(
+    manager: OpenVikingManager, target: "str | _EveryOwner"
+) -> str | list[str]:
+    """Turn a resolved read target into what the manager searches.
+
+    A plain URI passes through. An every-owner target becomes the list of
+    concrete URIs the backend knows — possibly empty, which the manager treats
+    as "search nothing" rather than falling back to a wider scope.
+
+    The expansion is capped at ``MAX_OWNER_EXPANSION`` and refused beyond it
+    (422, asking for an ``owner``) rather than silently narrowed: the backend
+    stops matching at its limit, so a read past the cap would quietly drop
+    owners. One extra match is asked for, to tell "exactly the cap" from
+    "more than the cap".
+    """
+    if isinstance(target, str):
+        return target
+    uris = await manager.glob(
+        target.pattern, corpus_root(), node_limit=MAX_OWNER_EXPANSION + 1
+    )
+    if len(uris) > MAX_OWNER_EXPANSION:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"More than {MAX_OWNER_EXPANSION} owners have this project; "
+                "name an `owner` to narrow the read."
+            ),
+        )
+    return uris
+
+
+def _read_uri(
+    user: BerilUser,
+    project: str | None,
+    path: str | None,
+    *,
+    owner: str | None = None,
+    all_owners: bool = False,
+    path_field: str = "path",
+    project_field: str = "project",
+    owner_field: str = "owner",
+) -> "str | _EveryOwner":
+    """Resolve a **read** target. The single place caller input becomes an address.
+
+    Reads are global — a submitted project is owned by one user and readable by
+    everyone — so the owner narrows the target rather than authorizing it:
+
+    * ``project`` alone → the **caller's own**. The safe default: a typo must
+      not silently read someone else's work, and it matches how ``/submit``
+      names projects.
+    * ``owner`` → that owner's, whoever they are.
+    * ``all_owners`` without a ``project`` → the whole corpus.
+    * ``all_owners`` with a ``project`` → that project under **every owner
+      who has one**, returned as an ``_EveryOwner`` for the route to expand.
+      The owner segment is unknown here, and a project name alone is not an
+      address — dropping it would silently widen the read to the corpus.
+
+    Traversal is refused, with the corpus root as the boundary rather than any
+    one owner. Writes must not be routed through here — they stay pinned to the
+    authenticated ORCiD via ``user_target_root``.
+    """
+    if owner and all_owners:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"`{owner_field}` and `all_{owner_field}s` are mutually exclusive.",
+        )
+    if path and not project:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"`{path_field}` requires `{project_field}`.",
+        )
+
+    slug = None
+    if project is not None:
+        slug = context_slugify(project)
+        if not slug:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Invalid project name: {project!r}",
+            )
+
+    try:
+        if all_owners and slug is None:
+            return listing_uri()
+        if all_owners:
+            # The path is caller input and may itself hold glob characters;
+            # escaped so it matches literally. The slug cannot: slugification
+            # leaves only word characters and hyphens.
+            segments = ["*", slug] + ([glob_escape(path)] if path else [])
+            pattern = "/".join(segments)
+            # Traversal-checked the same way a concrete URI is; the result is
+            # discarded because the owner segment is still a wildcard.
+            target_uri(corpus_root(), pattern)
+            return _EveryOwner(pattern)
+        return listing_uri(owner or user.orcid_id, slug, path)
+    except ValueError as exc:
+        logger.warning("Rejected read target for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Invalid {path_field} or {owner_field}.",
+        ) from exc
+
+
 @ROUTER_CONTEXT.get("/api/context/ls")
 async def get_context_files(
     request: Request,
+    project: str | None = Query(
+        default=None,
+        description="Project to list. Omitted lists the owner's projects.",
+    ),
+    path: str | None = Query(
+        default=None, description="Relative path within the project."
+    ),
+    owner: str | None = Query(
+        default=None,
+        description="Owner's ORCiD. Defaults to the caller.",
+    ),
+    all_owners: bool = Query(
+        default=False, description="List across every owner's projects."
+    ),
+    recursive: bool = Query(default=False),
+    simple: bool = Query(default=False, description="Return paths only."),
+    node_limit: int | None = Query(default=None, ge=1, le=MAX_LS_NODE_LIMIT),
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db)
-):
+) -> list:
+    """List ingested content.
+
+    Every submitted project is readable by everyone — owned by one user, like a
+    public repository — so a listing is not restricted to the caller. ``owner``
+    narrows to one person and ``all_owners`` spans the corpus; a bare
+    ``project`` means the caller's own, which is the safe default for a name
+    many owners may share.
+
+    Addressed by project and path rather than by URI. A URI would let a caller
+    name anything in the resource tree, including places outside the corpus;
+    this way traversal is refused and the address is always well-formed.
+
+    ``path`` without a ``project`` is rejected: it would otherwise resolve
+    against a namespace root and list across projects.
+
+    An un-ingested project lists empty rather than 404 — a legitimate state,
+    and distinguishing it would report on what an owner has yet to write.
+    """
+    target = _read_uri(user, project, path, owner=owner, all_owners=all_owners)
+
     manager = await resolve_context_manager(db, user)
-    return await manager.list_files()
+    try:
+        return await manager.list_files(
+            await _expand_read_target(manager, target),
+            recursive=recursive,
+            simple=simple,
+            node_limit=node_limit,
+        )
+    except QUERY_FAILURES as exc:
+        logger.warning("Context listing failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not list that path.",
+        ) from exc
+
+
+@ROUTER_CONTEXT.get("/api/context/grep")
+async def get_context_grep(
+    request: Request,
+    pattern: str = Query(min_length=1, description="Pattern to match."),
+    project: str | None = Query(
+        default=None,
+        description="Project to search. Omitted searches the owner's projects.",
+    ),
+    path: str | None = Query(
+        default=None, description="Relative path within the project."
+    ),
+    owner: str | None = Query(
+        default=None, description="Owner's ORCiD. Defaults to the caller."
+    ),
+    all_owners: bool = Query(
+        default=False, description="Search across every owner's projects."
+    ),
+    case_insensitive: bool = Query(default=False),
+    exclude_project: str | None = Query(
+        default=None, description="Project to exclude from the search."
+    ),
+    exclude_path: str | None = Query(
+        default=None, description="Relative path within `exclude_project`."
+    ),
+    exclude_owner: str | None = Query(
+        default=None,
+        description="Owner of the excluded project. Defaults to the caller.",
+    ),
+    node_limit: int | None = Query(default=None, ge=1, le=MAX_GREP_NODE_LIMIT),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """Exact-pattern search across ingested content.
+
+    Addressed exactly like ``/ls`` — global reads, ``owner``/``all_owners`` to
+    widen, a bare ``project`` meaning the caller's own — and the exclusion is
+    resolved the same way, so it cannot name a path outside the corpus.
+
+    Returns the backend's own payload. Unlike ``/find`` there is no mapped
+    schema: grep results are structural, and inventing one before a consumer
+    needs it would be guesswork.
+    """
+    target = _read_uri(user, project, path, owner=owner, all_owners=all_owners)
+    exclude_uri = (
+        _read_uri(
+            user,
+            exclude_project,
+            exclude_path,
+            owner=exclude_owner,
+            path_field="exclude_path",
+            project_field="exclude_project",
+            owner_field="exclude_owner",
+        )
+        if exclude_project or exclude_path or exclude_owner
+        else None
+    )
+    # The exclusion has no `all_owners`, so it is always a concrete URI.
+    assert not isinstance(exclude_uri, _EveryOwner)
+
+    manager = await resolve_context_manager(db, user)
+    try:
+        return await manager.grep(
+            await _expand_read_target(manager, target),
+            pattern,
+            case_insensitive=case_insensitive,
+            exclude_uri=exclude_uri,
+            node_limit=node_limit,
+        )
+    except QUERY_FAILURES as exc:
+        logger.warning("Context grep failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not run that search.",
+        ) from exc
 
 async def _resolve_project(
     db: AsyncSession, user: BerilUser, project: str
 ) -> UserProject:
     """Find the caller's project by slug, creating it if it doesn't exist.
+
+    Never publishes: a row created here starts private, and a reused row keeps
+    its flag. Publishing waits for ``_publish``, after the ingest has actually
+    put something in the corpus — a submission that fails validation or has
+    every file rejected must not expose a project that has nothing to show.
 
     Ownership is not enforced: an existing project of the same slug is reused
     whoever owns it, because the ingest target is keyed on the *uploader's*
@@ -187,6 +462,25 @@ async def _resolve_project(
         if existing is None:
             raise
         return existing
+
+
+async def _publish(db: AsyncSession, project: UserProject) -> None:
+    """Ingest publishes: mark ``project`` public once its content is in the corpus.
+
+    The context corpus is readable by everyone, so a project with content in
+    it is public by definition, and ``is_public`` — the one visibility flag,
+    which gates the project page and the public listing — is set to match, so
+    the project page never hides what ``/find`` already returns.
+
+    Called only once content has landed: at least one file queued, or every
+    file skipped because identical content already completed. "Queued" means
+    the backend accepted the file, not that indexing finished; a file that
+    later fails asynchronously has still published the row. Publishing from
+    the status poll instead would tie visibility to whether anyone polls.
+    """
+    if not project.is_public:
+        project.is_public = True
+        await db.commit()
 
 
 def _extract_archive(archive_bytes: bytes, dest: Path) -> None:
@@ -385,11 +679,17 @@ async def post_context_ingest_files(
     # Everything was unchanged: nothing to submit, so no batch and nothing to
     # poll. Answered as a success with the skips enumerated.
     if not ingest_files:
+        # Skipped means identical content already completed for this project:
+        # it is in the corpus, so the rule holds even with nothing sent.
+        await _publish(db, db_project)
         return ContextIngestResults(
             results=skipped, queued=0, failed=0, skipped=len(skipped)
         )
 
     results = await manager.insert_files(ingest_files, target_root=target_root)
+    # Skips count too: their identical content already completed here.
+    if results.queued or skipped:
+        await _publish(db, db_project)
 
     # Record the submission so its progress stays pollable: the context
     # manager expires its own task records and does not track who owns them.

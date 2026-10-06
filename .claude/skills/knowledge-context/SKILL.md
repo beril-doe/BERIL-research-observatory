@@ -14,7 +14,7 @@ OpenViking holds an indexed context layer over BERIL projects and central docs. 
 - Projects: `viking://resources/projects/<project_id>/`
   - Curated files: `README.md`, `RESEARCH_PLAN.md`, `REPORT.md`, `REVIEW.md`, `references.md`, `FINDINGS.md`, `EXECUTIVE_SUMMARY.md`, `FAILURE_ANALYSIS.md`, `DESIGN_NOTES.md`, `CORRECTIONS.md`, `beril.yaml`
   - `PROJECT_METADATA.md` — generated table with project_id, title, status, authors, dates, branch, engine. Use this for "by author / by status" lookups (search the project URI, not a global index — the index doesn't exist).
-- Central docs: `viking://resources/docs/<slug>/` for `pitfalls`, `discoveries`, `performance`, `research_ideas`.
+- Central docs: `viking://resources/users/beril/docs/<slug>/` for `pitfalls`, `discoveries`, `performance`, `research_ideas`.
 
 ## Picking the right primitive
 
@@ -88,7 +88,7 @@ $QUERY grep "CF formulation" --uri viking://resources/projects/ -i
 $QUERY glob '*' --uri viking://resources/projects/   # confirm the project exists
 
 # "Pitfalls for database Z?"  grep the exact name across archive + per-project memories
-$QUERY grep "kbase.ke_pangenome" --uri viking://resources/docs/pitfalls/
+$QUERY grep "kbase.ke_pangenome" --uri viking://resources/users/beril/docs/pitfalls/
 $QUERY grep "kbase.ke_pangenome" --uri viking://resources/projects/ -i   # memories too
 ```
 
@@ -150,7 +150,7 @@ Deterministic, exhaustive across **all ingested file content** under the `--uri`
 $QUERY grep "Ada Lovelace" --uri viking://resources/projects/
 $QUERY grep "ORCID-0000" --uri viking://resources/ -i
 $QUERY grep "TODO" --uri viking://resources/projects/alpha/ --node-limit 50
-$QUERY grep "deprecated" --uri viking://resources/ --exclude-uri viking://resources/docs/
+$QUERY grep "deprecated" --uri viking://resources/ --exclude-uri viking://resources/users/beril/docs/
 ```
 
 Flags: `-i/--case-insensitive`, `--node-limit N`, `--exclude-uri <uri>`.
@@ -198,7 +198,7 @@ Examples:
 ```bash
 # Link a project to a pitfall it ran into
 $QUERY link viking://resources/projects/alpha/ \
-  viking://resources/docs/pitfalls/ --reason "hit data-leak pitfall"
+  viking://resources/users/beril/docs/pitfalls/ --reason "hit data-leak pitfall"
 
 # Link two related projects bidirectionally (auto-link is one-way)
 $QUERY link viking://resources/projects/alpha/ viking://resources/projects/beta/ --reason "shared cohort"
@@ -327,7 +327,7 @@ $QUERY overview viking://resources/projects/<id>/
 
 ```bash
 $QUERY link viking://resources/projects/<id>/ \
-  viking://resources/docs/pitfalls/ --reason "<short why>"
+  viking://resources/users/beril/docs/pitfalls/ --reason "<short why>"
 ```
 
 ## For other skills
