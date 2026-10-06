@@ -109,6 +109,19 @@ class Settings(BaseSettings):
                 "BERIL_OV_CREDENTIAL_KEY is not set — context credentials cannot "
                 "be stored or read. Generate one with Fernet.generate_key()."
             )
+        # Set but malformed is the same deployment mistake, and a worse one if
+        # it reaches runtime: every stored credential would read as corrupt.
+        # Imported here so config stays importable without the crypto stack.
+        from app.crypto import InvalidEncryptionKeyError, validate_key
+
+        try:
+            validate_key(self.ov_credential_key)
+        except InvalidEncryptionKeyError as exc:
+            raise ValueError(
+                "BERIL_OV_CREDENTIAL_KEY is not a valid Fernet key (expected "
+                "urlsafe-base64-encoded 32 bytes). Generate one with "
+                "Fernet.generate_key()."
+            ) from exc
         return self.ov_credential_key
 
     @property

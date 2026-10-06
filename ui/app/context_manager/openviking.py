@@ -17,7 +17,13 @@ from app.clients.openviking import (
     register_ov_user,
 )
 from app.config import Settings, get_settings
-from app.crypto import CredentialEncryptionError, decrypt_secret, encrypt_secret
+from app.crypto import (
+    CredentialEncryptionError,
+    InvalidEncryptionKeyError,
+    decrypt_secret,
+    encrypt_secret,
+    validate_key,
+)
 from app.db.crud import (
     get_ov_credential,
     upsert_ov_credential,
@@ -236,6 +242,17 @@ class UnauthenticatedError(RuntimeError):
     """Raised when a context-manager call is made without an identified user."""
 
 
+class ContextUnavailableError(RuntimeError):
+    """The context store could not be used for this request, even after
+    repairing the user's key.
+
+    Raised by ``SelfHealingContextManager`` when rotating a refused key fails,
+    or the rotated key is refused too. Mapped to a generic 502 by one app-level
+    handler, so every route — current and future — reports a backing-store
+    outage the same way instead of leaking a 500.
+    """
+
+
 class OvProvisioningError(RuntimeError):
     """Raised when a user's OpenViking credential can't be obtained or minted."""
 
@@ -292,9 +309,10 @@ class OpenVikingManager(ContextManager):
         reported ``unknown``, the status route discarded ``unknown``, and the
         row was re-polled on every call with no way to ever advance.
 
-        Never raises: a backend that is unreachable mid-poll yields ``unknown``
-        for every id, so the caller falls back to what it already recorded
-        instead of failing the request.
+        A backend that is unreachable mid-poll yields ``unknown`` for every
+        id, so the caller falls back to what it already recorded instead of
+        failing the request. The one exception is a refused key, which is
+        raised (``SdkUnauthenticatedError``) so the key can be repaired.
         """
         if not task_ids:
             return {}
@@ -307,6 +325,16 @@ class OpenVikingManager(ContextManager):
             )
         finally:
             await ov_client.close()
+
+        # A refused key is not "unreachable": every poll used the same key, so
+        # one refusal settles it. Raised so SelfHealingContextManager can
+        # rotate and retry — folded into "unknown" it was never repaired, and
+        # the status route reported the last recorded state indefinitely.
+        refused = next(
+            (t for t in tasks if isinstance(t, SdkUnauthenticatedError)), None
+        )
+        if refused is not None:
+            raise refused
 
         statuses: dict[str, tuple[str, str | None]] = {}
         for task_id, task in zip(task_ids, tasks):
@@ -615,11 +643,20 @@ async def get_user_ov_api_key(db: AsyncSession, user: BerilUser) -> str:
         )
 
     settings = get_settings()
+    # Refuse a bad encryption key before touching the store: past this point a
+    # failure to read or write the credential would mint or rotate an upstream
+    # key that can never be saved. Startup refuses it too; this is the second
+    # line, for a process whose settings were changed or never checked.
+    validate_key(settings.ov_credential_key)
 
     existing = await get_ov_credential(db, user.id)
     if existing is not None:
         try:
             return decrypt_secret(existing.encrypted_key, settings.ov_credential_key)
+        except InvalidEncryptionKeyError:
+            # Validated above, so unreachable in practice — but never treat a
+            # bad key as a bad row.
+            raise
         except CredentialEncryptionError as exc:
             # The row exists but is unreadable — the Fernet key was rotated, or
             # the ciphertext is corrupt. Functionally that is "no credential":
@@ -666,8 +703,12 @@ async def regenerate_user_ov_api_key(db: AsyncSession, user: BerilUser) -> str:
         raise UnauthenticatedError(
             "An authenticated user is required to access OpenViking."
         )
+    settings = get_settings()
+    # Before rotating: with a bad encryption key the new key could not be
+    # stored, and the old one would already be invalidated.
+    validate_key(settings.ov_credential_key)
     result = await _regenerate(user)
-    return await _store_key(db, user, result, get_settings())
+    return await _store_key(db, user, result, settings)
 
 
 async def _regenerate(user: BerilUser) -> dict:
@@ -740,8 +781,19 @@ class SelfHealingContextManager:
                     "rotating and retrying once",
                     name,
                 )
+            # Both ways the repair can fail are outages, not bugs: the store
+            # would not mint a key (or it could not be saved), or it refused
+            # the fresh one too. Normalized so no route sees a raw 500.
+            try:
                 self._inner.api_key = await self._rotate()
+            except (OvProvisioningError, CredentialEncryptionError) as exc:
+                logger.warning("Rotating the refused key failed during %s: %s", name, exc)
+                raise ContextUnavailableError("Could not repair the context key.") from exc
+            try:
                 return await getattr(self._inner, name)(*args, **kwargs)
+            except SdkUnauthenticatedError as exc:
+                logger.warning("Context store refused the rotated key during %s", name)
+                raise ContextUnavailableError("The rotated context key was refused.") from exc
 
         return call
 

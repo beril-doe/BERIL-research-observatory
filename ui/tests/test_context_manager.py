@@ -40,7 +40,7 @@ from app.context_manager.openviking import (
     user_namespace_root,
     user_target_root,
 )
-from app.crypto import decrypt_secret, encrypt_secret
+from app.crypto import CredentialEncryptionError, decrypt_secret, encrypt_secret
 from app.db.crud import get_ov_credential
 from app.db.models import BerilUser, OvUserCredential
 from cryptography.fernet import Fernet
@@ -1693,6 +1693,47 @@ async def test_get_key_reprovisions_when_stored_credential_is_unreadable(
     assert decrypt_secret(cred.encrypted_key, _CREDENTIAL_KEY) == "fresh"
 
 
+@pytest.mark.parametrize("seeded", [True, False])
+async def test_get_key_refuses_a_bad_encryption_key_before_touching_the_store(
+    settings, db_session, ov_user, seeded
+):
+    """Regression (Codex, #450): a malformed key made every stored row read as
+    corrupt, so each call re-provisioned — rotating the user's upstream key —
+    and then failed to store the replacement. A bad *key* is now refused before
+    any register or regenerate call, with or without a stored row."""
+    from app.crypto import InvalidEncryptionKeyError
+
+    if seeded:
+        await _seed_credential(db_session, ov_user, "live-key")
+    register = AsyncMock(return_value={"user_key": "fresh"})
+    regenerate = AsyncMock(return_value={"user_key": "fresh"})
+    with patch.object(settings, "ov_credential_key", "not-a-fernet-key"), patch(
+        "app.context_manager.openviking.register_ov_user", register
+    ), patch("app.context_manager.openviking.regenerate_ov_user_key", regenerate):
+        with pytest.raises(InvalidEncryptionKeyError):
+            await get_user_ov_api_key(db_session, ov_user)
+
+    register.assert_not_awaited()
+    regenerate.assert_not_awaited()
+
+
+async def test_regenerate_refuses_a_bad_encryption_key_before_rotating(
+    settings, db_session, ov_user
+):
+    """Rotating first would invalidate the old key and leave nothing stored."""
+    from app.context_manager.openviking import regenerate_user_ov_api_key
+    from app.crypto import InvalidEncryptionKeyError
+
+    regenerate = AsyncMock(return_value={"user_key": "fresh"})
+    with patch.object(settings, "ov_credential_key", "not-a-fernet-key"), patch(
+        "app.context_manager.openviking.regenerate_ov_user_key", regenerate
+    ):
+        with pytest.raises(InvalidEncryptionKeyError):
+            await regenerate_user_ov_api_key(db_session, ov_user)
+
+    regenerate.assert_not_awaited()
+
+
 # --- SelfHealingContextManager ----------------------------------------------
 
 
@@ -1731,26 +1772,81 @@ async def test_self_healing_does_not_rotate_on_other_errors():
 
 
 async def test_self_healing_retries_exactly_once():
-    """Two refusals in a row surface the second — no rotate loop."""
-    from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticated
+    """Two refusals in a row surface as an outage — no rotate loop, and not a
+    raw SDK error that a route without a catch would turn into a 500."""
+    from app.context_manager.openviking import ContextUnavailableError
 
     manager, inner, rotate = _healing(AsyncMock(side_effect=[_refused(), _refused()]))
 
-    with pytest.raises(SdkUnauthenticated):
+    with pytest.raises(ContextUnavailableError):
         await manager.query("q")
 
     rotate.assert_awaited_once()
     assert inner.query.await_count == 2
 
 
-async def test_self_healing_propagates_a_failed_rotation():
-    manager, _, _ = _healing(
-        AsyncMock(side_effect=_refused()),
-        rotate=AsyncMock(side_effect=OvProvisioningError("store down")),
+@pytest.mark.parametrize(
+    "failure",
+    [OvProvisioningError("store down"), CredentialEncryptionError("cannot store")],
+)
+async def test_self_healing_reports_a_failed_rotation_as_unavailable(failure):
+    """Regression (Codex, #450): a rotation the store refused, or one whose new
+    key could not be stored, escaped as OvProvisioningError /
+    CredentialEncryptionError and became a 500 on any route without a catch."""
+    from app.context_manager.openviking import ContextUnavailableError
+
+    manager, inner, _ = _healing(
+        AsyncMock(side_effect=_refused()), rotate=AsyncMock(side_effect=failure)
     )
 
-    with pytest.raises(OvProvisioningError):
+    with pytest.raises(ContextUnavailableError) as raised:
         await manager.query("q")
+
+    assert raised.value.__cause__ is failure
+    # No retry with a key that was never obtained.
+    assert inner.query.await_count == 1
+
+
+async def test_task_statuses_raises_a_refused_key_so_it_can_be_repaired(
+    settings, patched_sdk
+):
+    """Regression (Codex, #450): every exception, the refusal included, was
+    folded into ``unknown``, so the healer never ran for status polling."""
+    from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticated
+
+    patched_sdk.get_task = AsyncMock(side_effect=[{"status": "completed"}, _refused()])
+    manager = OpenVikingManager(settings, "dead-key")
+
+    with pytest.raises(SdkUnauthenticated):
+        await manager.task_statuses(["t1", "t2"])
+
+
+async def test_task_statuses_still_folds_other_failures_into_unknown(
+    settings, patched_sdk
+):
+    patched_sdk.get_task = AsyncMock(side_effect=[UnavailableError("down"), None])
+    manager = OpenVikingManager(settings, "key")
+
+    out = await manager.task_statuses(["t1", "t2"])
+
+    assert out == {"t1": ("unknown", None), "t2": ("expired", None)}
+
+
+async def test_task_statuses_through_the_healer_rotates_and_retries(
+    settings, patched_sdk
+):
+    from app.context_manager.openviking import SelfHealingContextManager
+
+    patched_sdk.get_task = AsyncMock(side_effect=[_refused(), {"status": "running"}])
+    rotate = AsyncMock(return_value="fresh-key")
+    manager = SelfHealingContextManager(
+        OpenVikingManager(settings, "dead-key"), rotate=rotate
+    )
+
+    out = await manager.task_statuses(["t1"])
+
+    rotate.assert_awaited_once()
+    assert out == {"t1": ("processing", None)}
 
 
 async def test_self_healing_passes_plain_attributes_through():
@@ -1876,4 +1972,16 @@ def test_require_ov_credential_key_refuses_an_unset_key():
 def test_require_ov_credential_key_returns_it():
     from app.config import Settings
 
-    assert Settings(ov_credential_key="k", _env_file=None).require_ov_credential_key() == "k"
+    key = Fernet.generate_key().decode()
+    assert Settings(ov_credential_key=key, _env_file=None).require_ov_credential_key() == key
+
+
+@pytest.mark.parametrize("bad", ["k", "not-a-fernet-key", "A" * 44])
+def test_require_ov_credential_key_refuses_a_malformed_key(bad):
+    """Regression (Codex, #450): a set-but-invalid key passed startup, then
+    read every stored credential as corrupt and rotated upstream keys it could
+    never store. It fails at startup now, like an unset one."""
+    from app.config import Settings
+
+    with pytest.raises(ValueError, match="not a valid Fernet key"):
+        Settings(ov_credential_key=bad, _env_file=None).require_ov_credential_key()

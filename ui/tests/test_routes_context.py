@@ -30,6 +30,7 @@ from app.context_manager.base import (
     IngestResult,
     QueryResult,
 )
+from app.context_manager.openviking import ContextUnavailableError
 from app.crypto import encrypt_secret
 from app.db.crud import (
     create_user_project,
@@ -1337,6 +1338,29 @@ async def test_ingest_status_keeps_last_known_when_backend_unreachable(
     assert body["status"] == "processing"
 
 
+@pytest.mark.parametrize(
+    "failure",
+    [
+        ContextUnavailableError("rotated key refused"),
+        UnavailableError("backend down"),
+    ],
+)
+async def test_ingest_status_keeps_last_known_when_the_refresh_raises(
+    client, credentialed_user, ingest_manager, failure
+):
+    """``task_statuses`` may now raise — a key that stayed refused after
+    repair, or a failure before any poll ran. The status read still answers
+    with what was recorded rather than failing."""
+    _login(client)
+    batch_id = await _start_batch(client, ingest_manager, [("a.md", "t1")])
+
+    ingest_manager.task_statuses = AsyncMock(side_effect=failure)
+    resp = client.get(f"/api/context/ingest_status/{batch_id}")
+
+    assert resp.status_code == 200
+    assert resp.json()["files"][0]["status"] == "queued"
+
+
 async def test_ingest_status_reports_submission_failure(
     client, credentialed_user, ingest_manager
 ):
@@ -2419,3 +2443,58 @@ async def test_find_rotates_a_refused_key_and_retries(client, credentialed_user,
     assert manager.query.await_count == 2
     # The retried call went out with the fresh key.
     assert manager.api_key == "fresh-key"
+
+
+
+# ---------------------------------------------------------------------------
+# An unrepairable store failure is a 502 on every route, never a 500
+# ---------------------------------------------------------------------------
+
+
+async def test_find_reports_an_unrepairable_store_as_502(client, credentialed_user):
+    """Regression (Codex, #450): a failed key repair escaped the routes'
+    QUERY_FAILURES catch and became a 500."""
+    inst = MagicMock()
+    inst.query = AsyncMock(side_effect=ContextUnavailableError("store down"))
+    _login(client)
+    with patch("app.routes.context.OpenVikingManager", return_value=inst):
+        resp = client.post("/api/context/find", json={"query": "alpha"})
+
+    assert resp.status_code == 502
+    assert resp.json() == {"detail": "The context manager is currently unavailable."}
+    assert "store down" not in resp.text
+
+
+async def test_ingest_reports_an_unrepairable_store_as_502(
+    client, credentialed_user, ingest_manager
+):
+    """The ingest route has no backend catch at all, so this was a 500."""
+    ingest_manager.insert_files = AsyncMock(
+        side_effect=ContextUnavailableError("rotated key refused")
+    )
+    _login(client)
+    resp = _ingest(client)
+
+    assert resp.status_code == 502
+    assert "refused" not in resp.text
+
+
+async def test_a_key_refused_after_rotation_is_a_502_end_to_end(
+    client, credentialed_user
+):
+    """Through the real healer: the store refuses the stored key, the key is
+    rotated, the store refuses the new one too — a 502, after one rotation."""
+    from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticated
+
+    inst = MagicMock()
+    inst.query = AsyncMock(side_effect=SdkUnauthenticated("revoked"))
+    regenerate = AsyncMock(return_value={"user_key": "fresh-key"})
+    _login(client)
+    with patch("app.routes.context.OpenVikingManager", return_value=inst), patch(
+        "app.context_manager.openviking.regenerate_ov_user_key", regenerate
+    ):
+        resp = client.post("/api/context/find", json={"query": "alpha"})
+
+    assert resp.status_code == 502
+    regenerate.assert_awaited_once()
+    assert inst.query.await_count == 2
