@@ -344,3 +344,20 @@ def test_ingest_all_removes_stale_entries_only_after_processing(tmp_path: Path) 
     ingest_all(config, client)
 
     assert client.events.index("wait") < client.events.index(f"rm {legacy_uri}")
+
+
+def test_ingest_changed_removes_retired_docs_only_after_processing(tmp_path: Path) -> None:
+    """Regression (Codex, #441): on a machine whose manifest predates the house
+    account, ``--changed`` sees each house-account doc as new and each retired-
+    root doc as removed — and deleted the old copies before the replacements
+    were processed."""
+    write(tmp_path / "docs" / "pitfalls.md", "# Pitfalls\n")
+    config = make_config(tmp_path)
+    legacy_uri = f"{LEGACY_DOCS_TARGET_URI}pitfalls/"
+    _seed_manifest(config, {legacy_uri: {"x": "1"}})
+    client = OrderedClient()
+
+    ingest_changed(config, client)
+
+    assert f"add {DOCS_TARGET_URI}pitfalls/" in client.events
+    assert client.events.index("wait") < client.events.index(f"rm {legacy_uri}")
