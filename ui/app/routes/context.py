@@ -45,6 +45,7 @@ from app.context_manager.base import (
     INGEST_SKIPPED,
     INGEST_STATUSES,
     INGEST_UNKNOWN,
+    MAX_DISCOVERY_LIMIT,
     MAX_GREP_NODE_LIMIT,
     MAX_LS_NODE_LIMIT,
     MAX_OWNER_EXPANSION,
@@ -52,6 +53,8 @@ from app.context_manager.base import (
     TERMINAL_INGEST_STATUSES,
     ContextIngestResults,
     ContextQueryResults,
+    DiscoveryHit,
+    DiscoveryResults,
     IngestBatchStatus,
     IngestFileStatus,
     IngestResult,
@@ -67,6 +70,7 @@ from app.context_manager.openviking import (
     OpenVikingManager,
     OvProvisioningError,
     UnauthenticatedError,
+    apply_discovery_precedence,
     context_slugify,
     corpus_root,
     get_user_ov_api_key,
@@ -80,6 +84,7 @@ from app.db.crud import (
     create_user_project,
     get_ingest_batch,
     get_project_by_slug,
+    projects_with_memory,
     update_ingest_file_statuses,
 )
 from app.db.models import UserProject
@@ -413,12 +418,8 @@ async def get_context_pitfalls(
     ``total`` saying how many there are. An empty ``q`` is a malformed query
     and is rejected, not read as a listing.
     """
-    if q is not None and not q.strip():
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="`q` must not be empty; omit it to list every pitfall.",
-        )
-    memory_pattern = _pitfall_memory_pattern(user, project, owner)
+    _reject_empty_query(q, noun="pitfall")
+    memory_pattern = _memory_pattern(user, project, owner, memory="pitfalls")
 
     manager = await resolve_context_manager(db, user)
     try:
@@ -451,21 +452,127 @@ async def get_context_pitfalls(
     )
 
 
-def _pitfall_memory_pattern(
-    user: BerilUser, project: str | None, owner: str | None
-) -> str:
-    """The glob, relative to the corpus root, naming the pitfall memories in scope.
+def _reject_empty_query(q: str | None, *, noun: str) -> None:
+    """An omitted ``q`` is a listing; an empty one is a malformed query."""
+    if q is not None and not q.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"`q` must not be empty; omit it to list every {noun}.",
+        )
 
+
+def _memory_pattern(
+    user: BerilUser, project: str | None, owner: str | None, *, memory: str
+) -> str:
+    """The glob, relative to the corpus root, naming the memories in scope.
+
+    ``memory`` is the memory's name (``pitfalls`` or ``discoveries``).
     Validated through ``_read_uri`` like every read address, so traversal in
     ``project`` or ``owner`` is refused the same way; the resolved location
     then gains the memory file's path. Unnamed segments are wildcards.
     """
-    memory = "memories/pitfalls.md"
+    path = f"memories/{memory}.md"
     if not project and not owner:
-        return f"*/*/{memory}"
+        return f"*/*/{path}"
     resolved = _read_uri(user, project, None, owner=owner)
     relative = resolved.removeprefix(corpus_root()).strip("/")
-    return f"{relative}/{memory}" if project else f"{relative}/*/{memory}"
+    return f"{relative}/{path}" if project else f"{relative}/*/{path}"
+
+
+@ROUTER_CONTEXT.get("/api/context/discoveries")
+async def get_context_discoveries(
+    request: Request,
+    q: str | None = Query(
+        default=None,
+        description=(
+            "Theme, organism, or pattern. Omit to list every discovery "
+            "document in scope."
+        ),
+    ),
+    project: str | None = Query(
+        default=None,
+        description=(
+            "Narrow the project memories to one project. The central archive "
+            "is always included."
+        ),
+    ),
+    owner: str | None = Query(
+        default=None, description="Owner of `project`. Defaults to the caller."
+    ),
+    exact: bool = Query(
+        default=False, description="Match tokens literally instead of semantically."
+    ),
+    limit: int = Query(default=10, ge=1, le=MAX_DISCOVERY_LIMIT),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db)
+) -> DiscoveryResults:
+    """What has already been found, across every project?
+
+    Spans both halves of the corpus like ``/pitfalls``, but applies the
+    precedence rule that ``suggest-research`` Step 4 currently states as prose
+    for an agent to re-implement per call site:
+
+    * a project's own ``memories/discoveries.md`` wins;
+    * a central entry tagged for a project that has one is a **stale
+      duplicate** and is suppressed;
+    * a central entry tagged for a project with no memory is legacy content and
+      still counts;
+    * an untagged central entry is background and always counts.
+
+    Implemented once here so every caller gets the same combined view. The
+    count of suppressed duplicates is reported rather than hidden, so a caller
+    can tell "nothing matched" from "the current copy answered instead".
+
+    Per-project memories are written at ``/submit`` approval, so this corpus is
+    review-vetted by construction — a draft finding never reaches it.
+
+    Scoped like ``/pitfalls``: only discovery documents are searched or
+    returned, ``project``/``owner`` narrow the memories while the archive stays
+    in, and omitting ``q`` lists every discovery document (an empty ``q`` is
+    rejected). Precedence is applied before ``limit``.
+    """
+    _reject_empty_query(q, noun="discovery")
+    memory_pattern = _memory_pattern(user, project, owner, memory="discoveries")
+
+    manager = await resolve_context_manager(db, user)
+    try:
+        documents, scanned = await manager.find_discoveries(
+            q, memory_pattern=memory_pattern, limit=limit, exact=exact
+        )
+    except QUERY_FAILURES as exc:
+        logger.warning("Discovery query failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not answer that query.",
+        ) from exc
+
+    # Precedence before the limit: a stale central duplicate dropped after
+    # trimming would have taken a page slot from the current copy.
+    owned = await projects_with_memory(db, "discoveries")
+    classified, suppressed = apply_discovery_precedence(
+        documents, projects_with_memory=owned
+    )
+    total = len(classified)
+    classified = classified[:limit]
+
+    return DiscoveryResults(
+        query=q,
+        results=[
+            DiscoveryHit(
+                uri=doc["uri"],
+                origin=doc["origin"],
+                project=doc["project"],
+                owner=doc["owner"],
+                score=doc["score"],
+                excerpts=doc["excerpts"],
+                fragment_uris=doc["fragment_uris"],
+            )
+            for doc in classified
+        ],
+        fragments_scanned=scanned,
+        suppressed=suppressed,
+        total=total,
+    )
 
 
 @ROUTER_CONTEXT.get("/api/context/grep")

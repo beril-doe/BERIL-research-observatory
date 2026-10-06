@@ -30,7 +30,7 @@ from .base import (
     INGEST_PROCESSING,
     INGEST_QUEUED,
     INGEST_UNKNOWN,
-    MAX_PITFALL_DOCUMENTS,
+    MAX_MEMORY_DOCUMENTS,
     ContextFile,
     ContextIngestFile,
     ContextIngestResults,
@@ -324,6 +324,81 @@ def _collapse_fragments(nodes: list[dict], *, limit: int) -> list[dict]:
     return ranked[:limit]
 
 
+# A central discovery entry names its project inline, as ``[<project_id>]`` —
+# in an ``### [tag] Title`` heading centrally, and in an HTML-comment
+# provenance line in a per-project memory. Project ids are the slug shape
+# ``context_slugify`` produces.
+_PROJECT_TAG = re.compile(r"\[([a-z0-9][a-z0-9_]*)\]")
+
+# The precedence rule, quoted from `suggest-research` Step 4 so the two cannot
+# drift silently:
+#
+#   per-project memory wins. If a project has any per-project
+#   memories/discoveries.md, suppress matches in docs/discoveries.md tagged
+#   with that same [<project_id>] (those are stale duplicates the project
+#   already owns). Central entries tagged with project ids that have NO
+#   per-project memory are still considered (legacy projects). Untagged
+#   central entries are background context — always included.
+PROJECT_MEMORY_WINS = True
+
+
+def project_tags(text: str) -> set[str]:
+    """Every ``[<project_id>]`` tag named in ``text``."""
+    return set(_PROJECT_TAG.findall(text or ""))
+
+
+def apply_discovery_precedence(
+    documents: list[dict], *, projects_with_memory: set[str]
+) -> tuple[list[dict], int]:
+    """Classify discoveries and drop stale central duplicates.
+
+    Returns ``(kept, suppressed_count)``. Implements the three-way rule once,
+    server-side, instead of leaving each caller to re-read it from prose and
+    get it slightly wrong.
+
+    A central entry is suppressed only when it names a project that has its own
+    memory — the project owns the current copy. A central entry naming a
+    project with no memory is legacy content and still counts; an untagged one
+    is background and always counts.
+    """
+    kept: list[dict] = []
+    suppressed = 0
+    for doc in documents:
+        uri = doc.get("uri") or ""
+        segments = uri.removeprefix(USERS_TARGET_URI).strip("/").split("/")
+        owner = segments[0] if segments else None
+
+        if owner != HOUSE_ACCOUNT_ID:
+            # A project's own memory: current by construction.
+            kept.append(
+                {
+                    **doc,
+                    "origin": "project_memory",
+                    "project": segments[1] if len(segments) > 1 else None,
+                    "owner": owner,
+                }
+            )
+            continue
+
+        # Central. Its tags decide whether a project already owns this content.
+        tags = project_tags(" ".join(doc.get("excerpts") or []))
+        stale = tags & projects_with_memory
+        if stale:
+            suppressed += 1
+            continue
+        kept.append(
+            {
+                **doc,
+                "origin": "central_legacy" if tags else "central_background",
+                # Report one tag when the entry names exactly one project;
+                # several tags make "the" project meaningless.
+                "project": next(iter(tags)) if len(tags) == 1 else None,
+                "owner": owner,
+            }
+        )
+    return kept, suppressed
+
+
 class _Budget:
     """One node budget spent across a fan-out of backend calls.
 
@@ -595,37 +670,83 @@ class OpenVikingManager(ContextManager):
     ) -> tuple[list[dict], int, int]:
         """Search, or list, the pitfall documents.
 
-        Returns ``(documents, fragments_scanned, total)``.
+        Returns ``(documents, fragments_scanned, total)`` — ``total`` counts
+        the documents that qualified before ``limit``. See ``_find_documents``
+        for the scope and the two modes.
+        """
+        documents, scanned = await self._find_documents(
+            query, slug="pitfalls", memory_pattern=memory_pattern,
+            limit=limit, exact=exact,
+        )
+        return documents[:limit], scanned, len(documents)
 
-        The scope is the pitfall documents themselves, never the corpus at
-        large: the central archive (``beril/docs/pitfalls``) plus each
-        project's ``memories/pitfalls.md`` matching ``memory_pattern`` — a
-        glob relative to the corpus root, e.g. ``*/*/memories/pitfalls.md``.
-        Searching the whole corpus and classifying afterwards returned any
-        file that matched — a REPORT fragment labelled a project memory, the
-        performance guide labelled a central pitfall.
+    async def find_discoveries(
+        self,
+        query: str | None,
+        *,
+        memory_pattern: str,
+        limit: int,
+        exact: bool = False,
+    ) -> tuple[list[dict], int]:
+        """Search, or list, the discovery documents — every one that qualifies.
+
+        Untrimmed, unlike ``find_pitfalls``: the route applies the precedence
+        rule first and the limit after, so a stale central duplicate cannot
+        take a page slot and leave the current copy off it. Precedence lives
+        above this because it needs BERIL's own record of which projects have
+        a memory — a database fact the backend does not model.
+        """
+        return await self._find_documents(
+            query, slug="discoveries", memory_pattern=memory_pattern,
+            limit=limit, exact=exact,
+        )
+
+    async def _find_documents(
+        self,
+        query: str | None,
+        *,
+        slug: str,
+        memory_pattern: str,
+        limit: int,
+        exact: bool = False,
+    ) -> tuple[list[dict], int]:
+        """Search, or list, one by-protocol corpus: ``slug`` is ``pitfalls``
+        or ``discoveries``.
+
+        Returns ``(documents, fragments_scanned)`` with every document that
+        qualified (up to ``MAX_MEMORY_DOCUMENTS``); callers apply the limit.
+        ``limit`` here only sizes the backend over-fetch.
+
+        The scope is the corpus documents themselves, never the corpus at
+        large: the central archive (``beril/docs/<slug>``) plus each project's
+        memory matching ``memory_pattern`` — a glob relative to the corpus
+        root, e.g. ``*/*/memories/<slug>.md``. Searching everything and
+        classifying afterwards returned any file that matched — a REPORT
+        fragment labelled a project memory, the performance guide labelled a
+        central pitfall.
 
         With ``query`` omitted (``None``) nothing is searched: the documents
         in scope are returned unranked, central first. An empty string is the
-        route's to reject — it is a malformed query, not a request to list. With one, ``exact`` greps (it beats
-        embeddings for the error strings and table names users paste) and
-        otherwise the search is semantic. Hits are grouped into source
-        documents and kept only if that document is a pitfall document — a
-        second line of defense, and the only one when the scope falls back.
+        route's to reject — it is a malformed query, not a request to list.
+        With a query, ``exact`` greps (it beats embeddings for the error
+        strings and table names users paste) and otherwise the search is
+        semantic. Hits are grouped into source documents and kept only if that
+        document is one of the corpus documents — a second line of defense,
+        and the only one when the scope falls back.
 
-        Past ``MAX_PITFALL_DOCUMENTS`` memories the scope falls back to the
+        Past ``MAX_MEMORY_DOCUMENTS`` memories the scope falls back to the
         narrowest directory enclosing the pattern (plus the archive), and the
         document filter does the narrowing.
         """
-        central = f"{USERS_TARGET_URI}{HOUSE_ACCOUNT_ID}/docs/pitfalls"
+        central = f"{USERS_TARGET_URI}{HOUSE_ACCOUNT_ID}/docs/{slug}"
         root = corpus_root()
         memories = await self.glob(
-            memory_pattern, root, node_limit=MAX_PITFALL_DOCUMENTS + 1
+            memory_pattern, root, node_limit=MAX_MEMORY_DOCUMENTS + 1
         )
-        overflow = len(memories) > MAX_PITFALL_DOCUMENTS
+        overflow = len(memories) > MAX_MEMORY_DOCUMENTS
         memory_set = set(memories)
 
-        def is_pitfall_document(doc_uri: str) -> bool:
+        def is_corpus_document(doc_uri: str) -> bool:
             if doc_uri == central:
                 return True
             if overflow:
@@ -638,18 +759,19 @@ class OpenVikingManager(ContextManager):
             # caller as ``total`` hitting the cap.
             if overflow:
                 logger.warning(
-                    "Pitfall listing stopped at %d memories", MAX_PITFALL_DOCUMENTS
+                    "%s listing stopped at %d memories", slug, MAX_MEMORY_DOCUMENTS
                 )
-            listed = [central, *sorted(memories)[:MAX_PITFALL_DOCUMENTS]]
+            listed = [central, *sorted(memories)[:MAX_MEMORY_DOCUMENTS]]
             documents = [
                 {"uri": uri, "score": None, "excerpts": [], "fragment_uris": []}
                 for uri in listed
             ]
-            return documents[:limit], 0, len(documents)
+            return documents, 0
 
         if overflow:
             logger.warning(
-                "Pitfall query over %d memories; scoping to the enclosing directory",
+                "%s query over %d memories; scoping to the enclosing directory",
+                slug,
                 len(memories),
             )
             prefix = memory_pattern.split("*", 1)[0].rstrip("/")
@@ -681,14 +803,13 @@ class OpenVikingManager(ContextManager):
                 for r in (raw.get("resources") or [])
             ]
 
-        # Filtered before grouping and before the limit, so a non-pitfall
-        # match can neither appear nor crowd a real one out of the page.
+        # Filtered before grouping and before any limit, so a match from some
+        # other file can neither appear nor crowd a real one out of the page.
         nodes = [
             n for n in nodes
-            if is_pitfall_document(source_document(n.get("uri") or "", USERS_TARGET_URI))
+            if is_corpus_document(source_document(n.get("uri") or "", USERS_TARGET_URI))
         ]
-        documents = _collapse_fragments(nodes, limit=MAX_PITFALL_DOCUMENTS + 1)
-        return documents[:limit], len(nodes), len(documents)
+        return _collapse_fragments(nodes, limit=MAX_MEMORY_DOCUMENTS + 1), len(nodes)
 
     async def grep(
         self,

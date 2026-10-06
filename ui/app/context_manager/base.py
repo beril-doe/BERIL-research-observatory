@@ -12,6 +12,7 @@ MAX_FIND_NODE_LIMIT = 10_000
 MAX_LS_NODE_LIMIT = 10_000
 MAX_GREP_NODE_LIMIT = 10_000
 MAX_PITFALL_LIMIT = 50
+MAX_DISCOVERY_LIMIT = 50
 
 # The backend's own per-call defaults (server 0.4.22, and the SDK fills them in
 # when a caller omits node_limit). A read that fans out over several owners
@@ -25,11 +26,11 @@ DEFAULT_GREP_NODE_LIMIT = 256
 # caller is asked to name an owner instead.
 MAX_OWNER_EXPANSION = 256
 
-# How many per-project pitfall memories a pitfall query names as explicit
-# search targets. Past this the search scopes to the narrowest enclosing
+# How many per-project memories (pitfalls or discoveries) a by-protocol query
+# names as explicit search targets. Past this the search scopes to the narrowest enclosing
 # directory instead and filters results by document shape, so a large corpus
 # degrades to a broader scan rather than to an oversized request.
-MAX_PITFALL_DOCUMENTS = 256
+MAX_MEMORY_DOCUMENTS = 256
 
 
 class FileMetadata(BaseModel):
@@ -230,6 +231,49 @@ class PitfallResults(BaseModel):
     query: str | None = None
     results: list[PitfallHit]
     fragments_scanned: int = 0
+    total: int = 0
+
+
+class DiscoveryHit(BaseModel):
+    """One discovery document.
+
+    ``origin`` is the precedence class, not merely a location:
+
+    * ``project_memory`` — review-vetted, current. Written at ``/submit``
+      approval, so it is approved findings by construction.
+    * ``central_legacy`` — a central entry tagged for a project that has no
+      per-project memory, i.e. predating the per-project pattern.
+    * ``central_background`` — an untagged central entry, belonging to no
+      project.
+
+    A central entry tagged for a project that *does* have its own memory is a
+    stale duplicate and never appears — see ``PROJECT_MEMORY_WINS``.
+    """
+
+    uri: str
+    origin: Literal["project_memory", "central_legacy", "central_background"]
+    project: str | None = None
+    owner: str | None = None
+    # ``None`` when nothing was searched — a listing has no relevance to rank.
+    score: float | None = None
+    excerpts: list[str] = Field(default_factory=list)
+    fragment_uris: list[str] = Field(default_factory=list)
+
+
+class DiscoveryResults(BaseModel):
+    """Discoveries matching a query, deduplicated, best first — or, with no
+    query, every discovery document in scope.
+
+    ``suppressed`` counts stale central duplicates dropped by the precedence
+    rule — reported rather than hidden so a caller can tell "nothing matched"
+    from "the current copy answered instead". ``total`` is how many documents
+    survived precedence before ``limit`` was applied.
+    """
+
+    query: str | None = None
+    results: list[DiscoveryHit]
+    fragments_scanned: int = 0
+    suppressed: int = 0
     total: int = 0
 
 
