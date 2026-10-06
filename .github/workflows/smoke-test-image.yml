@@ -97,6 +97,7 @@ jobs:
             -e BERIL_SESSION_SECRET_KEY=smoke-test-not-a-real-secret \
             -e BERIL_FORCE_LOCAL_DATA=true \
             -e BERIL_OV_URL=http://127.0.0.1:1 \
+            -e BERIL_OV_CREDENTIAL_KEY=smoke-test-fake-credential-key \
             beril-ui:smoke
 
       # BERIL_FORCE_LOCAL_DATA pins initialize_data() to the local-parse branch
