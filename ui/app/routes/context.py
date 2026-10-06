@@ -362,10 +362,18 @@ def _classify_pitfall(uri: str) -> tuple[str, str | None, str | None]:
 async def get_context_pitfalls(
     request: Request,
     q: str | None = Query(
-        default=None, description="Error text, table name, or description."
+        default=None,
+        description=(
+            "Error text, table name, or description. Omit to list every "
+            "pitfall document in scope."
+        ),
     ),
     project: str | None = Query(
-        default=None, description="Limit to one project. Defaults to all."
+        default=None,
+        description=(
+            "Narrow the project memories to one project. The central archive "
+            "is always included."
+        ),
     ),
     owner: str | None = Query(
         default=None, description="Owner of `project`. Defaults to the caller."
@@ -393,18 +401,29 @@ async def get_context_pitfalls(
     Results are documents, not fragments. The backend decomposes each file into
     section-level nodes, so a raw search returns several pieces of the same
     pitfall; these are grouped, with the document's best fragment score, and
-    backend-generated stubs dropped.
+    backend-generated stubs dropped. Only pitfall documents are ever searched
+    or returned — never a project's REPORT, or another central doc.
+
+    ``project`` / ``owner`` narrow the *project memories*, addressed like every
+    other read (a bare ``project`` is the caller's own). The central archive
+    stays in: it is shared knowledge relevant to any project, and its entries
+    tagged with that project are that project's legacy pitfalls.
+
+    Omitting ``q`` lists every pitfall document in scope, unranked, with
+    ``total`` saying how many there are. An empty ``q`` is a malformed query
+    and is rejected, not read as a listing.
     """
-    if project or owner:
-        uri = _read_uri(user, project, None, owner=owner)
-    else:
-        # No project named: search everything readable, both corpora at once.
-        uri = listing_uri()
+    if q is not None and not q.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="`q` must not be empty; omit it to list every pitfall.",
+        )
+    memory_pattern = _pitfall_memory_pattern(user, project, owner)
 
     manager = await resolve_context_manager(db, user)
     try:
-        documents, scanned = await manager.find_pitfalls(
-            q, uri=uri, limit=limit, exact=exact
+        documents, scanned, total = await manager.find_pitfalls(
+            q, memory_pattern=memory_pattern, limit=limit, exact=exact
         )
     except QUERY_FAILURES as exc:
         logger.warning("Pitfall query failed for user %s: %s", user.id, exc)
@@ -427,7 +446,26 @@ async def get_context_pitfalls(
                 fragment_uris=doc["fragment_uris"],
             )
         )
-    return PitfallResults(query=q, results=results, fragments_scanned=scanned)
+    return PitfallResults(
+        query=q, results=results, fragments_scanned=scanned, total=total
+    )
+
+
+def _pitfall_memory_pattern(
+    user: BerilUser, project: str | None, owner: str | None
+) -> str:
+    """The glob, relative to the corpus root, naming the pitfall memories in scope.
+
+    Validated through ``_read_uri`` like every read address, so traversal in
+    ``project`` or ``owner`` is refused the same way; the resolved location
+    then gains the memory file's path. Unnamed segments are wildcards.
+    """
+    memory = "memories/pitfalls.md"
+    if not project and not owner:
+        return f"*/*/{memory}"
+    resolved = _read_uri(user, project, None, owner=owner)
+    relative = resolved.removeprefix(corpus_root()).strip("/")
+    return f"{relative}/{memory}" if project else f"{relative}/*/{memory}"
 
 
 @ROUTER_CONTEXT.get("/api/context/grep")

@@ -1,4 +1,5 @@
 import asyncio
+import fnmatch
 import logging
 import re
 import tempfile
@@ -29,6 +30,7 @@ from .base import (
     INGEST_PROCESSING,
     INGEST_QUEUED,
     INGEST_UNKNOWN,
+    MAX_PITFALL_DOCUMENTS,
     ContextFile,
     ContextIngestFile,
     ContextIngestResults,
@@ -250,6 +252,19 @@ def source_document(uri: str, corpus_root: str) -> str:
         if segment.endswith(".md"):
             return _join(index + 1)
     return uri
+
+
+def _glob_match(relative: str, pattern: str) -> bool:
+    """Shell-style match, segment by segment, like the backend's glob.
+
+    ``fnmatch`` alone lets ``*`` cross ``/``, so ``*/*/memories/pitfalls.md``
+    would also match a file nested deeper; matching per segment keeps it to
+    exactly the shape the pattern names.
+    """
+    parts, wanted = relative.split("/"), pattern.split("/")
+    return len(parts) == len(wanted) and all(
+        fnmatch.fnmatchcase(part, want) for part, want in zip(parts, wanted, strict=True)
+    )
 
 
 def _grep_nodes(payload: dict) -> list[dict]:
@@ -574,44 +589,106 @@ class OpenVikingManager(ContextManager):
         self,
         query: str | None,
         *,
-        uri: str,
+        memory_pattern: str,
         limit: int,
         exact: bool = False,
-    ) -> tuple[list[dict], int]:
-        """Search the pitfall corpus, collapsed to source documents.
+    ) -> tuple[list[dict], int, int]:
+        """Search, or list, the pitfall documents.
 
-        Returns ``(documents, fragments_scanned)``. Semantic by default;
-        ``exact`` switches to grep, which beats embeddings for error strings
-        and table names — the tokens a user actually pastes in.
+        Returns ``(documents, fragments_scanned, total)``.
 
-        Fragments are grouped by source document and synthetic nodes dropped,
-        so a caller gets documents rather than section-level noise. The
-        document's score is its best fragment's: a strong match anywhere in a
-        pitfall entry makes that entry worth reading.
+        The scope is the pitfall documents themselves, never the corpus at
+        large: the central archive (``beril/docs/pitfalls``) plus each
+        project's ``memories/pitfalls.md`` matching ``memory_pattern`` — a
+        glob relative to the corpus root, e.g. ``*/*/memories/pitfalls.md``.
+        Searching the whole corpus and classifying afterwards returned any
+        file that matched — a REPORT fragment labelled a project memory, the
+        performance guide labelled a central pitfall.
+
+        With ``query`` omitted (``None``) nothing is searched: the documents
+        in scope are returned unranked, central first. An empty string is the
+        route's to reject — it is a malformed query, not a request to list. With one, ``exact`` greps (it beats
+        embeddings for the error strings and table names users paste) and
+        otherwise the search is semantic. Hits are grouped into source
+        documents and kept only if that document is a pitfall document — a
+        second line of defense, and the only one when the scope falls back.
+
+        Past ``MAX_PITFALL_DOCUMENTS`` memories the scope falls back to the
+        narrowest directory enclosing the pattern (plus the archive), and the
+        document filter does the narrowing.
         """
-        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
-        try:
-            if exact:
-                raw = await ov_client.grep(uri, query or "", case_insensitive=True)
-                nodes = _grep_nodes(raw)
-            else:
+        central = f"{USERS_TARGET_URI}{HOUSE_ACCOUNT_ID}/docs/pitfalls"
+        root = corpus_root()
+        memories = await self.glob(
+            memory_pattern, root, node_limit=MAX_PITFALL_DOCUMENTS + 1
+        )
+        overflow = len(memories) > MAX_PITFALL_DOCUMENTS
+        memory_set = set(memories)
+
+        def is_pitfall_document(doc_uri: str) -> bool:
+            if doc_uri == central:
+                return True
+            if overflow:
+                return _glob_match(doc_uri.removeprefix(root).strip("/"), memory_pattern)
+            return doc_uri in memory_set
+
+        if query is None:
+            # A listing searches nothing. Past the cap the glob stopped early,
+            # so the list is incomplete — said in the log and visible to the
+            # caller as ``total`` hitting the cap.
+            if overflow:
+                logger.warning(
+                    "Pitfall listing stopped at %d memories", MAX_PITFALL_DOCUMENTS
+                )
+            listed = [central, *sorted(memories)[:MAX_PITFALL_DOCUMENTS]]
+            documents = [
+                {"uri": uri, "score": None, "excerpts": [], "fragment_uris": []}
+                for uri in listed
+            ]
+            return documents[:limit], 0, len(documents)
+
+        if overflow:
+            logger.warning(
+                "Pitfall query over %d memories; scoping to the enclosing directory",
+                len(memories),
+            )
+            prefix = memory_pattern.split("*", 1)[0].rstrip("/")
+            enclosing = f"{root}/{prefix}" if prefix else root
+            targets: list[str] = [central, enclosing] if enclosing != root else [root]
+        else:
+            targets = [central, *memories]
+
+        if exact:
+            nodes = _grep_nodes(
+                await self.grep(targets, query, case_insensitive=True)
+            )
+        else:
+            ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+            try:
                 # Over-fetch: fragments collapse, so N nodes yield fewer
                 # documents. Bounded so a broad query cannot walk the corpus.
                 raw = await ov_client.find(
-                    query or "", target_uri=uri, limit=min(limit * 5, 100)
+                    query, target_uri=targets, limit=min(limit * 5, 100)
                 )
-                nodes = [
-                    {
-                        "uri": r.get("uri") or "",
-                        "score": float(r.get("score") or 0.0),
-                        "text": r.get("abstract") or "",
-                    }
-                    for r in (raw.get("resources") or [])
-                ]
-        finally:
-            await ov_client.close()
+            finally:
+                await ov_client.close()
+            nodes = [
+                {
+                    "uri": r.get("uri") or "",
+                    "score": float(r.get("score") or 0.0),
+                    "text": r.get("abstract") or "",
+                }
+                for r in (raw.get("resources") or [])
+            ]
 
-        return _collapse_fragments(nodes, limit=limit), len(nodes)
+        # Filtered before grouping and before the limit, so a non-pitfall
+        # match can neither appear nor crowd a real one out of the page.
+        nodes = [
+            n for n in nodes
+            if is_pitfall_document(source_document(n.get("uri") or "", USERS_TARGET_URI))
+        ]
+        documents = _collapse_fragments(nodes, limit=MAX_PITFALL_DOCUMENTS + 1)
+        return documents[:limit], len(nodes), len(documents)
 
     async def grep(
         self,

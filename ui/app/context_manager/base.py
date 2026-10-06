@@ -25,6 +25,12 @@ DEFAULT_GREP_NODE_LIMIT = 256
 # caller is asked to name an owner instead.
 MAX_OWNER_EXPANSION = 256
 
+# How many per-project pitfall memories a pitfall query names as explicit
+# search targets. Past this the search scopes to the narrowest enclosing
+# directory instead and filters results by document shape, so a large corpus
+# degrades to a broader scan rather than to an oversized request.
+MAX_PITFALL_DOCUMENTS = 256
+
 
 class FileMetadata(BaseModel):
     created: datetime
@@ -202,22 +208,29 @@ class PitfallHit(BaseModel):
     origin: Literal["project_memory", "central"]
     project: str | None = None
     owner: str | None = None
-    score: float
+    # ``None`` when nothing was searched — a listing has no relevance to rank.
+    score: float | None = None
     excerpts: list[str] = Field(default_factory=list)
     fragment_uris: list[str] = Field(default_factory=list)
 
 
 class PitfallResults(BaseModel):
-    """Documents matching a pitfall query, best first.
+    """Pitfall documents: matches for a query, best first — or, with no
+    query, every pitfall document in scope.
 
-    ``fragments_scanned`` is how many raw nodes the backend returned before
-    grouping — reported so a caller can tell a broad query from a narrow one
-    without the route inventing a relevance judgement.
+    ``fragments_scanned`` is how many matching pitfall fragments there were
+    before grouping — reported so a caller can tell a broad query from a
+    narrow one without the route inventing a relevance judgement. It is 0 for
+    a listing, which searches nothing.
+
+    ``total`` is how many documents qualified before ``limit`` was applied, so
+    a caller can tell a short list from a truncated one.
     """
 
     query: str | None = None
     results: list[PitfallHit]
     fragments_scanned: int = 0
+    total: int = 0
 
 
 class ContextQueryResults(BaseModel):
