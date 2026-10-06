@@ -1817,6 +1817,197 @@ def test_grep_nodes_handles_an_empty_payload():
 
 
 # ---------------------------------------------------------------------------
+# OpenVikingManager.find_pitfalls — the real manager, a stubbed backend
+# ---------------------------------------------------------------------------
+
+_USERS = "viking://resources/users"
+_PIT_CENTRAL = f"{_USERS}/beril/docs/pitfalls"
+_PIT_ALPHA = f"{_USERS}/0000-1/alpha/memories/pitfalls.md"
+_PIT_BETA = f"{_USERS}/0000-2/beta/memories/pitfalls.md"
+
+
+def _hit(uri, score=0.5, abstract="text"):
+    return {"uri": uri, "context_type": "resource", "score": score, "abstract": abstract}
+
+
+@pytest.fixture
+def pitfall_sdk(patched_sdk):
+    # The backend's glob returns directory matches with a trailing slash.
+    patched_sdk.glob.return_value = {"matches": [f"{_PIT_ALPHA}/", f"{_PIT_BETA}/"], "count": 2}
+    return patched_sdk
+
+
+async def test_find_pitfalls_searches_only_the_pitfall_documents(settings, pitfall_sdk):
+    """The scope is the pitfall documents themselves — the archive and each
+    memory file — passed to the backend as one ranked target list."""
+    manager = OpenVikingManager(settings, "user-key")
+    await manager.find_pitfalls("spark", memory_pattern="*/*/memories/pitfalls.md", limit=5)
+
+    pitfall_sdk.glob.assert_awaited_once()
+    assert pitfall_sdk.glob.await_args.args[0] == "*/*/memories/pitfalls.md"
+    assert pitfall_sdk.find.await_args.kwargs["target_uri"] == [_PIT_CENTRAL, _PIT_ALPHA, _PIT_BETA]
+
+
+async def test_find_pitfalls_drops_hits_that_are_not_pitfall_documents(
+    settings, pitfall_sdk
+):
+    """Regression (#442 review): a REPORT fragment came back labelled a project
+    memory, and another central doc came back as a central pitfall."""
+    pitfall_sdk.find.return_value = {"resources": [
+        _hit(f"{_USERS}/0000-1/alpha/REPORT.md/Results/r1.md", 0.99),
+        _hit(f"{_USERS}/beril/docs/performance/performance/Guide/p1.md", 0.98),
+        _hit(f"{_PIT_ALPHA}/oom_1.md", 0.9, "spark OOM"),
+        _hit(f"{_PIT_CENTRAL}/pitfalls/General/g1.md", 0.7, "pandas"),
+    ]}
+    manager = OpenVikingManager(settings, "user-key")
+
+    docs, scanned, total = await manager.find_pitfalls(
+        "spark", memory_pattern="*/*/memories/pitfalls.md", limit=5
+    )
+
+    assert [d["uri"] for d in docs] == [_PIT_ALPHA, _PIT_CENTRAL]
+    assert (scanned, total) == (2, 2)
+
+
+async def test_find_pitfalls_filters_before_the_limit(settings, pitfall_sdk):
+    """A higher-scored non-pitfall must not crowd a real pitfall off the page."""
+    pitfall_sdk.find.return_value = {"resources": [
+        _hit(f"{_USERS}/0000-1/alpha/REPORT.md/r1.md", 0.99),
+        _hit(f"{_PIT_BETA}/b1.md", 0.4, "real pitfall"),
+    ]}
+    manager = OpenVikingManager(settings, "user-key")
+
+    docs, _, _ = await manager.find_pitfalls(
+        "x", memory_pattern="*/*/memories/pitfalls.md", limit=1
+    )
+
+    assert [d["uri"] for d in docs] == [_PIT_BETA]
+
+
+async def test_find_pitfalls_without_a_query_lists_and_searches_nothing(
+    settings, pitfall_sdk
+):
+    """"What pitfalls do we know about?" — the documents in scope, unranked,
+    central first, and no search call at all."""
+    manager = OpenVikingManager(settings, "user-key")
+
+    docs, scanned, total = await manager.find_pitfalls(
+        None, memory_pattern="*/*/memories/pitfalls.md", limit=2
+    )
+
+    assert [d["uri"] for d in docs] == [_PIT_CENTRAL, _PIT_ALPHA]
+    assert all(d["score"] is None for d in docs)
+    assert (scanned, total) == (0, 3)
+    pitfall_sdk.find.assert_not_awaited()
+    pitfall_sdk.grep.assert_not_awaited()
+
+
+async def test_find_pitfalls_keeps_the_archive_when_a_project_is_named(
+    settings, pitfall_sdk
+):
+    """Naming a project narrows the memories, never drops the central archive."""
+    pitfall_sdk.glob.return_value = {"matches": [f"{_PIT_ALPHA}/"], "count": 1}
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.find_pitfalls(
+        "x", memory_pattern="0000-1/alpha/memories/pitfalls.md", limit=5
+    )
+
+    assert pitfall_sdk.find.await_args.kwargs["target_uri"] == [_PIT_CENTRAL, _PIT_ALPHA]
+
+
+async def test_find_pitfalls_exact_on_a_project_without_pitfalls(settings, pitfall_sdk):
+    """No memory file: the glob finds nothing and only the archive is searched —
+    no grep of a path the backend does not know, so no not-found error."""
+    pitfall_sdk.glob.return_value = {"matches": [], "count": 0}
+    pitfall_sdk.grep.return_value = {
+        "matches": [{"uri": f"{_PIT_CENTRAL}/pitfalls/General/g1.md", "line": 3,
+                     "content": "maxResultSize"}],
+        "count": 1, "match_count": 1, "files_scanned": 4,
+    }
+    manager = OpenVikingManager(settings, "user-key")
+
+    docs, _, _ = await manager.find_pitfalls(
+        "maxResultSize", memory_pattern="0000-1/none/memories/pitfalls.md",
+        limit=5, exact=True,
+    )
+
+    assert [c.args[0] for c in pitfall_sdk.grep.await_args_list] == [_PIT_CENTRAL]
+    assert [d["uri"] for d in docs] == [_PIT_CENTRAL]
+
+
+async def test_find_pitfalls_exact_greps_every_pitfall_document(settings, pitfall_sdk):
+    pitfall_sdk.grep.return_value = {
+        "matches": [], "count": 0, "match_count": 0, "files_scanned": 0
+    }
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.find_pitfalls(
+        "token", memory_pattern="*/*/memories/pitfalls.md", limit=5, exact=True
+    )
+
+    assert [c.args[0] for c in pitfall_sdk.grep.await_args_list] == [
+        _PIT_CENTRAL, _PIT_ALPHA, _PIT_BETA
+    ]
+
+
+async def test_find_pitfalls_falls_back_to_a_broader_scope_past_the_cap(
+    settings, pitfall_sdk, monkeypatch
+):
+    """Too many memories to name: search the enclosing directory instead, and
+    let the document filter — matched segment by segment — do the narrowing."""
+    from app.context_manager import openviking as ov
+
+    monkeypatch.setattr(ov, "MAX_MEMORY_DOCUMENTS", 1)
+    pitfall_sdk.find.return_value = {"resources": [
+        _hit(f"{_PIT_ALPHA}/a1.md", 0.9),
+        # Deeper than the pattern names: not a project's memory file.
+        _hit(f"{_USERS}/0000-1/alpha/old/memories/pitfalls.md/x.md", 0.95),
+        _hit(f"{_USERS}/0000-1/alpha/REPORT.md/r.md", 0.99),
+    ]}
+    manager = OpenVikingManager(settings, "user-key")
+
+    docs, _, _ = await manager.find_pitfalls(
+        "x", memory_pattern="*/*/memories/pitfalls.md", limit=5
+    )
+
+    assert pitfall_sdk.find.await_args.kwargs["target_uri"] == [_USERS]
+    assert [d["uri"] for d in docs] == [_PIT_ALPHA]
+
+
+async def test_find_pitfalls_fallback_keeps_an_owner_scope(
+    settings, pitfall_sdk, monkeypatch
+):
+    from app.context_manager import openviking as ov
+
+    monkeypatch.setattr(ov, "MAX_MEMORY_DOCUMENTS", 1)
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.find_pitfalls(
+        "x", memory_pattern="0000-1/*/memories/pitfalls.md", limit=5
+    )
+
+    assert pitfall_sdk.find.await_args.kwargs["target_uri"] == [
+        _PIT_CENTRAL, f"{_USERS}/0000-1"
+    ]
+
+
+async def test_find_pitfalls_total_counts_beyond_the_limit(settings, pitfall_sdk):
+    """``total`` is what qualified, not what fit on the page."""
+    pitfall_sdk.find.return_value = {"resources": [
+        _hit(f"{_PIT_ALPHA}/a1.md", 0.9), _hit(f"{_PIT_BETA}/b1.md", 0.8),
+    ]}
+    manager = OpenVikingManager(settings, "user-key")
+
+    docs, _, total = await manager.find_pitfalls(
+        "x", memory_pattern="*/*/memories/pitfalls.md", limit=1
+    )
+
+    assert [d["uri"] for d in docs] == [_PIT_ALPHA]
+    assert total == 2
+
+
+# ---------------------------------------------------------------------------
 # Discovery precedence (suggest-research Step 4)
 # ---------------------------------------------------------------------------
 
@@ -1926,3 +2117,54 @@ def test_precedence_mixed_corpus():
         "central_legacy",
         "central_background",
     ]
+
+
+
+# ---------------------------------------------------------------------------
+# OpenVikingManager.find_discoveries — same scoping, untrimmed for precedence
+# ---------------------------------------------------------------------------
+
+_DISC_CENTRAL_URI = f"{_USERS}/beril/docs/discoveries"
+_DISC_ALPHA = f"{_USERS}/0000-1/alpha/memories/discoveries.md"
+
+
+async def test_find_discoveries_searches_only_discovery_documents(
+    settings, patched_sdk
+):
+    """Same bug as /pitfalls had: the performance guide and a REPORT fragment
+    must not come back as discoveries."""
+    patched_sdk.glob.return_value = {"matches": [f"{_DISC_ALPHA}/"], "count": 1}
+    patched_sdk.find.return_value = {"resources": [
+        _hit(f"{_USERS}/beril/docs/performance/performance/G/p.md", 0.99),
+        _hit(f"{_USERS}/0000-1/alpha/REPORT.md/r.md", 0.98),
+        _hit(f"{_USERS}/beril/docs/pitfalls/pitfalls/G/x.md", 0.97),
+        _hit(f"{_DISC_ALPHA}/d1.md", 0.5),
+    ]}
+    manager = OpenVikingManager(settings, "user-key")
+
+    docs, scanned = await manager.find_discoveries(
+        "x", memory_pattern="*/*/memories/discoveries.md", limit=5
+    )
+
+    assert patched_sdk.glob.await_args.args[0] == "*/*/memories/discoveries.md"
+    assert patched_sdk.find.await_args.kwargs["target_uri"] == [
+        _DISC_CENTRAL_URI, _DISC_ALPHA
+    ]
+    assert [d["uri"] for d in docs] == [_DISC_ALPHA]
+    assert scanned == 1
+
+
+async def test_find_discoveries_is_not_trimmed_to_the_limit(settings, patched_sdk):
+    """The route applies precedence first and the limit after."""
+    patched_sdk.glob.return_value = {"matches": [f"{_DISC_ALPHA}/"], "count": 1}
+    patched_sdk.find.return_value = {"resources": [
+        _hit(f"{_DISC_CENTRAL_URI}/discoveries/A/a.md", 0.9),
+        _hit(f"{_DISC_ALPHA}/d1.md", 0.5),
+    ]}
+    manager = OpenVikingManager(settings, "user-key")
+
+    docs, _ = await manager.find_discoveries(
+        "x", memory_pattern="*/*/memories/discoveries.md", limit=1
+    )
+
+    assert len(docs) == 2

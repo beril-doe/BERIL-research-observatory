@@ -2616,6 +2616,7 @@ def _pitfall_docs():
              "fragment_uris": [f"{_CENTRAL_DOC}/a.md", f"{_CENTRAL_DOC}/b.md"]},
         ],
         7,
+        2,
     )
 
 
@@ -2625,6 +2626,10 @@ def pitfall_manager():
     inst.find_pitfalls = AsyncMock(return_value=_pitfall_docs())
     with patch("app.routes.context.OpenVikingManager", return_value=inst):
         yield inst
+
+
+def _pattern(pitfall_manager):
+    return pitfall_manager.find_pitfalls.await_args.kwargs["memory_pattern"]
 
 
 def test_pitfalls_unauthenticated_returns_401(client):
@@ -2646,7 +2651,7 @@ async def test_pitfalls_classifies_origin(client, credentialed_user, pitfall_man
     assert body["results"][1]["owner"] == "beril"
 
 
-async def test_pitfalls_reports_fragments_scanned(
+async def test_pitfalls_reports_fragments_scanned_and_total(
     client, credentialed_user, pitfall_manager
 ):
     _login(client)
@@ -2655,31 +2660,32 @@ async def test_pitfalls_reports_fragments_scanned(
     # Two documents, seven underlying fragments.
     assert len(body["results"]) == 2
     assert body["fragments_scanned"] == 7
+    assert body["total"] == 2
 
 
-async def test_pitfalls_searches_the_whole_corpus_by_default(
+async def test_pitfalls_spans_every_projects_memory_by_default(
     client, credentialed_user, pitfall_manager
 ):
-    """No project named means both halves of the corpus, every owner."""
+    """No project named: every owner's every project's pitfall memory."""
     _login(client)
     client.get("/api/context/pitfalls", params={"q": "spark"})
 
-    assert pitfall_manager.find_pitfalls.await_args.kwargs["uri"] == (
-        "viking://resources/users"
-    )
+    assert _pattern(pitfall_manager) == "*/*/memories/pitfalls.md"
 
 
-async def test_pitfalls_narrows_to_a_project(
+async def test_pitfalls_narrows_the_memories_to_a_project(
     client, credentialed_user, pitfall_manager
 ):
+    """A bare project is the caller's own, like every other read."""
     _login(client)
     client.get("/api/context/pitfalls", params={"q": "x", "project": "alpha"})
 
-    uri = pitfall_manager.find_pitfalls.await_args.kwargs["uri"]
-    assert uri == f"viking://resources/users/{USER_TOKEN['orcid']}/alpha"
+    assert _pattern(pitfall_manager) == (
+        f"{USER_TOKEN['orcid']}/alpha/memories/pitfalls.md"
+    )
 
 
-async def test_pitfalls_narrows_to_another_owner(
+async def test_pitfalls_narrows_to_another_owners_project(
     client, credentialed_user, pitfall_manager
 ):
     """Reads are global, so another owner's pitfalls are readable."""
@@ -2689,8 +2695,18 @@ async def test_pitfalls_narrows_to_another_owner(
         params={"q": "x", "project": "alpha", "owner": "0000-0009-8888-7777"},
     )
 
-    uri = pitfall_manager.find_pitfalls.await_args.kwargs["uri"]
-    assert uri == "viking://resources/users/0000-0009-8888-7777/alpha"
+    assert _pattern(pitfall_manager) == "0000-0009-8888-7777/alpha/memories/pitfalls.md"
+
+
+async def test_pitfalls_owner_alone_spans_that_owners_projects(
+    client, credentialed_user, pitfall_manager
+):
+    _login(client)
+    client.get(
+        "/api/context/pitfalls", params={"q": "x", "owner": "0000-0009-8888-7777"}
+    )
+
+    assert _pattern(pitfall_manager) == "0000-0009-8888-7777/*/memories/pitfalls.md"
 
 
 async def test_pitfalls_passes_exact_through(
@@ -2712,15 +2728,42 @@ async def test_pitfalls_defaults_to_semantic(
     assert pitfall_manager.find_pitfalls.await_args.kwargs["exact"] is False
 
 
-async def test_pitfalls_allows_an_empty_query(
+async def test_pitfalls_without_q_lists_every_pitfall(
     client, credentialed_user, pitfall_manager
 ):
-    """No q lists the corpus — a legitimate 'what do we know?' call."""
+    """Omitting ``q`` is a listing — "what pitfalls do we know about?" —
+    passed down as ``None`` so nothing is searched."""
+    pitfall_manager.find_pitfalls.return_value = (
+        [
+            {"uri": _CENTRAL_DOC, "score": None, "excerpts": [], "fragment_uris": []},
+            {"uri": _MEMORY_DOC, "score": None, "excerpts": [], "fragment_uris": []},
+        ],
+        0,
+        2,
+    )
     _login(client)
     resp = client.get("/api/context/pitfalls")
 
     assert resp.status_code == 200
     assert pitfall_manager.find_pitfalls.await_args.args[0] is None
+    body = resp.json()
+    assert body["query"] is None
+    assert [r["score"] for r in body["results"]] == [None, None]
+    assert (body["total"], body["fragments_scanned"]) == (2, 0)
+
+
+@pytest.mark.parametrize("q", ["", "   "])
+async def test_pitfalls_rejects_an_empty_q(
+    client, credentialed_user, pitfall_manager, q
+):
+    """An empty ``q`` is a malformed query, not a request to list — and the
+    backend would reject it anyway."""
+    _login(client)
+    resp = client.get("/api/context/pitfalls", params={"q": q})
+
+    assert resp.status_code == 422
+    assert "omit it" in resp.json()["detail"]
+    pitfall_manager.find_pitfalls.assert_not_awaited()
 
 
 @pytest.mark.parametrize("limit", [0, 500])
@@ -2734,13 +2777,14 @@ async def test_pitfalls_rejects_out_of_range_limit(
     pitfall_manager.find_pitfalls.assert_not_awaited()
 
 
+@pytest.mark.parametrize(
+    "params", [{"owner": "../.."}, {"project": "alpha", "owner": ".."}]
+)
 async def test_pitfalls_rejects_traversal_in_the_owner(
-    client, credentialed_user, pitfall_manager
+    client, credentialed_user, pitfall_manager, params
 ):
     _login(client)
-    resp = client.get(
-        "/api/context/pitfalls", params={"q": "x", "owner": "../.."}
-    )
+    resp = client.get("/api/context/pitfalls", params={"q": "x", **params})
 
     assert resp.status_code == 422
     pitfall_manager.find_pitfalls.assert_not_awaited()
@@ -2844,25 +2888,80 @@ async def test_discoveries_reports_counts(
     assert body["suppressed"] == 0
 
 
-async def test_discoveries_searches_the_whole_corpus_by_default(
+async def test_discoveries_spans_every_projects_memory_by_default(
     client, credentialed_user, discovery_manager
 ):
     _login(client)
     client.get("/api/context/discoveries", params={"q": "x"})
 
-    assert discovery_manager.find_discoveries.await_args.kwargs["uri"] == (
-        "viking://resources/users"
+    assert discovery_manager.find_discoveries.await_args.kwargs["memory_pattern"] == (
+        "*/*/memories/discoveries.md"
     )
 
 
-async def test_discoveries_narrows_to_a_project(
+async def test_discoveries_narrows_the_memories_to_a_project(
     client, credentialed_user, discovery_manager
 ):
     _login(client)
     client.get("/api/context/discoveries", params={"q": "x", "project": "alpha"})
 
-    uri = discovery_manager.find_discoveries.await_args.kwargs["uri"]
-    assert uri == f"viking://resources/users/{USER_TOKEN['orcid']}/alpha"
+    assert discovery_manager.find_discoveries.await_args.kwargs["memory_pattern"] == (
+        f"{USER_TOKEN['orcid']}/alpha/memories/discoveries.md"
+    )
+
+
+async def test_discoveries_applies_precedence_before_the_limit(
+    client, credentialed_user, discovery_manager, db_session
+):
+    """Regression (#443 review): with ``limit=1`` a higher-ranked stale central
+    duplicate took the only slot, was then suppressed, and nothing came back
+    even though the project's current copy matched."""
+    discovery_manager.find_discoveries.return_value = (
+        [
+            {"uri": _DISC_CENTRAL, "score": 0.95,
+             "excerpts": ["### [alpha] stale duplicate"],
+             "fragment_uris": [f"{_DISC_CENTRAL}/a.md"]},
+            {"uri": _DISC_MEMORY, "score": 0.6, "excerpts": ["current"],
+             "fragment_uris": [f"{_DISC_MEMORY}/c.md"]},
+        ],
+        5,
+    )
+    _login(client)
+    with patch(
+        "app.routes.context.projects_with_memory", AsyncMock(return_value={"alpha"})
+    ):
+        body = client.get(
+            "/api/context/discoveries", params={"q": "x", "limit": 1}
+        ).json()
+
+    assert [r["uri"] for r in body["results"]] == [_DISC_MEMORY]
+    assert (body["suppressed"], body["total"]) == (1, 1)
+
+
+async def test_discoveries_without_q_lists_every_discovery(
+    client, credentialed_user, discovery_manager
+):
+    discovery_manager.find_discoveries.return_value = (
+        [{"uri": _DISC_CENTRAL, "score": None, "excerpts": [], "fragment_uris": []}],
+        0,
+    )
+    _login(client)
+    resp = client.get("/api/context/discoveries")
+
+    assert resp.status_code == 200
+    assert discovery_manager.find_discoveries.await_args.args[0] is None
+    assert resp.json()["results"][0]["score"] is None
+
+
+@pytest.mark.parametrize("q", ["", "  "])
+async def test_discoveries_rejects_an_empty_q(
+    client, credentialed_user, discovery_manager, q
+):
+    _login(client)
+    resp = client.get("/api/context/discoveries", params={"q": q})
+
+    assert resp.status_code == 422
+    discovery_manager.find_discoveries.assert_not_awaited()
 
 
 async def test_discoveries_passes_exact_through(

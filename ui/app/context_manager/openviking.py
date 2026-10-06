@@ -1,4 +1,5 @@
 import asyncio
+import fnmatch
 import logging
 import re
 import tempfile
@@ -30,6 +31,7 @@ from .base import (
     INGEST_QUEUED,
     INGEST_REMOVED,
     INGEST_UNKNOWN,
+    MAX_MEMORY_DOCUMENTS,
     ContextFile,
     ContextIngestFile,
     ContextIngestResults,
@@ -251,6 +253,19 @@ def source_document(uri: str, corpus_root: str) -> str:
         if segment.endswith(".md"):
             return _join(index + 1)
     return uri
+
+
+def _glob_match(relative: str, pattern: str) -> bool:
+    """Shell-style match, segment by segment, like the backend's glob.
+
+    ``fnmatch`` alone lets ``*`` cross ``/``, so ``*/*/memories/pitfalls.md``
+    would also match a file nested deeper; matching per segment keeps it to
+    exactly the shape the pattern names.
+    """
+    parts, wanted = relative.split("/"), pattern.split("/")
+    return len(parts) == len(wanted) and all(
+        fnmatch.fnmatchcase(part, want) for part, want in zip(parts, wanted, strict=True)
+    )
 
 
 def _grep_nodes(payload: dict) -> list[dict]:
@@ -684,76 +699,156 @@ class OpenVikingManager(ContextManager):
             await ov_client.close()
         return listed
 
-    async def find_discoveries(
-        self,
-        query: str | None,
-        *,
-        uri: str,
-        limit: int,
-        exact: bool = False,
-    ) -> tuple[list[dict], int]:
-        """Search the discovery corpus, collapsed to source documents.
-
-        Identical retrieval to ``find_pitfalls`` — the corpora have the same
-        two shapes. Precedence is applied above this, by the route, because it
-        needs BERIL's own record of which projects have a memory; that is a
-        database fact, not something the backend models.
-        """
-        return await self._find_documents(query, uri=uri, limit=limit, exact=exact)
-
     async def find_pitfalls(
         self,
         query: str | None,
         *,
-        uri: str,
+        memory_pattern: str,
+        limit: int,
+        exact: bool = False,
+    ) -> tuple[list[dict], int, int]:
+        """Search, or list, the pitfall documents.
+
+        Returns ``(documents, fragments_scanned, total)`` — ``total`` counts
+        the documents that qualified before ``limit``. See ``_find_documents``
+        for the scope and the two modes.
+        """
+        documents, scanned = await self._find_documents(
+            query, slug="pitfalls", memory_pattern=memory_pattern,
+            limit=limit, exact=exact,
+        )
+        return documents[:limit], scanned, len(documents)
+
+    async def find_discoveries(
+        self,
+        query: str | None,
+        *,
+        memory_pattern: str,
         limit: int,
         exact: bool = False,
     ) -> tuple[list[dict], int]:
-        """Search the pitfall corpus, collapsed to source documents."""
-        return await self._find_documents(query, uri=uri, limit=limit, exact=exact)
+        """Search, or list, the discovery documents — every one that qualifies.
+
+        Untrimmed, unlike ``find_pitfalls``: the route applies the precedence
+        rule first and the limit after, so a stale central duplicate cannot
+        take a page slot and leave the current copy off it. Precedence lives
+        above this because it needs BERIL's own record of which projects have
+        a memory — a database fact the backend does not model.
+        """
+        return await self._find_documents(
+            query, slug="discoveries", memory_pattern=memory_pattern,
+            limit=limit, exact=exact,
+        )
 
     async def _find_documents(
         self,
         query: str | None,
         *,
-        uri: str,
+        slug: str,
+        memory_pattern: str,
         limit: int,
         exact: bool = False,
     ) -> tuple[list[dict], int]:
-        """Search below ``uri``, collapsed to source documents.
+        """Search, or list, one by-protocol corpus: ``slug`` is ``pitfalls``
+        or ``discoveries``.
 
-        Returns ``(documents, fragments_scanned)``. Semantic by default;
-        ``exact`` switches to grep, which beats embeddings for error strings
-        and table names — the tokens a user actually pastes in.
+        Returns ``(documents, fragments_scanned)`` with every document that
+        qualified (up to ``MAX_MEMORY_DOCUMENTS``); callers apply the limit.
+        ``limit`` here only sizes the backend over-fetch.
 
-        Fragments are grouped by source document and synthetic nodes dropped,
-        so a caller gets documents rather than section-level noise. The
-        document's score is its best fragment's: a strong match anywhere in a
-        pitfall entry makes that entry worth reading.
+        The scope is the corpus documents themselves, never the corpus at
+        large: the central archive (``beril/docs/<slug>``) plus each project's
+        memory matching ``memory_pattern`` — a glob relative to the corpus
+        root, e.g. ``*/*/memories/<slug>.md``. Searching everything and
+        classifying afterwards returned any file that matched — a REPORT
+        fragment labelled a project memory, the performance guide labelled a
+        central pitfall.
+
+        With ``query`` omitted (``None``) nothing is searched: the documents
+        in scope are returned unranked, central first. An empty string is the
+        route's to reject — it is a malformed query, not a request to list.
+        With a query, ``exact`` greps (it beats embeddings for the error
+        strings and table names users paste) and otherwise the search is
+        semantic. Hits are grouped into source documents and kept only if that
+        document is one of the corpus documents — a second line of defense,
+        and the only one when the scope falls back.
+
+        Past ``MAX_MEMORY_DOCUMENTS`` memories the scope falls back to the
+        narrowest directory enclosing the pattern (plus the archive), and the
+        document filter does the narrowing.
         """
-        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
-        try:
-            if exact:
-                raw = await ov_client.grep(uri, query or "", case_insensitive=True)
-                nodes = _grep_nodes(raw)
-            else:
+        central = f"{USERS_TARGET_URI}{HOUSE_ACCOUNT_ID}/docs/{slug}"
+        root = corpus_root()
+        memories = await self.glob(
+            memory_pattern, root, node_limit=MAX_MEMORY_DOCUMENTS + 1
+        )
+        overflow = len(memories) > MAX_MEMORY_DOCUMENTS
+        memory_set = set(memories)
+
+        def is_corpus_document(doc_uri: str) -> bool:
+            if doc_uri == central:
+                return True
+            if overflow:
+                return _glob_match(doc_uri.removeprefix(root).strip("/"), memory_pattern)
+            return doc_uri in memory_set
+
+        if query is None:
+            # A listing searches nothing. Past the cap the glob stopped early,
+            # so the list is incomplete — said in the log and visible to the
+            # caller as ``total`` hitting the cap.
+            if overflow:
+                logger.warning(
+                    "%s listing stopped at %d memories", slug, MAX_MEMORY_DOCUMENTS
+                )
+            listed = [central, *sorted(memories)[:MAX_MEMORY_DOCUMENTS]]
+            documents = [
+                {"uri": uri, "score": None, "excerpts": [], "fragment_uris": []}
+                for uri in listed
+            ]
+            return documents, 0
+
+        if overflow:
+            logger.warning(
+                "%s query over %d memories; scoping to the enclosing directory",
+                slug,
+                len(memories),
+            )
+            prefix = memory_pattern.split("*", 1)[0].rstrip("/")
+            enclosing = f"{root}/{prefix}" if prefix else root
+            targets: list[str] = [central, enclosing] if enclosing != root else [root]
+        else:
+            targets = [central, *memories]
+
+        if exact:
+            nodes = _grep_nodes(
+                await self.grep(targets, query, case_insensitive=True)
+            )
+        else:
+            ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+            try:
                 # Over-fetch: fragments collapse, so N nodes yield fewer
                 # documents. Bounded so a broad query cannot walk the corpus.
                 raw = await ov_client.find(
-                    query or "", target_uri=uri, limit=min(limit * 5, 100)
+                    query, target_uri=targets, limit=min(limit * 5, 100)
                 )
-                nodes = [
-                    {
-                        "uri": r.get("uri") or "",
-                        "score": float(r.get("score") or 0.0),
-                        "text": r.get("abstract") or "",
-                    }
-                    for r in (raw.get("resources") or [])
-                ]
-        finally:
-            await ov_client.close()
+            finally:
+                await ov_client.close()
+            nodes = [
+                {
+                    "uri": r.get("uri") or "",
+                    "score": float(r.get("score") or 0.0),
+                    "text": r.get("abstract") or "",
+                }
+                for r in (raw.get("resources") or [])
+            ]
 
-        return _collapse_fragments(nodes, limit=limit), len(nodes)
+        # Filtered before grouping and before any limit, so a match from some
+        # other file can neither appear nor crowd a real one out of the page.
+        nodes = [
+            n for n in nodes
+            if is_corpus_document(source_document(n.get("uri") or "", USERS_TARGET_URI))
+        ]
+        return _collapse_fragments(nodes, limit=MAX_MEMORY_DOCUMENTS + 1), len(nodes)
 
     async def grep(
         self,

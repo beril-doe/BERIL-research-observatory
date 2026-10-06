@@ -371,10 +371,18 @@ def _classify_pitfall(uri: str) -> tuple[str, str | None, str | None]:
 async def get_context_pitfalls(
     request: Request,
     q: str | None = Query(
-        default=None, description="Error text, table name, or description."
+        default=None,
+        description=(
+            "Error text, table name, or description. Omit to list every "
+            "pitfall document in scope."
+        ),
     ),
     project: str | None = Query(
-        default=None, description="Limit to one project. Defaults to all."
+        default=None,
+        description=(
+            "Narrow the project memories to one project. The central archive "
+            "is always included."
+        ),
     ),
     owner: str | None = Query(
         default=None, description="Owner of `project`. Defaults to the caller."
@@ -402,18 +410,25 @@ async def get_context_pitfalls(
     Results are documents, not fragments. The backend decomposes each file into
     section-level nodes, so a raw search returns several pieces of the same
     pitfall; these are grouped, with the document's best fragment score, and
-    backend-generated stubs dropped.
+    backend-generated stubs dropped. Only pitfall documents are ever searched
+    or returned — never a project's REPORT, or another central doc.
+
+    ``project`` / ``owner`` narrow the *project memories*, addressed like every
+    other read (a bare ``project`` is the caller's own). The central archive
+    stays in: it is shared knowledge relevant to any project, and its entries
+    tagged with that project are that project's legacy pitfalls.
+
+    Omitting ``q`` lists every pitfall document in scope, unranked, with
+    ``total`` saying how many there are. An empty ``q`` is a malformed query
+    and is rejected, not read as a listing.
     """
-    if project or owner:
-        uri = _read_uri(user, project, None, owner=owner)
-    else:
-        # No project named: search everything readable, both corpora at once.
-        uri = listing_uri()
+    _reject_empty_query(q, noun="pitfall")
+    memory_pattern = _memory_pattern(user, project, owner, memory="pitfalls")
 
     manager = await resolve_context_manager(db, user)
     try:
-        documents, scanned = await manager.find_pitfalls(
-            q, uri=uri, limit=limit, exact=exact
+        documents, scanned, total = await manager.find_pitfalls(
+            q, memory_pattern=memory_pattern, limit=limit, exact=exact
         )
     except QUERY_FAILURES as exc:
         logger.warning("Pitfall query failed for user %s: %s", user.id, exc)
@@ -436,17 +451,54 @@ async def get_context_pitfalls(
                 fragment_uris=doc["fragment_uris"],
             )
         )
-    return PitfallResults(query=q, results=results, fragments_scanned=scanned)
+    return PitfallResults(
+        query=q, results=results, fragments_scanned=scanned, total=total
+    )
+
+
+def _reject_empty_query(q: str | None, *, noun: str) -> None:
+    """An omitted ``q`` is a listing; an empty one is a malformed query."""
+    if q is not None and not q.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"`q` must not be empty; omit it to list every {noun}.",
+        )
+
+
+def _memory_pattern(
+    user: BerilUser, project: str | None, owner: str | None, *, memory: str
+) -> str:
+    """The glob, relative to the corpus root, naming the memories in scope.
+
+    ``memory`` is the memory's name (``pitfalls`` or ``discoveries``).
+    Validated through ``_read_uri`` like every read address, so traversal in
+    ``project`` or ``owner`` is refused the same way; the resolved location
+    then gains the memory file's path. Unnamed segments are wildcards.
+    """
+    path = f"memories/{memory}.md"
+    if not project and not owner:
+        return f"*/*/{path}"
+    resolved = _read_uri(user, project, None, owner=owner)
+    relative = resolved.removeprefix(corpus_root()).strip("/")
+    return f"{relative}/{path}" if project else f"{relative}/*/{path}"
 
 
 @ROUTER_CONTEXT.get("/api/context/discoveries")
 async def get_context_discoveries(
     request: Request,
     q: str | None = Query(
-        default=None, description="Theme, organism, or pattern."
+        default=None,
+        description=(
+            "Theme, organism, or pattern. Omit to list every discovery "
+            "document in scope."
+        ),
     ),
     project: str | None = Query(
-        default=None, description="Limit to one project. Defaults to all."
+        default=None,
+        description=(
+            "Narrow the project memories to one project. The central archive "
+            "is always included."
+        ),
     ),
     owner: str | None = Query(
         default=None, description="Owner of `project`. Defaults to the caller."
@@ -477,16 +529,19 @@ async def get_context_discoveries(
 
     Per-project memories are written at ``/submit`` approval, so this corpus is
     review-vetted by construction — a draft finding never reaches it.
+
+    Scoped like ``/pitfalls``: only discovery documents are searched or
+    returned, ``project``/``owner`` narrow the memories while the archive stays
+    in, and omitting ``q`` lists every discovery document (an empty ``q`` is
+    rejected). Precedence is applied before ``limit``.
     """
-    if project or owner:
-        uri = _read_uri(user, project, None, owner=owner)
-    else:
-        uri = listing_uri()
+    _reject_empty_query(q, noun="discovery")
+    memory_pattern = _memory_pattern(user, project, owner, memory="discoveries")
 
     manager = await resolve_context_manager(db, user)
     try:
         documents, scanned = await manager.find_discoveries(
-            q, uri=uri, limit=limit, exact=exact
+            q, memory_pattern=memory_pattern, limit=limit, exact=exact
         )
     except QUERY_FAILURES as exc:
         logger.warning("Discovery query failed for user %s: %s", user.id, exc)
@@ -495,10 +550,14 @@ async def get_context_discoveries(
             detail="The context manager could not answer that query.",
         ) from exc
 
+    # Precedence before the limit: a stale central duplicate dropped after
+    # trimming would have taken a page slot from the current copy.
     owned = await projects_with_memory(db, "discoveries")
     classified, suppressed = apply_discovery_precedence(
         documents, projects_with_memory=owned
     )
+    total = len(classified)
+    classified = classified[:limit]
 
     return DiscoveryResults(
         query=q,
@@ -516,6 +575,7 @@ async def get_context_discoveries(
         ],
         fragments_scanned=scanned,
         suppressed=suppressed,
+        total=total,
     )
 
 
