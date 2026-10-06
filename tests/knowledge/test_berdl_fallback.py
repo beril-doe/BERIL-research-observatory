@@ -13,7 +13,7 @@ import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
 
 from observatory_context import berdl_fallback as bf
-from observatory_context.config import ContextConfig, LAKEHOUSE_BUCKET
+from observatory_context.config import DOCS_TARGET_URI, ContextConfig, LAKEHOUSE_BUCKET
 
 
 def _config(tmp_path: Path) -> ContextConfig:
@@ -96,7 +96,7 @@ def test_uri_to_bucket_key_maps_project_files():
 def test_uri_to_bucket_key_rejects_non_project_uris():
     # Docs and other resources are not archived in the lakehouse.
     with pytest.raises(bf.BerdlUnavailable):
-        bf.uri_to_bucket_key("viking://resources/docs/pitfalls/pitfalls.md")
+        bf.uri_to_bucket_key(f"{DOCS_TARGET_URI}pitfalls/pitfalls.md")
     with pytest.raises(bf.BerdlUnavailable):
         bf.uri_to_bucket_key("viking://resources/projects/")
 
@@ -209,7 +209,7 @@ def test_berdl_find_docs_scope_is_unavailable(tmp_path, monkeypatch):
     # Docs aren't archived in the lakehouse -> caller falls back to local.
     _patch_client(monkeypatch, _FakeS3({}))
     with pytest.raises(bf.BerdlUnavailable):
-        bf.berdl_find(_config(tmp_path), "spark", "viking://resources/docs/", 10)
+        bf.berdl_find(_config(tmp_path), "spark", DOCS_TARGET_URI, 10)
 
 
 # --- grep (exact line-match over the archived corpus) ---------------------
@@ -258,7 +258,7 @@ def test_berdl_grep_respects_exclude_and_node_limit(tmp_path, monkeypatch):
 def test_berdl_grep_docs_scope_is_unavailable(tmp_path, monkeypatch):
     _patch_client(monkeypatch, _FakeS3({}))
     with pytest.raises(bf.BerdlUnavailable):
-        bf.berdl_grep(_config(tmp_path), "spark", "viking://resources/docs/")
+        bf.berdl_grep(_config(tmp_path), "spark", DOCS_TARGET_URI)
 
 
 # --- structural navigation (ls / glob / tree / stat) ----------------------
@@ -382,9 +382,9 @@ def test_berdl_stat_missing_is_unavailable(tmp_path, monkeypatch):
 def test_structural_docs_scope_is_unavailable(tmp_path, monkeypatch):
     _patch_client(monkeypatch, _FakeS3({}))
     for call in (
-        lambda: bf.berdl_ls(_config(tmp_path), "viking://resources/docs/"),
-        lambda: bf.berdl_glob(_config(tmp_path), "*", "viking://resources/docs/"),
-        lambda: bf.berdl_tree(_config(tmp_path), "viking://resources/docs/"),
+        lambda: bf.berdl_ls(_config(tmp_path), DOCS_TARGET_URI),
+        lambda: bf.berdl_glob(_config(tmp_path), "*", DOCS_TARGET_URI),
+        lambda: bf.berdl_tree(_config(tmp_path), DOCS_TARGET_URI),
     ):
         with pytest.raises(bf.BerdlUnavailable):
             call()

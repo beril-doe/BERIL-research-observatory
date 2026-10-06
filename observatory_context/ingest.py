@@ -14,7 +14,12 @@ from openviking_cli.exceptions import (
     UnavailableError,
     VLMFailedError,
 )
-from .config import DOCS_TARGET_URI, PROJECTS_TARGET_URI, ContextConfig
+from .config import (
+    DOCS_TARGET_URI,
+    LEGACY_DOCS_TARGET_URI,
+    PROJECTS_TARGET_URI,
+    ContextConfig,
+)
 from .manifest import (
     Manifest,
     build_manifest,
@@ -111,9 +116,16 @@ def ingest_all(
             load_manifest(_manifest_path(config)), new_manifest, ingested
         )
     else:
-        _remove_stale(client, config, new_manifest)
         manifest_to_save = new_manifest
     obs.wait_processed(client)
+    # Deletions wait until the uploads above are processed: a stale entry may
+    # be the old copy of something just re-uploaded (a retired-root doc), and
+    # uploads are not waited on individually, so removing first would leave a
+    # window with neither copy searchable.
+    if not limit:
+        _remove_stale(client, config, new_manifest)
+    if docs:
+        _retire_legacy_docs(client)
     save_manifest(_manifest_path(config), manifest_to_save)
     obs.done()
 
@@ -167,13 +179,18 @@ def ingest_changed(
             ingested_uris.add(target_uri)
             obs.advance(f"docs/{docs[target_uri].name}")
 
+    # Removals wait until the uploads above are processed, as in ingest_all and
+    # ingest_docs: a removal may be the old copy of something just uploaded —
+    # on a machine whose manifest predates the house account, every retired-
+    # root doc is a removal and its replacement a new target — and uploads are
+    # not waited on individually, so removing first would leave neither copy
+    # searchable for a while.
+    if targets or removed:
+        obs.wait_processed(client)
     for target_uri in removed:
         _remove_resource(client, target_uri)
         ingested_uris.add(target_uri)
         obs.advance(f"removed: {target_uri}")
-
-    if targets or removed:
-        obs.wait_processed(client)
     if limit:
         manifest_to_save = _partial_manifest(old_manifest, new_manifest, ingested_uris)
     else:
@@ -249,18 +266,41 @@ def ingest_docs(
     # stale docs) but must leave project manifest entries untouched — persisting
     # the full manifest would mask pending project edits from a later
     # `--changed`. Update only the DOCS-prefixed slice of the manifest.
+    #
+    # The retired pre-house-account root counts as part of the docs namespace:
+    # its manifest entries are reconciled away like any stale doc, and the root
+    # itself is deleted once the new copies are processed (see
+    # ``_retire_legacy_docs``) — the cutover is "run --docs once", not a manual
+    # cleanup.
+    docs_prefixes = (DOCS_TARGET_URI, LEGACY_DOCS_TARGET_URI)
     old_manifest = load_manifest(_manifest_path(config))
     new_manifest = _current_manifest(config)
-    _remove_stale(client, config, new_manifest, prefix=DOCS_TARGET_URI)
+    # Deletions only after the new copies are processed, so a cutover never
+    # leaves a doc missing from both roots — the same ordering as ingest_all.
     obs.wait_processed(client)
+    _remove_stale(client, config, new_manifest, prefix=docs_prefixes)
+    _retire_legacy_docs(client)
     touched = {
         uri
         for uri in set(old_manifest) | set(new_manifest)
-        if uri.startswith(DOCS_TARGET_URI)
+        if uri.startswith(docs_prefixes)
     }
     manifest_to_save = _partial_manifest(old_manifest, new_manifest, touched)
     save_manifest(_manifest_path(config), manifest_to_save)
     obs.done()
+
+
+def _retire_legacy_docs(client: Any) -> None:
+    """Delete the pre-house-account docs root.
+
+    Called only after the docs were written to the house account and the
+    backend has processed them, so the docs are never missing from both roots.
+    Unconditional rather than manifest-driven: the local manifest may never
+    have recorded the old copies (another machine ingested them), and deleting
+    a path that is already gone is not an error on the backend, so a repeat
+    run is a no-op.
+    """
+    _remove_resource(client, LEGACY_DOCS_TARGET_URI)
 
 
 def _remove_stale(
@@ -268,7 +308,7 @@ def _remove_stale(
     config: ContextConfig,
     new_manifest: dict[str, dict[str, str]],
     *,
-    prefix: str | None = None,
+    prefix: str | tuple[str, ...] | None = None,
 ) -> None:
     old_manifest = load_manifest(_manifest_path(config))
     for target_uri in removed_targets(old_manifest, new_manifest):
