@@ -18,19 +18,34 @@ class CredentialEncryptionError(RuntimeError):
     """
 
 
+class InvalidEncryptionKeyError(CredentialEncryptionError):
+    """The *key* is missing or malformed — a deployment fault, not bad data.
+
+    Distinct from corrupt ciphertext because the right reactions are
+    opposite: an unreadable stored credential can be re-provisioned, but a
+    bad key makes every credential unreadable and every new one unwritable,
+    so re-provisioning would rotate upstream keys it can never store.
+    """
+
+
 def _fernet(key: str) -> Fernet:
     if not key:
-        raise CredentialEncryptionError(
+        raise InvalidEncryptionKeyError(
             "Encryption key is not provided — cannot encrypt/decrypt. "
             "Generate a key with Fernet.generate_key()."
         )
     try:
         return Fernet(key.encode() if isinstance(key, str) else key)
     except (ValueError, TypeError) as exc:
-        raise CredentialEncryptionError(
+        raise InvalidEncryptionKeyError(
             "Given key is not a valid Fernet key "
             "(expected urlsafe-base64-encoded 32 bytes)."
         ) from exc
+
+
+def validate_key(key: str) -> None:
+    """Raise ``InvalidEncryptionKeyError`` unless ``key`` is a usable Fernet key."""
+    _fernet(key)
 
 
 def encrypt_secret(plaintext: str, key: str) -> str:

@@ -31,6 +31,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,15 +61,19 @@ from app.context_manager.openviking import (
     ContextIngestFile,
     ContextQuery,
     OpenVikingManager,
+    ContextUnavailableError,
     OvProvisioningError,
+    SelfHealingContextManager,
     UnauthenticatedError,
     context_slugify,
     corpus_root,
     get_user_ov_api_key,
+    regenerate_user_ov_api_key,
     listing_uri,
     target_uri,
     user_target_root,
 )
+from app.crypto import CredentialEncryptionError
 from app.db.crud import (
     completed_file_hashes,
     create_ingest_batch,
@@ -89,27 +94,60 @@ def get_context_manager(api_key: str) -> OpenVikingManager:
 
 async def resolve_context_manager(
     db: AsyncSession, user: BerilUser
-) -> OpenVikingManager:
+) -> SelfHealingContextManager:
     """Build a context manager for ``user``, provisioning their backing
     credential on first use.
 
     The backing store is an implementation detail, so its failures surface as
     a generic 502 rather than anything the user is expected to act on.
+
+    The manager comes back wrapped so that a stored key the store no longer
+    accepts — revoked out of band, or left stale by a race — is rotated and
+    the call retried once, transparently. Without that, such a user got a 502
+    on every call with nothing pointing them at the fix.
     """
     try:
         api_key = await get_user_ov_api_key(db, user)
     except UnauthenticatedError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED) from exc
-    except OvProvisioningError as exc:
+    except (OvProvisioningError, CredentialEncryptionError) as exc:
+        # CredentialEncryptionError here means encryption itself failed (an
+        # unusable key at runtime despite the startup check). A merely
+        # unreadable stored credential never reaches this point — the getter
+        # re-provisions on that.
         logger.warning("Context manager unavailable for user %s: %s", user.id, exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="The context manager is currently unavailable.",
+            detail=CONTEXT_UNAVAILABLE_DETAIL,
         ) from exc
-    return get_context_manager(api_key)
+
+    async def rotate() -> str:
+        return await regenerate_user_ov_api_key(db, user)
+
+    return SelfHealingContextManager(get_context_manager(api_key), rotate=rotate)
 
 
 ROUTER_CONTEXT = APIRouter(tags=["context"])
+
+# Same wording as a provisioning failure in ``resolve_context_manager``: the
+# store is an implementation detail, so its outages all read alike.
+CONTEXT_UNAVAILABLE_DETAIL = "The context manager is currently unavailable."
+
+
+async def context_unavailable_handler(
+    request: Request, exc: ContextUnavailableError
+) -> JSONResponse:
+    """Map an unrepairable context-store failure to a generic 502.
+
+    Registered app-wide (routers cannot carry exception handlers), so any
+    route that reaches the store through ``SelfHealingContextManager`` is
+    covered without its own catch — including ones not written yet.
+    """
+    logger.warning("Context store unavailable for %s: %s", request.url.path, exc)
+    return JSONResponse(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        content={"detail": CONTEXT_UNAVAILABLE_DETAIL},
+    )
 
 @ROUTER_CONTEXT.post("/api/context/find")
 async def post_context_find(
@@ -729,7 +767,14 @@ async def get_context_ingest_status(
     }
     if pending:
         manager = await resolve_context_manager(db, user)
-        refreshed = await manager.task_statuses(list(pending))
+        try:
+            refreshed = await manager.task_statuses(list(pending))
+        except (*QUERY_FAILURES, ContextUnavailableError) as exc:
+            # Nothing new could be learned this time — including a key that
+            # stayed refused after repair. Report what was recorded rather than
+            # failing a read the caller can simply repeat.
+            logger.warning("Ingest status refresh failed for batch %s: %s", batch.id, exc)
+            refreshed = {}
         # An unreachable backend reports "unknown" for everything; keep what we
         # already know rather than overwriting it with that.
         updates = {
