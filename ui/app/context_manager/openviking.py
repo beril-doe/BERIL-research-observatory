@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 import httpx
+from openviking_sdk.errors import ConflictError as SdkConflictError
 from openviking_sdk.errors import NotFoundError as SdkNotFoundError
 from openviking_sdk.errors import OpenVikingError as SdkOpenVikingError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -496,6 +497,28 @@ class OpenVikingManager(ContextManager):
                 try:
                     uri = target_uri(target_root, relative_path)
                     await ov_client.rm(uri)
+                except SdkConflictError as exc:
+                    # The backend refuses to delete a path whose ingest is
+                    # still pending or running (verified against 0.4.22).
+                    # That refusal is what keeps a removal from being
+                    # overtaken by an in-flight ingest: had the delete gone
+                    # through, the ingest would land afterwards and the file
+                    # would be searchable under a ``removed`` row. Recorded as
+                    # failed — no ``removed`` row — so ownership still follows
+                    # the ingest once it completes, and the caller is told to
+                    # retry rather than given a generic failure.
+                    logger.info("Removing %s deferred: %s", relative_path, exc)
+                    results.append(
+                        IngestResult(
+                            relative_path=relative_path,
+                            status=INGEST_FAILED,
+                            reason=(
+                                "This file is still being ingested; remove it "
+                                "again once that finishes."
+                            ),
+                        )
+                    )
+                    continue
                 except INGEST_FAILURES as exc:
                     logger.warning("Removing %s failed: %s", relative_path, exc)
                     results.append(

@@ -633,6 +633,26 @@ async def test_remove_files_deletes_each_path_recursively(settings, patched_sdk)
     patched_sdk.close.assert_awaited_once()
 
 
+async def test_remove_files_explains_a_path_still_being_ingested(settings, patched_sdk):
+    """The backend refuses to delete a path whose ingest is in flight
+    (``ConflictError``, verified live). That is recorded as a failure — never
+    ``removed`` — with a reason that says to retry, and the batch continues."""
+    from openviking_sdk.errors import ConflictError
+
+    patched_sdk.rm.side_effect = [
+        ConflictError("Resource is being processed: viking://x"), None
+    ]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.remove_files(["a.md", "b.md"], target_root=_ROOT)
+
+    assert [(r.relative_path, r.status) for r in out] == [
+        ("a.md", "failed"), ("b.md", "removed")
+    ]
+    assert "still being ingested" in out[0].reason
+    assert "Resource is being processed" not in out[0].reason
+
+
 async def test_remove_files_records_a_failure_and_continues(settings, patched_sdk):
     patched_sdk.rm.side_effect = [UnavailableError("down"), None]
     manager = OpenVikingManager(settings, "user-key")
