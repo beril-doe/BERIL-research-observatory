@@ -94,13 +94,38 @@ mc ls berdl-minio/cdm-lake/...
 | `Request to authentication service timed out` | SSH tunnel died mid-query | Check tunnels, restart dead ones, retry |
 | `i/o timeout` on `spark.berdl.kbase.us:443` | Using direct mode instead of proxy | Add `--berdl-proxy` flag |
 | `Address already in use` on SSH `-D` port | Tunnel already running on that port | That tunnel is fine, check the other one |
+| `remote: Repository not found` during `bootstrap_client.sh` | No read access to the private `KBaseDataLakehouse` dep repos | Request access (#407); meanwhile use the MCP REST API |
 
 ## Prerequisites Checklist
 
 - [ ] LBNL account with SSH access to `login1.berkeley.kbase.us`
 - [ ] `KBASE_AUTH_TOKEN` in `.env`
+- [ ] Read access to `KBaseDataLakehouse/spark_connect_remote` and `KBaseDataLakehouse/berdl_remote` (both private — see note below)
 - [ ] `.venv-berdl` created via `scripts/bootstrap_client.sh`
 - [ ] SSH tunnels running on ports 1337 and 1338
 - [ ] pproxy running on port 8123
 
 The JupyterHub server is spawned automatically by `get_spark_session()` when needed — no manual login required.
+
+### Private dependency access
+
+`bootstrap_client.sh` installs `spark_connect_remote` and `berdl_remote` from the
+`KBaseDataLakehouse` org (renamed from `BERDataLakehouse`, which no longer resolves).
+Both repos are **private**, so without read access the bootstrap fails at its first
+install:
+
+```
+remote: Repository not found.
+fatal: repository 'https://github.com/KBaseDataLakehouse/spark_connect_remote.git/' not found
+```
+
+That is an access problem, not a broken URL — expect it rather than debugging it.
+Request access via [#407](https://github.com/beril-doe/BERIL-research-observatory/issues/407).
+
+Neither package is on PyPI, and the versions the platform ships are
+`spark_connect_remote` 0.2.0 and `berdl_remote` 0.1.0.
+
+**If you cannot get access**, the MCP REST API at `https://hub.berdl.kbase.us/apis/mcp`
+needs none of this — no venv, no tunnels, no pproxy — only a valid `KBASE_AUTH_TOKEN`
+and `jq`. It covers list/schema/sample/query but not Spark Connect, so large result
+sets and `export_sql.py` still require the path above.
