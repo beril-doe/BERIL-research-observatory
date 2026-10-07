@@ -89,7 +89,6 @@ from app.db.crud import (
     get_project_by_slug,
     latest_file_statuses,
     projects_with_memory,
-    settled_file_statuses,
     update_ingest_file_statuses,
 )
 from app.db.models import UserProject
@@ -759,24 +758,25 @@ class _Manifest(NamedTuple):
     removals: list[str]
 
 
-def _held(latest: str | None, settled: str | None) -> bool:
-    """Whether a removal should act on a path, given its newest record and its
-    last settled (``completed``/``removed``) one.
+def _held(status: str | None) -> bool:
+    """Whether a removal should act on a path, given its newest record that
+    is not a failed attempt.
 
-    * nothing recorded, or newest ``removed`` → not held;
-    * newest ``completed`` → held;
-    * newest ``failed`` → an attempt that changed nothing, so the last settled
-      state decides: held only if that was ``completed`` (a failed re-ingest
-      of a landed file), not after a removal or when nothing ever landed;
-    * newest queued/processing/unknown/expired → tried, not assumed: an
-      in-flight ingest makes the backend refuse the delete (reported as still
-      being ingested), and an expired or unknown one may well have landed.
+    Failed attempts are skipped by the caller because they changed nothing:
+    an ingest that never landed, or a removal the backend refused. Letting
+    one decide would misread the path — a refused removal on top of an
+    unpolled ingest that has since landed would read as "never there", and
+    every later removal would report not_found while the file stays
+    searchable.
+
+    * nothing, or removed → not held (not_found);
+    * completed → held — including after a failed re-ingest, which leaves
+      the landed copy in place;
+    * queued/processing/unknown/expired → tried, not assumed: an in-flight
+      ingest makes the backend refuse the delete ("still being ingested"),
+      and an unpolled, expired or unknown one may well have landed.
     """
-    if latest is None or latest == INGEST_REMOVED:
-        return False
-    if latest == INGEST_FAILED:
-        return settled == INGEST_COMPLETED
-    return True
+    return status is not None and status != INGEST_REMOVED
 
 
 def _parse_manifest(manifest_bytes: bytes) -> _Manifest:
@@ -989,12 +989,15 @@ async def post_context_ingest_files(
     # exists" idempotent. The backend deletes a missing path without
     # complaint, so this check is the only thing that can tell "withdrawn"
     # from "was never there".
-    if removals:
-        latest = await latest_file_statuses(db, db_project.id)
-        settled = await settled_file_statuses(db, db_project.id)
-    else:
-        latest, settled = {}, {}
-    present = [p for p in removals if _held(latest.get(p), settled.get(p))]
+    # Failed attempts — an ingest that never landed, a removal the backend
+    # refused — changed nothing in the corpus, so they are passed over and the
+    # newest record that *did* something answers.
+    current = (
+        await latest_file_statuses(db, db_project.id, ignoring=(INGEST_FAILED,))
+        if removals
+        else {}
+    )
+    present = [p for p in removals if _held(current.get(p))]
     not_found = [
         IngestResult(
             relative_path=p,

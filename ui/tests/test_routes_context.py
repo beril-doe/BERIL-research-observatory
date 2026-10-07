@@ -1938,6 +1938,39 @@ async def test_removal_of_a_path_still_being_ingested_is_attempted(
     assert ingest_manager.remove_files.await_args.args[0] == [_MEMORY]
 
 
+async def test_a_refused_removal_does_not_hide_an_ingest_that_later_lands(
+    client, credentialed_user, ingest_manager
+):
+    """Regression (Codex, #451): the first ingest is queued and never polled
+    (the mirror timed out); a removal is refused while it is in flight and
+    recorded as failed; the ingest then lands. The failed removal used to be
+    the newest record with nothing settled, so every later removal said
+    not_found and the withdrawn file stayed searchable. Failed attempts are
+    passed over now, so the queued ingest answers and the delete is tried."""
+    _login(client)
+    ingest_manager.insert_files.return_value = _queued_with_tasks([(_MEMORY, "t1")])
+    _ingest(client, members={_MEMORY: b"m"})
+
+    ingest_manager.remove_files.side_effect = None
+    ingest_manager.remove_files.return_value = [
+        IngestResult(
+            relative_path=_MEMORY,
+            status="failed",
+            reason="This file is still being ingested; remove it again once that finishes.",
+        )
+    ]
+    refused = await _remove(client, _MEMORY)
+    assert refused["failed"] == 1
+
+    # The ingest has since landed on the backend; nobody polled its batch.
+    ingest_manager.remove_files.reset_mock()
+    ingest_manager.remove_files.side_effect = _removed_all
+    retried = await _remove(client, _MEMORY)
+
+    assert (retried["removed"], retried["not_found"]) == (1, 0)
+    assert ingest_manager.remove_files.await_args.args[0] == [_MEMORY]
+
+
 async def test_ingest_records_a_failed_removal(
     client, credentialed_user, ingest_manager, db_session
 ):

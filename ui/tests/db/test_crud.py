@@ -1,6 +1,7 @@
 """Tests for database CRUD operations (app.db.crud)."""
 
 import secrets
+
 import pytest
 
 from app.db.crud import (
@@ -19,14 +20,12 @@ from app.db.crud import (
     get_user_by_api_token,
     get_user_by_orcid,
     latest_file_statuses,
-    projects_with_memory,
-    settled_file_statuses,
     list_api_tokens_for_user,
+    projects_with_memory,
     revoke_api_token,
     update_project_github_url,
 )
 from app.db.models import BerilUser, UserApiToken, UserProject
-
 
 # ---------------------------------------------------------------------------
 # get_user_by_orcid
@@ -402,6 +401,7 @@ class TestApiToken:
         """If the first savepoint raises IntegrityError, the retry succeeds."""
         import contextlib
         from unittest.mock import patch
+
         from sqlalchemy.exc import IntegrityError
 
         attempt_count = 0
@@ -438,6 +438,7 @@ class TestApiToken:
         """If both attempts fail with IntegrityError, the exception propagates."""
         import contextlib
         from unittest.mock import patch
+
         from sqlalchemy.exc import IntegrityError
 
         attempt_count = 0
@@ -597,6 +598,7 @@ class TestGetUserByApiTokenExpiryAndRevocation:
 
     async def test_expired_token_returns_none(self, db_session, user):
         import datetime as _dt
+
         from app.db.models import UserApiToken
 
         raw = "beril_expired"
@@ -739,17 +741,15 @@ class TestProjectsWithMemory:
 
         assert await projects_with_memory(db_session, "discoveries") == set()
 
-    async def test_settled_file_statuses_skips_unsettled_records(
+    async def test_latest_file_statuses_can_pass_over_failed_attempts(
         self, db_session, project
     ):
-        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+        await self._record(db_session, project, (_DISCOVERIES, "queued"))
         await self._record(db_session, project, (_DISCOVERIES, "failed"), ("a.md", "failed"))
-        await self._record(db_session, project, ("b.md", "removed"), ("b.md", "queued"))
 
-        assert await settled_file_statuses(db_session, project.id) == {
-            _DISCOVERIES: "completed",
-            "b.md": "removed",
-        }
+        assert await latest_file_statuses(
+            db_session, project.id, ignoring=("failed",)
+        ) == {_DISCOVERIES: "queued"}
 
     async def test_latest_file_statuses_reports_each_paths_newest(
         self, db_session, project
