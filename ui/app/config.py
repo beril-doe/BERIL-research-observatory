@@ -96,6 +96,34 @@ class Settings(BaseSettings):
             raise ValueError("BERIL_DB_PASSWORD is not set — cannot construct database URL")
         return f"postgresql+asyncpg://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
+    def require_ov_credential_key(self) -> str:
+        """The Fernet key, or a startup-time error if it is not configured.
+
+        Without it every stored context credential is unreadable and every
+        new one unwritable, so each context request would 500. That is a
+        deployment mistake, not a runtime condition — fail once, loudly, at
+        startup, the way ``db_url`` does for a missing database password.
+        """
+        if not self.ov_credential_key:
+            raise ValueError(
+                "BERIL_OV_CREDENTIAL_KEY is not set — context credentials cannot "
+                "be stored or read. Generate one with Fernet.generate_key()."
+            )
+        # Set but malformed is the same deployment mistake, and a worse one if
+        # it reaches runtime: every stored credential would read as corrupt.
+        # Imported here so config stays importable without the crypto stack.
+        from app.crypto import InvalidEncryptionKeyError, validate_key
+
+        try:
+            validate_key(self.ov_credential_key)
+        except InvalidEncryptionKeyError as exc:
+            raise ValueError(
+                "BERIL_OV_CREDENTIAL_KEY is not a valid Fernet key (expected "
+                "urlsafe-base64-encoded 32 bytes). Generate one with "
+                "Fernet.generate_key()."
+            ) from exc
+        return self.ov_credential_key
+
     @property
     def orcid_redirect_uri(self) -> str:
         return self.orcid_redirect_root + self.orcid_redirect_path

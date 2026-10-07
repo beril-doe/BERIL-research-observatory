@@ -671,3 +671,19 @@ async def upsert_ov_credential(
                 await db.commit()
                 await db.refresh(record)
                 return record
+
+
+async def users_without_ov_credential(db: AsyncSession) -> list[BerilUser]:
+    """Users with no stored context credential — the backfill's worklist.
+
+    Credentials are now provisioned at signup, so this is non-empty only for
+    accounts created before that, or whose signup coincided with the backing
+    store being unreachable. Ordered so repeated runs report in a stable order.
+    """
+    result = await db.execute(
+        select(BerilUser)
+        .outerjoin(OvUserCredential, OvUserCredential.user_id == BerilUser.id)
+        .where(OvUserCredential.id.is_(None))
+        .order_by(BerilUser.orcid_id)
+    )
+    return list(result.scalars())
