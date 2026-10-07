@@ -46,18 +46,26 @@ from app.context_manager.base import (
     INGEST_SKIPPED,
     INGEST_STATUSES,
     INGEST_UNKNOWN,
+    MAX_DISCOVERY_LIMIT,
     MAX_GREP_NODE_LIMIT,
     MAX_LS_NODE_LIMIT,
     MAX_OWNER_EXPANSION,
+    MAX_PITFALL_LIMIT,
     TERMINAL_INGEST_STATUSES,
     ContextIngestResults,
     ContextQueryResults,
+    DiscoveryHit,
+    DiscoveryResults,
     IngestBatchStatus,
     IngestFileStatus,
     IngestResult,
+    PitfallHit,
+    PitfallResults,
 )
 from app.context_manager.openviking import (
+    HOUSE_ACCOUNT_ID,
     QUERY_FAILURES,
+    USERS_TARGET_URI,
     ContextIngestFile,
     ContextQuery,
     OpenVikingManager,
@@ -65,6 +73,7 @@ from app.context_manager.openviking import (
     OvProvisioningError,
     SelfHealingContextManager,
     UnauthenticatedError,
+    apply_discovery_precedence,
     context_slugify,
     corpus_root,
     get_user_ov_api_key,
@@ -80,6 +89,7 @@ from app.db.crud import (
     create_user_project,
     get_ingest_batch,
     get_project_by_slug,
+    projects_with_memory,
     update_ingest_file_statuses,
 )
 from app.db.models import UserProject
@@ -373,6 +383,234 @@ async def get_context_files(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The context manager could not list that path.",
         ) from exc
+
+
+def _classify_pitfall(uri: str) -> tuple[str, str | None, str | None]:
+    """Split a document URI into ``(origin, project, owner)``.
+
+    Central docs live under the house account and belong to no project;
+    everything else is a project's own ``memories/pitfalls.md``. Derived from
+    the URI rather than asked of the backend, which does not model ownership.
+    """
+    rest = uri.removeprefix(USERS_TARGET_URI).strip("/")
+    segments = rest.split("/")
+    owner = segments[0] if segments else None
+    if owner == HOUSE_ACCOUNT_ID:
+        return "central", None, owner
+    project = segments[1] if len(segments) > 1 else None
+    return "project_memory", project, owner
+
+
+@ROUTER_CONTEXT.get("/api/context/pitfalls")
+async def get_context_pitfalls(
+    request: Request,
+    q: str | None = Query(
+        default=None,
+        description=(
+            "Error text, table name, or description. Omit to list every "
+            "pitfall document in scope."
+        ),
+    ),
+    project: str | None = Query(
+        default=None,
+        description=(
+            "Narrow the project memories to one project. The central archive "
+            "is always included."
+        ),
+    ),
+    owner: str | None = Query(
+        default=None, description="Owner of `project`. Defaults to the caller."
+    ),
+    exact: bool = Query(
+        default=False,
+        description="Match tokens literally instead of semantically.",
+    ),
+    limit: int = Query(default=10, ge=1, le=MAX_PITFALL_LIMIT),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db)
+) -> PitfallResults:
+    """Has this gotcha been hit before, on any project?
+
+    The question ``pitfall-capture`` asks by protocol, as one call. It spans
+    both halves of the corpus — every project's ``memories/pitfalls.md`` and
+    the central archive — so a caller does not have to know that pitfalls live
+    in two shapes, nor compose a URI to reach them.
+
+    ``exact`` matches tokens literally, which beats semantic search for error
+    strings and table names — the things a user actually pastes in. Semantic is
+    the default because a described symptom rarely shares wording with the
+    entry that documents it.
+
+    Results are documents, not fragments. The backend decomposes each file into
+    section-level nodes, so a raw search returns several pieces of the same
+    pitfall; these are grouped, with the document's best fragment score, and
+    backend-generated stubs dropped. Only pitfall documents are ever searched
+    or returned — never a project's REPORT, or another central doc.
+
+    ``project`` / ``owner`` narrow the *project memories*, addressed like every
+    other read (a bare ``project`` is the caller's own). The central archive
+    stays in: it is shared knowledge relevant to any project, and its entries
+    tagged with that project are that project's legacy pitfalls.
+
+    Omitting ``q`` lists every pitfall document in scope, unranked, with
+    ``total`` saying how many there are. An empty ``q`` is a malformed query
+    and is rejected, not read as a listing.
+    """
+    _reject_empty_query(q, noun="pitfall")
+    memory_pattern = _memory_pattern(user, project, owner, memory="pitfalls")
+
+    manager = await resolve_context_manager(db, user)
+    try:
+        documents, scanned, total = await manager.find_pitfalls(
+            q, memory_pattern=memory_pattern, limit=limit, exact=exact
+        )
+    except QUERY_FAILURES as exc:
+        logger.warning("Pitfall query failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not answer that query.",
+        ) from exc
+
+    results = []
+    for doc in documents:
+        origin, doc_project, doc_owner = _classify_pitfall(doc["uri"])
+        results.append(
+            PitfallHit(
+                uri=doc["uri"],
+                origin=origin,
+                project=doc_project,
+                owner=doc_owner,
+                score=doc["score"],
+                excerpts=doc["excerpts"],
+                fragment_uris=doc["fragment_uris"],
+            )
+        )
+    return PitfallResults(
+        query=q, results=results, fragments_scanned=scanned, total=total
+    )
+
+
+def _reject_empty_query(q: str | None, *, noun: str) -> None:
+    """An omitted ``q`` is a listing; an empty one is a malformed query."""
+    if q is not None and not q.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"`q` must not be empty; omit it to list every {noun}.",
+        )
+
+
+def _memory_pattern(
+    user: BerilUser, project: str | None, owner: str | None, *, memory: str
+) -> str:
+    """The glob, relative to the corpus root, naming the memories in scope.
+
+    ``memory`` is the memory's name (``pitfalls`` or ``discoveries``).
+    Validated through ``_read_uri`` like every read address, so traversal in
+    ``project`` or ``owner`` is refused the same way; the resolved location
+    then gains the memory file's path. Unnamed segments are wildcards.
+    """
+    path = f"memories/{memory}.md"
+    if not project and not owner:
+        return f"*/*/{path}"
+    resolved = _read_uri(user, project, None, owner=owner)
+    relative = resolved.removeprefix(corpus_root()).strip("/")
+    return f"{relative}/{path}" if project else f"{relative}/*/{path}"
+
+
+@ROUTER_CONTEXT.get("/api/context/discoveries")
+async def get_context_discoveries(
+    request: Request,
+    q: str | None = Query(
+        default=None,
+        description=(
+            "Theme, organism, or pattern. Omit to list every discovery "
+            "document in scope."
+        ),
+    ),
+    project: str | None = Query(
+        default=None,
+        description=(
+            "Narrow the project memories to one project. The central archive "
+            "is always included."
+        ),
+    ),
+    owner: str | None = Query(
+        default=None, description="Owner of `project`. Defaults to the caller."
+    ),
+    exact: bool = Query(
+        default=False, description="Match tokens literally instead of semantically."
+    ),
+    limit: int = Query(default=10, ge=1, le=MAX_DISCOVERY_LIMIT),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db)
+) -> DiscoveryResults:
+    """What has already been found, across every project?
+
+    Spans both halves of the corpus like ``/pitfalls``, but applies the
+    precedence rule that ``suggest-research`` Step 4 currently states as prose
+    for an agent to re-implement per call site:
+
+    * a project's own ``memories/discoveries.md`` wins;
+    * a central entry tagged for a project that has one is a **stale
+      duplicate** and is suppressed;
+    * a central entry tagged for a project with no memory is legacy content and
+      still counts;
+    * an untagged central entry is background and always counts.
+
+    Implemented once here so every caller gets the same combined view. The
+    count of suppressed duplicates is reported rather than hidden, so a caller
+    can tell "nothing matched" from "the current copy answered instead".
+
+    Per-project memories are written at ``/submit`` approval, so this corpus is
+    review-vetted by construction — a draft finding never reaches it.
+
+    Scoped like ``/pitfalls``: only discovery documents are searched or
+    returned, ``project``/``owner`` narrow the memories while the archive stays
+    in, and omitting ``q`` lists every discovery document (an empty ``q`` is
+    rejected). Precedence is applied before ``limit``.
+    """
+    _reject_empty_query(q, noun="discovery")
+    memory_pattern = _memory_pattern(user, project, owner, memory="discoveries")
+
+    manager = await resolve_context_manager(db, user)
+    try:
+        documents, scanned = await manager.find_discoveries(
+            q, memory_pattern=memory_pattern, limit=limit, exact=exact
+        )
+    except QUERY_FAILURES as exc:
+        logger.warning("Discovery query failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not answer that query.",
+        ) from exc
+
+    # Precedence before the limit: a stale central duplicate dropped after
+    # trimming would have taken a page slot from the current copy.
+    owned = await projects_with_memory(db, "discoveries")
+    classified, suppressed = apply_discovery_precedence(
+        documents, projects_with_memory=owned
+    )
+    total = len(classified)
+    classified = classified[:limit]
+
+    return DiscoveryResults(
+        query=q,
+        results=[
+            DiscoveryHit(
+                uri=doc["uri"],
+                origin=doc["origin"],
+                project=doc["project"],
+                owner=doc["owner"],
+                score=doc["score"],
+                excerpts=doc["excerpts"],
+                fragment_uris=doc["fragment_uris"],
+            )
+            for doc in classified
+        ],
+        fragments_scanned=scanned,
+        suppressed=suppressed,
+        total=total,
+    )
 
 
 @ROUTER_CONTEXT.get("/api/context/grep")

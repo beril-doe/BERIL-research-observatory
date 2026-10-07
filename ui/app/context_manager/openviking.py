@@ -1,4 +1,5 @@
 import asyncio
+import fnmatch
 import logging
 import re
 import tempfile
@@ -40,6 +41,7 @@ from .base import (
     INGEST_PROCESSING,
     INGEST_QUEUED,
     INGEST_UNKNOWN,
+    MAX_MEMORY_DOCUMENTS,
     ContextFile,
     ContextIngestFile,
     ContextIngestResults,
@@ -92,6 +94,11 @@ USERS_TARGET_URI = "viking://resources/users/"
 # The backend's own shape for a grep that matched nothing (verified against
 # server 0.4.22). Returned, rather than invented, when there is nowhere to
 # search, so a consumer sees one shape whether or not the backend was asked.
+# The most fragments a by-protocol semantic search asks the backend for.
+# Bounded so a broad query cannot walk the corpus; the backend's find has no
+# offset, so this is also the furthest a search can see.
+FIND_CANDIDATE_WINDOW = 100
+
 _EMPTY_GREP: dict = {"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
 
 # The house account: central docs (pitfalls, discoveries, performance,
@@ -206,6 +213,206 @@ def target_uri(target_root: str, relative_path: str) -> str:
     if not segments or any(s in {".", ".."} for s in segments):
         raise ValueError(f"Unsafe relative path: {relative_path!r}")
     return f"{target_root.rstrip('/')}/{'/'.join(segments)}"
+
+
+# The backend decomposes each document into a tree, turning section headings
+# into path segments and appending a content hash, so one source file yields
+# many nodes. It also synthesizes two kinds of node that are structure rather
+# than content:
+#
+#   .overview.md — a directory stub, usually "[Directory overview is not
+#                  generated]"
+#   .abstract.md — a generated summary that restates its parent
+#
+# Both match a semantic query readily and neither is a pitfall, so they are
+# dropped before results reach a caller.
+_SYNTHETIC_NODES = (".overview.md", ".abstract.md")
+
+
+def is_synthetic_node(uri: str) -> bool:
+    """True when ``uri`` is a backend-generated stub rather than content."""
+    return uri.rsplit("/", 1)[-1] in _SYNTHETIC_NODES
+
+
+def source_document(uri: str, corpus_root: str) -> str:
+    """The source document a fragment came from.
+
+    The two halves of the corpus nest differently, so this cannot key on one
+    rule:
+
+    * a project memory is a file, and its fragments hang below it —
+      ``…/<project>/memories/pitfalls.md/<chunk>.md``, so the first ``.md``
+      segment is the document;
+    * a central doc is decomposed under its *slug directory* —
+      ``…/beril/docs/<slug>/<slug>/<Section>/<chunk>.md``, where every segment
+      including the leaf ends in ``.md``, so the first-``.md`` rule would
+      return the fragment itself and collapse nothing.
+
+    Central docs are therefore cut at the slug directory, which is the unit a
+    caller reads and cites. Returns ``uri`` unchanged when neither shape
+    matches — better to report the node than to guess at a grouping.
+    """
+    if not uri.startswith(corpus_root):
+        return uri
+    segments = uri[len(corpus_root):].strip("/").split("/")
+
+    def _join(count: int) -> str:
+        return f"{corpus_root.rstrip('/')}/{'/'.join(segments[:count])}"
+
+    # Central doc: <owner>/docs/<slug>/…
+    if len(segments) >= 3 and segments[0] == HOUSE_ACCOUNT_ID and segments[1] == "docs":
+        return _join(3)
+
+    # Project memory: the first .md segment is the file itself.
+    for index, segment in enumerate(segments):
+        if segment.endswith(".md"):
+            return _join(index + 1)
+    return uri
+
+
+def _glob_match(relative: str, pattern: str) -> bool:
+    """Shell-style match, segment by segment, like the backend's glob.
+
+    ``fnmatch`` alone lets ``*`` cross ``/``, so ``*/*/memories/pitfalls.md``
+    would also match a file nested deeper; matching per segment keeps it to
+    exactly the shape the pattern names.
+    """
+    parts, wanted = relative.split("/"), pattern.split("/")
+    return len(parts) == len(wanted) and all(
+        fnmatch.fnmatchcase(part, want) for part, want in zip(parts, wanted, strict=True)
+    )
+
+
+def _grep_nodes(payload: dict) -> list[dict]:
+    """Normalize a grep payload onto the same node shape ``find`` produces.
+
+    Grep returns ``{"matches": [{"line", "uri", "content"}]}`` and carries no
+    relevance score, so every match scores 1.0 — an exact hit is an exact hit,
+    and ranking them against each other would invent a judgement the backend
+    did not make. Ordering then falls to match count, which ``_collapse_``
+    ``fragments`` applies.
+    """
+    return [
+        {
+            "uri": match.get("uri") or "",
+            "score": 1.0,
+            "text": (match.get("content") or "").strip(),
+        }
+        for match in (payload.get("matches") or [])
+    ]
+
+
+def _collapse_fragments(nodes: list[dict], *, limit: int) -> list[dict]:
+    """Group fragment nodes by source document, best score first.
+
+    One document yields many fragments, so returning nodes directly floods a
+    caller with pieces of the same file. A document's score is its best
+    fragment's: a strong match anywhere in a pitfall entry makes that entry
+    worth reading, and averaging would bury a precise hit inside a long doc.
+
+    Synthetic nodes are dropped first — they match readily and say nothing.
+    """
+    corpus = USERS_TARGET_URI
+    documents: dict[str, dict] = {}
+    for node in nodes:
+        uri = node.get("uri") or ""
+        if not uri or is_synthetic_node(uri):
+            continue
+        doc_uri = source_document(uri, corpus)
+        entry = documents.setdefault(
+            doc_uri,
+            {"uri": doc_uri, "score": 0.0, "excerpts": [], "fragment_uris": []},
+        )
+        entry["score"] = max(entry["score"], float(node.get("score") or 0.0))
+        entry["fragment_uris"].append(uri)
+        text = (node.get("text") or "").strip()
+        # Keep a few excerpts, not every fragment: enough to judge relevance
+        # without returning the document twice over.
+        if text and len(entry["excerpts"]) < 3 and text not in entry["excerpts"]:
+            entry["excerpts"].append(text)
+
+    ranked = sorted(
+        documents.values(),
+        # Score first; then match count, which is the only signal grep gives.
+        key=lambda d: (d["score"], len(d["fragment_uris"])),
+        reverse=True,
+    )
+    return ranked[:limit]
+
+
+# A central discovery entry names its project inline, as ``[<project_id>]`` —
+# in an ``### [tag] Title`` heading centrally, and in an HTML-comment
+# provenance line in a per-project memory. Project ids are the slug shape
+# ``context_slugify`` produces.
+_PROJECT_TAG = re.compile(r"\[([a-z0-9][a-z0-9_]*)\]")
+
+# The precedence rule, quoted from `suggest-research` Step 4 so the two cannot
+# drift silently:
+#
+#   per-project memory wins. If a project has any per-project
+#   memories/discoveries.md, suppress matches in docs/discoveries.md tagged
+#   with that same [<project_id>] (those are stale duplicates the project
+#   already owns). Central entries tagged with project ids that have NO
+#   per-project memory are still considered (legacy projects). Untagged
+#   central entries are background context — always included.
+PROJECT_MEMORY_WINS = True
+
+
+def project_tags(text: str) -> set[str]:
+    """Every ``[<project_id>]`` tag named in ``text``."""
+    return set(_PROJECT_TAG.findall(text or ""))
+
+
+def apply_discovery_precedence(
+    documents: list[dict], *, projects_with_memory: set[str]
+) -> tuple[list[dict], int]:
+    """Classify discoveries and drop stale central duplicates.
+
+    Returns ``(kept, suppressed_count)``. Implements the three-way rule once,
+    server-side, instead of leaving each caller to re-read it from prose and
+    get it slightly wrong.
+
+    A central entry is suppressed only when it names a project that has its own
+    memory — the project owns the current copy. A central entry naming a
+    project with no memory is legacy content and still counts; an untagged one
+    is background and always counts.
+    """
+    kept: list[dict] = []
+    suppressed = 0
+    for doc in documents:
+        uri = doc.get("uri") or ""
+        segments = uri.removeprefix(USERS_TARGET_URI).strip("/").split("/")
+        owner = segments[0] if segments else None
+
+        if owner != HOUSE_ACCOUNT_ID:
+            # A project's own memory: current by construction.
+            kept.append(
+                {
+                    **doc,
+                    "origin": "project_memory",
+                    "project": segments[1] if len(segments) > 1 else None,
+                    "owner": owner,
+                }
+            )
+            continue
+
+        # Central. Its tags decide whether a project already owns this content.
+        tags = project_tags(" ".join(doc.get("excerpts") or []))
+        stale = tags & projects_with_memory
+        if stale:
+            suppressed += 1
+            continue
+        kept.append(
+            {
+                **doc,
+                "origin": "central_legacy" if tags else "central_background",
+                # Report one tag when the entry names exactly one project;
+                # several tags make "the" project meaningless.
+                "project": next(iter(tags)) if len(tags) == 1 else None,
+                "owner": owner,
+            }
+        )
+    return kept, suppressed
 
 
 class _Budget:
@@ -526,6 +733,164 @@ class OpenVikingManager(ContextManager):
             # the connection.
             await ov_client.close()
         return listed
+
+    async def find_pitfalls(
+        self,
+        query: str | None,
+        *,
+        memory_pattern: str,
+        limit: int,
+        exact: bool = False,
+    ) -> tuple[list[dict], int, int]:
+        """Search, or list, the pitfall documents.
+
+        Returns ``(documents, fragments_scanned, total)`` — ``total`` counts
+        the documents that qualified before ``limit``. See ``_find_documents``
+        for the scope and the two modes.
+        """
+        documents, scanned = await self._find_documents(
+            query, slug="pitfalls", memory_pattern=memory_pattern,
+            # Over-fetch: fragments collapse, so N nodes yield fewer documents.
+            fetch=min(limit * 5, FIND_CANDIDATE_WINDOW), exact=exact,
+        )
+        return documents[:limit], scanned, len(documents)
+
+    async def find_discoveries(
+        self,
+        query: str | None,
+        *,
+        memory_pattern: str,
+        limit: int,
+        exact: bool = False,
+    ) -> tuple[list[dict], int]:
+        """Search, or list, the discovery documents — every one that qualifies.
+
+        Untrimmed, unlike ``find_pitfalls``: the route applies the precedence
+        rule first and the limit after, so a stale central duplicate cannot
+        take a page slot and leave the current copy off it. Precedence lives
+        above this because it needs BERIL's own record of which projects have
+        a memory — a database fact the backend does not model.
+
+        Always fetches the full candidate window, whatever ``limit`` is.
+        Suppression happens after retrieval, so a window sized to the page
+        (``limit * 5``) could be filled entirely by fragments of one stale
+        central entry and miss the current copy ranked just below it. The
+        backend's ``find`` has no offset, so retrieval cannot page on until
+        enough documents survive; the guarantee is "precedence before the
+        limit, within the window", and the window is as wide as allowed.
+        ``limit`` is accepted for symmetry and applied by the route.
+        """
+        return await self._find_documents(
+            query, slug="discoveries", memory_pattern=memory_pattern,
+            fetch=FIND_CANDIDATE_WINDOW, exact=exact,
+        )
+
+    async def _find_documents(
+        self,
+        query: str | None,
+        *,
+        slug: str,
+        memory_pattern: str,
+        fetch: int,
+        exact: bool = False,
+    ) -> tuple[list[dict], int]:
+        """Search, or list, one by-protocol corpus: ``slug`` is ``pitfalls``
+        or ``discoveries``.
+
+        Returns ``(documents, fragments_scanned)`` with every document that
+        qualified (up to ``MAX_MEMORY_DOCUMENTS``); callers apply the limit.
+        ``fetch`` is how many fragments a semantic search asks the backend
+        for — the candidate window everything downstream works within.
+
+        The scope is the corpus documents themselves, never the corpus at
+        large: the central archive (``beril/docs/<slug>``) plus each project's
+        memory matching ``memory_pattern`` — a glob relative to the corpus
+        root, e.g. ``*/*/memories/<slug>.md``. Searching everything and
+        classifying afterwards returned any file that matched — a REPORT
+        fragment labelled a project memory, the performance guide labelled a
+        central pitfall.
+
+        With ``query`` omitted (``None``) nothing is searched: the documents
+        in scope are returned unranked, central first. An empty string is the
+        route's to reject — it is a malformed query, not a request to list.
+        With a query, ``exact`` greps (it beats embeddings for the error
+        strings and table names users paste) and otherwise the search is
+        semantic. Hits are grouped into source documents and kept only if that
+        document is one of the corpus documents — a second line of defense,
+        and the only one when the scope falls back.
+
+        Past ``MAX_MEMORY_DOCUMENTS`` memories the scope falls back to the
+        narrowest directory enclosing the pattern (plus the archive), and the
+        document filter does the narrowing.
+        """
+        central = f"{USERS_TARGET_URI}{HOUSE_ACCOUNT_ID}/docs/{slug}"
+        root = corpus_root()
+        memories = await self.glob(
+            memory_pattern, root, node_limit=MAX_MEMORY_DOCUMENTS + 1
+        )
+        overflow = len(memories) > MAX_MEMORY_DOCUMENTS
+        memory_set = set(memories)
+
+        def is_corpus_document(doc_uri: str) -> bool:
+            if doc_uri == central:
+                return True
+            if overflow:
+                return _glob_match(doc_uri.removeprefix(root).strip("/"), memory_pattern)
+            return doc_uri in memory_set
+
+        if query is None:
+            # A listing searches nothing. Past the cap the glob stopped early,
+            # so the list is incomplete — said in the log and visible to the
+            # caller as ``total`` hitting the cap.
+            if overflow:
+                logger.warning(
+                    "%s listing stopped at %d memories", slug, MAX_MEMORY_DOCUMENTS
+                )
+            listed = [central, *sorted(memories)[:MAX_MEMORY_DOCUMENTS]]
+            documents = [
+                {"uri": uri, "score": None, "excerpts": [], "fragment_uris": []}
+                for uri in listed
+            ]
+            return documents, 0
+
+        if overflow:
+            logger.warning(
+                "%s query over %d memories; scoping to the enclosing directory",
+                slug,
+                len(memories),
+            )
+            prefix = memory_pattern.split("*", 1)[0].rstrip("/")
+            enclosing = f"{root}/{prefix}" if prefix else root
+            targets: list[str] = [central, enclosing] if enclosing != root else [root]
+        else:
+            targets = [central, *memories]
+
+        if exact:
+            nodes = _grep_nodes(
+                await self.grep(targets, query, case_insensitive=True)
+            )
+        else:
+            ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+            try:
+                raw = await ov_client.find(query, target_uri=targets, limit=fetch)
+            finally:
+                await ov_client.close()
+            nodes = [
+                {
+                    "uri": r.get("uri") or "",
+                    "score": float(r.get("score") or 0.0),
+                    "text": r.get("abstract") or "",
+                }
+                for r in (raw.get("resources") or [])
+            ]
+
+        # Filtered before grouping and before any limit, so a match from some
+        # other file can neither appear nor crowd a real one out of the page.
+        nodes = [
+            n for n in nodes
+            if is_corpus_document(source_document(n.get("uri") or "", USERS_TARGET_URI))
+        ]
+        return _collapse_fragments(nodes, limit=MAX_MEMORY_DOCUMENTS + 1), len(nodes)
 
     async def grep(
         self,
