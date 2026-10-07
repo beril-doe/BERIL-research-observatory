@@ -274,15 +274,45 @@ class OpenVikingManager(ContextManager):
         below ``target_root``, so they cannot be collapsed into a single
         directory upload. A failure is recorded against that file and the
         batch continues.
+
+        A refused key escapes only while nothing has been accepted, so
+        ``SelfHealingContextManager`` can rotate it and retry the whole call.
+        Once a file is queued, a retry would submit it a second time and lose
+        its first task id — an untracked job racing the retry for the same
+        URI. So a refusal after that point stops the batch instead: accepted
+        files keep their results, and the rest are recorded as failed. A
+        resubmit sends only those, since the accepted ones skip as unchanged
+        once they complete.
         """
         if not files:
             return ContextIngestResults(results=[], queued=0, failed=0)
 
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        results: list[IngestResult] = []
         try:
-            results = [
-                await self._insert_one(ov_client, file, target_root) for file in files
-            ]
+            for index, file in enumerate(files):
+                try:
+                    results.append(await self._insert_one(ov_client, file, target_root))
+                except SdkUnauthenticatedError:
+                    if not any(r.status == INGEST_QUEUED for r in results):
+                        raise
+                    logger.warning(
+                        "Context key refused after %d file(s) were accepted; "
+                        "stopping the batch rather than replaying them",
+                        sum(1 for r in results if r.status == INGEST_QUEUED),
+                    )
+                    results.extend(
+                        IngestResult(
+                            relative_path=f.relative_path,
+                            status=INGEST_FAILED,
+                            reason=(
+                                "The context key was refused partway through "
+                                "this batch; resubmit to send this file."
+                            ),
+                        )
+                        for f in files[index:]
+                    )
+                    break
         finally:
             await ov_client.close()
 

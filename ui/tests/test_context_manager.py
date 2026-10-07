@@ -1874,6 +1874,79 @@ async def test_insert_files_lets_a_refused_key_escape(settings, patched_sdk):
         )
 
 
+def _three_files():
+    return [
+        ContextIngestFile(relative_path=f"{n}.md", content=b"x") for n in ("a", "b", "c")
+    ]
+
+
+async def test_insert_files_lets_a_refusal_escape_after_only_failures(
+    settings, patched_sdk
+):
+    """A file that failed was never accepted, so a whole-batch retry replays
+    nothing — the refusal can still escape to be repaired."""
+    from openviking_sdk.errors import NotFoundError
+    from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticated
+
+    patched_sdk.add_resource = AsyncMock(
+        side_effect=[NotFoundError("bad target"), _refused()]
+    )
+    manager = OpenVikingManager(settings, "user-key")
+
+    with pytest.raises(SdkUnauthenticated):
+        await manager.insert_files(_three_files(), target_root="viking://resources/users/o/p")
+
+
+async def test_insert_files_stops_rather_than_replays_after_an_accepted_file(
+    settings, patched_sdk
+):
+    """Regression (Codex, #450): a refusal after file 1 was queued escaped, the
+    healer retried the whole batch, and file 1 was submitted twice — its first
+    task id lost, an untracked job racing the retry. Now the accepted file keeps
+    its result and the rest are recorded as failed, for a resubmit."""
+    patched_sdk.add_resource = AsyncMock(
+        side_effect=[{"task_id": "t-a"}, _refused()]
+    )
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.insert_files(
+        _three_files(), target_root="viking://resources/users/o/p"
+    )
+
+    assert [(r.relative_path, r.status, r.task_id) for r in out.results] == [
+        ("a.md", "queued", "t-a"),
+        ("b.md", "failed", None),
+        ("c.md", "failed", None),
+    ]
+    assert (out.queued, out.failed) == (1, 2)
+    assert "resubmit" in out.results[1].reason
+    # c.md was never attempted: the batch stopped at the refusal.
+    assert patched_sdk.add_resource.await_count == 2
+
+
+async def test_a_mid_batch_refusal_is_not_retried_through_the_healer(
+    settings, patched_sdk
+):
+    """End to end: no rotation, no second submission of the accepted file."""
+    from app.context_manager.openviking import SelfHealingContextManager
+
+    patched_sdk.add_resource = AsyncMock(
+        side_effect=[{"task_id": "t-a"}, _refused()]
+    )
+    rotate = AsyncMock(return_value="fresh-key")
+    manager = SelfHealingContextManager(
+        OpenVikingManager(settings, "user-key"), rotate=rotate
+    )
+
+    out = await manager.insert_files(
+        _three_files(), target_root="viking://resources/users/o/p"
+    )
+
+    rotate.assert_not_awaited()
+    assert out.queued == 1
+    assert patched_sdk.add_resource.await_count == 2
+
+
 async def test_insert_files_still_records_other_errors_per_file(settings, patched_sdk):
     from openviking_sdk.errors import NotFoundError
 
