@@ -84,10 +84,19 @@ async def orcid_callback(
             logger.info(f"New BERIL user created: {orcid_id} ({name}) → {user.id}")
             # Provision the context credential here, in the one request that
             # won the user insert. The unique orcid_id constraint means exactly
-            # one request ever sees created=True, which is what makes this
-            # race-free without a lock — two concurrent first-use requests
-            # against the lazy path could otherwise each mint a key and store
-            # the revoked one last.
+            # one request ever sees created=True, so only one *signup*
+            # provisions — the common case can no longer race two first-use
+            # requests on the lazy path, each minting a key and storing the
+            # revoked one last.
+            #
+            # Not airtight, deliberately: if two logins for a brand-new ORCiD
+            # overlap, the loser (created=False) can make its first context
+            # call while this one is still provisioning, and the lazy path can
+            # race it. If that stores a revoked key, the next context call is
+            # refused and SelfHealingContextManager rotates and retries — the
+            # user sees at most one retried call. A provisioning lock or claim
+            # would close the window at the cost of new state and logins that
+            # block on each other; not worth it for a window that heals itself.
             #
             # Never let it block login: the backing store is an implementation
             # detail, and the lazy path still provisions on first context use
