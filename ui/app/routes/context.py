@@ -89,6 +89,7 @@ from app.db.crud import (
     get_project_by_slug,
     latest_file_statuses,
     projects_with_memory,
+    settled_file_statuses,
     update_ingest_file_statuses,
 )
 from app.db.models import UserProject
@@ -758,6 +759,26 @@ class _Manifest(NamedTuple):
     removals: list[str]
 
 
+def _held(latest: str | None, settled: str | None) -> bool:
+    """Whether a removal should act on a path, given its newest record and its
+    last settled (``completed``/``removed``) one.
+
+    * nothing recorded, or newest ``removed`` → not held;
+    * newest ``completed`` → held;
+    * newest ``failed`` → an attempt that changed nothing, so the last settled
+      state decides: held only if that was ``completed`` (a failed re-ingest
+      of a landed file), not after a removal or when nothing ever landed;
+    * newest queued/processing/unknown/expired → tried, not assumed: an
+      in-flight ingest makes the backend refuse the delete (reported as still
+      being ingested), and an expired or unknown one may well have landed.
+    """
+    if latest is None or latest == INGEST_REMOVED:
+        return False
+    if latest == INGEST_FAILED:
+        return settled == INGEST_COMPLETED
+    return True
+
+
 def _parse_manifest(manifest_bytes: bytes) -> _Manifest:
     """Read the manifest into sanitized paths to ingest and paths to remove.
 
@@ -963,11 +984,17 @@ async def post_context_ingest_files(
         len(removals),
     )
 
-    # Removals act only on what this project actually holds: a path whose
-    # newest record is absent or already ``removed`` is reported not_found and
-    # nothing is sent, which keeps "remove if it exists" idempotent.
-    current = await latest_file_statuses(db, db_project.id) if removals else {}
-    present = [p for p in removals if current.get(p, INGEST_REMOVED) != INGEST_REMOVED]
+    # Removals act only on what this project actually holds; anything else is
+    # reported not_found and nothing is sent, which keeps "remove if it
+    # exists" idempotent. The backend deletes a missing path without
+    # complaint, so this check is the only thing that can tell "withdrawn"
+    # from "was never there".
+    if removals:
+        latest = await latest_file_statuses(db, db_project.id)
+        settled = await settled_file_statuses(db, db_project.id)
+    else:
+        latest, settled = {}, {}
+    present = [p for p in removals if _held(latest.get(p), settled.get(p))]
     not_found = [
         IngestResult(
             relative_path=p,

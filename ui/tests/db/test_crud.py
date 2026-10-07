@@ -20,6 +20,7 @@ from app.db.crud import (
     get_user_by_orcid,
     latest_file_statuses,
     projects_with_memory,
+    settled_file_statuses,
     list_api_tokens_for_user,
     revoke_api_token,
     update_project_github_url,
@@ -737,6 +738,18 @@ class TestProjectsWithMemory:
         await self._record(db_session, project, ("memories/pitfalls.md", "completed"))
 
         assert await projects_with_memory(db_session, "discoveries") == set()
+
+    async def test_settled_file_statuses_skips_unsettled_records(
+        self, db_session, project
+    ):
+        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+        await self._record(db_session, project, (_DISCOVERIES, "failed"), ("a.md", "failed"))
+        await self._record(db_session, project, ("b.md", "removed"), ("b.md", "queued"))
+
+        assert await settled_file_statuses(db_session, project.id) == {
+            _DISCOVERIES: "completed",
+            "b.md": "removed",
+        }
 
     async def test_latest_file_statuses_reports_each_paths_newest(
         self, db_session, project

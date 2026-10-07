@@ -539,6 +539,43 @@ async def completed_file_hashes(
     return {row.relative_path: row.content_sha256 for row in result}
 
 
+async def settled_file_statuses(db: AsyncSession, project_id: str) -> dict[str, str]:
+    """``{relative_path: status}`` of each path's last **settled** record.
+
+    Settled means ``completed`` or ``removed`` — the only statuses that change
+    what is in the corpus. A path with neither is absent from the result.
+    The same rule ``projects_with_memory`` decides ownership by.
+    """
+    latest = (
+        select(
+            ContextIngestFileRecord.relative_path,
+            ContextIngestFileRecord.status,
+            func.row_number()
+            .over(
+                partition_by=ContextIngestFileRecord.relative_path,
+                order_by=(
+                    ContextIngestFileRecord.created_at.desc(),
+                    ContextIngestFileRecord.id.desc(),
+                ),
+            )
+            .label("rn"),
+        )
+        .join(
+            ContextIngestBatch,
+            ContextIngestFileRecord.batch_id == ContextIngestBatch.id,
+        )
+        .where(
+            ContextIngestBatch.project_id == project_id,
+            ContextIngestFileRecord.status.in_((INGEST_COMPLETED, INGEST_REMOVED)),
+        )
+        .subquery()
+    )
+    result = await db.execute(
+        select(latest.c.relative_path, latest.c.status).where(latest.c.rn == 1)
+    )
+    return {row.relative_path: row.status for row in result}
+
+
 async def latest_file_statuses(db: AsyncSession, project_id: str) -> dict[str, str]:
     """``{relative_path: status}`` of each path's newest record in this project.
 

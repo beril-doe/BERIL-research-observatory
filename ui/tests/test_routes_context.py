@@ -1865,6 +1865,79 @@ async def test_ingest_still_repairs_a_path_being_added(
     assert ingest_manager.insert_files.await_args.args[0][0].relative_path == "notes.md"
 
 
+def _fail_ingest(ingest_manager, path):
+    ingest_manager.insert_files.return_value = ContextIngestResults(
+        results=[IngestResult(relative_path=path, status="failed", reason="no")],
+        queued=0,
+        failed=1,
+    )
+
+
+async def _remove(client, path):
+    return _ingest(client, members={}, manifest=[f"!remove {path}"]).json()
+
+
+async def test_removal_of_a_path_whose_only_ingest_failed_is_not_found(
+    client, credentialed_user, ingest_manager
+):
+    """Regression (Codex, #451): the newest record was ``failed``, so the path
+    counted as held; the backend deletes a missing path without complaint, so
+    the route reported a withdrawal of a file that never landed."""
+    _login(client)
+    _fail_ingest(ingest_manager, _MEMORY)
+    _ingest(client, members={_MEMORY: b"m"})
+
+    body = await _remove(client, _MEMORY)
+
+    assert (body["not_found"], body["removed"], body["batch_id"]) == (1, 0, None)
+    ingest_manager.remove_files.assert_not_awaited()
+
+
+async def test_removal_after_a_failed_readd_of_a_removed_path_is_not_found(
+    client, credentialed_user, ingest_manager, db_session
+):
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"m"})
+    await _remove(client, _MEMORY)
+    _fail_ingest(ingest_manager, _MEMORY)
+    _ingest(client, members={_MEMORY: b"m2"})
+    ingest_manager.remove_files.reset_mock()
+
+    body = await _remove(client, _MEMORY)
+
+    assert (body["not_found"], body["removed"]) == (1, 0)
+    ingest_manager.remove_files.assert_not_awaited()
+
+
+async def test_removal_after_a_failed_reingest_of_a_landed_file_removes_it(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """A failed re-ingest left the landed copy in place, so it is still held."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"m"})
+    _fail_ingest(ingest_manager, _MEMORY)
+    _ingest(client, members={_MEMORY: b"changed"})
+
+    body = await _remove(client, _MEMORY)
+
+    assert body["removed"] == 1
+    assert ingest_manager.remove_files.await_args.args[0] == [_MEMORY]
+
+
+async def test_removal_of_a_path_still_being_ingested_is_attempted(
+    client, credentialed_user, ingest_manager
+):
+    """In flight is not assumed absent: the delete is tried, so the backend's
+    refusal surfaces as "still being ingested" rather than a silent not_found."""
+    _login(client)
+    ingest_manager.insert_files.return_value = _queued_with_tasks([(_MEMORY, "t1")])
+    _ingest(client, members={_MEMORY: b"m"})
+
+    await _remove(client, _MEMORY)
+
+    assert ingest_manager.remove_files.await_args.args[0] == [_MEMORY]
+
+
 async def test_ingest_records_a_failed_removal(
     client, credentialed_user, ingest_manager, db_session
 ):
