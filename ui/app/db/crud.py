@@ -576,25 +576,32 @@ async def projects_with_memory(db: AsyncSession, memory: str) -> set[str]:
     """Project slugs that currently own ``memories/<memory>.md``.
 
     The fact the discovery precedence rule turns on: a central entry tagged for
-    a project that owns its own memory is a stale duplicate. "Owns" means two
-    things, both read from the ingest record rather than the filesystem or
-    ``ProjectFile`` (which tracks uploads, not ingests):
+    a project that owns its own memory is a stale duplicate. Read from the
+    ingest record rather than the filesystem or ``ProjectFile`` (which tracks
+    uploads, not ingests).
 
-    * the file has **landed** — some record for it is ``completed``; and
-    * it has **not since been withdrawn** — its newest record is not
-      ``removed``.
+    "Owns" is decided by the path's **last settled** record — the newest one
+    that is ``completed`` or ``removed``, the two statuses that change what is
+    in the corpus. Owned when that is ``completed``. Every other status
+    (queued, processing, failed, expired, unknown) is an attempt in flight or
+    one that changed nothing, so it is skipped:
 
-    Re-ingest is add-only, so a file absent from a later manifest is untouched
-    and still owned; only an explicit ``!remove`` withdraws it. A resubmit that
-    skips the unchanged memory writes no row for it, so its newest record stays
-    the earlier ``completed``. A changed memory still indexing keeps ownership
-    through its earlier ``completed`` row, so the central entry does not flicker
-    back while the new copy lands.
+    * a resubmit that skips the unchanged memory writes no row, so the earlier
+      ``completed`` still settles it — owned;
+    * a changed memory still indexing, or one whose re-ingest failed, leaves
+      the earlier copy in place — still owned, so the central entry does not
+      flicker back while the new copy lands;
+    * an explicit ``!remove`` deleted the file — not owned, and it stays not
+      owned while a re-add is pending or if the re-add fails, until a later
+      ingest completes.
+
+    Re-ingest is add-only, so a file merely absent from a later manifest is
+    untouched and still owned; only an explicit ``!remove`` withdraws it.
 
     Slugs, not ids: the tags in the central archive are project slugs.
     """
     relative_path = f"memories/{memory}.md"
-    ranked = (
+    settled = (
         select(
             ContextIngestBatch.project_id.label("project_id"),
             ContextIngestFileRecord.status.label("status"),
@@ -612,28 +619,16 @@ async def projects_with_memory(db: AsyncSession, memory: str) -> set[str]:
             ContextIngestBatch,
             ContextIngestFileRecord.batch_id == ContextIngestBatch.id,
         )
-        .where(ContextIngestFileRecord.relative_path == relative_path)
-        .subquery()
-    )
-    landed = (
-        select(ContextIngestBatch.project_id)
-        .join(
-            ContextIngestFileRecord,
-            ContextIngestFileRecord.batch_id == ContextIngestBatch.id,
-        )
         .where(
             ContextIngestFileRecord.relative_path == relative_path,
-            ContextIngestFileRecord.status == INGEST_COMPLETED,
+            ContextIngestFileRecord.status.in_((INGEST_COMPLETED, INGEST_REMOVED)),
         )
+        .subquery()
     )
     result = await db.execute(
         select(UserProject.slug)
-        .join(ranked, ranked.c.project_id == UserProject.id)
-        .where(
-            ranked.c.rn == 1,
-            ranked.c.status != INGEST_REMOVED,
-            UserProject.id.in_(landed),
-        )
+        .join(settled, settled.c.project_id == UserProject.id)
+        .where(settled.c.rn == 1, settled.c.status == INGEST_COMPLETED)
         .distinct()
     )
     return {row[0] for row in result}

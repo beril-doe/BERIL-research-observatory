@@ -709,6 +709,30 @@ class TestProjectsWithMemory:
 
         assert await projects_with_memory(db_session, "discoveries") == {"test-project"}
 
+    @pytest.mark.parametrize("readd", ["queued", "processing", "failed", "expired"])
+    async def test_a_removed_memory_stays_unowned_until_a_readd_lands(
+        self, db_session, project, readd
+    ):
+        """Regression (Codex, #451): completed → removed → re-add pending or
+        failed read as owned again, because an old ``completed`` row still
+        counted and the newest row was no longer ``removed``. The file was
+        deleted and nothing replaced it, so the central entry must stay."""
+        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+        await self._record(db_session, project, (_DISCOVERIES, "removed"))
+        await self._record(db_session, project, (_DISCOVERIES, readd))
+
+        assert await projects_with_memory(db_session, "discoveries") == set()
+
+    async def test_a_failed_reingest_keeps_the_landed_copy_owned(
+        self, db_session, project
+    ):
+        """A changed memory whose re-ingest failed leaves the earlier copy in
+        place, so the project still owns it."""
+        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+        await self._record(db_session, project, (_DISCOVERIES, "failed"))
+
+        assert await projects_with_memory(db_session, "discoveries") == {"test-project"}
+
     async def test_only_the_named_memory_counts(self, db_session, project):
         await self._record(db_session, project, ("memories/pitfalls.md", "completed"))
 

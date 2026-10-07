@@ -801,6 +801,21 @@ def _parse_manifest(manifest_bytes: bytes) -> _Manifest:
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Invalid manifest path on line {line_no}: {raw.strip()!r}",
             )
+        # Sanitizing *repairs* a path — it drops ``.``/``..`` and empty
+        # segments and turns backslashes into slashes. Harmless for a file
+        # being added, but a removal deletes: ``!remove ../README.md`` would
+        # become ``README.md`` and delete a file the caller never named. So a
+        # removal path must already be clean, or the line is rejected.
+        if target is removals and relative_path != line:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(
+                    f"Removal path on line {line_no} is not a clean relative "
+                    f"path: {line!r}. Name the file exactly; '.', '..', "
+                    "leading or doubled slashes, and backslashes are not "
+                    "accepted in a removal."
+                ),
+            )
         if relative_path not in target:
             target.append(relative_path)
 

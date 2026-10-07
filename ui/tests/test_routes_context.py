@@ -1827,6 +1827,44 @@ async def test_ingest_rejects_a_malformed_directive(
     ingest_manager.remove_files.assert_not_awaited()
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "../README.md",
+        "./memories/discoveries.md",
+        "memories/../README.md",
+        "memories//discoveries.md",
+        "/memories/discoveries.md",
+        "memories\\discoveries.md",
+    ],
+)
+async def test_ingest_rejects_a_removal_path_that_needs_repair(
+    client, credentialed_user, ingest_manager, db_session, path
+):
+    """Regression (Codex, #451): sanitizing turned ``!remove ../README.md``
+    into ``README.md`` and deleted a file the caller never named. Adds may be
+    repaired; a destructive removal must name its file exactly."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"README.md": b"r", _MEMORY: b"m"})
+
+    resp = _ingest(client, members={}, manifest=[f"!remove {path}"])
+
+    assert resp.status_code == 422
+    assert "not a clean relative path" in resp.json()["detail"]
+    ingest_manager.remove_files.assert_not_awaited()
+
+
+async def test_ingest_still_repairs_a_path_being_added(
+    client, credentialed_user, ingest_manager
+):
+    """Only removals are strict: an added path is still sanitized, as before."""
+    _login(client)
+    resp = _ingest(client, members={"notes.md": b"x"}, manifest=["./notes.md"])
+
+    assert resp.status_code == 200
+    assert ingest_manager.insert_files.await_args.args[0][0].relative_path == "notes.md"
+
+
 async def test_ingest_records_a_failed_removal(
     client, credentialed_user, ingest_manager, db_session
 ):
