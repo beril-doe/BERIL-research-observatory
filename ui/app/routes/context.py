@@ -19,6 +19,7 @@ from collections import Counter
 from dataclasses import dataclass
 from glob import escape as glob_escape
 from pathlib import Path
+from typing import NamedTuple
 
 from fastapi import (
     APIRouter,
@@ -41,8 +42,10 @@ from app.context_manager.base import (
     INGEST_COMPLETED,
     INGEST_EXPIRED,
     INGEST_FAILED,
+    INGEST_NOT_FOUND,
     INGEST_PROCESSING,
     INGEST_QUEUED,
+    INGEST_REMOVED,
     INGEST_SKIPPED,
     INGEST_STATUSES,
     INGEST_UNKNOWN,
@@ -89,6 +92,7 @@ from app.db.crud import (
     create_user_project,
     get_ingest_batch,
     get_project_by_slug,
+    latest_file_statuses,
     projects_with_memory,
     update_ingest_file_statuses,
 )
@@ -777,12 +781,55 @@ def _extract_archive(archive_bytes: bytes, dest: Path) -> None:
         ) from exc
 
 
-def _parse_manifest(manifest_bytes: bytes) -> list[str]:
-    """Read the manifest into a list of sanitized relative paths.
+# A manifest line that withdraws a file rather than ingesting one. The
+# manifest reserves a leading ``!`` for directives — ``_parse_manifest``
+# refuses a path that starts with one — so a directive is never mistaken for a
+# filename, and a manifest written before directives existed never contains
+# one by accident.
+REMOVE_DIRECTIVE = "!remove"
+
+
+class _Manifest(NamedTuple):
+    """What a submission asks for: files to ingest and files to withdraw."""
+
+    paths: list[str]
+    removals: list[str]
+
+
+def _held(status: str | None) -> bool:
+    """Whether a removal should act on a path, given its newest record that
+    is not a failed attempt.
+
+    Failed attempts are skipped by the caller because they changed nothing:
+    an ingest that never landed, or a removal the backend refused. Letting
+    one decide would misread the path — a refused removal on top of an
+    unpolled ingest that has since landed would read as "never there", and
+    every later removal would report not_found while the file stays
+    searchable.
+
+    * nothing, or removed → not held (not_found);
+    * completed → held — including after a failed re-ingest, which leaves
+      the landed copy in place;
+    * queued/processing/unknown/expired → tried, not assumed: an in-flight
+      ingest makes the backend refuse the delete ("still being ingested"),
+      and an unpolled, expired or unknown one may well have landed.
+    """
+    return status is not None and status != INGEST_REMOVED
+
+
+def _parse_manifest(manifest_bytes: bytes) -> _Manifest:
+    """Read the manifest into sanitized paths to ingest and paths to remove.
 
     One path per line; blank lines are ignored so a trailing newline is fine.
     Paths are sanitized the same way upload filenames are, and duplicates are
     dropped so a repeated line does not ingest the same file twice.
+
+    ``!remove <relative/path>`` withdraws a file. Re-ingest is otherwise
+    add-only: a path *absent* from the manifest is left alone, because absence
+    cannot say whether the user meant "delete it" or "leave it" — so removal is
+    only ever explicit. Any other ``!`` line is an unknown directive and
+    rejected rather than read as a filename. A path both listed and removed
+    contradicts itself and is rejected.
     """
     try:
         text = manifest_bytes.decode("utf-8")
@@ -793,27 +840,58 @@ def _parse_manifest(manifest_bytes: bytes) -> list[str]:
         ) from exc
 
     paths: list[str] = []
-    seen: set[str] = set()
+    removals: list[str] = []
     for line_no, raw in enumerate(text.splitlines(), start=1):
         line = raw.strip()
         if not line:
             continue
-        relative_path = _safe_relative_path(line)
-        if relative_path is None:
+        target = paths
+        if line.startswith("!"):
+            directive, _, rest = line.partition(" ")
+            if directive != REMOVE_DIRECTIVE:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=f"Unknown manifest directive on line {line_no}: {directive!r}",
+                )
+            line, target = rest.strip(), removals
+        relative_path = _safe_relative_path(line) if line else None
+        if relative_path is None or relative_path.startswith("!"):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"Invalid manifest path on line {line_no}: {line!r}",
+                detail=f"Invalid manifest path on line {line_no}: {raw.strip()!r}",
             )
-        if relative_path not in seen:
-            seen.add(relative_path)
-            paths.append(relative_path)
+        # Sanitizing *repairs* a path — it drops ``.``/``..`` and empty
+        # segments and turns backslashes into slashes. Harmless for a file
+        # being added, but a removal deletes: ``!remove ../README.md`` would
+        # become ``README.md`` and delete a file the caller never named. So a
+        # removal path must already be clean, or the line is rejected.
+        if target is removals and relative_path != line:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(
+                    f"Removal path on line {line_no} is not a clean relative "
+                    f"path: {line!r}. Name the file exactly; '.', '..', "
+                    "leading or doubled slashes, and backslashes are not "
+                    "accepted in a removal."
+                ),
+            )
+        if relative_path not in target:
+            target.append(relative_path)
 
-    if not paths:
+    both = sorted(set(paths) & set(removals))
+    if both:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                "The manifest both ingests and removes: " + ", ".join(both)
+            ),
+        )
+    if not paths and not removals:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="The manifest lists no files.",
         )
-    return paths
+    return _Manifest(paths, removals)
 
 
 @ROUTER_CONTEXT.post("/api/context/ingest_files")
@@ -845,8 +923,14 @@ async def post_context_ingest_files(
     always does something. ``force=true`` bypasses the check entirely — the
     repair path for content the backend lost or must re-index.
 
-    When every file is skipped nothing is submitted, so no batch exists and
-    ``batch_id`` is ``None``. That is success, not a missing handle.
+    Re-ingest is add-only: a path missing from the manifest is left as it
+    is. A file is withdrawn only by an explicit ``!remove <path>`` line, which
+    deletes it from the backend and records it ``removed``; naming a path the
+    project does not hold reports ``not_found`` and does nothing.
+
+    When every file is skipped and no removal acted, nothing was done, so no
+    batch exists and ``batch_id`` is ``None``. That is success, not a missing
+    handle.
     """
     settings = get_settings()
     manager = await resolve_context_manager(db, user)
@@ -855,12 +939,13 @@ async def post_context_ingest_files(
 
     archive_bytes = await archive.read()
 
-    relative_paths = _parse_manifest(await manifest.read())
-    if len(relative_paths) > settings.context_max_ingest_files:
+    relative_paths, removals = _parse_manifest(await manifest.read())
+    entries = len(relative_paths) + len(removals)
+    if entries > settings.context_max_ingest_files:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=(
-                f"Too many files: {len(relative_paths)} "
+                f"Too many files: {entries} "
                 f"(limit {settings.context_max_ingest_files})."
             ),
         )
@@ -929,52 +1014,88 @@ async def post_context_ingest_files(
             )
 
     logger.info(
-        "Ingesting %d file(s) to %s for user %s (%d unchanged)",
+        "Ingesting %d file(s) to %s for user %s (%d unchanged, %d to remove)",
         len(ingest_files),
         target_root,
         user.orcid_id,
         len(skipped),
+        len(removals),
     )
 
-    # Everything was unchanged: nothing to submit, so no batch and nothing to
-    # poll. Answered as a success with the skips enumerated.
-    if not ingest_files:
-        # Skipped means identical content already completed for this project:
-        # it is in the corpus, so the rule holds even with nothing sent.
-        await _publish(db, db_project)
-        return ContextIngestResults(
-            results=skipped, queued=0, failed=0, skipped=len(skipped)
+    # Removals act only on what this project actually holds; anything else is
+    # reported not_found and nothing is sent, which keeps "remove if it
+    # exists" idempotent. The backend deletes a missing path without
+    # complaint, so this check is the only thing that can tell "withdrawn"
+    # from "was never there".
+    # Failed attempts — an ingest that never landed, a removal the backend
+    # refused — changed nothing in the corpus, so they are passed over and the
+    # newest record that *did* something answers.
+    current = (
+        await latest_file_statuses(db, db_project.id, ignoring=(INGEST_FAILED,))
+        if removals
+        else {}
+    )
+    present = [p for p in removals if _held(current.get(p))]
+    not_found = [
+        IngestResult(
+            relative_path=p,
+            status=INGEST_NOT_FOUND,
+            reason="Not present in this project.",
         )
+        for p in removals
+        if p not in present
+    ]
+    removed = (
+        await manager.remove_files(present, target_root=target_root) if present else []
+    )
 
-    results = await manager.insert_files(ingest_files, target_root=target_root)
-    # Skips count too: their identical content already completed here.
+    results = (
+        await manager.insert_files(ingest_files, target_root=target_root)
+        if ingest_files
+        else ContextIngestResults(results=[], queued=0, failed=0)
+    )
+    # Publish only once content is in the corpus: something queued, or skipped
+    # because identical content already completed here. A removal never
+    # publishes — it takes content out.
     if results.queued or skipped:
         await _publish(db, db_project)
 
     # Record the submission so its progress stays pollable: the context
     # manager expires its own task records and does not track who owns them.
-    # Only submitted files get rows — see the skip branch above.
-    batch = await create_ingest_batch(
-        db,
-        user_id=user.id,
-        project_id=db_project.id,
-        target_root=target_root,
-        files=[
-            {
-                "relative_path": r.relative_path,
-                "uri": r.uri,
-                "ov_task_id": r.task_id,
-                "status": r.status,
-                "error": r.reason,
-                "content_sha256": content_hashes.get(r.relative_path),
-            }
-            for r in results.results
-        ],
+    # Submitted files and attempted removals get rows; skips and not_found do
+    # not — neither did anything, and a row would read as an attempt.
+    recorded = results.results + removed
+    batch_id = None
+    if recorded:
+        batch = await create_ingest_batch(
+            db,
+            user_id=user.id,
+            project_id=db_project.id,
+            target_root=target_root,
+            files=[
+                {
+                    "relative_path": r.relative_path,
+                    "uri": r.uri,
+                    "ov_task_id": r.task_id,
+                    "status": r.status,
+                    "error": r.reason,
+                    "content_sha256": content_hashes.get(r.relative_path),
+                }
+                for r in recorded
+            ],
+        )
+        batch_id = batch.id
+
+    removal_failures = sum(1 for r in removed if r.status != INGEST_REMOVED)
+    return ContextIngestResults(
+        results=recorded + skipped + not_found,
+        queued=results.queued,
+        failed=results.failed + removal_failures,
+        skipped=len(skipped),
+        removed=len(removed) - removal_failures,
+        not_found=len(not_found),
+        batch_id=batch_id,
     )
-    results.batch_id = batch.id
-    results.results = results.results + skipped
-    results.skipped = len(skipped)
-    return results
 
 
 @ROUTER_CONTEXT.get("/api/context/ingest_status/{batch_id}")
@@ -1051,8 +1172,10 @@ def _rollup_status(files: list[IngestFileStatus]) -> str:
     unknown may still resolve on a later poll. Neither is a clean sweep — a
     batch is ``completed`` only when every file was *seen* to complete.
 
-    ``skipped`` never appears here: a skipped file is not submitted and so
-    writes no batch row. It is reported only in the ingest response.
+    ``skipped`` and ``not_found`` never appear here: neither did anything, so
+    neither writes a batch row. They are reported only in the ingest response.
+    ``removed`` is a settled outcome like ``completed`` — a batch of removals
+    that all succeeded rolls up ``completed``.
     """
     statuses = {f.status for f in files}
     if INGEST_FAILED in statuses:

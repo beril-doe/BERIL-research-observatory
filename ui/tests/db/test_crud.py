@@ -1,11 +1,13 @@
 """Tests for database CRUD operations (app.db.crud)."""
 
 import secrets
+
 import pytest
 
 from app.db.crud import (
     TOKEN_PREFIX,
     _hash_token,
+    create_ingest_batch,
     create_named_api_token,
     create_project_file,
     delete_project_file,
@@ -17,12 +19,13 @@ from app.db.crud import (
     get_projects_for_user,
     get_user_by_api_token,
     get_user_by_orcid,
+    latest_file_statuses,
     list_api_tokens_for_user,
+    projects_with_memory,
     revoke_api_token,
     update_project_github_url,
 )
 from app.db.models import BerilUser, UserApiToken, UserProject
-
 
 # ---------------------------------------------------------------------------
 # get_user_by_orcid
@@ -398,6 +401,7 @@ class TestApiToken:
         """If the first savepoint raises IntegrityError, the retry succeeds."""
         import contextlib
         from unittest.mock import patch
+
         from sqlalchemy.exc import IntegrityError
 
         attempt_count = 0
@@ -434,6 +438,7 @@ class TestApiToken:
         """If both attempts fail with IntegrityError, the exception propagates."""
         import contextlib
         from unittest.mock import patch
+
         from sqlalchemy.exc import IntegrityError
 
         attempt_count = 0
@@ -593,6 +598,7 @@ class TestGetUserByApiTokenExpiryAndRevocation:
 
     async def test_expired_token_returns_none(self, db_session, user):
         import datetime as _dt
+
         from app.db.models import UserApiToken
 
         raw = "beril_expired"
@@ -634,3 +640,126 @@ class TestGetUserByApiTokenExpiryAndRevocation:
         found = await get_user_by_api_token(db_session, raw)
         assert found is not None
         assert found.id == user.id
+
+
+# ---------------------------------------------------------------------------
+# projects_with_memory / latest_file_statuses — re-ingest is add-only
+# ---------------------------------------------------------------------------
+
+_DISCOVERIES = "memories/discoveries.md"
+
+
+class TestProjectsWithMemory:
+    """A project owns its memory when the file landed and was not since
+    explicitly removed. Absence from a later submission withdraws nothing."""
+
+    @pytest.fixture
+    async def project(self, db_session):
+        user = await _make_user(db_session)
+        return await _make_project(db_session, user)
+
+    async def _record(self, db_session, project, *rows):
+        await create_ingest_batch(
+            db_session,
+            user_id=project.owner_id,
+            project_id=project.id,
+            target_root="viking://resources/users/x/test-project",
+            files=[{"relative_path": p, "status": st} for p, st in rows],
+        )
+
+    async def test_a_landed_memory_is_owned(self, db_session, project):
+        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+
+        assert await projects_with_memory(db_session, "discoveries") == {"test-project"}
+
+    async def test_a_memory_that_never_landed_is_not_owned(self, db_session, project):
+        await self._record(db_session, project, (_DISCOVERIES, "failed"))
+
+        assert await projects_with_memory(db_session, "discoveries") == set()
+
+    async def test_a_resubmit_without_the_memory_keeps_ownership(
+        self, db_session, project
+    ):
+        """The case the "latest batch" rule got wrong: a later batch that does
+        not mention the memory (skipped as unchanged, or simply not listed)
+        withdraws nothing."""
+        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+        await self._record(db_session, project, ("README.md", "queued"))
+
+        assert await projects_with_memory(db_session, "discoveries") == {"test-project"}
+
+    async def test_a_changed_memory_still_indexing_keeps_ownership(
+        self, db_session, project
+    ):
+        """No flicker back to the central entry while the new copy lands."""
+        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+        await self._record(db_session, project, (_DISCOVERIES, "queued"))
+
+        assert await projects_with_memory(db_session, "discoveries") == {"test-project"}
+
+    async def test_an_explicit_removal_withdraws_ownership(self, db_session, project):
+        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+        await self._record(db_session, project, (_DISCOVERIES, "removed"))
+
+        assert await projects_with_memory(db_session, "discoveries") == set()
+
+    async def test_a_memory_added_back_after_removal_is_owned_again(
+        self, db_session, project
+    ):
+        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+        await self._record(db_session, project, (_DISCOVERIES, "removed"))
+        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+
+        assert await projects_with_memory(db_session, "discoveries") == {"test-project"}
+
+    @pytest.mark.parametrize("readd", ["queued", "processing", "failed", "expired"])
+    async def test_a_removed_memory_stays_unowned_until_a_readd_lands(
+        self, db_session, project, readd
+    ):
+        """Regression (Codex, #451): completed → removed → re-add pending or
+        failed read as owned again, because an old ``completed`` row still
+        counted and the newest row was no longer ``removed``. The file was
+        deleted and nothing replaced it, so the central entry must stay."""
+        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+        await self._record(db_session, project, (_DISCOVERIES, "removed"))
+        await self._record(db_session, project, (_DISCOVERIES, readd))
+
+        assert await projects_with_memory(db_session, "discoveries") == set()
+
+    async def test_a_failed_reingest_keeps_the_landed_copy_owned(
+        self, db_session, project
+    ):
+        """A changed memory whose re-ingest failed leaves the earlier copy in
+        place, so the project still owns it."""
+        await self._record(db_session, project, (_DISCOVERIES, "completed"))
+        await self._record(db_session, project, (_DISCOVERIES, "failed"))
+
+        assert await projects_with_memory(db_session, "discoveries") == {"test-project"}
+
+    async def test_only_the_named_memory_counts(self, db_session, project):
+        await self._record(db_session, project, ("memories/pitfalls.md", "completed"))
+
+        assert await projects_with_memory(db_session, "discoveries") == set()
+
+    async def test_latest_file_statuses_can_pass_over_failed_attempts(
+        self, db_session, project
+    ):
+        await self._record(db_session, project, (_DISCOVERIES, "queued"))
+        await self._record(db_session, project, (_DISCOVERIES, "failed"), ("a.md", "failed"))
+
+        assert await latest_file_statuses(
+            db_session, project.id, ignoring=("failed",)
+        ) == {_DISCOVERIES: "queued"}
+
+    async def test_latest_file_statuses_reports_each_paths_newest(
+        self, db_session, project
+    ):
+        await self._record(
+            db_session, project, (_DISCOVERIES, "completed"), ("README.md", "completed")
+        )
+        await self._record(db_session, project, (_DISCOVERIES, "removed"))
+
+        assert await latest_file_statuses(db_session, project.id) == {
+            _DISCOVERIES: "removed",
+            "README.md": "completed",
+        }

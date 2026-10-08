@@ -117,6 +117,7 @@ def sdk_client():
     inst.ls = AsyncMock(return_value=["alpha.md", "beta.md"])
     inst.grep = AsyncMock(return_value=dict(EMPTY_GREP))
     inst.glob = AsyncMock(return_value={"matches": [], "count": 0})
+    inst.rm = AsyncMock(return_value=None)
     return inst
 
 
@@ -598,6 +599,90 @@ async def test_list_files_with_no_uris_never_reaches_the_backend(
 
     assert await manager.list_files([]) == []
     patched_sdk.ls.assert_not_awaited()
+    patched_sdk.initialize.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# OpenVikingManager.remove_files
+# ---------------------------------------------------------------------------
+
+_ROOT = "viking://resources/users/0000-1/alpha"
+
+
+async def test_remove_files_deletes_each_path_recursively(settings, patched_sdk):
+    """Recursive and waited-on: the backend stores an ingested file as a
+    directory of fragments and refuses a non-recursive delete (verified
+    against server 0.4.22)."""
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.remove_files(
+        ["memories/discoveries.md", "notes/a.md"], target_root=_ROOT
+    )
+
+    assert [(r.relative_path, r.status, r.uri) for r in out] == [
+        ("memories/discoveries.md", "removed", f"{_ROOT}/memories/discoveries.md"),
+        ("notes/a.md", "removed", f"{_ROOT}/notes/a.md"),
+    ]
+    assert [c.args[0] for c in patched_sdk.rm.await_args_list] == [
+        f"{_ROOT}/memories/discoveries.md", f"{_ROOT}/notes/a.md"
+    ]
+    assert all(
+        c.kwargs == {"recursive": True, "wait": True}
+        for c in patched_sdk.rm.await_args_list
+    )
+    patched_sdk.close.assert_awaited_once()
+
+
+async def test_remove_files_explains_a_path_still_being_ingested(settings, patched_sdk):
+    """The backend refuses to delete a path whose ingest is in flight
+    (``ConflictError``, verified live). That is recorded as a failure — never
+    ``removed`` — with a reason that says to retry, and the batch continues."""
+    from openviking_sdk.errors import ConflictError
+
+    patched_sdk.rm.side_effect = [
+        ConflictError("Resource is being processed: viking://x"), None
+    ]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.remove_files(["a.md", "b.md"], target_root=_ROOT)
+
+    assert [(r.relative_path, r.status) for r in out] == [
+        ("a.md", "failed"), ("b.md", "removed")
+    ]
+    assert "still being ingested" in out[0].reason
+    assert "Resource is being processed" not in out[0].reason
+
+
+async def test_remove_files_records_a_failure_and_continues(settings, patched_sdk):
+    patched_sdk.rm.side_effect = [UnavailableError("down"), None]
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.remove_files(["a.md", "b.md"], target_root=_ROOT)
+
+    assert [(r.relative_path, r.status) for r in out] == [
+        ("a.md", "failed"), ("b.md", "removed")
+    ]
+    # The backend's message stays in the log, not the result.
+    assert "down" not in (out[0].reason or "")
+
+
+async def test_remove_files_refuses_traversal_without_calling_the_backend(
+    settings, patched_sdk
+):
+    manager = OpenVikingManager(settings, "user-key")
+
+    out = await manager.remove_files(["../other/x.md"], target_root=_ROOT)
+
+    assert out[0].status == "failed"
+    patched_sdk.rm.assert_not_awaited()
+
+
+async def test_remove_files_with_nothing_to_do_never_reaches_the_backend(
+    settings, patched_sdk
+):
+    manager = OpenVikingManager(settings, "user-key")
+
+    assert await manager.remove_files([], target_root=_ROOT) == []
     patched_sdk.initialize.assert_not_awaited()
 
 

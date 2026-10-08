@@ -81,9 +81,17 @@ INGEST_UNKNOWN = "unknown"
 # Reported per-file rather than silently omitted: a missing file in the response
 # is indistinguishable from a bug when the user's file doesn't turn up.
 INGEST_SKIPPED = "skipped"
+# Explicitly withdrawn by a ``!remove`` manifest entry and deleted from the
+# backend. Terminal, and recorded as the path's newest row, so it supersedes
+# any earlier ``completed``: the skip check no longer matches (a re-added file
+# is re-sent) and the project no longer counts as owning that memory.
+INGEST_REMOVED = "removed"
+# A ``!remove`` named a path this project never ingested, or already removed.
+# Response-only, like ``skipped``: nothing was done, so no row is written.
+INGEST_NOT_FOUND = "not_found"
 
 TERMINAL_INGEST_STATUSES = frozenset(
-    {INGEST_COMPLETED, INGEST_FAILED, INGEST_EXPIRED, INGEST_SKIPPED}
+    {INGEST_COMPLETED, INGEST_FAILED, INGEST_EXPIRED, INGEST_SKIPPED, INGEST_REMOVED}
 )
 
 # Every status, in lifecycle order — used to render a stable counts mapping.
@@ -95,6 +103,8 @@ INGEST_STATUSES = (
     INGEST_EXPIRED,
     INGEST_UNKNOWN,
     INGEST_SKIPPED,
+    INGEST_REMOVED,
+    INGEST_NOT_FOUND,
 )
 
 
@@ -116,14 +126,17 @@ class IngestResult(BaseModel):
 class ContextIngestResults(BaseModel):
     """Outcome of one submission. ``batch_id`` is the handle for polling it.
 
-    ``batch_id`` is ``None`` when nothing was submitted — every file was
-    skipped as unchanged, so no batch exists and there is nothing to poll.
-    Callers must treat that as success, not as a missing handle.
+    ``batch_id`` is ``None`` when nothing was submitted or removed — every
+    file was skipped as unchanged and every removal named a path not present,
+    so no batch exists and there is nothing to poll. Callers must treat that
+    as success, not as a missing handle.
     """
     results: list[IngestResult]
     queued: int
     failed: int
     skipped: int = 0
+    removed: int = 0
+    not_found: int = 0
     batch_id: str | None = None
 
 

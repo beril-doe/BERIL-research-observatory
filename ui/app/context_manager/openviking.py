@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 import httpx
+from openviking_sdk.errors import ConflictError as SdkConflictError
 from openviking_sdk.errors import NotFoundError as SdkNotFoundError
 from openviking_sdk.errors import OpenVikingError as SdkOpenVikingError
 from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticatedError
@@ -40,6 +41,7 @@ from .base import (
     INGEST_FAILED,
     INGEST_PROCESSING,
     INGEST_QUEUED,
+    INGEST_REMOVED,
     INGEST_UNKNOWN,
     MAX_MEMORY_DOCUMENTS,
     ContextFile,
@@ -527,6 +529,66 @@ class OpenVikingManager(ContextManager):
         return ContextIngestResults(
             results=results, queued=queued, failed=len(results) - queued
         )
+
+    async def remove_files(
+        self, relative_paths: list[str], *, target_root: str
+    ) -> list[IngestResult]:
+        """Delete each path below ``target_root``, one result per path.
+
+        Never raises, like ``insert_files``: a failure is recorded against
+        that path and the rest continue. ``target_root`` is the caller's own
+        ingest root (``user_target_root``), so a removal can only reach the
+        authenticated user's project.
+        """
+        if not relative_paths:
+            return []
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        results: list[IngestResult] = []
+        try:
+            for relative_path in relative_paths:
+                try:
+                    uri = target_uri(target_root, relative_path)
+                    await ov_client.rm(uri)
+                except SdkConflictError as exc:
+                    # The backend refuses to delete a path whose ingest is
+                    # still pending or running (verified against 0.4.22).
+                    # That refusal is what keeps a removal from being
+                    # overtaken by an in-flight ingest: had the delete gone
+                    # through, the ingest would land afterwards and the file
+                    # would be searchable under a ``removed`` row. Recorded as
+                    # failed — no ``removed`` row — so ownership still follows
+                    # the ingest once it completes, and the caller is told to
+                    # retry rather than given a generic failure.
+                    logger.info("Removing %s deferred: %s", relative_path, exc)
+                    results.append(
+                        IngestResult(
+                            relative_path=relative_path,
+                            status=INGEST_FAILED,
+                            reason=(
+                                "This file is still being ingested; remove it "
+                                "again once that finishes."
+                            ),
+                        )
+                    )
+                    continue
+                except INGEST_FAILURES as exc:
+                    logger.warning("Removing %s failed: %s", relative_path, exc)
+                    results.append(
+                        IngestResult(
+                            relative_path=relative_path,
+                            status=INGEST_FAILED,
+                            reason="The context manager could not remove the file.",
+                        )
+                    )
+                    continue
+                results.append(
+                    IngestResult(
+                        relative_path=relative_path, status=INGEST_REMOVED, uri=uri
+                    )
+                )
+        finally:
+            await ov_client.close()
+        return results
 
     async def task_statuses(self, task_ids: list[str]) -> dict[str, tuple[str, str | None]]:
         """Look up the current status of each task id.

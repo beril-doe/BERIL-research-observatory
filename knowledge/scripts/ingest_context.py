@@ -79,6 +79,7 @@ from observatory_context.ingest import (
 )
 from observatory_context.openviking_client import create_client
 from observatory_context.progress import RichIngestObserver
+from observatory_context.selection import APPROVAL_GATED_MEMORIES, MEMORY_DIR_NAME
 from observatory_context.staging import stage_project
 
 
@@ -105,6 +106,16 @@ def build_parser() -> argparse.ArgumentParser:
         "project through BERIL's ingest route and poll it to completion, emit a "
         "single-line JSON verdict on stdout, and always exit 0. Used by "
         "tools/lakehouse_upload.py after a successful archive",
+    )
+    parser.add_argument(
+        "--remove",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="With --json: withdraw this project-relative file from the context "
+        "layer (repeatable). Re-ingest never removes a file just because it is "
+        "missing; this is the explicit way. Approval-gated memories absent from "
+        "the project are withdrawn automatically",
     )
     return parser
 
@@ -138,7 +149,16 @@ def _preflight() -> tuple[auth_store.AuthRecord | None, str]:
     return record, "context service available"
 
 
-def run_mirror(project_id: str) -> int:
+def _withdrawn_memories(staged: Path) -> list[str]:
+    """Approval-gated memories the staged project does not carry."""
+    return [
+        f"{MEMORY_DIR_NAME}/{name}"
+        for name in APPROVAL_GATED_MEMORIES
+        if not (staged / MEMORY_DIR_NAME / name).is_file()
+    ]
+
+
+def run_mirror(project_id: str, extra_removals: tuple[str, ...] = ()) -> int:
     """Best-effort single-project mirror. Never raises; always returns 0.
 
     Stages the project the same way the interactive path does — so the
@@ -153,6 +173,14 @@ def run_mirror(project_id: str) -> int:
     The server skips files whose content it already holds, so a re-submission
     of unchanged work sends nothing and reports "ok" — there is no batch to
     poll in that case.
+
+    Re-ingest is add-only, so withdrawals are explicit. An approval-gated
+    memory (``memories/discoveries.md``, ``memories/performance.md``) absent
+    from the staged project is sent as a ``!remove``: ``/submit`` deletes it
+    when the approved REPORT drops that section, and the context layer must
+    follow. The server answers ``not_found`` for one it never held, so this is
+    safe to send on every mirror. ``extra_removals`` are any further paths the
+    caller asked to withdraw (``--remove``).
     """
     try:
         record, reason = _preflight()
@@ -166,6 +194,7 @@ def run_mirror(project_id: str) -> int:
         project_dir = resolve_project_dir(config, project_id)
         staged = stage_project(project_dir, config.staging_dir)
         files = sorted(p for p in staged.rglob("*") if p.is_file())
+        removals = _withdrawn_memories(staged) + list(extra_removals)
     except Exception as exc:
         return _emit("failed", f"could not stage {project_id} for submission: {exc}")
 
@@ -182,6 +211,7 @@ def run_mirror(project_id: str) -> int:
             project=project_id,
             root=staged,
             files=files,
+            removals=removals,
         )
     except BerilIngestError as exc:
         return _emit("failed", f"context-service submission failed: {exc}")
@@ -209,6 +239,8 @@ def main() -> None:
             parser.error("--limit must be a positive integer")
     if args.json and args.project is None:
         parser.error("--json requires --project")
+    if args.remove and not args.json:
+        parser.error("--remove can only be used with --json")
 
     if args.json:
         # Verdict mode: gated, advisory, always exit 0. Resolve the project dir
@@ -220,7 +252,7 @@ def main() -> None:
             raise SystemExit(_emit("skipped", f"project not found: {exc}"))
         except Exception as exc:
             raise SystemExit(_emit("skipped", f"could not resolve project: {exc}"))
-        raise SystemExit(run_mirror(args.project))
+        raise SystemExit(run_mirror(args.project, tuple(args.remove)))
 
     config = ContextConfig.from_env()
     if args.project is not None:

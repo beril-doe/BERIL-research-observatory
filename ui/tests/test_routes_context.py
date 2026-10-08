@@ -38,6 +38,7 @@ from app.db.crud import (
     get_ingest_batch,
     get_project_by_slug,
     get_projects_for_user,
+    projects_with_memory,
 )
 from app.db.models import BerilUser, OvUserCredential
 from app.db.session import get_db
@@ -703,8 +704,18 @@ def ingest_manager():
     inst.insert_files = AsyncMock(return_value=_queued(1))
     # Default to "nothing new" so status tests opt in to a refresh explicitly.
     inst.task_statuses = AsyncMock(return_value={})
+    inst.remove_files = AsyncMock(side_effect=_removed_all)
     with patch("app.routes.context.OpenVikingManager", return_value=inst):
         yield inst
+
+
+async def _removed_all(relative_paths, *, target_root):
+    return [
+        IngestResult(
+            relative_path=p, status="removed", uri=f"{target_root}/{p}"
+        )
+        for p in relative_paths
+    ]
 
 
 def test_ingest_unauthenticated_returns_401(client):
@@ -1421,10 +1432,12 @@ async def test_ingest_status_counts_cover_every_status(
         "expired",
         "unknown",
         # Present for a stable mapping, though a skipped file never reaches a
-        # batch: it is not submitted, so it writes no row.
+        # batch: it is not submitted, so it writes no row. Same for not_found.
         "skipped",
+        "removed",
+        "not_found",
     }
-    assert counts["skipped"] == 0
+    assert counts["skipped"] == counts["not_found"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -1741,6 +1754,359 @@ async def test_ingest_publishes_when_the_rest_are_skipped(
     assert (resp.json()["queued"], resp.json()["skipped"]) == (0, 1)
     await db_session.refresh(project)
     assert project.is_public is True
+
+
+# ---------------------------------------------------------------------------
+# Explicit removal: `!remove <path>` in the manifest
+# ---------------------------------------------------------------------------
+
+_MEMORY = "memories/discoveries.md"
+
+
+async def test_ingest_removes_an_explicitly_named_file(
+    client, credentialed_user, ingest_manager, db_session
+):
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"finding"})
+
+    resp = _ingest(client, members={}, manifest=[f"!remove {_MEMORY}"])
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["removed"], body["queued"], body["failed"]) == (1, 0, 0)
+    assert body["results"][0]["status"] == "removed"
+    ingest_manager.remove_files.assert_awaited_once()
+    assert ingest_manager.remove_files.await_args.args[0] == [_MEMORY]
+    # Pinned to the caller's own namespace, like every write.
+    assert ingest_manager.remove_files.await_args.kwargs["target_root"] == (
+        f"viking://resources/users/{USER_TOKEN['orcid']}/my_project"
+    )
+    # Recorded, so it supersedes the earlier completed row.
+    batch = await get_ingest_batch(db_session, body["batch_id"])
+    assert [(f.relative_path, f.status) for f in batch.files] == [(_MEMORY, "removed")]
+
+
+async def test_ingest_leaves_files_absent_from_the_manifest_alone(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Re-ingest is add-only: a missing path is not a removal."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"finding"})
+
+    resp = _ingest(client, members={"README.md": b"new"})
+
+    assert resp.status_code == 200
+    assert resp.json()["removed"] == 0
+    ingest_manager.remove_files.assert_not_awaited()
+
+
+@pytest.mark.parametrize("already_removed", [False, True])
+async def test_ingest_reports_not_found_for_a_path_the_project_does_not_hold(
+    client, credentialed_user, ingest_manager, db_session, already_removed
+):
+    """Never ingested, or already removed: nothing to do, nothing recorded —
+    so "remove if it exists" is idempotent."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"README.md": b"x"})
+    if already_removed:
+        await _land(client, ingest_manager, db_session, {_MEMORY: b"finding"})
+        _ingest(client, members={}, manifest=[f"!remove {_MEMORY}"])
+        ingest_manager.remove_files.reset_mock()
+
+    resp = _ingest(client, members={}, manifest=[f"!remove {_MEMORY}"])
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["not_found"], body["removed"]) == (1, 0)
+    assert body["results"][0]["status"] == "not_found"
+    assert body["batch_id"] is None
+    ingest_manager.remove_files.assert_not_awaited()
+
+
+async def test_ingest_rejects_a_path_both_ingested_and_removed(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    resp = _ingest(
+        client, members={_MEMORY: b"x"}, manifest=[_MEMORY, f"!remove {_MEMORY}"]
+    )
+
+    assert resp.status_code == 422
+    assert _MEMORY in resp.json()["detail"]
+    ingest_manager.insert_files.assert_not_awaited()
+    ingest_manager.remove_files.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "line", ["!delete memories/discoveries.md", "!remove", "!remove   ", "!REMOVE x.md"]
+)
+async def test_ingest_rejects_a_malformed_directive(
+    client, credentialed_user, ingest_manager, line
+):
+    """An unknown or empty directive is refused, never read as a filename."""
+    _login(client)
+    resp = _ingest(client, members={}, manifest=[line])
+
+    assert resp.status_code == 422
+    ingest_manager.remove_files.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "../README.md",
+        "./memories/discoveries.md",
+        "memories/../README.md",
+        "memories//discoveries.md",
+        "/memories/discoveries.md",
+        "memories\\discoveries.md",
+    ],
+)
+async def test_ingest_rejects_a_removal_path_that_needs_repair(
+    client, credentialed_user, ingest_manager, db_session, path
+):
+    """Regression (Codex, #451): sanitizing turned ``!remove ../README.md``
+    into ``README.md`` and deleted a file the caller never named. Adds may be
+    repaired; a destructive removal must name its file exactly."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {"README.md": b"r", _MEMORY: b"m"})
+
+    resp = _ingest(client, members={}, manifest=[f"!remove {path}"])
+
+    assert resp.status_code == 422
+    assert "not a clean relative path" in resp.json()["detail"]
+    ingest_manager.remove_files.assert_not_awaited()
+
+
+async def test_ingest_still_repairs_a_path_being_added(
+    client, credentialed_user, ingest_manager
+):
+    """Only removals are strict: an added path is still sanitized, as before."""
+    _login(client)
+    resp = _ingest(client, members={"notes.md": b"x"}, manifest=["./notes.md"])
+
+    assert resp.status_code == 200
+    assert ingest_manager.insert_files.await_args.args[0][0].relative_path == "notes.md"
+
+
+def _fail_ingest(ingest_manager, path):
+    ingest_manager.insert_files.return_value = ContextIngestResults(
+        results=[IngestResult(relative_path=path, status="failed", reason="no")],
+        queued=0,
+        failed=1,
+    )
+
+
+async def _remove(client, path):
+    return _ingest(client, members={}, manifest=[f"!remove {path}"]).json()
+
+
+async def test_removal_of_a_path_whose_only_ingest_failed_is_not_found(
+    client, credentialed_user, ingest_manager
+):
+    """Regression (Codex, #451): the newest record was ``failed``, so the path
+    counted as held; the backend deletes a missing path without complaint, so
+    the route reported a withdrawal of a file that never landed."""
+    _login(client)
+    _fail_ingest(ingest_manager, _MEMORY)
+    _ingest(client, members={_MEMORY: b"m"})
+
+    body = await _remove(client, _MEMORY)
+
+    assert (body["not_found"], body["removed"], body["batch_id"]) == (1, 0, None)
+    ingest_manager.remove_files.assert_not_awaited()
+
+
+async def test_removal_after_a_failed_readd_of_a_removed_path_is_not_found(
+    client, credentialed_user, ingest_manager, db_session
+):
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"m"})
+    await _remove(client, _MEMORY)
+    _fail_ingest(ingest_manager, _MEMORY)
+    _ingest(client, members={_MEMORY: b"m2"})
+    ingest_manager.remove_files.reset_mock()
+
+    body = await _remove(client, _MEMORY)
+
+    assert (body["not_found"], body["removed"]) == (1, 0)
+    ingest_manager.remove_files.assert_not_awaited()
+
+
+async def test_removal_after_a_failed_reingest_of_a_landed_file_removes_it(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """A failed re-ingest left the landed copy in place, so it is still held."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"m"})
+    _fail_ingest(ingest_manager, _MEMORY)
+    _ingest(client, members={_MEMORY: b"changed"})
+
+    body = await _remove(client, _MEMORY)
+
+    assert body["removed"] == 1
+    assert ingest_manager.remove_files.await_args.args[0] == [_MEMORY]
+
+
+async def test_removal_of_a_path_still_being_ingested_is_attempted(
+    client, credentialed_user, ingest_manager
+):
+    """In flight is not assumed absent: the delete is tried, so the backend's
+    refusal surfaces as "still being ingested" rather than a silent not_found."""
+    _login(client)
+    ingest_manager.insert_files.return_value = _queued_with_tasks([(_MEMORY, "t1")])
+    _ingest(client, members={_MEMORY: b"m"})
+
+    await _remove(client, _MEMORY)
+
+    assert ingest_manager.remove_files.await_args.args[0] == [_MEMORY]
+
+
+async def test_a_refused_removal_does_not_hide_an_ingest_that_later_lands(
+    client, credentialed_user, ingest_manager
+):
+    """Regression (Codex, #451): the first ingest is queued and never polled
+    (the mirror timed out); a removal is refused while it is in flight and
+    recorded as failed; the ingest then lands. The failed removal used to be
+    the newest record with nothing settled, so every later removal said
+    not_found and the withdrawn file stayed searchable. Failed attempts are
+    passed over now, so the queued ingest answers and the delete is tried."""
+    _login(client)
+    ingest_manager.insert_files.return_value = _queued_with_tasks([(_MEMORY, "t1")])
+    _ingest(client, members={_MEMORY: b"m"})
+
+    ingest_manager.remove_files.side_effect = None
+    ingest_manager.remove_files.return_value = [
+        IngestResult(
+            relative_path=_MEMORY,
+            status="failed",
+            reason="This file is still being ingested; remove it again once that finishes.",
+        )
+    ]
+    refused = await _remove(client, _MEMORY)
+    assert refused["failed"] == 1
+
+    # The ingest has since landed on the backend; nobody polled its batch.
+    ingest_manager.remove_files.reset_mock()
+    ingest_manager.remove_files.side_effect = _removed_all
+    retried = await _remove(client, _MEMORY)
+
+    assert (retried["removed"], retried["not_found"]) == (1, 0)
+    assert ingest_manager.remove_files.await_args.args[0] == [_MEMORY]
+
+
+async def test_ingest_records_a_failed_removal(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """A removal the backend refused is a failure the batch reports, and the
+    file stays owned — its newest record is not ``removed``."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"finding"})
+    ingest_manager.remove_files.side_effect = None
+    ingest_manager.remove_files.return_value = [
+        IngestResult(relative_path=_MEMORY, status="failed", reason="no")
+    ]
+
+    body = _ingest(client, members={}, manifest=[f"!remove {_MEMORY}"]).json()
+
+    assert (body["failed"], body["removed"]) == (1, 0)
+    status_body = client.get(f"/api/context/ingest_status/{body['batch_id']}").json()
+    assert status_body["status"] == "failed"
+    assert await projects_with_memory(db_session, "discoveries") == {"my_project"}
+
+
+async def test_a_removal_only_batch_rolls_up_completed(
+    client, credentialed_user, ingest_manager, db_session
+):
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"finding"})
+
+    batch_id = _ingest(client, members={}, manifest=[f"!remove {_MEMORY}"]).json()[
+        "batch_id"
+    ]
+    body = client.get(f"/api/context/ingest_status/{batch_id}").json()
+
+    assert body["status"] == "completed"
+    assert body["counts"]["removed"] == 1
+
+
+async def test_ingest_removal_withdraws_memory_ownership(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """The point of the feature: a withdrawn memory stops suppressing the
+    central legacy entry for its project."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"finding"})
+    assert await projects_with_memory(db_session, "discoveries") == {"my_project"}
+
+    _ingest(client, members={}, manifest=[f"!remove {_MEMORY}"])
+
+    assert await projects_with_memory(db_session, "discoveries") == set()
+
+
+async def test_ingest_resends_a_file_added_back_after_removal(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Identical content is not skipped once removed: it is no longer in the
+    corpus, so the skip check must not match it."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"finding"})
+    _ingest(client, members={}, manifest=[f"!remove {_MEMORY}"])
+    ingest_manager.insert_files.reset_mock()
+
+    resp = _ingest(client, members={_MEMORY: b"finding"})
+
+    assert resp.json()["skipped"] == 0
+    ingest_manager.insert_files.assert_awaited_once()
+
+
+async def test_a_removal_does_not_publish(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Removal takes content out; it is never a reason to make a project public."""
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"finding"})
+    project = await get_project_by_slug(db_session, credentialed_user.id, "my_project")
+    project.is_public = False
+    await db_session.commit()
+
+    _ingest(client, members={}, manifest=[f"!remove {_MEMORY}"])
+
+    await db_session.refresh(project)
+    assert project.is_public is False
+
+
+async def test_ingest_counts_removals_against_the_entry_cap(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    with patch.object(get_settings(), "context_max_ingest_files", 2):
+        resp = _ingest(
+            client,
+            members={"a.md": b"a", "b.md": b"b"},
+            manifest=["a.md", "b.md", "!remove c.md"],
+        )
+
+    assert resp.status_code == 413
+    ingest_manager.remove_files.assert_not_awaited()
+
+
+async def test_ingest_adds_and_removes_in_one_submission(
+    client, credentialed_user, ingest_manager, db_session
+):
+    _login(client)
+    await _land(client, ingest_manager, db_session, {_MEMORY: b"finding"})
+    ingest_manager.insert_files.return_value = _queued_with_tasks([("REPORT.md", "t9")])
+
+    body = _ingest(
+        client, members={"REPORT.md": b"r"}, manifest=["REPORT.md", f"!remove {_MEMORY}"]
+    ).json()
+
+    assert (body["queued"], body["removed"]) == (1, 1)
+    batch = await get_ingest_batch(db_session, body["batch_id"])
+    assert sorted((f.relative_path, f.status) for f in batch.files) == [
+        ("REPORT.md", "queued"), (_MEMORY, "removed")
+    ]
 
 
 async def test_ingest_mixed_batch_accounts_for_every_file(

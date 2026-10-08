@@ -9,7 +9,10 @@ The wire format is the one ``POST /api/context/ingest_files`` expects:
 
   * a zip archive carrying the staged project's directory structure, and
   * a manifest naming which of its members to ingest, one relative path per
-    line.
+    line, plus ``!remove <path>`` lines naming files to withdraw.
+
+Re-ingest is add-only on the server: a path missing from the manifest is left
+as it is. Withdrawing a file is always an explicit ``!remove``.
 
 A plain multipart upload would flatten ``memories/pitfalls.md`` to
 ``pitfalls.md``; the archive is what preserves the path. Ingest is asynchronous,
@@ -50,6 +53,12 @@ UNKNOWN = "unknown"
 # The server already had this exact content, so it was never submitted. Only
 # ever seen in the ingest response — a skipped file joins no batch.
 SKIPPED = "skipped"
+# Withdrawn by a ``!remove`` line. A batch row like any other, and terminal.
+REMOVED = "removed"
+# A ``!remove`` named a path the project does not hold. Response-only, like
+# ``skipped``: nothing was done, which is what "remove if present" asks for.
+NOT_FOUND = "not_found"
+REMOVE_DIRECTIVE = "!remove"
 
 TERMINAL_STATUSES = frozenset({COMPLETED, FAILED})
 
@@ -79,16 +88,18 @@ class IngestOutcome:
     failures: list[tuple[str, str | None]] = field(default_factory=list)
     timed_out: bool = False
     skipped: int = 0
+    removed: int = 0
 
     def summary(self) -> str:
         """One line describing the outcome, suitable for a verdict ``reason``."""
         if self.ok:
             n = self.counts.get(COMPLETED, 0)
+            removed = f", {self.removed} withdrawn" if self.removed else ""
             if self.skipped and not n:
-                return f"{self.skipped} file(s) already current; nothing to send"
+                return f"{self.skipped} file(s) already current; nothing to send{removed}"
             if self.skipped:
-                return f"{n} file(s) ingested, {self.skipped} already current"
-            return f"{n} file(s) ingested"
+                return f"{n} file(s) ingested, {self.skipped} already current{removed}"
+            return f"{n} file(s) ingested{removed}"
         if self.timed_out:
             pending = self.counts.get(QUEUED, 0) + self.counts.get(PROCESSING, 0)
             return (
@@ -225,13 +236,15 @@ def _outcome(batch_id: str, body: dict, *, timed_out: bool) -> IngestOutcome:
         for f in files
         if f.get("status") == FAILED
     ]
+    counts = {str(k): int(v) for k, v in counts.items()}
     return IngestOutcome(
         ok=(not timed_out and status == COMPLETED and not failures),
         batch_id=batch_id,
         status=status,
-        counts={str(k): int(v) for k, v in counts.items()},
+        counts=counts,
         failures=failures,
         timed_out=timed_out,
+        removed=counts.get(REMOVED, 0),
     )
 
 
@@ -242,11 +255,21 @@ def ingest_project_files(
     project: str,
     root: Path,
     files: list[Path],
+    removals: list[str] | tuple[str, ...] = (),
     client: httpx.Client | None = None,
     **poll_kwargs,
 ) -> IngestOutcome:
-    """Archive, submit, and poll to a terminal state. The whole mirror."""
+    """Archive, submit, and poll to a terminal state. The whole mirror.
+
+    ``removals`` are project-relative paths to withdraw, sent as ``!remove``
+    lines. Naming a path the server does not hold is harmless — it reports
+    ``not_found`` and does nothing — so a caller may withdraw "if present".
+    """
     archive, manifest = build_archive(root, files)
+    archived = set(manifest)
+    manifest = manifest + [
+        f"{REMOVE_DIRECTIVE} {path}" for path in removals if path not in archived
+    ]
     body = submit_ingest(
         base_url,
         token,
@@ -269,7 +292,7 @@ def ingest_project_files(
                 ok=True,
                 batch_id=None,
                 status=COMPLETED,
-                counts={SKIPPED: skipped},
+                counts={SKIPPED: skipped, NOT_FOUND: int(body.get("not_found") or 0)},
                 skipped=skipped,
             )
         raise BerilIngestError(

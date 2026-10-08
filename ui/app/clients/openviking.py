@@ -189,6 +189,17 @@ class OpenVikingClient:
             options["node_limit"] = node_limit
         return await self._client.glob(pattern, uri=uri, **options)
 
+    async def rm(self, uri: str) -> None:
+        """Delete ``uri`` and everything beneath it.
+
+        Always recursive: the backend decomposes an ingested file into a
+        directory of fragments, and refuses a non-recursive delete of one.
+        Deleting a path that does not exist is not an error on the backend
+        (verified against server 0.4.22). ``wait=True`` so the index no longer
+        serves the file once this returns.
+        """
+        await self._client.rm(uri, recursive=True, wait=True)
+
     async def get_task(self, task_id: str) -> dict | None:
         """Fetch an async task record, or None if the backend no longer has it.
 

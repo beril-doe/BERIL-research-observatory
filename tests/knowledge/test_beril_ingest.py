@@ -395,3 +395,88 @@ def test_all_skipped_response_missing_the_field_is_still_success(tmp_path):
 
     assert outcome.ok
     assert outcome.skipped == 0
+
+
+# --- explicit removal --------------------------------------------------------
+
+
+def _manifest_lines(request) -> list[str]:
+    """The manifest part of a multipart ingest request, as lines."""
+    body = request.content.decode("utf-8", errors="replace")
+    start = body.index('filename="manifest.txt"')
+    part = body[start:].split("\r\n\r\n", 1)[1]
+    return part.split("\r\n--", 1)[0].splitlines()
+
+
+def test_ingest_project_files_sends_removals_as_directives(tmp_path):
+    """Withdrawals ride in the manifest as ``!remove`` lines after the files."""
+    root, files = _project(tmp_path)
+    sent = {}
+
+    def handler(request):
+        if request.url.path.endswith("/ingest_files"):
+            sent["manifest"] = _manifest_lines(request)
+            return httpx.Response(
+                200, json={"batch_id": None, "queued": 0, "failed": 0, "skipped": 2,
+                           "not_found": 1}
+            )
+        raise AssertionError("nothing to poll")
+
+    with _client(handler) as http:
+        outcome = ingest_project_files(
+            BASE_URL, TOKEN, project="proj", root=root, files=files,
+            removals=["memories/discoveries.md"], client=http,
+        )
+
+    assert sent["manifest"] == [
+        "REPORT.md", "memories/pitfalls.md", "!remove memories/discoveries.md"
+    ]
+    # A withdrawal of something the server never held is not a failure.
+    assert outcome.ok
+
+
+def test_ingest_project_files_never_removes_a_file_it_is_sending(tmp_path):
+    """A path both archived and listed for removal would be refused by the
+    server; the archive wins on the client so a mirror cannot contradict
+    itself."""
+    root, files = _project(tmp_path)
+    sent = {}
+
+    def handler(request):
+        sent["manifest"] = _manifest_lines(request)
+        return httpx.Response(200, json={"batch_id": None, "queued": 0, "failed": 0})
+
+    with _client(handler) as http:
+        ingest_project_files(
+            BASE_URL, TOKEN, project="proj", root=root, files=files,
+            removals=["memories/pitfalls.md"], client=http,
+        )
+
+    assert not any(line.startswith("!remove") for line in sent["manifest"])
+
+
+def test_ingest_project_files_reports_withdrawn_files(tmp_path):
+    root, files = _project(tmp_path)
+
+    def handler(request):
+        if request.url.path.endswith("/ingest_files"):
+            return httpx.Response(200, json={"batch_id": "b9", "queued": 2, "failed": 0})
+        return httpx.Response(
+            200,
+            json=_status_body(
+                "completed",
+                [{"relative_path": "memories/discoveries.md", "status": "removed"}],
+                counts={"completed": 2, "removed": 1},
+            ),
+        )
+
+    with _client(handler) as http:
+        outcome = ingest_project_files(
+            BASE_URL, TOKEN, project="proj", root=root, files=files,
+            removals=["memories/discoveries.md"], client=http,
+            interval=0, sleep=lambda _: None,
+        )
+
+    assert outcome.ok
+    assert outcome.removed == 1
+    assert "1 withdrawn" in outcome.summary()
