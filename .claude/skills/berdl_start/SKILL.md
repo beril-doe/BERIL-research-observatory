@@ -224,7 +224,7 @@ uv run --env-file .env knowledge/scripts/knowledge_query.py doctor
   up the key is what unblocks `find` / `grep` / `read` / `overview`.
 - **UNREACHABLE** → no server; `find` / `grep` / `read` / `overview` still work via
   local fallback, so keep using them instead of hand-scanning. Only
-  `relations` / `glob` / `ls` / `tree` / `stat` need the server — for those, a plain
+  `glob` / `ls` / `tree` / `stat` need the server — for those, a plain
   `ls projects/` is the enumeration fallback.
 
 Non-blocking (like the session-naming reminder) — proceed to Phase 2 regardless.
@@ -424,7 +424,7 @@ These are project-agnostic helpers — invoke them from inside any project at th
 8. **Drive the process forward between checkpoints** — checkpoints are explicit pause-points (Plan Review, Results Review). Outside of those, keep moving — don't stop after every individual step asking permission.
 9. **Document as you go** — pitfalls live-captured to `projects/<id>/memories/pitfalls.md` via `/pitfall-capture`; discoveries and performance notes drafted in REPORT.md `## Discoveries` / `## Performance Notes` sections (extracted by `/submit` to per-project memories at approval). The central `docs/{pitfalls,discoveries,performance}.md` files are frozen historical archives — don't write to them.
 10. **Use Spark patterns from PROJECT.md** — `get_spark_session()`, PySpark-first, `.toPandas()` only for final small results.
-11. **Look up projects and prior work through the knowledge layer, not `projects/`** — when the OV server is up (Phase 1.8), use `knowledge-context` (`knowledge_query.py ls/find/grep/relations`) for "what exists / what's known / related work". It falls back to local search when the server is down, so this is always safe. Hand-read `projects/<id>/` only for the project you're actively working in.
+11. **Look up projects and prior work through the knowledge layer, not `projects/`** — when the OV server is up (Phase 1.8), use `knowledge-context` (`knowledge_query.py ls/find/grep`) for "what exists / what's known / related work". It falls back to local search when the server is down, so this is always safe. Hand-read `projects/<id>/` only for the project you're actively working in.
 
 ---
 

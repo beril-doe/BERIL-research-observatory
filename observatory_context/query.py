@@ -152,12 +152,6 @@ def dispatch_command(args: Any, client: Any, out: Any) -> None:
         _print_json(client.tree(args.uri, node_limit=args.node_limit), out)
     elif args.command == "stat":
         _print_json(client.stat(args.uri), out)
-    elif args.command == "relations":
-        _print_json(client.relations(args.uri), out)
-    elif args.command == "link":
-        client.link(args.from_uri, args.to_uris, reason=args.reason)
-    elif args.command == "unlink":
-        client.unlink(args.from_uri, args.to_uri)
     elif args.command == "overview":
         print(client.overview(args.uri), file=out)
     elif args.command == "read":

@@ -198,13 +198,6 @@ uv run --env-file .env $QUERY ls viking://resources/projects/ --simple
 uv run --env-file .env $QUERY tree viking://resources/projects/alpha/
 uv run --env-file .env $QUERY stat viking://resources/projects/alpha/
 
-# Relations between resources
-uv run --env-file .env $QUERY relations viking://resources/projects/alpha/
-uv run --env-file .env $QUERY link viking://resources/projects/alpha/ \
-  viking://resources/projects/beta/ --reason "shared cohort"
-uv run --env-file .env $QUERY unlink viking://resources/projects/alpha/ \
-  viking://resources/projects/beta/
-
 # Resource access
 uv run --env-file .env $QUERY overview viking://resources/projects/<project_id>/
 uv run --env-file .env $QUERY read viking://resources/projects/<project_id>/REPORT.md
@@ -223,15 +216,8 @@ ingested as `PROJECT_METADATA.md` inside each project URI — search it with
 
 ## Project relations
 
-Each project's `beril.yaml` may declare cross-project links:
-
-```yaml
-related_projects:
-  - sister_project_id
-  - another_project_id
-```
-
-During `ingest_context.py`, those entries become OpenViking relations from the
-project's URI to the listed projects (missing IDs are skipped). Inspect with
-`knowledge_query.py relations <uri>` or manage them manually with
-`link`/`unlink`.
+Not supported. The pinned OpenViking client (0.4.22) has no relations API —
+`link`, `unlink` and `relations` were removed from both its Python clients — so
+`knowledge_query.py` no longer offers those commands, and ingest no longer turns
+a `beril.yaml` `related_projects:` list into links. The field is left in place
+but nothing reads it. To find related work, `find` on a project's theme.

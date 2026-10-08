@@ -29,7 +29,6 @@ from .manifest import (
     save_manifest,
 )
 from .progress import IngestObserver, NullObserver
-from .relations import apply_project_relations
 from .selection import (
     docs_target_uri,
     iter_project_dirs,
@@ -345,7 +344,6 @@ def _ingest_project_dir(config: ContextConfig, client: Any, project_dir: Path) -
         project_target_uri(project_dir.name),
         f"BERIL project {project_dir.name}",
     )
-    apply_project_relations(client, project_dir, config.projects_dir)
 
 
 def _ingest_doc(config: ContextConfig, client: Any, doc_path: Path) -> None:
@@ -358,8 +356,10 @@ def _ingest_doc(config: ContextConfig, client: Any, doc_path: Path) -> None:
 def _add_resource(client: Any, path: Path, target_uri: str, reason: str) -> None:
     for attempt in range(1, ADD_RESOURCE_RETRIES + 1):
         try:
+            # The reason travels in ``options``: the pinned client takes no
+            # ``reason`` keyword (it moved into AddResourceOptions).
             client.add_resource(
-                path=str(path), to=target_uri, reason=reason, wait=False
+                path=str(path), to=target_uri, wait=False, options={"reason": reason}
             )
             return
         except TRANSIENT_OV_ERRORS:

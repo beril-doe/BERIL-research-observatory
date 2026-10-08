@@ -17,6 +17,10 @@ pretend.
 
 from __future__ import annotations
 
+import inspect
+import pathlib
+import re
+
 import pytest
 
 openviking_sdk = pytest.importorskip("openviking_sdk")
@@ -122,3 +126,71 @@ def test_find_response_carries_the_fields_beril_maps():
         "BERIL maps 'content' from a find hit, but the installed server has no "
         "read_content path that attaches it — this is the 0.4.15 gap"
     )
+
+
+
+# --- the interactive scripts' direct client ----------------------------------
+#
+# ``ingest_context.py``'s interactive modes and ``knowledge_query.py`` drive
+# ``openviking.SyncHTTPClient`` directly, not through BERIL. The 0.4.15 → 0.4.22
+# pin moved ``add_resource``'s ``reason`` into ``options`` and dropped
+# ``link``/``unlink``/``relations`` entirely; both scripts still called them,
+# and the test fakes accepted the old shapes, so nothing failed until a real
+# ``--docs`` run. These pin the calls the scripts make against the installed
+# client.
+
+_ov = pytest.importorskip("openviking")
+
+# Every method observatory_context / knowledge_query call on the OV client,
+# with the keyword arguments they pass.
+_SCRIPT_CALLS = {
+    "add_resource": {"path", "to", "wait", "options"},
+    "rm": {"recursive"},
+    "wait_processed": set(),
+    "find": set(),
+    "grep": set(),
+    "glob": {"uri"},
+    "ls": {"simple", "recursive"},
+    "tree": {"node_limit"},
+    "stat": set(),
+    "read": set(),
+    "overview": set(),
+    "get_status": set(),
+    "is_healthy": set(),
+    "initialize": set(),
+    "close": set(),
+}
+
+
+@pytest.mark.parametrize("method", sorted(_SCRIPT_CALLS))
+def test_scripts_only_call_what_the_pinned_client_provides(method):
+    client = _ov.SyncHTTPClient
+    assert hasattr(client, method), (
+        f"the scripts call SyncHTTPClient.{method}, which the installed openviking "
+        f"does not provide"
+    )
+    params = inspect.signature(getattr(client, method)).parameters
+    missing = _SCRIPT_CALLS[method] - set(params)
+    assert not missing, f"SyncHTTPClient.{method} does not accept {sorted(missing)}"
+
+
+def test_add_resource_reason_is_an_option_the_server_knows():
+    """The reason goes in ``options``; it must be a field the client and the
+    server both carry."""
+    assert "reason" in _declared(openviking_sdk.AddResourceOptions)
+    assert "reason" not in inspect.signature(_ov.SyncHTTPClient.add_resource).parameters
+
+
+def test_scripts_do_not_call_relations_methods():
+    """No relations API on the pinned client — the scripts must not use one."""
+    root = pathlib.Path(__file__).resolve().parents[2]
+    sources = list((root / "observatory_context").glob("*.py")) + [
+        root / "knowledge" / "scripts" / "knowledge_query.py",
+        root / "knowledge" / "scripts" / "ingest_context.py",
+    ]
+    calls = {
+        (src.name, m)
+        for src in sources
+        for m in re.findall(r"\bclient\.(link|unlink|relations)\(", src.read_text())
+    }
+    assert not calls, f"relations calls the pinned client cannot serve: {sorted(calls)}"
