@@ -80,18 +80,6 @@ def build_parser() -> argparse.ArgumentParser:
     stat = commands.add_parser("stat", help="Resource metadata")
     stat.add_argument("uri", help="Resource URI")
 
-    relations = commands.add_parser("relations", help="List relations for a resource")
-    relations.add_argument("uri", help="Resource URI")
-
-    link = commands.add_parser("link", help="Create relation(s) between resources")
-    link.add_argument("from_uri", help="Source URI")
-    link.add_argument("to_uris", nargs="+", help="Target URI(s)")
-    link.add_argument("--reason", default="", help="Optional reason for the relation")
-
-    unlink = commands.add_parser("unlink", help="Remove a relation")
-    unlink.add_argument("from_uri", help="Source URI")
-    unlink.add_argument("to_uri", help="Target URI")
-
     overview = commands.add_parser("overview", help="Print a resource overview")
     overview.add_argument("uri", help="Resource URI")
 
@@ -225,8 +213,7 @@ def _run_fallback(args, config: ContextConfig) -> None:
         ):
             print(fallback.DEGRADED_NOTICE.format(command=args.command), file=sys.stderr)
     else:
-        # relations/link/unlink and any other command have no BERDL or local
-        # equivalent in degraded mode.
+        # Any other command has no BERDL or local equivalent in degraded mode.
         print(fallback.BANNER.format(url=config.openviking_url), file=sys.stderr)
         print(fallback.DEGRADED_NOTICE.format(command=args.command), file=sys.stderr)
 

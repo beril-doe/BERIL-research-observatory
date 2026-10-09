@@ -19,14 +19,30 @@ from observatory_context.ingest import (
 
 
 class FakeClient:
+    """Stands in for the pinned ``openviking.SyncHTTPClient``.
+
+    Signatures mirror the real ones — keyword-only extras, no ``reason`` —
+    so a call the real client would reject fails here too. A fake that
+    accepted ``reason=`` is how a 0.4.22 signature change shipped unnoticed.
+    """
+
     def __init__(self) -> None:
         self.added: list[tuple[str, str]] = []
+        self.add_options: list[dict | None] = []
         self.removed: list[tuple[str, bool]] = []
-        self.linked: list[tuple[str, list[str], str]] = []
         self.wait_count = 0
 
-    def add_resource(self, path: str, to: str, reason: str, wait: bool = False):
+    def add_resource(
+        self,
+        path: str,
+        to: str | None = None,
+        parent: str | None = None,
+        wait: bool = False,
+        timeout: float | None = None,
+        options: dict | None = None,
+    ):
         self.added.append((path, to))
+        self.add_options.append(options)
         return {"root_uri": to}
 
     def wait_processed(self):
@@ -35,8 +51,6 @@ class FakeClient:
     def rm(self, uri: str, recursive: bool = False):
         self.removed.append((uri, recursive))
 
-    def link(self, from_uri: str, to_uris, reason: str = ""):
-        self.linked.append((from_uri, list(to_uris), reason))
 
 
 def write(path: Path, text: str = "x") -> None:
@@ -181,7 +195,21 @@ def test_ingest_all_with_limit_writes_partial_manifest_so_changed_picks_up_remai
     assert "viking://resources/projects/beta/" not in targets
 
 
-def test_ingest_project_links_related_projects_from_beril_yaml(tmp_path: Path) -> None:
+def test_ingest_sends_the_reason_through_add_resource_options(tmp_path: Path) -> None:
+    """The pinned client takes the reason in ``options``, not as a keyword."""
+    write(tmp_path / "projects" / "alpha" / "README.md", "# A\n")
+    write(tmp_path / "docs" / "pitfalls.md", "# P\n")
+    client = FakeClient()
+
+    ingest_all(make_config(tmp_path), client)
+
+    assert {"reason": "BERIL project alpha"} in client.add_options
+    assert {"reason": "BERIL doc pitfalls.md"} in client.add_options
+
+
+def test_ingest_ignores_related_projects_in_beril_yaml(tmp_path: Path) -> None:
+    """The pinned client has no relations API, so ``related_projects`` is not
+    turned into links — ingest must not reach for one."""
     write(tmp_path / "projects" / "alpha" / "README.md", "# A\n")
     write(
         tmp_path / "projects" / "alpha" / "beril.yaml",
@@ -192,13 +220,7 @@ def test_ingest_project_links_related_projects_from_beril_yaml(tmp_path: Path) -
 
     ingest_projects(make_config(tmp_path), client, ["alpha"])
 
-    assert client.linked == [
-        (
-            "viking://resources/projects/alpha/",
-            ["viking://resources/projects/beta/"],
-            "beril.yaml related_projects",
-        )
-    ]
+    assert [to for _, to in client.added] == ["viking://resources/projects/alpha/"]
 
 
 def test_ingest_changed_with_limit_caps_project_targets(tmp_path: Path) -> None:
@@ -230,9 +252,9 @@ class OrderedClient(FakeClient):
         super().__init__()
         self.events: list[str] = []
 
-    def add_resource(self, path: str, to: str, reason: str, wait: bool = False):
+    def add_resource(self, path: str, to: str | None = None, **kwargs):
         self.events.append(f"add {to}")
-        return super().add_resource(path, to, reason, wait)
+        return super().add_resource(path, to, **kwargs)
 
     def wait_processed(self):
         self.events.append("wait")

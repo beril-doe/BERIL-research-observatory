@@ -34,7 +34,6 @@ in the env or prepend `--env-file .env`.
 | Enumerate URIs ("list every project") | `glob` or `ls` | Embeddings can't enumerate; this is a filesystem question |
 | Inspect a single resource | `stat`, `overview`, `read` | Direct access |
 | Walk a subtree | `tree` | Hierarchical view |
-| Cross-resource links | `relations` | See § Relations |
 
 This is a toolkit, not a single command — use it like you use bash: pick a
 primitive, look at what comes back, and **follow up**. The sections below
@@ -54,7 +53,8 @@ about phage timing?"). Reach for something else when:
   `grep` (semantic ranking can bury an exact string).
 - You need to **enumerate** ("list every project", "which projects have a
   REPORT") → `glob` / `ls`. Embeddings can't enumerate.
-- You want a resource's **neighbors** → `relations`.
+- You want **related work** for a resource → `overview` it, then `find` on its
+  theme (there are no stored links between resources to walk).
 - You already know the URI and just want the content → `overview` / `read`.
 
 ### The retrieval loop
@@ -66,7 +66,7 @@ A first query is a starting point, not the answer. Read the result, then move:
 - **Too few / zero hits** → broaden the terms, drop the threshold, widen the
   scope, or switch `find` → `grep` on a single defining token.
 - **A promising hit** → `overview` it for the gist, then `read` the specific
-  file; follow `relations` to walk to neighbors.
+  file; to find related work, `find` on the theme the hit turned out to be about.
 - **Stop** when you can name the source files that answer the question, or when
   two refinements surface nothing new. Don't keep querying past sufficiency.
 
@@ -76,11 +76,10 @@ Search results are a **map**, not the source of truth — once a hit looks right
 ### Drill-down chains (worked examples)
 
 ```bash
-# "What's known about X?"  broad find -> read the strongest hit -> walk neighbors
+# "What's known about X?"  broad find -> read the strongest hit -> find related work
 $QUERY find "metal resistance biogeography" --limit 5
 $QUERY read viking://resources/projects/<top_hit>/REPORT.md
-$QUERY relations viking://resources/projects/<top_hit>/
-$QUERY read viking://resources/projects/<neighbor>/FINDINGS.md
+$QUERY find "<the hit's specific organism or method>" --limit 5
 
 # "Has anyone already done Y?"  find -> if vague, grep a defining term -> confirm
 $QUERY find "carbon formulation scoring"
@@ -106,7 +105,6 @@ a banner naming the tier that answered:
 - `ls` / `tree` / `stat` / `glob` → **BERDL lakehouse** only (structural queries
   over the archived object layout). If the lakehouse is unreachable/unauthorized
   they report unavailable — there is no local equivalent.
-- `relations` / `link` / `unlink` have **no** degraded path — start the server.
 
 BERDL-served results reflect the **submitted** archive, which may differ from
 your local working tree, and cover only projects (not central `docs/`). BERDL
@@ -181,53 +179,6 @@ $QUERY overview viking://resources/projects/<id>/      # L1 summary
 $QUERY read viking://resources/projects/<id>/REPORT.md # full content
 ```
 
-## Relations
-
-Relations are general OpenViking edges between any two URIs — they're not project-specific and not limited to projects-pointing-at-projects. Use them for any cross-resource linkage you want to recall later: project → relevant pitfall, project → related project, doc → exemplar project, etc.
-
-```bash
-$QUERY relations viking://resources/projects/<id>/                # outgoing edges
-$QUERY link <from_uri> <to_uri> [<to_uri> ...] --reason "<why>"   # one or many targets
-$QUERY unlink <from_uri> <to_uri>                                 # remove one edge
-```
-
-`link` accepts multiple target URIs in a single call — each becomes its own edge, all sharing the supplied `--reason`. `unlink` removes one edge at a time.
-
-Examples:
-
-```bash
-# Link a project to a pitfall it ran into
-$QUERY link viking://resources/projects/alpha/ \
-  viking://resources/users/beril/docs/pitfalls/ --reason "hit data-leak pitfall"
-
-# Link two related projects bidirectionally (auto-link is one-way)
-$QUERY link viking://resources/projects/alpha/ viking://resources/projects/beta/ --reason "shared cohort"
-$QUERY link viking://resources/projects/beta/ viking://resources/projects/alpha/ --reason "shared cohort"
-
-# Inspect
-$QUERY relations viking://resources/projects/alpha/
-```
-
-### Auto-linking from `beril.yaml`
-
-The only relation source ingest creates automatically is the optional `related_projects:` list in a project's `beril.yaml`:
-
-```yaml
-project_id: alpha
-related_projects:
-  - beta
-  - gamma
-```
-
-During `ingest_context.py`, ingest emits `link(alpha, [beta, gamma], reason="beril.yaml related_projects")`. Caveats:
-
-- One-way only — add a reciprocal entry in the other project, or `link` it manually.
-- Missing target IDs are silently skipped (so a typo doesn't break ingest).
-- Self-references are skipped.
-- Re-ingesting re-applies the links (idempotent on the OV side).
-
-For everything else (project→doc, doc→doc, file-level links), use the `link` command directly.
-
 ## Refreshing context
 
 ```bash
@@ -239,7 +190,7 @@ $INGEST --all --limit 5            # cap project count (rate-limited VLMs)
 $INGEST --docs                     # central docs only
 ```
 
-`--changed` and `--all` reconcile by manifest diff: removed projects are unlinked from OV automatically. `--limit` caps how many projects ingest in one run and writes a partial manifest so a follow-up `--changed` finishes the rest.
+`--changed` and `--all` reconcile by manifest diff: removed projects are deleted from OV automatically. `--limit` caps how many projects ingest in one run and writes a partial manifest so a follow-up `--changed` finishes the rest.
 
 ## Configuration
 
@@ -319,15 +270,8 @@ $QUERY glob '*' --uri viking://resources/projects/
 **"What does this project relate to?"**
 
 ```bash
-$QUERY relations viking://resources/projects/<id>/
 $QUERY overview viking://resources/projects/<id>/
-```
-
-**"Link a project to its pitfall"** — durable cross-link, surfaces in future `relations` calls:
-
-```bash
-$QUERY link viking://resources/projects/<id>/ \
-  viking://resources/users/beril/docs/pitfalls/ --reason "<short why>"
+$QUERY find "<its theme, organism or method>" --limit 10
 ```
 
 ## For other skills

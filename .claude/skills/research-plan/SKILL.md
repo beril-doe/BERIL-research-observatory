@@ -49,7 +49,7 @@ Status: `exploration`. Read context, explore data, accept user-supplied input, a
 - **If the user has input data** (gene lists, phenotype tables, FASTAs, SQLite, etc.): drop it in `projects/<id>/user_data/`. Never leave user-supplied data in `~/` or the repo root.
 - Run exploratory queries with `/berdl`. For any query worth keeping, save it as a numbered exploration notebook (`projects/<id>/notebooks/00_exploration.ipynb`, then `00b_*.ipynb` if you need more). Even rough exploration gets a home.
 - Search literature with `/literature-review` if relevant. References go to `projects/<id>/references.md`.
-- Check related prior work through the knowledge layer (`knowledge_query.py find "<topic>"` / `relations`), not by hand-scanning `projects/`. Read a specific project's files directly only once the knowledge layer points you to it.
+- Check related prior work through the knowledge layer (`knowledge_query.py find "<topic>"` / `grep`), not by hand-scanning `projects/`. Read a specific project's files directly only once the knowledge layer points you to it.
 
 When the user has a clear research interest and is ready to commit to a plan, transition to Phase B.
 

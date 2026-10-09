@@ -35,11 +35,11 @@ Both are proved together by an authenticated health call. If either fails we
 skip — never fail — because the lakehouse archive, not the context index, is the
 source of truth for "submitted".
 
-**Scope note**: the mirror uploads files only. ``apply_project_relations`` and
-the ``knowledge/state/`` change manifest are SDK-level operations with no route
-equivalent, so the verdict path skips them; a mirrored project's manifest entry
-stays whatever the last interactive ``--all``/``--changed`` run recorded. Re-run
-an interactive mode to reconcile relations and change tracking.
+**Scope note**: the mirror uploads files only. The ``knowledge/state/`` change
+manifest is local to interactive runs, so the verdict path skips it; a mirrored
+project's manifest entry stays whatever the last interactive
+``--all``/``--changed`` run recorded. Re-run an interactive mode to reconcile
+change tracking.
 
 ``--json`` prints a single line of JSON on stdout (always)::
 

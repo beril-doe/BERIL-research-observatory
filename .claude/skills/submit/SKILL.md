@@ -296,7 +296,7 @@ Verdict mapping in the tool's `context_submission` JSON:
 - poll cap reached with files still queued/processing → `"skipped"` — the files remain queued and may still land, so an unfinished batch is not treated as a failure
 - not logged in, or BERIL unreachable → `"skipped"`
 
-**Scope limitation**: this path uploads files only. Cross-project relations and the `knowledge/state/` change manifest are not updated by it — a mirrored project's manifest entry stays whatever the last interactive ingest run (`--all` / `--changed`) recorded. Run an interactive ingest mode to reconcile either. This does not affect the lakehouse archive or the submission verdict.
+**Scope limitation**: this path uploads files only. The `knowledge/state/` change manifest is not updated by it — a mirrored project's manifest entry stays whatever the last interactive ingest run (`--all` / `--changed`) recorded. Run an interactive ingest mode to reconcile it. This does not affect the lakehouse archive or the submission verdict.
 
 **Re-submission overwrite semantics**: the upload script pre-clears the remote prefix (`mc rm --recursive --force`) before `mc cp` whenever the prefix already has contents. This prevents stale files from a previous submission from contaminating the new archive when files are dropped or renamed between submissions. The brief mid-upload window during which the archive is empty is acceptable: a `complete + SUBMISSION_FAILED.md` state already signals "incomplete archive" to anyone consuming it. First-time submissions skip the clear because the remote prefix is empty.
 

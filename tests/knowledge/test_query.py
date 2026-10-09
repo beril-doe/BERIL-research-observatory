@@ -100,11 +100,16 @@ def test_parse_filter_arg_rejects_non_object() -> None:
 
 
 class _RecordingClient:
+    """Mirrors the pinned client's ``find`` signature, so a keyword the real
+    client would reject (``filter=``, ``score_threshold=``) fails here too."""
+
     def __init__(self) -> None:
         self.last_kwargs: dict | None = None
 
-    def find(self, **kwargs):
-        self.last_kwargs = kwargs
+    def find(self, query="", target_uri="", limit=10, image=None, options=None):
+        self.last_kwargs = {
+            "query": query, "target_uri": target_uri, "limit": limit, "options": options
+        }
         return SimpleNamespace(total=0, resources=[])
 
 
@@ -115,6 +120,7 @@ def test_run_find_omits_unset_kwargs() -> None:
         "query": "q",
         "target_uri": "viking://resources/",
         "limit": 5,
+        "options": None,
     }
 
 
@@ -132,8 +138,10 @@ def test_run_find_forwards_plain_filter_and_score_threshold() -> None:
         "query": "q",
         "target_uri": "viking://resources/",
         "limit": 5,
-        "filter": {"op": "must", "field": "uri", "conds": ["x"]},
-        "score_threshold": 0.4,
+        "options": {
+            "filter": {"op": "must", "field": "uri", "conds": ["x"]},
+            "score_threshold": 0.4,
+        },
     }
 
 
@@ -148,7 +156,7 @@ def test_run_find_resolves_time_bounds_into_filter() -> None:
         until="2026-05-01",
         time_field="updated_at",
     )
-    sent = client.last_kwargs
+    sent = client.last_kwargs["options"]
     assert "since" not in sent and "until" not in sent and "time_field" not in sent
     assert sent["filter"]["op"] == "time_range"
     assert sent["filter"]["field"] == "updated_at"
@@ -167,7 +175,7 @@ def test_run_find_ands_time_bounds_with_existing_filter() -> None:
         filter=base,
         since="2026-04-01",
     )
-    sent = client.last_kwargs["filter"]
+    sent = client.last_kwargs["options"]["filter"]
     assert sent["op"] == "and"
     assert base in sent["conds"]
     assert any(cond.get("op") == "time_range" for cond in sent["conds"])
