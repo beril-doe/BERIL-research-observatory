@@ -82,6 +82,13 @@ class Settings(BaseSettings):
     # local disk and the backend's processing queue.
     context_max_ingest_files: int = 50
     context_max_file_bytes: int = 50 * 1024 * 1024
+    # The upload as sent (compressed), the manifest, and the archive's total
+    # expanded size. Checked before anything is extracted; the proxy's body
+    # limit (nginx client_max_body_size, ingress proxy-body-size) must be at
+    # least the archive cap plus multipart overhead.
+    context_max_archive_bytes: int = 32 * 1024 * 1024
+    context_max_manifest_bytes: int = 1024 * 1024
+    context_max_expanded_bytes: int = 128 * 1024 * 1024
 
     # Langfuse relay (app/routes/langfuse.py): the shared project keypair lives
     # only here. Leave the keys unset to disable the relay (503).

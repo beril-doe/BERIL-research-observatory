@@ -17,6 +17,7 @@ from contextlib import nullcontext
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import yaml
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from openviking_sdk.errors import NotFoundError, UnavailableError
@@ -40,7 +41,7 @@ from app.db.crud import (
     get_projects_for_user,
     projects_with_memory,
 )
-from app.db.models import BerilUser, OvUserCredential
+from app.db.models import BerilUser, OvUserCredential, UserRole
 from app.db.session import get_db
 from app.main import create_app
 
@@ -648,6 +649,26 @@ def _zip_bytes(members: dict[str, bytes]) -> bytes:
         for name, content in members.items():
             zf.writestr(name, content)
     return buf.getvalue()
+
+
+@pytest.fixture(autouse=True)
+def ungated(request):
+    """Admit every submission past the ingest gate in this module.
+
+    These tests cover what happens *after* a submission is admitted — skips,
+    removals, batches, publishing — with free-form file names and no approval
+    files, so their counts stay about the behavior under test. The gate itself
+    (allowlist, approval, force-is-admin) is tested through the real route,
+    unpatched, in the ``gated`` tests at the end of this module and in
+    ``test_ingest_gate.py``. Archive bounds are not patched out.
+    """
+    if request.node.get_closest_marker("gated"):
+        yield
+        return
+    with patch("app.routes.context.disallowed", lambda paths: []), patch(
+        "app.routes.context.APPROVAL_FILES", ()
+    ), patch("app.routes.context.check_approval", lambda *a, **k: None):
+        yield
 
 
 def _ingest(
@@ -1686,6 +1707,9 @@ async def test_ingest_does_not_skip_across_projects(
 async def test_force_reingests_unchanged_files(
     client, credentialed_user, ingest_manager, db_session
 ):
+    """``force`` is an admin repair tool (see test_ingest_gate.py)."""
+    db_session.add(UserRole(user_id=credentialed_user.id, role="admin"))
+    await db_session.commit()
     _login(client)
     await _land(client, ingest_manager, db_session, {"a.md": b"same"})
 
@@ -3277,3 +3301,221 @@ async def test_a_key_refused_after_rotation_is_a_502_end_to_end(
     assert resp.status_code == 502
     regenerate.assert_awaited_once()
     assert inst.query.await_count == 2
+
+
+
+# ---------------------------------------------------------------------------
+# The ingest gate, through the real route (not patched out)
+# ---------------------------------------------------------------------------
+
+_REPORT = b"# Report\n\nFindings.\n"
+_REVIEW = b"# Review\n\nLooks right.\n"
+
+
+def _sha(data: bytes) -> str:
+    return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def _approved(
+    *,
+    project_id="My Project",
+    status="complete",
+    approver=USER_TOKEN["orcid"],
+    report=_REPORT,
+    review=_REVIEW,
+    report_hash=None,
+    review_hash=None,
+    extra=None,
+):
+    """An approved project's archive members, as the mirror would send them."""
+    manifest = {
+        "project_id": project_id,
+        "status": status,
+        "approval": {
+            "by": approver,
+            "at": "2026-10-09T00:00:00Z",
+            "report_hash": report_hash or _sha(_REPORT),
+            "review": "REVIEW_1.md",
+            "review_hash": review_hash or _sha(_REVIEW),
+        },
+    }
+    members = {
+        "beril.yaml": yaml.safe_dump(manifest).encode(),
+        "REPORT.md": report,
+        "REVIEW.md": review,
+        "README.md": b"# My Project\n",
+        "memories/pitfalls.md": b"# Pitfalls\n",
+    }
+    members.update(extra or {})
+    return members
+
+
+@pytest.mark.gated
+async def test_gate_admits_an_approved_project_of_the_callers(
+    client, credentialed_user, ingest_manager
+):
+    ingest_manager.insert_files.return_value = _queued(5)
+    _login(client)
+    resp = _ingest(client, members=_approved())
+
+    assert resp.status_code == 200
+    sent = {f.relative_path for f in ingest_manager.insert_files.await_args.args[0]}
+    assert {"beril.yaml", "REPORT.md", "REVIEW.md"} <= sent
+
+
+@pytest.mark.gated
+@pytest.mark.parametrize(
+    "members, code, fragment",
+    [
+        (_approved(status="reviewed"), 422, "not approved"),
+        (_approved(approver="0000-0009-8888-7777"), 403, "approved by someone else"),
+        (_approved(report=b"# Report\n\nEdited after approval.\n"), 422, "REPORT.md does not match"),
+        (_approved(review=b"# Review\n\nRewritten.\n"), 422, "REVIEW.md does not match"),
+        (_approved(report_hash="deadbeef"), 422, "not a sha256 hash"),
+        (_approved(project_id="someone_elses_project"), 422, "names project"),
+    ],
+    ids=["not-complete", "other-approver", "report-edited", "review-edited",
+         "bad-hash-format", "wrong-project"],
+)
+async def test_gate_refuses_an_unapproved_submission(
+    client, credentialed_user, ingest_manager, db_session, members, code, fragment
+):
+    """Refused before anything else happens: no backend call, no project row."""
+    _login(client)
+    resp = _ingest(client, members=members)
+
+    assert resp.status_code == code
+    assert fragment in resp.json()["detail"]
+    ingest_manager.insert_files.assert_not_awaited()
+    assert await get_projects_for_user(db_session, credentialed_user.id) == []
+
+
+@pytest.mark.gated
+async def test_gate_requires_the_approval_files_in_the_manifest(
+    client, credentialed_user, ingest_manager
+):
+    """A submission cannot leave out the files it is checked against —
+    including a removal-only one, since removals are writes too."""
+    _login(client)
+    members = _approved()
+    resp = _ingest(
+        client, members=members, manifest=["README.md", "!remove memories/old.md"]
+    )
+
+    assert resp.status_code == 422
+    assert "approval files" in resp.json()["detail"]
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+@pytest.mark.parametrize(
+    "name", ["notes.md", "figures/plot.png", "data/table.csv", "memories/deep/x.md",
+             "REFUTATION_0.md", "src/analysis.py"],
+)
+async def test_gate_refuses_files_the_mirror_never_stages(
+    client, credentialed_user, ingest_manager, name
+):
+    _login(client)
+    resp = _ingest(client, members=_approved(extra={name: b"x"}))
+
+    assert resp.status_code == 422
+    assert name in resp.json()["detail"]
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_gate_admits_refutations_and_any_memory(
+    client, credentialed_user, ingest_manager
+):
+    ingest_manager.insert_files.return_value = _queued(7)
+    _login(client)
+    resp = _ingest(
+        client,
+        members=_approved(extra={"REFUTATION_2.md": b"r", "memories/anything.md": b"m"}),
+    )
+
+    assert resp.status_code == 200
+
+
+@pytest.mark.gated
+async def test_gate_lets_a_removal_name_a_path_outside_the_allowlist(
+    client, credentialed_user, ingest_manager
+):
+    """Files ingested before the allowlist can still be withdrawn."""
+    _login(client)
+    resp = _ingest(
+        client,
+        members=_approved(),
+        manifest=[*_approved(), "!remove figures/old_plot.png"],
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["not_found"] == 1
+
+
+@pytest.mark.gated
+async def test_force_requires_an_admin(client, credentialed_user, ingest_manager, db_session):
+    _login(client)
+    resp = _ingest(client, members=_approved(), force=True)
+
+    assert resp.status_code == 403
+    assert "administrator" in resp.json()["detail"]
+    ingest_manager.insert_files.assert_not_awaited()
+    assert await get_projects_for_user(db_session, credentialed_user.id) == []
+
+
+@pytest.mark.gated
+async def test_force_is_allowed_for_an_admin(
+    client, credentialed_user, ingest_manager, db_session
+):
+    db_session.add(UserRole(user_id=credentialed_user.id, role="admin"))
+    await db_session.commit()
+    ingest_manager.insert_files.return_value = _queued(5)
+    _login(client)
+
+    assert _ingest(client, members=_approved(), force=True).status_code == 200
+
+
+@pytest.mark.gated
+async def test_gate_refuses_an_oversized_upload_before_reading_it_all(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    with patch.object(get_settings(), "context_max_archive_bytes", 64):
+        resp = _ingest(client, members=_approved())
+
+    assert resp.status_code == 413
+    assert "archive is too large" in resp.json()["detail"]
+
+
+@pytest.mark.gated
+async def test_gate_refuses_an_archive_that_expands_too_far(
+    client, credentialed_user, ingest_manager
+):
+    """Bounded from the zip's own directory, before anything is inflated."""
+    _login(client)
+    bomb = _approved(extra={"memories/big.md": b"A" * 200_000})
+    with patch.object(get_settings(), "context_max_expanded_bytes", 100_000):
+        resp = _ingest(client, members=bomb)
+
+    assert resp.status_code == 413
+    assert "expands to" in resp.json()["detail"]
+    ingest_manager.insert_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_gate_extracts_only_the_manifests_members(
+    client, credentialed_user, ingest_manager
+):
+    """An archive may carry files the manifest does not name; they are never
+    extracted, so they can neither be ingested nor count against the gate."""
+    ingest_manager.insert_files.return_value = _queued(5)
+    _login(client)
+    members = _approved()
+    archive = _zip_bytes({**members, "unlisted/secret.bin": b"\x00" * 10})
+
+    resp = _ingest(client, members=members, archive=archive, manifest=list(members))
+
+    assert resp.status_code == 200
+    sent = {f.relative_path for f in ingest_manager.insert_files.await_args.args[0]}
+    assert "unlisted/secret.bin" not in sent
