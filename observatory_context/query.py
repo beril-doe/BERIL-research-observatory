@@ -38,12 +38,16 @@ def run_find(
     time_field: str | None = None,
 ) -> Any:
     resolved_filter = merge_time_filter(filter, since=since, until=until, time_field=time_field)
-    kwargs: dict[str, Any] = {}
+    # The pinned client takes search tuning in ``options`` (FindOptions), not
+    # as keywords — find() accepts only query/target_uri/limit/image/options.
+    options: dict[str, Any] = {}
     if resolved_filter is not None:
-        kwargs["filter"] = resolved_filter
+        options["filter"] = resolved_filter
     if score_threshold is not None:
-        kwargs["score_threshold"] = score_threshold
-    return client.find(query=query, target_uri=target_uri, limit=limit, **kwargs)
+        options["score_threshold"] = score_threshold
+    return client.find(
+        query=query, target_uri=target_uri, limit=limit, options=options or None
+    )
 
 
 def parse_filter_arg(value: str | None) -> dict[str, Any] | None:
