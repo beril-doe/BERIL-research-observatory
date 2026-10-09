@@ -62,7 +62,6 @@ services:
       - .env
     environment:
       VERTEXAI_LOCATION: us-central1
-      VERTEXAI_PROJECT: ${VERTEXAI_PROJECT}
       GOOGLE_APPLICATION_CREDENTIALS: /var/secrets/gcp-key.json
       OV_SERVER_KEY: ${OV_SERVER_KEY}
     volumes:
