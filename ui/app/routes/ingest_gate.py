@@ -118,9 +118,15 @@ def archive_entry_count(archive_bytes: bytes, *, stop_after: int) -> int | None:
         return None
     size = record[zipfile._ECD_SIZE]
     # Where ZipFile._RealGetContents starts reading: the directory ends where
-    # the end record (and, for zip64, its record and locator) begins.
-    start = record[zipfile._ECD_LOCATION] - size
-    if record[zipfile._ECD_SIGNATURE] == zipfile.stringEndArchive64:
+    # the end records begin. For zip64, releases with the CVE-2025-8291 fix
+    # point the location at the zip64 record itself; older ones point at the
+    # classic record, and ZipFile subtracts the zip64 record and locator. Which one this Python did is read from the bytes at
+    # the location, so the count matches this Python's ZipFile either way.
+    location = record[zipfile._ECD_LOCATION]
+    start = location - size
+    if record[zipfile._ECD_SIGNATURE] == zipfile.stringEndArchive64 and (
+        archive_bytes[location : location + 4] != zipfile.stringEndArchive64
+    ):
         start -= zipfile.sizeEndCentDir64 + zipfile.sizeEndCentDir64Locator
     if start < 0 or start + size > len(archive_bytes):
         return None
