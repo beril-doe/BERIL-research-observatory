@@ -75,7 +75,7 @@ SELECT COUNT(*) AS n FROM database.table;
 SELECT * FROM database.table LIMIT 5;
 ```
 
-Avoid BERDL MCP query operations for SQL execution, including `mcp_query_table`, `mcp_select_table`, `mcp_count_table`, `mcp_sample_table`, and REST `/delta/tables/query`.
+Avoid BERDL MCP query operations for SQL execution, including `mcp_query_table`, `mcp_select_table`, `mcp_count_table`, `mcp_sample_table`, and REST `/delta/tables/query`. The one exception is an off-cluster user still waiting on access to the private client packages; see `berdl-query/references/proxy-setup.md` (Private dependency access).
 
 ## Common Patterns
 
