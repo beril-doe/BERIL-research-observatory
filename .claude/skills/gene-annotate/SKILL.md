@@ -486,9 +486,19 @@ print("API key:", "CBORG" if have('CBORG_API_KEY') else
       ("OpenAI" if have('OPENAI_API_KEY') else
        ("Anthropic" if have('ANTHROPIC_API_KEY') else "MISSING")))
 print("KBASE_AUTH_TOKEN:", "present" if have('KBASE_AUTH_TOKEN') else "MISSING")
-# MinIO for CTS: load_minio_credentials accepts MINIO_* OR the S3_* fallback (S3_ACCESS_KEY/S3_SECRET_KEY)
-print("MinIO/S3 creds:", "present" if (have('MINIO_ACCESS_KEY','S3_ACCESS_KEY')
-      and have('MINIO_SECRET_KEY','S3_SECRET_KEY')) else "MISSING -> CTS silently falls back to local!")
+# S3 creds for CTS: the hub auto-writes BERDL-managed ~/.aws/credentials (+ ~/.aws/config with the
+# endpoint) on notebook startup, and load_minio_credentials reads THAT first — it is authoritative.
+# (The S3_SECRET_KEY env var on BERDL is the MinIO UI-login password, NOT the S3-API secret.)
+# MINIO_*/S3_* env or .env names are only the fallback for local/dev installs without ~/.aws.
+import configparser, os.path
+aws = os.path.expanduser("~/.aws/credentials")
+if os.path.exists(aws):
+    cp = configparser.ConfigParser(); cp.read(aws)
+    ok = cp.has_option("default", "aws_access_key_id") and cp.has_option("default", "aws_secret_access_key")
+    print("S3 creds:", "present (~/.aws/credentials, BERDL-managed)" if ok else "MALFORMED ~/.aws/credentials")
+else:
+    print("S3 creds:", "present (env/.env fallback)" if (have('MINIO_ACCESS_KEY','S3_ACCESS_KEY')
+          and have('MINIO_SECRET_KEY','S3_SECRET_KEY')) else "MISSING -> CTS silently falls back to local!")
 PY
 
 # --- FAIL-SAFE: validate the KBASE token is LIVE (a stale token 401s every CTS job silently) ---
@@ -529,9 +539,12 @@ abort the run, it just quietly drops an evidence layer or loses rows. Verify at 
 - **KBASE token returns HTTP 200** — a stale token 401s every CTS InterProScan/DIAMOND job. The CLI
   reads `.env` from its **CWD**, so a stale token in the package dir (`/global_share/.../.env`) will be
   used if you run from there; always `cd $REPO`.
-- **MinIO/S3 creds present** — required by CTS (InterProScan + the automatic KBLH DIAMOND offload); if
-  missing they degrade with a `WARNING`. The repo's `S3_ACCESS_KEY`/`S3_SECRET_KEY` are accepted as the
-  `MINIO_*` fallback.
+- **S3 creds present** — required by CTS (InterProScan + the automatic KBLH DIAMOND offload); if
+  missing they degrade with a `WARNING`. On the hub these come from the BERDL-managed
+  `~/.aws/credentials` (auto-written, auto-rotated; re-read on every call so long runs survive
+  rotation — `refresh_spark_environment()` rotates on demand). Do NOT rely on the `S3_SECRET_KEY`
+  env var on BERDL — it is the MinIO UI-login password, not the S3-API secret. `MINIO_*`/`S3_*`
+  env or `.env` names are only the local/dev fallback.
 
 **Early in the run** (read the first ~1 min of the log): confirm the run cleared the points where it
 would silently degrade —
@@ -643,7 +656,7 @@ Only **keep** the reasoning pass (do not set the variable) if the user explicitl
 
 ### Step 3: Build and Run the Command
 
-**Default dispatch when running from the lakehouse (JupyterHub): use `--kblh` + `--cts-interproscan`.** In `--kblh` mode all DIAMOND searches auto-offload to the image-bound CTS refdata bundle (no local `.dmnd` files), and `--cts-interproscan` sends InterProScan to CTS too — so nothing heavy runs on the shared notebook node. There is no `--cts-diamond` flag; DIAMOND offload is implied by `--kblh`. Include `--kblh --cts-interproscan --cts-username "$USER"` in every lakehouse run. `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY` must be present in `$REPO/.env` (see Step 2). Use `--interproscan <path>` / local mode only on a laptop / off-cluster environment.
+**Default dispatch when running from the lakehouse (JupyterHub): use `--kblh` + `--cts-interproscan`.** In `--kblh` mode all DIAMOND searches auto-offload to the image-bound CTS refdata bundle (no local `.dmnd` files), and `--cts-interproscan` sends InterProScan to CTS too — so nothing heavy runs on the shared notebook node. There is no `--cts-diamond` flag; DIAMOND offload is implied by `--kblh`. Include `--kblh --cts-interproscan --cts-username "$USER"` in every lakehouse run. `KBASE_AUTH_TOKEN` must be present in `$REPO/.env`; S3 creds for CTS come from the BERDL-managed `~/.aws/credentials` automatically on the hub (see Step 2). CTS jobs now run **prod images**, and the CTS URL follows the hub-injected `$CDM_TASK_SERVICE_URL` so CTS and S3 always target the same environment. Use `--interproscan <path>` / local mode only on a laptop / off-cluster environment.
 
 **Invocation.** Activate the conda env so its `aws` CLI is on PATH (used by the CTS uploader), and call the repo `.venv`'s `gene-annotate` entrypoint. The `.venv` is the source of truth for Python dependencies (Python 3.13 with `berdl_notebook_utils`, `pyspark[connect]`, etc.); the conda env supplies the `aws` binary and — for the rare local-mode fallback — the `diamond` binary.
 
@@ -690,7 +703,7 @@ Off-cluster / laptop use (no CTS available) — swap the three CTS flags for `--
 Alternatives: the `-flex` tiers (`openai/gpt-5.6-terra-flex`, `openai/gpt-5.6-luna-flex`) are cheaper/slower when their flex org is funded; the Anthropic models now get an ephemeral prompt-cache on the identical-per-run system prompt (OpenAI/Gemini cache implicitly on CBORG), and recover rows a gpt route drops on `bio_policy`/5xx.
 
 **InterProScan mode — one of the following is required** (mutually exclusive):
-- `--cts-interproscan` — **preferred on the lakehouse.** Submits InterProScan to the CDM Task Service. Requires `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` in `$REPO/.env`. Companion flags: `--cts-username <user>` (default: `$USER`), `--cts-cpus <N>` (default: 8), `--cts-memory <MEM>` (default: 16GB), `--cts-runtime <ISO8601>` (default: PT2H). In `--kblh` mode DIAMOND is offloaded to CTS automatically (same `--cts-cpus`/`--cts-memory`/`--cts-runtime` sizing), so the notebook node stays idle.
+- `--cts-interproscan` — **preferred on the lakehouse.** Submits InterProScan to the CDM Task Service (prod runner image). Requires `KBASE_AUTH_TOKEN` in `$REPO/.env`; S3 creds resolve from the BERDL-managed `~/.aws/credentials` (env/`.env` `MINIO_*`/`S3_*` only as local/dev fallback). Companion flags: `--cts-username <user>` (default: `$USER`), `--cts-cpus <N>` (default: 8), `--cts-memory <MEM>` (default: 16GB), `--cts-runtime <ISO8601>` (default: PT2H). In `--kblh` mode DIAMOND is offloaded to CTS automatically (same `--cts-cpus`/`--cts-memory`/`--cts-runtime` sizing), so the notebook node stays idle.
 - `--interproscan <path>` — local fallback for off-cluster runs. Default path: `./bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh`.
 
 **DIAMOND**:
@@ -962,7 +975,7 @@ After writing the WRITEUP.md, report its path to the user along with the summary
 |-----------|---------|-------------|
 | `--model` | *(required)* | LLM model. Choices include `gpt-5.1`–`gpt-5.4`, `gpt-5.5`, `gpt-5.5-high`, `gpt-5.6-terra-high`, `gpt-5.6-luna-high`, `openai/gpt-5.6-terra-flex`, `openai/gpt-5.6-luna-flex`, `openai/gpt-5.6-terra-high-flex`, `openai/gpt-5.6-sol-flex`, `openai/gpt-5.5-high`, `openai/gpt-5.5-high-flex`, `gemma-4-thinking`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `claude-opus-4.5` (run `--help` for the live list). **Recommended `gpt-5.6-terra-high`** (CBORG). To register a new CBORG model, add it to `cli._MODELS` + `model_loader._MODEL_CHOICES`; the `gpt-5.5*`/`gpt-5.6*` catch-all in `create_model` routes it verbatim (bare id for `-high`, `openai/`-prefixed for `-flex`). |
 | `--interproscan` | *(one required)* | Path to local `interproscan.sh`. Mutually exclusive with `--cts-interproscan`. |
-| `--cts-interproscan` | *(one required)* | Run InterProScan remotely via CTS. Needs `KBASE_AUTH_TOKEN`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`. |
+| `--cts-interproscan` | *(one required)* | Run InterProScan remotely via CTS (prod image). Needs `KBASE_AUTH_TOKEN`; S3 creds from BERDL-managed `~/.aws/credentials` (hub-auto). |
 | `--cts-username` | `$USERNAME` | KBase username for CTS S3 path construction (used with `--cts-interproscan`). |
 | `--cts-cpus` | `8` | CPUs for the CTS InterProScan job. |
 | `--cts-memory` | `16GB` | Memory for the CTS InterProScan job. |
@@ -1031,7 +1044,7 @@ an Anthropic model) and relaunch. Do not delete `<output-dir>/.cache/` unless yo
 | InterProScan not found | Binary missing or not executable | Verify `/global_share/gene-annotation-predictor/bin/my_interproscan/interproscan-5.76-107.0/interproscan.sh` exists and is executable |
 | `--interproscan and --cts-interproscan are mutually exclusive` | Both flags passed at once | Remove one; use `--interproscan` for local, `--cts-interproscan` for CTS remote |
 | `One of --interproscan or --cts-interproscan is required` | Neither flag provided | Add `--interproscan <path>` (local) or `--cts-interproscan` (CTS) |
-| `MinIO credentials not found` (CTS skipped) | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` missing from `.env` when using `--cts-interproscan` | Add both keys to `$REPO/.env`; obtain from the KBLH MinIO console |
+| `S3 credentials not found` (CTS skipped) | `~/.aws/credentials` absent/malformed and no `MINIO_*`/`S3_*` env fallback when using `--cts-interproscan` | On the hub, run `refresh_spark_environment()` to (re)write `~/.aws/credentials`; off-hub, set `MINIO_*`/`S3_*` in `$REPO/.env` |
 | `InterProScan failed (exit 231)` — tool continues without IPR | A sequence contains `*` (stop-codon marker from ORF predictors like Prodigal). InterProScan rejects the entire batch, not just the offending sequence. | Strip `*` from all sequences during FASTA preparation (Step 1) |
 | Summaries parquet not found | File missing from data_sources | Verify `/global_share/gene-annotation-predictor/data_sources/sequences/manuscript-summaries.filtered.parquet` exists |
 | KBLH auth error | `KBASE_AUTH_TOKEN` missing or expired | Set or refresh `KBASE_AUTH_TOKEN` in `$REPO/.env` — **not** in the gene-annotation-predictor package directory |
@@ -1066,7 +1079,7 @@ an Anthropic model) and relaunch. Do not delete `<output-dir>/.cache/` unless yo
 10. **Always produce both `summary.txt` and `WRITEUP.md`** (Step 5 and Step 6). The writeup is required for any run with a discernible user goal — skip it only for ≤ 5-sequence ad-hoc queries.
 11. **Prompt for tier selection before launching** (Step 2.6) using `AskUserQuestion` with `multiSelect: true`. Default is all three tiers. Pass `--tier <list>` in Step 3 only when the user picks a strict subset of `A,B,C`. Skip the prompt only when the user has already specified tiers in their request.
 12. **Gate discovery-class framing on `/literature-review`** (Steps 5d and 6). Before writing or saying that any hit "extends biology beyond X," is "novel," "unexpected," or "discovery-class," prompt the user to run `/literature-review` on that hit first. The system-level claim is often already published; the pipeline's actual contribution is usually at the molecular-mechanism layer. Use the lit-review output to calibrate framing in the WRITEUP. Skip only when the user explicitly opts out, in which case default to tentative ("candidate for...", "consistent with family Y but substrate-specificity not established") rather than discovery framing.
-13. **Run the fail-safe checks against silent failures** (Step 2). This pipeline degrades silently — a stale token, missing MinIO/S3 cred, or absent `--kblh-use-spark` drops evidence layers or 401s CTS jobs with only a `WARNING`. Always: (a) validate the KBASE token returns HTTP 200 before launching, (b) never `source $REPO/.env` or `echo`/`curl` a secret (a secret-guard hook blocks it and it's unnecessary — the CLI reads `.env` from its CWD, so just `cd $REPO`), (c) read the first ~1 min of the run log to confirm CTS upload started, `pangenome_neighborhood` evidence is being fetched (Spark connected), and no `bio_policy`/`401` lines, and (d) after the run, reconcile `input N = SKIPPED + ERROR + LLM-called` and confirm a single `model` tag (multiple tags = a silent Anthropic `bio_policy` fallback). The repo's `S3_ACCESS_KEY`/`S3_SECRET_KEY` satisfy the MinIO requirement.
+13. **Run the fail-safe checks against silent failures** (Step 2). This pipeline degrades silently — a stale token, missing MinIO/S3 cred, or absent `--kblh-use-spark` drops evidence layers or 401s CTS jobs with only a `WARNING`. Always: (a) validate the KBASE token returns HTTP 200 before launching, (b) never `source $REPO/.env` or `echo`/`curl` a secret (a secret-guard hook blocks it and it's unnecessary — the CLI reads `.env` from its CWD, so just `cd $REPO`), (c) read the first ~1 min of the run log to confirm CTS upload started, `pangenome_neighborhood` evidence is being fetched (Spark connected), and no `bio_policy`/`401` lines, and (d) after the run, reconcile `input N = SKIPPED + ERROR + LLM-called` and confirm a single `model` tag (multiple tags = a silent Anthropic `bio_policy` fallback). S3 creds resolve from the BERDL-managed `~/.aws/credentials` on the hub (auto-rotated; the `S3_SECRET_KEY` env var is the UI password, not the API secret — don't use it).
 14. **Skip the reasoning pass by default** (Step 2.7). Export `GENE_ANNOTATE_SKIP_REASONING=1` in the Step 3 shell before invoking the CLI — this is the validated firm default (halves cost; `reasoning_trace` still captured; no grade regression). Do not ask; only leave it unset if the user explicitly wants the raw `reasoning` output.
 15. **STRING defaults to `--string-mode edges`** — the corroborating-network mode with the transferred homolog annotation withheld. Do not add `--string-mode full` unless the user explicitly asks for the legacy transferred-annotation behavior (e.g., an A/B comparison against a prior `full` run).
 
