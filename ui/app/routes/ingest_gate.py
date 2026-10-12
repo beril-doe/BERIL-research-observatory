@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import io
 import re
+import struct
 import zipfile
 from pathlib import Path
 
@@ -92,18 +93,54 @@ async def read_capped(upload: UploadFile, limit: int, *, what: str) -> bytes:
     return data
 
 
-def archive_entry_count(archive_bytes: bytes) -> int | None:
-    """How many entries the archive's central directory declares, or ``None``
-    when there is no end-of-central-directory record (not a zip).
+def archive_entry_count(archive_bytes: bytes, *, stop_after: int) -> int | None:
+    """How many entries the archive's central directory holds, counted up to
+    ``stop_after + 1``, or ``None`` when it is not a readable zip.
 
-    Read from the end record alone — including its zip64 form — without
-    parsing the directory. ``zipfile.ZipFile`` materializes every entry as
-    soon as it is opened, so this is the only point at which an entry flood
-    can be refused before it costs memory and CPU. ``_EndRecData`` is the
-    stdlib's own end-record reader (private, but unchanged across releases).
+    ``zipfile.ZipFile`` materializes every entry as soon as it is opened, so
+    this is the only point at which an entry flood can be refused before it
+    costs memory and CPU. The count fields in the end record cannot be
+    trusted: ``ZipFile`` ignores them and parses the directory by its byte
+    size, so a forged count of 1 would admit any number of entries. Instead
+    the directory's record headers are walked — the same bytes ``ZipFile``
+    will parse, located the same way — without building anything, and the
+    walk stops once the limit is passed.
+
+    ``_EndRecData`` and the ``structCentralDir`` layout are the stdlib's own
+    (private, but unchanged across releases), which keeps this count and
+    ``ZipFile``'s view of the directory identical.
     """
-    record = zipfile._EndRecData(io.BytesIO(archive_bytes))
-    return None if record is None else record[zipfile._ECD_ENTRIES_TOTAL]
+    try:
+        record = zipfile._EndRecData(io.BytesIO(archive_bytes))
+    except OSError:
+        return None
+    if record is None:
+        return None
+    size = record[zipfile._ECD_SIZE]
+    # Where ZipFile._RealGetContents starts reading: the directory ends where
+    # the end record (and, for zip64, its record and locator) begins.
+    start = record[zipfile._ECD_LOCATION] - size
+    if record[zipfile._ECD_SIGNATURE] == zipfile.stringEndArchive64:
+        start -= zipfile.sizeEndCentDir64 + zipfile.sizeEndCentDir64Locator
+    if start < 0 or start + size > len(archive_bytes):
+        return None
+    pos, end, count = start, start + size, 0
+    while pos < end:
+        if count > stop_after:
+            break
+        if pos + zipfile.sizeCentralDir > end:
+            return None
+        header = struct.unpack_from(zipfile.structCentralDir, archive_bytes, pos)
+        if header[zipfile._CD_SIGNATURE] != zipfile.stringCentralDir:
+            return None
+        pos += (
+            zipfile.sizeCentralDir
+            + header[zipfile._CD_FILENAME_LENGTH]
+            + header[zipfile._CD_EXTRA_FIELD_LENGTH]
+            + header[zipfile._CD_COMMENT_LENGTH]
+        )
+        count += 1
+    return count
 
 
 def extract_members(
@@ -117,8 +154,8 @@ def extract_members(
 ) -> None:
     """Extract exactly ``members`` from the archive into ``dest``.
 
-    The archive's total entry count is bounded first, from its end record,
-    before the directory is parsed — the manifest selects only a few members,
+    The archive's total entry count is bounded first, by walking the
+    directory's record headers, before the directory is parsed — the manifest selects only a few members,
     but opening the archive would materialize every entry, listed or not.
     Then every bound is checked from the central directory before anything is
     written — the declared size of each member and their total — so a zip bomb
@@ -127,7 +164,7 @@ def extract_members(
     would land outside ``dest`` are refused; a hostile archive extracts
     nothing.
     """
-    entries_total = archive_entry_count(archive_bytes)
+    entries_total = archive_entry_count(archive_bytes, stop_after=max_entries)
     if entries_total is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -137,7 +174,7 @@ def extract_members(
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=(
-                f"The archive has {entries_total} entries (limit {max_entries})."
+                f"The archive has more than {max_entries} entries."
             ),
         )
     try:

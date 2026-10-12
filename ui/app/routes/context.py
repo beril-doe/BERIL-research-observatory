@@ -975,7 +975,10 @@ async def post_context_ingest_files(
             max_total_bytes=settings.context_max_expanded_bytes,
             max_entries=settings.context_max_archive_entries,
         )
-        check_approval(
+        # Parsing beril.yaml and hashing the reports is CPU-bound, so it stays
+        # off the event loop too.
+        await asyncio.to_thread(
+            check_approval,
             root,
             caller_orcid=user.orcid_id,
             project_slug=slug,

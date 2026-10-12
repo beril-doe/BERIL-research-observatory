@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import io
+import struct
 import zipfile
 from pathlib import Path
 
@@ -139,21 +140,52 @@ def _flood(n: int, *, listed: dict[str, bytes] | None = None) -> bytes:
     return buf.getvalue()
 
 
-def test_entry_count_is_read_without_parsing_the_directory():
-    assert archive_entry_count(_flood(250)) == 250
-    assert archive_entry_count(b"not a zip") is None
+def _forge_entry_count(archive: bytes, count: int) -> bytes:
+    """``archive`` with both entry counts in its end record overwritten."""
+    data = bytearray(archive)
+    end = data.rfind(zipfile.stringEndArchive)
+    struct.pack_into("<HH", data, end + 8, count, count)
+    return bytes(data)
 
 
-def test_entry_count_reads_the_zip64_end_record():
-    """Past 65,535 entries the count lives only in the zip64 end record."""
-    assert archive_entry_count(_flood(70_000)) == 70_000
+def test_entry_count_walks_the_directory():
+    assert archive_entry_count(_flood(250), stop_after=1_000) == 250
+    assert archive_entry_count(b"not a zip", stop_after=1_000) is None
+
+
+def test_entry_count_stops_once_past_the_limit():
+    assert archive_entry_count(_flood(5_000), stop_after=1_000) == 1_001
+
+
+def test_entry_count_reads_a_zip64_directory():
+    """Past 65,535 entries the directory is located through the zip64 end
+    record."""
+    assert archive_entry_count(_flood(70_000), stop_after=100_000) == 70_000
+
+
+def test_entry_count_ignores_a_forged_end_record():
+    """Regression (Codex review on #455): ZipFile parses the directory by its
+    byte size and ignores the end record's counts, so a forged count of 1 must
+    not admit thousands of entries."""
+    forged = _forge_entry_count(_flood(5_000), 1)
+    assert zipfile._EndRecData(io.BytesIO(forged))[zipfile._ECD_ENTRIES_TOTAL] == 1
+    assert len(zipfile.ZipFile(io.BytesIO(forged)).infolist()) == 5_000
+
+    assert archive_entry_count(forged, stop_after=1_000) == 1_001
+
+
+def test_entry_count_refuses_a_truncated_directory():
+    archive = _flood(10)
+    start = archive.find(zipfile.stringCentralDir)
+    broken = archive[:start] + b"XXXX" + archive[start + 4 :]
+    assert archive_entry_count(broken, stop_after=1_000) is None
 
 
 def test_refuses_an_entry_flood_without_opening_the_archive(tmp_path, monkeypatch):
     """Regression (Codex adversarial review): the manifest selects a few
     members, but opening the archive materializes every entry — tens of
     thousands of empty ones fit well under the upload cap. The count is
-    refused from the end record, so the directory is never parsed."""
+    counted from the directory's headers, so it is never parsed."""
     archive = _flood(5_000, listed={"REPORT.md": b"r"})
 
     def never(*args, **kwargs):
@@ -164,7 +196,23 @@ def test_refuses_an_entry_flood_without_opening_the_archive(tmp_path, monkeypatc
         _extract(tmp_path, archive, ["REPORT.md"], max_entries=1_000)
 
     assert raised.value.status_code == 413
-    assert "5001 entries" in raised.value.detail
+    assert "more than 1000 entries" in raised.value.detail
+    assert not any(tmp_path.iterdir())
+
+
+def test_refuses_a_forged_entry_flood_without_opening_the_archive(
+    tmp_path, monkeypatch
+):
+    archive = _forge_entry_count(_flood(5_000, listed={"REPORT.md": b"r"}), 1)
+
+    def never(*args, **kwargs):
+        raise AssertionError("the archive must not be opened")
+
+    monkeypatch.setattr(zipfile, "ZipFile", never)
+    with pytest.raises(HTTPException) as raised:
+        _extract(tmp_path, archive, ["REPORT.md"], max_entries=1_000)
+
+    assert raised.value.status_code == 413
     assert not any(tmp_path.iterdir())
 
 
