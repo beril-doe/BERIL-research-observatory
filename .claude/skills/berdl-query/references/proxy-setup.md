@@ -94,7 +94,7 @@ mc ls berdl-minio/cdm-lake/...
 | `Request to authentication service timed out` | SSH tunnel died mid-query | Check tunnels, restart dead ones, retry |
 | `i/o timeout` on `spark.berdl.kbase.us:443` | Using direct mode instead of proxy | Add `--berdl-proxy` flag |
 | `Address already in use` on SSH `-D` port | Tunnel already running on that port | That tunnel is fine, check the other one |
-| `remote: Repository not found` during `bootstrap_client.sh` | No read access to the private `KBaseDataLakehouse` dep repos | Request access (#407); meanwhile use the MCP REST API |
+| `remote: Repository not found` or `could not read Username` during `bootstrap_client.sh` | No read access to the private `KBaseDataLakehouse` dep repos | Request access (#407); meanwhile use the MCP REST API |
 
 ## Prerequisites Checklist
 
@@ -119,6 +119,13 @@ remote: Repository not found.
 fatal: repository 'https://github.com/KBaseDataLakehouse/spark_connect_remote.git/' not found
 ```
 
+Without stored GitHub credentials, git asks for a username instead, or in a
+non-interactive shell prints:
+
+```
+fatal: could not read Username for 'https://github.com': terminal prompts disabled
+```
+
 That is an access problem, not a broken URL — expect it rather than debugging it.
 Request access via [#407](https://github.com/beril-doe/BERIL-research-observatory/issues/407).
 
@@ -128,4 +135,15 @@ Neither package is on PyPI, and the versions the platform ships are
 **If you cannot get access**, the MCP REST API at `https://hub.berdl.kbase.us/apis/mcp`
 needs none of this — no venv, no tunnels, no pproxy — only a valid `KBASE_AUTH_TOKEN`
 and `jq`. It covers list/schema/sample/query but not Spark Connect, so large result
-sets and `export_sql.py` still require the path above.
+sets and `export_sql.py` still require the path above. Queries over 60s return 504,
+and cluster restarts return transient 503s; see
+[performance.md](../../../../docs/performance.md#rest-api-vs-direct-spark) and
+[pitfalls.md](../../../../docs/pitfalls.md#rest-api-reliability). Until access is
+granted, this overrides the `berdl` skill's rule to avoid REST `/delta/tables/query`,
+for small queries only:
+
+```bash
+curl -s -X POST https://hub.berdl.kbase.us/apis/mcp/delta/tables/query \
+  -H "Authorization: Bearer $KBASE_AUTH_TOKEN" -H "Content-Type: application/json" \
+  -d '{"query": "SELECT * FROM database.table LIMIT 5", "limit": 5}' | jq .results
+```
