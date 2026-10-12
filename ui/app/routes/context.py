@@ -973,6 +973,7 @@ async def post_context_ingest_files(
             relative_paths,
             max_file_bytes=settings.context_max_file_bytes,
             max_total_bytes=settings.context_max_expanded_bytes,
+            max_entries=settings.context_max_archive_entries,
         )
         check_approval(
             root,

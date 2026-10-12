@@ -3504,6 +3504,25 @@ async def test_gate_refuses_an_archive_that_expands_too_far(
 
 
 @pytest.mark.gated
+async def test_gate_refuses_an_archive_with_too_many_entries(
+    client, credentialed_user, ingest_manager, db_session
+):
+    """Unlisted padding entries count too — they cost memory the moment the
+    archive is opened — so the limit (BERIL_CONTEXT_MAX_ARCHIVE_ENTRIES) is on
+    the whole archive, checked before anything else is read from it."""
+    _login(client)
+    members = _approved()
+    archive = _zip_bytes({**members, **{f"pad/{i}": b"" for i in range(50)}})
+    with patch.object(get_settings(), "context_max_archive_entries", 20):
+        resp = _ingest(client, members=members, archive=archive, manifest=list(members))
+
+    assert resp.status_code == 413
+    assert "entries" in resp.json()["detail"]
+    ingest_manager.insert_files.assert_not_awaited()
+    assert await get_projects_for_user(db_session, credentialed_user.id) == []
+
+
+@pytest.mark.gated
 async def test_gate_extracts_only_the_manifests_members(
     client, credentialed_user, ingest_manager
 ):

@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     context_max_archive_bytes: int = 32 * 1024 * 1024
     context_max_manifest_bytes: int = 1024 * 1024
     context_max_expanded_bytes: int = 128 * 1024 * 1024
+    # Entries in the archive's central directory, all of them — not just the
+    # ones the manifest names. Read from the end-of-central-directory record
+    # before the directory is parsed, so a flood of tiny unlisted entries is
+    # refused without being materialized. The mirror sends tens of files.
+    context_max_archive_entries: int = 1000
 
     # Langfuse relay (app/routes/langfuse.py): the shared project keypair lives
     # only here. Leave the keys unset to disable the relay (503).

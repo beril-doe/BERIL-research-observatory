@@ -6,8 +6,9 @@ context store, so a rejected submission leaves nothing behind:
 1. **Shape** — only the files the ``/submit`` mirror stages may be added
    (``ALLOWED_FILES``), and the archive is bounded before and during
    extraction: the upload itself, each member, and the expanded total, read
-   from the zip's own directory before anything is written. Only the members
-   the manifest names are extracted.
+   from the zip's own directory before anything is written, and the entry
+   count is bounded from its end record before the directory is even parsed.
+   Only the members the manifest names are extracted.
 2. **Approval** — the submission carries the project's ``beril.yaml`` with
    ``status: complete`` and an ``approval`` block whose ``by`` is the caller,
    and the ``REPORT.md`` / ``REVIEW.md`` it carries hash to the approval's
@@ -91,6 +92,20 @@ async def read_capped(upload: UploadFile, limit: int, *, what: str) -> bytes:
     return data
 
 
+def archive_entry_count(archive_bytes: bytes) -> int | None:
+    """How many entries the archive's central directory declares, or ``None``
+    when there is no end-of-central-directory record (not a zip).
+
+    Read from the end record alone — including its zip64 form — without
+    parsing the directory. ``zipfile.ZipFile`` materializes every entry as
+    soon as it is opened, so this is the only point at which an entry flood
+    can be refused before it costs memory and CPU. ``_EndRecData`` is the
+    stdlib's own end-record reader (private, but unchanged across releases).
+    """
+    record = zipfile._EndRecData(io.BytesIO(archive_bytes))
+    return None if record is None else record[zipfile._ECD_ENTRIES_TOTAL]
+
+
 def extract_members(
     archive_bytes: bytes,
     dest: Path,
@@ -98,16 +113,33 @@ def extract_members(
     *,
     max_file_bytes: int,
     max_total_bytes: int,
+    max_entries: int,
 ) -> None:
     """Extract exactly ``members`` from the archive into ``dest``.
 
-    Every bound is checked from the zip's central directory before anything is
+    The archive's total entry count is bounded first, from its end record,
+    before the directory is parsed — the manifest selects only a few members,
+    but opening the archive would materialize every entry, listed or not.
+    Then every bound is checked from the central directory before anything is
     written — the declared size of each member and their total — so a zip bomb
     is refused without being inflated. Members the manifest does not name are
     never extracted, whatever the archive carries. Symlinks and entries that
     would land outside ``dest`` are refused; a hostile archive extracts
     nothing.
     """
+    entries_total = archive_entry_count(archive_bytes)
+    if entries_total is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded archive could not be read as a zip file.",
+        )
+    if entries_total > max_entries:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=(
+                f"The archive has {entries_total} entries (limit {max_entries})."
+            ),
+        )
     try:
         with zipfile.ZipFile(io.BytesIO(archive_bytes)) as zf:
             entries = {info.filename: info for info in zf.infolist()}

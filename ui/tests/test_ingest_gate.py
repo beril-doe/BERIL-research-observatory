@@ -11,7 +11,12 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
-from app.routes.ingest_gate import ALLOWED_FILES, disallowed, extract_members
+from app.routes.ingest_gate import (
+    ALLOWED_FILES,
+    archive_entry_count,
+    disallowed,
+    extract_members,
+)
 
 _REPO = Path(__file__).resolve().parents[2]
 
@@ -71,7 +76,7 @@ def _zip(members: dict[str, bytes], *, symlink: str | None = None) -> bytes:
 
 
 def _extract(tmp_path, archive, members, **limits):
-    limits = {"max_file_bytes": 1_000, "max_total_bytes": 10_000, **limits}
+    limits = {"max_file_bytes": 1_000, "max_total_bytes": 10_000, "max_entries": 100, **limits}
     extract_members(archive, tmp_path.resolve(), members, **limits)
 
 
@@ -120,3 +125,52 @@ def test_refuses_a_file_that_is_not_a_zip(tmp_path):
         _extract(tmp_path, b"not a zip", ["a.md"])
 
     assert raised.value.status_code == 400
+
+
+
+def _flood(n: int, *, listed: dict[str, bytes] | None = None) -> bytes:
+    """A small archive padded with ``n`` empty unlisted entries."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, data in (listed or {}).items():
+            zf.writestr(name, data)
+        for i in range(n):
+            zf.writestr(f"pad/{i}", b"")
+    return buf.getvalue()
+
+
+def test_entry_count_is_read_without_parsing_the_directory():
+    assert archive_entry_count(_flood(250)) == 250
+    assert archive_entry_count(b"not a zip") is None
+
+
+def test_entry_count_reads_the_zip64_end_record():
+    """Past 65,535 entries the count lives only in the zip64 end record."""
+    assert archive_entry_count(_flood(70_000)) == 70_000
+
+
+def test_refuses_an_entry_flood_without_opening_the_archive(tmp_path, monkeypatch):
+    """Regression (Codex adversarial review): the manifest selects a few
+    members, but opening the archive materializes every entry — tens of
+    thousands of empty ones fit well under the upload cap. The count is
+    refused from the end record, so the directory is never parsed."""
+    archive = _flood(5_000, listed={"REPORT.md": b"r"})
+
+    def never(*args, **kwargs):
+        raise AssertionError("the archive must not be opened")
+
+    monkeypatch.setattr(zipfile, "ZipFile", never)
+    with pytest.raises(HTTPException) as raised:
+        _extract(tmp_path, archive, ["REPORT.md"], max_entries=1_000)
+
+    assert raised.value.status_code == 413
+    assert "5001 entries" in raised.value.detail
+    assert not any(tmp_path.iterdir())
+
+
+def test_admits_an_archive_at_the_entry_limit(tmp_path):
+    archive = _flood(9, listed={"REPORT.md": b"r"})
+
+    _extract(tmp_path, archive, ["REPORT.md"], max_entries=10)
+
+    assert (tmp_path / "REPORT.md").read_bytes() == b"r"
