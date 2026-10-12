@@ -246,7 +246,9 @@ def check_approval(root: Path, *, caller_orcid: str, project_slug: str, slugify)
 
     try:
         manifest = yaml.safe_load((root / "beril.yaml").read_text(encoding="utf-8"))
-    except (yaml.YAMLError, UnicodeDecodeError):
+    except (yaml.YAMLError, UnicodeDecodeError, RecursionError):
+        # RecursionError: nesting a few hundred levels deep (about 1 KB of
+        # brackets) exhausts the parser's recursion.
         reject("beril.yaml could not be parsed.")
     if not isinstance(manifest, dict):
         reject("beril.yaml is not a mapping.")

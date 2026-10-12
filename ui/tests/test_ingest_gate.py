@@ -15,6 +15,7 @@ from fastapi import HTTPException
 from app.routes.ingest_gate import (
     ALLOWED_FILES,
     archive_entry_count,
+    check_approval,
     disallowed,
     extract_members,
 )
@@ -237,3 +238,19 @@ def test_admits_an_archive_at_the_entry_limit(tmp_path):
     _extract(tmp_path, archive, ["REPORT.md"], max_entries=10)
 
     assert (tmp_path / "REPORT.md").read_bytes() == b"r"
+
+
+def test_refuses_a_deeply_nested_beril_yaml(tmp_path):
+    """Regression (Codex review on #455): ~1 KB of nested brackets exhausts
+    the YAML parser's recursion; it is refused like any unparsable
+    beril.yaml (422), not left to surface as a 500."""
+    (tmp_path / "beril.yaml").write_text("[" * 500 + "]" * 500)
+
+    with pytest.raises(HTTPException) as raised:
+        check_approval(
+            tmp_path, caller_orcid="0000-0000-0000-0001", project_slug="p",
+            slugify=str,
+        )
+
+    assert raised.value.status_code == 422
+    assert raised.value.detail == "beril.yaml could not be parsed."
