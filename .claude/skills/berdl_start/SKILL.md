@@ -136,7 +136,7 @@ python scripts/berdl_inventory.py --refresh
 This is plain `python` in **both** environments. It auto-detects on-cluster vs off-cluster and picks the right discovery path.
 
 - **On-cluster (JupyterHub):** the JH kernel already has every import. Just run the command above.
-- **Off-cluster (local machine):** activate `.venv-berdl` first (`source .venv-berdl/bin/activate`), then run the command above. If the venv isn't bootstrapped yet, run `bash scripts/bootstrap_client.sh`. Ad-hoc alternative without venv: `uv run --with pyspark --with "spark_connect_remote @ git+https://github.com/BERDataLakehouse/spark_connect_remote.git" --with "berdl_remote @ git+https://github.com/BERDataLakehouse/berdl_remote.git" scripts/berdl_inventory.py`.
+- **Off-cluster (local machine):** activate `.venv-berdl` first (`source .venv-berdl/bin/activate`), then run the command above. If the venv isn't bootstrapped yet, run `bash scripts/bootstrap_client.sh`. Ad-hoc alternative without venv: `uv run --with pyspark --with "spark_connect_remote @ git+https://github.com/KBaseDataLakehouse/spark_connect_remote.git" --with "berdl_remote @ git+https://github.com/KBaseDataLakehouse/berdl_remote.git" scripts/berdl_inventory.py`.
 
 Do **not** use a bare `uv run scripts/berdl_inventory.py` (without `--with`) — `uv run --script` would create an isolated venv that excludes both the JH kernel's `berdl_notebook_utils` (breaks on-cluster) and the off-cluster Spark deps. The script detects misuse and exits with an actionable message, but pick the right invocation upfront.
 

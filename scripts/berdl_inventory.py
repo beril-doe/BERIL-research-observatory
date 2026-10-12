@@ -13,8 +13,8 @@ either case:
         python scripts/berdl_inventory.py
         # OR ad-hoc without venv activation:
         # uv run --with pyspark \\
-        #   --with "spark_connect_remote @ git+https://github.com/BERDataLakehouse/spark_connect_remote.git" \\
-        #   --with "berdl_remote @ git+https://github.com/BERDataLakehouse/berdl_remote.git" \\
+        #   --with "spark_connect_remote @ git+https://github.com/KBaseDataLakehouse/spark_connect_remote.git" \\
+        #   --with "berdl_remote @ git+https://github.com/KBaseDataLakehouse/berdl_remote.git" \\
         #   scripts/berdl_inventory.py
 
 The script does NOT use a `uv run --script` shebang because uv would create an
@@ -913,8 +913,8 @@ def main(argv: list[str] | None = None) -> int:
                         "      python scripts/berdl_inventory.py\n\n"
                         "  → Or run ad-hoc with uv:\n"
                         "      uv run --with pyspark \\\n"
-                        "        --with 'spark_connect_remote @ git+https://github.com/BERDataLakehouse/spark_connect_remote.git' \\\n"
-                        "        --with 'berdl_remote @ git+https://github.com/BERDataLakehouse/berdl_remote.git' \\\n"
+                        "        --with 'spark_connect_remote @ git+https://github.com/KBaseDataLakehouse/spark_connect_remote.git' \\\n"
+                        "        --with 'berdl_remote @ git+https://github.com/KBaseDataLakehouse/berdl_remote.git' \\\n"
                         "        scripts/berdl_inventory.py\n\n"
                         "If you have not yet bootstrapped the venv, run "
                         "`bash scripts/bootstrap_client.sh` first.",
