@@ -174,6 +174,21 @@ def test_entry_count_ignores_a_forged_end_record():
     assert archive_entry_count(forged, stop_after=1_000) == 1_001
 
 
+def test_refuses_a_malformed_zip64_locator(tmp_path):
+    """Regression (Codex review on #455): the stdlib raises BadZipFile, not
+    OSError, for a zip64 locator spanning disks — a 400, not a 500."""
+    data = bytearray(_flood(70_000, listed={"REPORT.md": b"r"}))
+    locator = data.rfind(zipfile.stringEndArchive64Locator)
+    struct.pack_into("<L", data, locator + 16, 2)  # total number of disks
+    archive = bytes(data)
+
+    assert archive_entry_count(archive, stop_after=100_000) is None
+    with pytest.raises(HTTPException) as raised:
+        _extract(tmp_path, archive, ["REPORT.md"], max_entries=100_000)
+
+    assert raised.value.status_code == 400
+
+
 def test_entry_count_refuses_a_truncated_directory():
     archive = _flood(10)
     start = archive.find(zipfile.stringCentralDir)

@@ -112,7 +112,8 @@ def archive_entry_count(archive_bytes: bytes, *, stop_after: int) -> int | None:
     """
     try:
         record = zipfile._EndRecData(io.BytesIO(archive_bytes))
-    except OSError:
+    except (OSError, zipfile.BadZipFile):
+        # BadZipFile: a malformed zip64 locator (multiple disks, bad offset).
         return None
     if record is None:
         return None
