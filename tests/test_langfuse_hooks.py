@@ -59,6 +59,66 @@ def test_run_wrapper_guard_skips_without_config(tmp_path):
         assert proc.stdout == "" and proc.stderr == ""
 
 
+def _run_wrapper_with_dotenv(tmp_path, dotenv, env_flag=None):
+    """Run a copy of langfuse-run.sh in a scratch repo whose hook records the flag.
+
+    Returns the TRACE_TO_LANGFUSE value the hook saw, or None if the wrapper
+    never started it.
+    """
+    repo = tmp_path / "repo"
+    hooks = repo / ".claude" / "hooks"
+    hooks.mkdir(parents=True)
+    (hooks / "langfuse-run.sh").write_text(RUN_WRAPPER.read_text())
+    seen = tmp_path / "seen.txt"
+    (hooks / "probe.py").write_text(
+        "import os, pathlib\n"
+        f"pathlib.Path({str(seen)!r}).write_text(os.environ.get('TRACE_TO_LANGFUSE', ''))\n"
+    )
+    if dotenv is not None:
+        (repo / ".env").write_text(dotenv)
+    home = tmp_path / "home"
+    (home / ".beril").mkdir(parents=True)
+    (home / ".beril" / "auth.json").write_text('{"token": "x"}')
+    env = {"PATH": f"{Path(sys.executable).parent}:/usr/bin:/bin", "HOME": str(home)}
+    if env_flag is not None:
+        env["TRACE_TO_LANGFUSE"] = env_flag
+    proc = subprocess.run(
+        ["bash", str(hooks / "langfuse-run.sh"), "probe.py"],
+        input="{}", capture_output=True, text=True, env=env, timeout=10, check=False,
+    )
+    assert proc.returncode == 0
+    return seen.read_text() if seen.exists() else None
+
+
+def test_run_wrapper_reads_the_opt_in_from_dotenv(tmp_path):
+    # `beril setup` writes the opt-in to .env, and the BERDL Hub has no direnv
+    # to load it, so the wrapper reads it itself (issue 454).
+    for i, dotenv in enumerate((
+        "TRACE_TO_LANGFUSE=true\n",
+        'OTHER=1\nTRACE_TO_LANGFUSE="true"\n',
+        "export TRACE_TO_LANGFUSE=true  # opted in by beril setup\n",
+        "TRACE_TO_LANGFUSE=false\nTRACE_TO_LANGFUSE=true\n",  # last one wins
+    )):
+        assert _run_wrapper_with_dotenv(tmp_path / str(i), dotenv) == "true", dotenv
+
+
+def test_run_wrapper_ignores_dotenv_without_an_opt_in(tmp_path):
+    for i, dotenv in enumerate((
+        None,
+        "",
+        "TRACE_TO_LANGFUSE=false\n",
+        "# TRACE_TO_LANGFUSE=true\n",  # the commented line in .env.example
+        "TRACE_TO_LANGFUSE=true\nTRACE_TO_LANGFUSE=false\n",
+        "MY_TRACE_TO_LANGFUSE=true\n",
+    )):
+        assert _run_wrapper_with_dotenv(tmp_path / str(i), dotenv) is None, dotenv
+
+
+def test_run_wrapper_lets_the_shell_override_dotenv(tmp_path):
+    assert _run_wrapper_with_dotenv(tmp_path / "off", "TRACE_TO_LANGFUSE=true\n", env_flag="false") is None
+    assert _run_wrapper_with_dotenv(tmp_path / "on", "TRACE_TO_LANGFUSE=false\n", env_flag="true") == "true"
+
+
 def test_artifact_hook_resolves_project_and_files(tmp_path):
     project_dir = tmp_path / "projects" / "amr_test"
     project_dir.mkdir(parents=True)
