@@ -254,3 +254,67 @@ def test_refuses_a_deeply_nested_beril_yaml(tmp_path):
 
     assert raised.value.status_code == 422
     assert raised.value.detail == "beril.yaml could not be parsed."
+
+
+def _member(data: bytes, compress_type: int) -> bytearray:
+    """An archive holding REPORT.md as ``data``, written with ``compress_type``."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("REPORT.md", data, compress_type=compress_type)
+    return bytearray(buf.getvalue())
+
+
+@pytest.mark.parametrize(
+    "compress_type", [zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED]
+)
+def test_admits_stored_and_deflated_members(tmp_path, compress_type):
+    _extract(tmp_path, bytes(_member(b"r" * 500, compress_type)), ["REPORT.md"])
+
+    assert (tmp_path / "REPORT.md").read_bytes() == b"r" * 500
+
+
+@pytest.mark.parametrize("compress_type", [zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA, 99])
+def test_refuses_other_compression_methods(tmp_path, compress_type):
+    """Regression (Codex review on #455): an unsupported method raised
+    NotImplementedError and a corrupt LZMA stream any of several exception
+    types, each a 500. Only stored and deflated members reach a decoder."""
+    if compress_type == 99:
+        data = _member(b"r", zipfile.ZIP_STORED)
+        struct.pack_into("<H", data, data.find(zipfile.stringCentralDir) + 10, 99)
+    else:
+        data = _member(b"r", compress_type)
+
+    with pytest.raises(HTTPException) as raised:
+        _extract(tmp_path, bytes(data), ["REPORT.md"])
+
+    assert raised.value.status_code == 400
+    assert "unsupported compression method" in raised.value.detail
+    assert not any(tmp_path.iterdir())
+
+
+def test_refuses_an_encrypted_member(tmp_path):
+    """The encrypted flag made extraction raise RuntimeError (a 500)."""
+    data = _member(b"r", zipfile.ZIP_STORED)
+    flags = data.find(zipfile.stringCentralDir) + 8
+    struct.pack_into("<H", data, flags, struct.unpack_from("<H", data, flags)[0] | 1)
+
+    with pytest.raises(HTTPException) as raised:
+        _extract(tmp_path, bytes(data), ["REPORT.md"])
+
+    assert raised.value.status_code == 400
+    assert "encrypted" in raised.value.detail
+
+
+def test_refuses_a_corrupt_deflate_stream(tmp_path):
+    """A corrupt deflate stream raised zlib.error (a 500)."""
+    data = _member(b"hello world " * 200, zipfile.ZIP_DEFLATED)
+    start = 30 + len("REPORT.md")  # past the local header
+    # Twelve 0xff bytes make an invalid block type: zlib.error, not a CRC
+    # mismatch.
+    data[start : start + 12] = b"\xff" * 12
+
+    with pytest.raises(HTTPException) as raised:
+        _extract(tmp_path, bytes(data), ["REPORT.md"], max_file_bytes=10_000)
+
+    assert raised.value.status_code == 400
+    assert raised.value.detail == "The uploaded archive could not be read as a zip file."

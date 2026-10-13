@@ -30,6 +30,7 @@ import io
 import re
 import struct
 import zipfile
+import zlib
 from pathlib import Path
 
 import yaml
@@ -91,6 +92,10 @@ async def read_capped(upload: UploadFile, limit: int, *, what: str) -> bytes:
             detail=f"The {what} is too large (limit {limit} bytes).",
         )
     return data
+
+
+_ALLOWED_COMPRESSION = frozenset({zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED})
+_ENCRYPTED = 0x1  # general-purpose flag bit 0
 
 
 def archive_entry_count(archive_bytes: bytes, *, stop_after: int) -> int | None:
@@ -203,6 +208,22 @@ def extract_members(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Archive contains a symlink: {name!r}",
                     )
+                # Only what the ingest client writes (ZIP_DEFLATED, or stored).
+                # Client bytes never reach the bzip2/LZMA decoders, whose
+                # failures on hostile input are a grab bag of exception types.
+                if info.compress_type not in _ALLOWED_COMPRESSION:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=(
+                            f"{name} uses an unsupported compression method; "
+                            "only stored or deflated entries are accepted."
+                        ),
+                    )
+                if info.flag_bits & _ENCRYPTED:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"{name} is encrypted; encrypted entries are not accepted.",
+                    )
                 if not (dest / name).resolve().is_relative_to(dest):
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
@@ -227,7 +248,9 @@ def extract_members(
                 )
             for name in members:
                 zf.extract(entries[name], dest)
-    except (zipfile.BadZipFile, OSError) as exc:
+    # zlib.error: a corrupt deflate stream (most corruption fails the CRC check
+    # instead, as BadZipFile).
+    except (zipfile.BadZipFile, OSError, zlib.error) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="The uploaded archive could not be read as a zip file.",
