@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.clients.openviking import (
     OpenVikingClient,
     OpenVikingError,
+    ov_health,
     regenerate_ov_user_key,
     register_ov_user,
 )
@@ -33,6 +34,7 @@ from app.db.crud import (
 )
 from app.db.models import BerilUser
 
+from .addresses import USERS_TARGET_URI
 from .base import (
     DEFAULT_GREP_NODE_LIMIT,
     DEFAULT_LS_NODE_LIMIT,
@@ -91,7 +93,6 @@ _OV_STATUS_MAP = {
     "cancelled": INGEST_FAILED,
 }
 
-USERS_TARGET_URI = "viking://resources/users/"
 
 # The backend's own shape for a grep that matched nothing (verified against
 # server 0.4.22). Returned, rather than invented, when there is nowhere to
@@ -113,6 +114,18 @@ _EMPTY_GREP: dict = {"matches": [], "count": 0, "match_count": 0, "files_scanned
 # ``settings.ov_account_id`` (also "beril"), which appears in a different part
 # of the URI — the admin path, not a namespace segment.
 HOUSE_ACCOUNT_ID = "beril"
+
+
+async def context_health() -> bool:
+    """Whether the store answers its health check. A failure is logged here
+    and reported only as ``False`` — callers never see the store's own error."""
+    try:
+        await ov_health()
+    # ValueError: the store answered 200 with a body that is not JSON.
+    except (OpenVikingError, ValueError) as exc:
+        logger.warning("Context store health check failed: %s", exc)
+        return False
+    return True
 
 
 class ReservedNamespaceError(ValueError):

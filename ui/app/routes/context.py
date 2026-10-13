@@ -63,6 +63,7 @@ from app.context_manager.base import (
     PitfallHit,
     PitfallResults,
 )
+from app.context_manager.addresses import to_address
 from app.context_manager.openviking import (
     HOUSE_ACCOUNT_ID,
     QUERY_FAILURES,
@@ -75,6 +76,7 @@ from app.context_manager.openviking import (
     SelfHealingContextManager,
     UnauthenticatedError,
     apply_discovery_precedence,
+    context_health,
     context_slugify,
     corpus_root,
     get_user_ov_api_key,
@@ -335,6 +337,38 @@ def _read_uri(
         ) from exc
 
 
+def _addressed(entry):
+    """A backend listing entry or grep match, naming its resource by address.
+
+    ``/ls`` and ``/grep`` pass the backend's payloads through, so its URIs are
+    rewritten here: a ``uri`` key becomes ``address``, and a bare URI (a
+    ``simple`` listing) becomes a bare address.
+    """
+    if isinstance(entry, str):
+        return to_address(entry)
+    if isinstance(entry, dict) and "uri" in entry:
+        rest = {k: v for k, v in entry.items() if k != "uri"}
+        return {**rest, "address": to_address(entry["uri"] or "")}
+    return entry
+
+
+@ROUTER_CONTEXT.get("/api/context/health")
+async def get_context_health(
+    user: BerilUser = Depends(require_user_api),
+) -> dict:
+    """Whether the context layer can answer: ``{"status": "ok"}`` or
+    ``{"status": "unavailable"}``.
+
+    Answering at all shows BERIL is reachable and the caller's token is good
+    (the route requires one); the status reports the store behind it. Why the
+    store is unavailable is logged, not returned — it is an implementation
+    detail, like every other backend failure.
+    """
+    if await context_health():
+        return {"status": "ok"}
+    return {"status": "unavailable"}
+
+
 @ROUTER_CONTEXT.get("/api/context/ls")
 async def get_context_files(
     request: Request,
@@ -380,7 +414,7 @@ async def get_context_files(
 
     manager = await resolve_context_manager(db, user)
     try:
-        return await manager.list_files(
+        listed = await manager.list_files(
             await _expand_read_target(manager, target),
             recursive=recursive,
             simple=simple,
@@ -392,6 +426,7 @@ async def get_context_files(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The context manager could not list that path.",
         ) from exc
+    return [_addressed(entry) for entry in listed]
 
 
 def _classify_pitfall(uri: str) -> tuple[str, str | None, str | None]:
@@ -660,9 +695,10 @@ async def get_context_grep(
     widen, a bare ``project`` meaning the caller's own — and the exclusion is
     resolved the same way, so it cannot name a path outside the corpus.
 
-    Returns the backend's own payload. Unlike ``/find`` there is no mapped
-    schema: grep results are structural, and inventing one before a consumer
-    needs it would be guesswork.
+    Returns the backend's own payload, except that each match names its
+    resource by ``address`` (see ``addresses``) rather than by backend URI.
+    Unlike ``/find`` there is no mapped schema: grep results are structural,
+    and inventing one before a consumer needs it would be guesswork.
     """
     target = _read_uri(user, project, path, owner=owner, all_owners=all_owners)
     exclude_uri = (
@@ -683,7 +719,7 @@ async def get_context_grep(
 
     manager = await resolve_context_manager(db, user)
     try:
-        return await manager.grep(
+        payload = await manager.grep(
             await _expand_read_target(manager, target),
             pattern,
             case_insensitive=case_insensitive,
@@ -696,6 +732,10 @@ async def get_context_grep(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The context manager could not run that search.",
         ) from exc
+    return {
+        **payload,
+        "matches": [_addressed(match) for match in payload.get("matches") or []],
+    }
 
 async def _is_admin(db: AsyncSession, user: BerilUser) -> bool:
     """Whether ``user`` holds the admin role (the check ``require_admin`` makes)."""

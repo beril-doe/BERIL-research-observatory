@@ -2,7 +2,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from .addresses import Address, OptionalAddress
 
 # Upper bounds on what a caller may ask the backend for. Not tuning knobs — a
 # query is rejected rather than forwarded when it exceeds these, so one request
@@ -118,7 +120,11 @@ class IngestResult(BaseModel):
     """
     relative_path: str
     status: str
-    uri: str | None = None
+    # ``uri`` holds the backend URI internally and leaves as ``address``
+    # (see ``addresses``); populate_by_name keeps ``uri=`` constructors.
+    model_config = ConfigDict(populate_by_name=True)
+
+    uri: OptionalAddress = Field(default=None, alias="address")
     reason: str | None = None
     task_id: str | None = None
 
@@ -143,7 +149,11 @@ class ContextIngestResults(BaseModel):
 class IngestFileStatus(BaseModel):
     relative_path: str
     status: str
-    uri: str | None = None
+    # ``uri`` holds the backend URI internally and leaves as ``address``
+    # (see ``addresses``); populate_by_name keeps ``uri=`` constructors.
+    model_config = ConfigDict(populate_by_name=True)
+
+    uri: OptionalAddress = Field(default=None, alias="address")
     error: str | None = None
 
 
@@ -197,7 +207,11 @@ class QueryResult(BaseModel):
     ``content`` means "not requested", never "empty document".
     """
 
-    uri: str
+    # ``uri`` holds the backend URI internally and leaves as ``address``
+    # (see ``addresses``); populate_by_name keeps ``uri=`` constructors.
+    model_config = ConfigDict(populate_by_name=True)
+
+    uri: Address = Field(alias="address")
     context_type: str
     score: float
     text: str
@@ -218,14 +232,20 @@ class PitfallHit(BaseModel):
     central doc that names no project.
     """
 
-    uri: str
+    # ``uri`` holds the backend URI internally and leaves as ``address``
+    # (see ``addresses``); populate_by_name keeps ``uri=`` constructors.
+    model_config = ConfigDict(populate_by_name=True)
+
+    uri: Address = Field(alias="address")
     origin: Literal["project_memory", "central"]
     project: str | None = None
     owner: str | None = None
     # ``None`` when nothing was searched — a listing has no relevance to rank.
     score: float | None = None
     excerpts: list[str] = Field(default_factory=list)
-    fragment_uris: list[str] = Field(default_factory=list)
+    fragment_uris: list[Address] = Field(
+        default_factory=list, alias="fragment_addresses"
+    )
 
 
 class PitfallResults(BaseModel):
@@ -263,14 +283,20 @@ class DiscoveryHit(BaseModel):
     stale duplicate and never appears — see ``PROJECT_MEMORY_WINS``.
     """
 
-    uri: str
+    # ``uri`` holds the backend URI internally and leaves as ``address``
+    # (see ``addresses``); populate_by_name keeps ``uri=`` constructors.
+    model_config = ConfigDict(populate_by_name=True)
+
+    uri: Address = Field(alias="address")
     origin: Literal["project_memory", "central_legacy", "central_background"]
     project: str | None = None
     owner: str | None = None
     # ``None`` when nothing was searched — a listing has no relevance to rank.
     score: float | None = None
     excerpts: list[str] = Field(default_factory=list)
-    fragment_uris: list[str] = Field(default_factory=list)
+    fragment_uris: list[Address] = Field(
+        default_factory=list, alias="fragment_addresses"
+    )
 
 
 class DiscoveryResults(BaseModel):
