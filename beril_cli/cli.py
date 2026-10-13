@@ -149,6 +149,11 @@ def build_parser() -> argparse.ArgumentParser:
         help='Emit OPENVIKING_URL / OPENVIKING_API_KEY (eval "$(beril ov print-env)")',
     )
 
+    # context — search and browse the context layer through BERIL
+    from beril_cli.context_cmd import add_parser as add_context_parser
+
+    add_context_parser(sub)
+
     # runtime-snapshot (settings.json SessionStart hook; reads the hook payload from stdin)
     sub.add_parser(
         "runtime-snapshot",
@@ -212,6 +217,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "ov":
         from beril_cli.ov_cmd import run_ov
         return run_ov(args)
+
+    if args.command == "context":
+        from beril_cli.context_cmd import run_context
+
+        return run_context(args)
 
     if args.command == "runtime-snapshot":
         from beril_cli.audit_cmd import run_runtime_snapshot
