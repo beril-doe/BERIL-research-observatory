@@ -166,6 +166,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args, remaining = parser.parse_known_args(argv)
+    # Only `start` takes arguments it does not know — it forwards them to the
+    # agent. Anywhere else a leftover is a typo, and dropping it silently runs
+    # the command as if the flag were never given (an unscoped search, an
+    # approval recorded as witnessed).
+    if remaining and args.command != "start":
+        parser.error(f"unrecognized arguments: {' '.join(remaining)}")
 
     if args.command is None:
         parser.print_help()

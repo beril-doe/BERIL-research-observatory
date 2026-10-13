@@ -425,3 +425,42 @@ def test_doctor_never_names_the_backend(logged_in, beril, capsys):
     main(["context", "doctor"])
 
     assert "viking" not in capsys.readouterr().out.lower()
+
+
+# ---------------------------------------------------------------------------
+# Unknown arguments
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        # Codex adversarial review: a misspelled scope flag was dropped, so a
+        # one-project search silently ran across the whole corpus.
+        ["context", "find", "secret", "--projct", "alpha"],
+        ["context", "ls", "--recurse"],
+        # The same gap on an existing command: a dropped --relayed records
+        # the approval as witnessed.
+        ["approve", "alpha", "--relayd"],
+    ],
+)
+def test_unknown_arguments_are_refused_before_anything_runs(logged_in, beril, capsys, argv):
+    with pytest.raises(SystemExit) as exited:
+        main(argv)
+
+    assert exited.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
+    assert beril.requests == []
+
+
+def test_start_still_forwards_unknown_arguments_to_the_agent(monkeypatch):
+    seen = {}
+
+    def fake_run_start(**kwargs):
+        seen.update(kwargs)
+        return 0
+
+    monkeypatch.setattr("beril_cli.start.run_start", fake_run_start)
+
+    assert main(["start", "--skip-onboard", "--permission-mode", "plan"]) == 0
+    assert seen["extra_args"] == ["--permission-mode", "plan"]
