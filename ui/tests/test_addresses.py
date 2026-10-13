@@ -81,6 +81,29 @@ async def test_context_health_reports_any_store_failure_as_unavailable(failure):
         assert await context_health() is False
 
 
-async def test_context_health_reports_a_healthy_store():
-    with patch("app.context_manager.openviking.ov_health", AsyncMock(return_value={})):
+@pytest.mark.parametrize(
+    "body",
+    [
+        # Codex review on #457: a 200 the store itself marks unhealthy.
+        {"healthy": False},
+        {"status": "error"},
+        {"status": "error", "healthy": True},
+        ["not", "an", "object"],
+    ],
+)
+async def test_context_health_honors_an_unhealthy_body(body):
+    with patch("app.context_manager.openviking.ov_health", AsyncMock(return_value=body)):
+        assert await context_health() is False
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # The live 0.4.22 payload.
+        {"status": "ok", "healthy": True, "version": "0.4.22", "auth_mode": "api_key"},
+        {},
+    ],
+)
+async def test_context_health_reports_a_healthy_store(body):
+    with patch("app.context_manager.openviking.ov_health", AsyncMock(return_value=body)):
         assert await context_health() is True

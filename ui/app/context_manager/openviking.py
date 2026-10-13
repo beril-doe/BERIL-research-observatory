@@ -117,13 +117,26 @@ HOUSE_ACCOUNT_ID = "beril"
 
 
 async def context_health() -> bool:
-    """Whether the store answers its health check. A failure is logged here
-    and reported only as ``False`` — callers never see the store's own error."""
+    """Whether the store answers its health check and reports itself healthy.
+
+    A store can answer 200 and still declare itself unhealthy in the body;
+    that reads as unhealthy here, by the same rule as
+    ``observatory_context.openviking_client.diagnose``. Any failure is logged
+    here and reported only as ``False`` — callers never see the store's own
+    error.
+    """
     try:
-        await ov_health()
+        body = await ov_health()
     # ValueError: the store answered 200 with a body that is not JSON.
     except (OpenVikingError, ValueError) as exc:
         logger.warning("Context store health check failed: %s", exc)
+        return False
+    if (
+        not isinstance(body, dict)
+        or body.get("healthy") is False
+        or body.get("status") == "error"
+    ):
+        logger.warning("Context store reports itself unhealthy: %r", body)
         return False
     return True
 
