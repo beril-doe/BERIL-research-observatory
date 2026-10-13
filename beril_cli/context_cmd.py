@@ -91,7 +91,10 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
             "--project",
             help="Narrow project memories to one project (yours unless --owner)",
         )
-        p.add_argument("--owner", help="Owner (ORCiD) of --project")
+        p.add_argument(
+            "--owner",
+            help="Narrow project memories to one owner's projects (ORCiD)",
+        )
         p.add_argument(
             "--exact", action="store_true",
             help="Match tokens literally instead of semantically",
@@ -217,8 +220,6 @@ def _grep(client: ContextClient, args: argparse.Namespace) -> None:
 
 def _documents(kind: str) -> Callable[[ContextClient, argparse.Namespace], None]:
     def run(client: ContextClient, args: argparse.Namespace) -> None:
-        if args.owner and not args.project:
-            raise ValueError("--owner narrows --project; give --project too")
         result = getattr(client, kind)(
             args.query, project=args.project, owner=args.owner,
             exact=args.exact, limit=args.limit,

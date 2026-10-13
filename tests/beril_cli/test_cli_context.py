@@ -178,7 +178,6 @@ def test_an_address_scopes_to_owner_project_path(logged_in, beril):
         ["find", "q", "--address", "0009-1/alpha", "--project", "beta"],
         ["find", "q", "--docs", "--owner", "0009-1"],
         ["ls", "0009-1/alpha", "--all-owners"],
-        ["pitfalls", "--owner", "0009-1"],
         # Codex stop-gate review: the server 422s these; refuse them locally.
         ["find", "q", "--owner", "0009-1", "--all-owners"],
         ["ls", "--owner", "0009-1", "--all-owners"],
@@ -310,6 +309,16 @@ def test_pitfalls_without_a_query_lists_them_all(logged_in, beril):
     main(["context", "pitfalls"])
 
     assert beril.last_params() == {}
+
+
+@pytest.mark.parametrize("kind", ["pitfalls", "discoveries"])
+def test_documents_can_be_scoped_to_one_owners_projects(logged_in, beril, kind):
+    """Regression (Codex review on #458): an owner without a project is a
+    supported scope — every one of that owner's projects — not a mistake."""
+    beril.on("GET", f"/api/context/{kind}", {"results": [], "total": 0})
+
+    assert main(["context", kind, "spark", "--owner", "0009-1"]) == 0
+    assert beril.last_params() == {"q": "spark", "owner": "0009-1"}
 
 
 def test_pitfalls_prints_documents_with_origin_and_excerpts(logged_in, beril, capsys):
