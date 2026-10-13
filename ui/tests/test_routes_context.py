@@ -70,7 +70,7 @@ QUERY_RESULTS = ContextQueryResults(
     query="alpha",
     results=[
         QueryResult(
-            uri="viking://resources/projects/alpha.md",
+            uri="viking://resources/users/0000-0001-2345-6789/alpha/REPORT.md",
             context_type="document",
             score=0.93,
             text="Alpha project overview.",
@@ -185,7 +185,8 @@ async def test_find_returns_mapped_results(client, credentialed_user, manager):
     assert body["query"] == "alpha"
     assert body["results"] == [
         {
-            "uri": "viking://resources/projects/alpha.md",
+            # The backend URI leaves as an address: owner/project/path.
+            "address": "0000-0001-2345-6789/alpha/REPORT.md",
             "context_type": "document",
             "score": 0.93,
             "text": "Alpha project overview.",
@@ -2190,7 +2191,13 @@ def test_grep_unauthenticated_returns_401(client):
 
 async def test_grep_returns_the_backend_payload(client, credentialed_user, manager):
     payload = {
-        "matches": [{"uri": "viking://x", "line": 1, "content": "x"}],
+        "matches": [
+            {
+                "uri": "viking://resources/users/0009-1/alpha/REPORT.md",
+                "line": 1,
+                "content": "x",
+            }
+        ],
         "count": 1,
         "match_count": 1,
         "files_scanned": 3,
@@ -2200,7 +2207,11 @@ async def test_grep_returns_the_backend_payload(client, credentialed_user, manag
     resp = _grep(client)
 
     assert resp.status_code == 200
-    assert resp.json() == payload
+    # The backend's payload, with each match's URI rewritten as an address.
+    assert resp.json() == {
+        **payload,
+        "matches": [{"address": "0009-1/alpha/REPORT.md", "line": 1, "content": "x"}],
+    }
 
 
 async def test_grep_requires_a_pattern(client, credentialed_user, manager):
@@ -3126,7 +3137,9 @@ async def test_discoveries_applies_precedence_before_the_limit(
             "/api/context/discoveries", params={"q": "x", "limit": 1}
         ).json()
 
-    assert [r["uri"] for r in body["results"]] == [_DISC_MEMORY]
+    assert [r["address"] for r in body["results"]] == [
+        "0009-1/alpha/memories/discoveries.md"
+    ]
     assert (body["suppressed"], body["total"]) == (1, 1)
 
 
@@ -3538,3 +3551,124 @@ async def test_gate_extracts_only_the_manifests_members(
     assert resp.status_code == 200
     sent = {f.relative_path for f in ingest_manager.insert_files.await_args.args[0]}
     assert "unlisted/secret.bin" not in sent
+
+
+# ---------------------------------------------------------------------------
+# Addresses — no response names the backend
+# ---------------------------------------------------------------------------
+
+_OWNER = "0009-1"
+_REPORT_URI = f"viking://resources/users/{_OWNER}/alpha/REPORT.md"
+
+
+async def test_ls_entries_carry_addresses_not_uris(client, credentialed_user, manager):
+    manager.list_files.return_value = [
+        {"name": "REPORT.md", "isDir": False, "rel_path": "alpha/REPORT.md",
+         "uri": _REPORT_URI},
+    ]
+    _login(client)
+    body = client.get("/api/context/ls", params={"all_owners": True}).json()
+
+    assert body == [
+        {"name": "REPORT.md", "isDir": False, "rel_path": "alpha/REPORT.md",
+         "address": f"{_OWNER}/alpha/REPORT.md"},
+    ]
+
+
+async def test_simple_ls_returns_bare_addresses(client, credentialed_user, manager):
+    manager.list_files.return_value = [
+        f"viking://resources/users/{_OWNER}",
+        "viking://resources/users/beril",
+    ]
+    _login(client)
+    body = client.get(
+        "/api/context/ls", params={"all_owners": True, "simple": True}
+    ).json()
+
+    assert body == [_OWNER, "beril"]
+
+
+async def test_pitfalls_name_documents_and_fragments_by_address(
+    client, credentialed_user, pitfall_manager
+):
+    _login(client)
+    body = client.get("/api/context/pitfalls", params={"q": "spark"}).json()
+
+    memory = body["results"][0]
+    assert memory["address"] == f"{_OWNER}/alpha/memories/pitfalls.md"
+    assert memory["fragment_addresses"] == [f"{_OWNER}/alpha/memories/pitfalls.md/c.md"]
+    assert "uri" not in memory and "fragment_uris" not in memory
+
+
+async def test_ingest_results_carry_addresses(client, credentialed_user, ingest_manager):
+    ingest_manager.insert_files.return_value = ContextIngestResults(
+        results=[IngestResult(relative_path="a.md", status="queued", uri=_REPORT_URI,
+                              task_id="t1")],
+        queued=1,
+        failed=0,
+    )
+    _login(client)
+    body = _ingest(client).json()
+
+    assert body["results"][0]["address"] == f"{_OWNER}/alpha/REPORT.md"
+    assert "uri" not in body["results"][0]
+
+
+async def test_ingest_status_files_carry_addresses(
+    client, credentialed_user, ingest_manager
+):
+    _login(client)
+    ingest_manager.insert_files.return_value = ContextIngestResults(
+        results=[IngestResult(relative_path="a.md", status="queued", uri=_REPORT_URI,
+                              task_id="t1")],
+        queued=1,
+        failed=0,
+    )
+    batch_id = _ingest(client).json()["batch_id"]
+    body = client.get(f"/api/context/ingest_status/{batch_id}").json()
+
+    assert body["files"][0]["address"] == f"{_OWNER}/alpha/REPORT.md"
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "kwargs"),
+    [
+        ("post", "/api/context/find", {"json": {"query": "alpha"}}),
+        ("get", "/api/context/ls", {"params": {"all_owners": True}}),
+        ("get", "/api/context/grep", {"params": {"pattern": "x", "all_owners": True}}),
+    ],
+)
+async def test_read_routes_never_name_the_backend(
+    client, credentialed_user, manager, method, path, kwargs
+):
+    manager.list_files.return_value = [{"name": "REPORT.md", "uri": _REPORT_URI}, _REPORT_URI]
+    manager.grep.return_value = {
+        "matches": [{"uri": _REPORT_URI, "line": 1, "content": "x"}],
+        "count": 1, "match_count": 1, "files_scanned": 1,
+    }
+    _login(client)
+    resp = getattr(client, method)(path, **kwargs)
+
+    assert resp.status_code == 200
+    assert "viking" not in resp.text
+
+
+# ---------------------------------------------------------------------------
+# GET /api/context/health
+# ---------------------------------------------------------------------------
+
+
+def test_health_requires_a_login(client):
+    assert client.get("/api/context/health").status_code == 401
+
+
+@pytest.mark.parametrize(("healthy", "status"), [(True, "ok"), (False, "unavailable")])
+async def test_health_reports_the_store_without_naming_it(
+    client, credentialed_user, healthy, status
+):
+    _login(client)
+    with patch("app.routes.context.context_health", AsyncMock(return_value=healthy)):
+        resp = client.get("/api/context/health")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": status}
