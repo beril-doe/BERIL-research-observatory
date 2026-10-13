@@ -20,11 +20,16 @@ missing SDK, an expired login, or an unreachable server never blocks a session.
    else to obtain.
 2. Opt in. `beril setup` asks ("Enable session tracing?", default Yes) and
    writes the answer to `.env`; to change it later, edit the flag there
-   (gitignored; loaded by direnv):
+   (gitignored). The hooks read it from `.env` themselves, so direnv isn't
+   needed:
 
    ```bash
-   TRACE_TO_LANGFUSE=true       # the on/off switch
+   # the on/off switch; nothing else may follow the value on this line
+   TRACE_TO_LANGFUSE=true
    ```
+
+   An exported value in the shell overrides `.env`. To turn tracing off for
+   one session, start it with `TRACE_TO_LANGFUSE=false claude`.
 
 3. `uv sync` (installs the `langfuse` SDK the hooks use).
 

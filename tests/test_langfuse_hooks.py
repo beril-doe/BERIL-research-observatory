@@ -59,6 +59,116 @@ def test_run_wrapper_guard_skips_without_config(tmp_path):
         assert proc.stdout == "" and proc.stderr == ""
 
 
+def _run_wrapper_with_dotenv(tmp_path, dotenv, env_flag=None, shell=None, full=False):
+    """Run a copy of langfuse-run.sh in a scratch repo whose hook records the flag.
+
+    Returns the TRACE_TO_LANGFUSE value the hook saw (with full=True, every
+    recorded variable), or None if the wrapper never started it.
+    """
+    repo = tmp_path / "repo"
+    hooks = repo / ".claude" / "hooks"
+    hooks.mkdir(parents=True)
+    (hooks / "langfuse-run.sh").write_text(RUN_WRAPPER.read_text())
+    seen = tmp_path / "seen.txt"
+    (hooks / "probe.py").write_text(
+        "import json, os, pathlib\n"
+        f"pathlib.Path({str(seen)!r}).write_text(json.dumps("
+        "{k: os.environ.get(k) for k in ('TRACE_TO_LANGFUSE', 'LANGFUSE_USER_ID')}))\n"
+    )
+    if dotenv is not None:
+        (repo / ".env").write_text(dotenv)
+    home = tmp_path / "home"
+    (home / ".beril").mkdir(parents=True)
+    (home / ".beril" / "auth.json").write_text('{"token": "x"}')
+    env = {"PATH": f"{Path(sys.executable).parent}:/usr/bin:/bin", "HOME": str(home)}
+    if env_flag is not None:
+        env["TRACE_TO_LANGFUSE"] = env_flag
+    env.update(shell or {})
+    proc = subprocess.run(
+        ["bash", str(hooks / "langfuse-run.sh"), "probe.py"],
+        input="{}", capture_output=True, text=True, env=env, timeout=10, check=False,
+    )
+    assert proc.returncode == 0
+    if not seen.exists():
+        return None
+    recorded = json.loads(seen.read_text())
+    return recorded if full else recorded["TRACE_TO_LANGFUSE"]
+
+
+def _setup_reports_on(tmp_path, dotenv):
+    """Whether `beril setup` would report tracing as on for this .env."""
+    from beril_cli import setup_cmd
+
+    env = tmp_path / "setup.env"
+    if dotenv is not None:
+        env.write_text(dotenv)
+    value = setup_cmd._parse_env_file(env).get("TRACE_TO_LANGFUSE", "").strip().lower()
+    return value == "true"
+
+
+def test_run_wrapper_reads_the_opt_in_from_dotenv(tmp_path):
+    # `beril setup` writes the opt-in to .env, and the BERDL Hub has no direnv
+    # to load it, so the wrapper reads it itself (issue 454).
+    for i, dotenv in enumerate((
+        "TRACE_TO_LANGFUSE=true\n",
+        'OTHER=1\nTRACE_TO_LANGFUSE="true"\n',
+        "  TRACE_TO_LANGFUSE = 'true'  \n",
+        "TRACE_TO_LANGFUSE=True\n",  # setup lowercases before checking
+        "TRACE_TO_LANGFUSE=false\nTRACE_TO_LANGFUSE=true\n",  # last one wins
+    )):
+        assert _run_wrapper_with_dotenv(tmp_path / str(i), dotenv) == "true", dotenv
+        assert _setup_reports_on(tmp_path / str(i), dotenv), dotenv
+
+
+def test_run_wrapper_ignores_dotenv_without_an_opt_in(tmp_path):
+    for i, dotenv in enumerate((
+        None,
+        "",
+        "TRACE_TO_LANGFUSE=false\n",
+        "# TRACE_TO_LANGFUSE=true\n",  # the commented line in .env.example
+        "TRACE_TO_LANGFUSE=true\nTRACE_TO_LANGFUSE=false\n",
+        "MY_TRACE_TO_LANGFUSE=true\n",
+        # Values setup's parser would not read as `true` stay off, so the
+        # launcher never traces a session `beril setup` reports as off.
+        'TRACE_TO_LANGFUSE="true false"\n',
+        "TRACE_TO_LANGFUSE=true # opted in\n",
+        "TRACE_TO_LANGFUSE=truex\n",
+        "export TRACE_TO_LANGFUSE=true\n",
+    )):
+        assert _run_wrapper_with_dotenv(tmp_path / str(i), dotenv) is None, dotenv
+        assert not _setup_reports_on(tmp_path / str(i), dotenv), dotenv
+
+
+def test_run_wrapper_lets_the_shell_override_dotenv(tmp_path):
+    assert _run_wrapper_with_dotenv(tmp_path / "off", "TRACE_TO_LANGFUSE=true\n", env_flag="false") is None
+    assert _run_wrapper_with_dotenv(tmp_path / "on", "TRACE_TO_LANGFUSE=false\n", env_flag="true") == "true"
+
+
+def test_run_wrapper_reads_the_user_id_from_dotenv(tmp_path):
+    # docs/langfuse.md and .env.example say to set LANGFUSE_USER_ID in .env,
+    # so it has to reach the hooks where nothing loads .env.
+    on = "TRACE_TO_LANGFUSE=true\n"
+    seen = _run_wrapper_with_dotenv(tmp_path / "a", on + "LANGFUSE_USER_ID='pod-user'\n", full=True)
+    assert seen == {"TRACE_TO_LANGFUSE": "true", "LANGFUSE_USER_ID": "pod-user"}
+    # Unset or empty in .env: left unset, so the hooks fall back to the ORCiD.
+    for i, dotenv in enumerate((on, on + "LANGFUSE_USER_ID=\n")):
+        assert _run_wrapper_with_dotenv(tmp_path / f"b{i}", dotenv, full=True)["LANGFUSE_USER_ID"] is None
+    # The shell wins over .env.
+    seen = _run_wrapper_with_dotenv(
+        tmp_path / "c", on + "LANGFUSE_USER_ID=pod-user\n", shell={"LANGFUSE_USER_ID": "shell-user"}, full=True
+    )
+    assert seen["LANGFUSE_USER_ID"] == "shell-user"
+
+
+def test_documented_dotenv_line_opts_in(tmp_path):
+    # Users paste the example from docs/langfuse.md into .env, so it must parse as on.
+    doc = (ROOT / "docs" / "langfuse.md").read_text()
+    lines = [line.strip() for line in doc.splitlines() if line.strip().startswith("TRACE_TO_LANGFUSE=true")]
+    assert lines, "docs/langfuse.md no longer shows the .env line"
+    for line in lines:
+        assert _run_wrapper_with_dotenv(tmp_path / str(len(line)), line + "\n") == "true", line
+
+
 def test_artifact_hook_resolves_project_and_files(tmp_path):
     project_dir = tmp_path / "projects" / "amr_test"
     project_dir.mkdir(parents=True)
