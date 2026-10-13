@@ -59,11 +59,11 @@ def test_run_wrapper_guard_skips_without_config(tmp_path):
         assert proc.stdout == "" and proc.stderr == ""
 
 
-def _run_wrapper_with_dotenv(tmp_path, dotenv, env_flag=None):
+def _run_wrapper_with_dotenv(tmp_path, dotenv, env_flag=None, shell=None, full=False):
     """Run a copy of langfuse-run.sh in a scratch repo whose hook records the flag.
 
-    Returns the TRACE_TO_LANGFUSE value the hook saw, or None if the wrapper
-    never started it.
+    Returns the TRACE_TO_LANGFUSE value the hook saw (with full=True, every
+    recorded variable), or None if the wrapper never started it.
     """
     repo = tmp_path / "repo"
     hooks = repo / ".claude" / "hooks"
@@ -71,8 +71,9 @@ def _run_wrapper_with_dotenv(tmp_path, dotenv, env_flag=None):
     (hooks / "langfuse-run.sh").write_text(RUN_WRAPPER.read_text())
     seen = tmp_path / "seen.txt"
     (hooks / "probe.py").write_text(
-        "import os, pathlib\n"
-        f"pathlib.Path({str(seen)!r}).write_text(os.environ.get('TRACE_TO_LANGFUSE', ''))\n"
+        "import json, os, pathlib\n"
+        f"pathlib.Path({str(seen)!r}).write_text(json.dumps("
+        "{k: os.environ.get(k) for k in ('TRACE_TO_LANGFUSE', 'LANGFUSE_USER_ID')}))\n"
     )
     if dotenv is not None:
         (repo / ".env").write_text(dotenv)
@@ -82,12 +83,16 @@ def _run_wrapper_with_dotenv(tmp_path, dotenv, env_flag=None):
     env = {"PATH": f"{Path(sys.executable).parent}:/usr/bin:/bin", "HOME": str(home)}
     if env_flag is not None:
         env["TRACE_TO_LANGFUSE"] = env_flag
+    env.update(shell or {})
     proc = subprocess.run(
         ["bash", str(hooks / "langfuse-run.sh"), "probe.py"],
         input="{}", capture_output=True, text=True, env=env, timeout=10, check=False,
     )
     assert proc.returncode == 0
-    return seen.read_text() if seen.exists() else None
+    if not seen.exists():
+        return None
+    recorded = json.loads(seen.read_text())
+    return recorded if full else recorded["TRACE_TO_LANGFUSE"]
 
 
 def _setup_reports_on(tmp_path, dotenv):
@@ -137,6 +142,31 @@ def test_run_wrapper_ignores_dotenv_without_an_opt_in(tmp_path):
 def test_run_wrapper_lets_the_shell_override_dotenv(tmp_path):
     assert _run_wrapper_with_dotenv(tmp_path / "off", "TRACE_TO_LANGFUSE=true\n", env_flag="false") is None
     assert _run_wrapper_with_dotenv(tmp_path / "on", "TRACE_TO_LANGFUSE=false\n", env_flag="true") == "true"
+
+
+def test_run_wrapper_reads_the_user_id_from_dotenv(tmp_path):
+    # docs/langfuse.md and .env.example say to set LANGFUSE_USER_ID in .env,
+    # so it has to reach the hooks where nothing loads .env.
+    on = "TRACE_TO_LANGFUSE=true\n"
+    seen = _run_wrapper_with_dotenv(tmp_path / "a", on + "LANGFUSE_USER_ID='pod-user'\n", full=True)
+    assert seen == {"TRACE_TO_LANGFUSE": "true", "LANGFUSE_USER_ID": "pod-user"}
+    # Unset or empty in .env: left unset, so the hooks fall back to the ORCiD.
+    for i, dotenv in enumerate((on, on + "LANGFUSE_USER_ID=\n")):
+        assert _run_wrapper_with_dotenv(tmp_path / f"b{i}", dotenv, full=True)["LANGFUSE_USER_ID"] is None
+    # The shell wins over .env.
+    seen = _run_wrapper_with_dotenv(
+        tmp_path / "c", on + "LANGFUSE_USER_ID=pod-user\n", shell={"LANGFUSE_USER_ID": "shell-user"}, full=True
+    )
+    assert seen["LANGFUSE_USER_ID"] == "shell-user"
+
+
+def test_documented_dotenv_line_opts_in(tmp_path):
+    # Users paste the example from docs/langfuse.md into .env, so it must parse as on.
+    doc = (ROOT / "docs" / "langfuse.md").read_text()
+    lines = [line.strip() for line in doc.splitlines() if line.strip().startswith("TRACE_TO_LANGFUSE=true")]
+    assert lines, "docs/langfuse.md no longer shows the .env line"
+    for line in lines:
+        assert _run_wrapper_with_dotenv(tmp_path / str(len(line)), line + "\n") == "true", line
 
 
 def test_artifact_hook_resolves_project_and_files(tmp_path):

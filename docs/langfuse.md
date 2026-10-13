@@ -24,7 +24,8 @@ missing SDK, an expired login, or an unreachable server never blocks a session.
    needed:
 
    ```bash
-   TRACE_TO_LANGFUSE=true       # the on/off switch
+   # the on/off switch; nothing else may follow the value on this line
+   TRACE_TO_LANGFUSE=true
    ```
 
    An exported value in the shell overrides `.env`. To turn tracing off for

@@ -15,23 +15,36 @@
 # nohup so the detached upload survives the session's terminal going away.
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)" || exit 0
 
-# The opt-in can come from the shell or from the repo's .env, which is where
-# `beril setup` writes it. Nothing else loads .env where direnv isn't
-# installed, the BERDL Hub included, so without this the opt-in did nothing
-# there (issue 454). The shell wins, so TRACE_TO_LANGFUSE=false in the
-# environment still turns tracing off. .env is read, never sourced, and only
-# this one key is looked at. The value is read the way setup's
-# _parse_env_file and _run_tracing_step read it (last assignment wins,
-# surrounding whitespace and quotes stripped, case ignored), and only `true`
-# opts in, so the launcher never traces a session that `beril setup` would
-# report as off.
-if [ -z "${TRACE_TO_LANGFUSE+x}" ] && [ -f "$root/.env" ]; then
-  flag="$(sed -n -E 's/^[[:space:]]*TRACE_TO_LANGFUSE[[:space:]]*=(.*)$/\1/p' "$root/.env" | tail -n 1 |
-    sed -E "s/^[[:space:]]+//; s/[[:space:]]+\$//; s/^'+//; s/'+\$//; s/^\"+//; s/\"+\$//" | tr "[:upper:]" "[:lower:]")"
+[ -s "${HOME:-}/.beril/auth.json" ] || exit 0
+
+# Settings can come from the shell or from the repo's .env, which is where
+# `beril setup` writes the opt-in and where the docs say to put
+# LANGFUSE_USER_ID. Nothing else loads .env where direnv isn't installed, the
+# BERDL Hub included, so without this those settings did nothing there
+# (issue 454). A value in the shell wins. .env is read, never sourced, and only
+# the keys named below are looked at. Values are read the way setup's
+# _parse_env_file reads them: the last assignment wins and surrounding
+# whitespace and quotes are stripped.
+dotenv_value() {
+  [ -f "$root/.env" ] || return 0
+  sed -n -E "s/^[[:space:]]*$1[[:space:]]*=(.*)\$/\\1/p" "$root/.env" | tail -n 1 |
+    sed -E "s/^[[:space:]]+//; s/[[:space:]]+\$//; s/^'+//; s/'+\$//; s/^\"+//; s/\"+\$//"
+}
+
+# Only `true`, in any case, opts in, as in setup's _run_tracing_step, so the
+# launcher never traces a session that `beril setup` would report as off.
+if [ -z "${TRACE_TO_LANGFUSE+x}" ]; then
+  flag="$(dotenv_value TRACE_TO_LANGFUSE | tr "[:upper:]" "[:lower:]")"
   [ "$flag" = true ] && export TRACE_TO_LANGFUSE=true
 fi
 [ "${TRACE_TO_LANGFUSE:-}" = true ] || exit 0
-[ -s "${HOME:-}/.beril/auth.json" ] || exit 0
+
+# Attribution for every trace. Left unset when .env has no value, so the hooks
+# fall back to the ORCiD from `beril login`.
+if [ -z "${LANGFUSE_USER_ID+x}" ]; then
+  uid="$(dotenv_value LANGFUSE_USER_ID)"
+  [ -n "$uid" ] && export LANGFUSE_USER_ID="$uid"
+fi
 
 py="$root/.venv/bin/python"
 [ -x "$py" ] || py=python3
