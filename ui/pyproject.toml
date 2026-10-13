@@ -53,6 +53,9 @@ packages = ["app"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "gated: run the ingest route with its real gate (test_routes_context patches it out by default)",
+]
 addopts = "--cov=app --cov-report=term-missing --cov-report=html:htmlcov"
 
 [tool.coverage.run]

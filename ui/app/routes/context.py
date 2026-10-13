@@ -10,11 +10,9 @@ within BERIL's context manager implementation.
 
 import asyncio
 import hashlib
-import io
 import logging
 import mimetypes
 import tempfile
-import zipfile
 from collections import Counter
 from dataclasses import dataclass
 from glob import escape as glob_escape
@@ -71,8 +69,8 @@ from app.context_manager.openviking import (
     USERS_TARGET_URI,
     ContextIngestFile,
     ContextQuery,
-    OpenVikingManager,
     ContextUnavailableError,
+    OpenVikingManager,
     OvProvisioningError,
     SelfHealingContextManager,
     UnauthenticatedError,
@@ -80,8 +78,8 @@ from app.context_manager.openviking import (
     context_slugify,
     corpus_root,
     get_user_ov_api_key,
-    regenerate_user_ov_api_key,
     listing_uri,
+    regenerate_user_ov_api_key,
     target_uri,
     user_target_root,
 )
@@ -99,6 +97,13 @@ from app.db.crud import (
 from app.db.models import UserProject
 from app.db.session import get_db
 from app.routes.data import _safe_relative_path
+from app.routes.ingest_gate import (
+    APPROVAL_FILES,
+    check_approval,
+    disallowed,
+    extract_members,
+    read_capped,
+)
 
 logger = logging.getLogger()
 
@@ -692,6 +697,12 @@ async def get_context_grep(
             detail="The context manager could not run that search.",
         ) from exc
 
+async def _is_admin(db: AsyncSession, user: BerilUser) -> bool:
+    """Whether ``user`` holds the admin role (the check ``require_admin`` makes)."""
+    await db.refresh(user, ["roles"])
+    return any(r.role == "admin" for r in user.roles)
+
+
 async def _resolve_project(
     db: AsyncSession, user: BerilUser, project: str
 ) -> UserProject:
@@ -745,40 +756,6 @@ async def _publish(db: AsyncSession, project: UserProject) -> None:
     if not project.is_public:
         project.is_public = True
         await db.commit()
-
-
-def _extract_archive(archive_bytes: bytes, dest: Path) -> None:
-    """Unpack a zip archive into ``dest``, rejecting anything that escapes it.
-
-    ``zipfile`` sanitizes ordinary traversal in member names, but it happily
-    restores symlinks, which would let a later member be written outside
-    ``dest`` through the link. Members are therefore checked before any of them
-    is written — a hostile archive extracts nothing.
-    """
-    try:
-        with zipfile.ZipFile(io.BytesIO(archive_bytes)) as zf:
-            for info in zf.infolist():
-                # Upper 16 bits of external_attr are the Unix mode; 0xA000 is
-                # S_IFLNK. Directories and regular files are the only members
-                # we restore.
-                if (info.external_attr >> 16) & 0xF000 == 0xA000:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Archive contains a symlink: {info.filename!r}",
-                    )
-                resolved = (dest / info.filename).resolve()
-                if not resolved.is_relative_to(dest):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Archive entry escapes the archive root: {info.filename!r}",
-                    )
-            zf.extractall(dest)
-    except (zipfile.BadZipFile, OSError) as exc:
-        logger.warning("Rejected ingest archive: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="The uploaded archive could not be read as a zip file.",
-        ) from exc
 
 
 # A manifest line that withdraws a file rather than ingesting one. The
@@ -933,13 +910,19 @@ async def post_context_ingest_files(
     handle.
     """
     settings = get_settings()
-    manager = await resolve_context_manager(db, user)
-    db_project = await _resolve_project(db, user, project)
-    target_root = user_target_root(user.orcid_id, db_project.slug)
-
-    archive_bytes = await archive.read()
-
-    relative_paths, removals = _parse_manifest(await manifest.read())
+    # Everything that can refuse the submission runs first, so a rejected one
+    # creates no project row, provisions nothing, and reaches no backend.
+    if force and not await _is_admin(db, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forcing a re-ingest requires an administrator.",
+        )
+    archive_bytes = await read_capped(
+        archive, settings.context_max_archive_bytes, what="archive"
+    )
+    relative_paths, removals = _parse_manifest(
+        await read_capped(manifest, settings.context_max_manifest_bytes, what="manifest")
+    )
     entries = len(relative_paths) + len(removals)
     if entries > settings.context_max_ingest_files:
         raise HTTPException(
@@ -950,19 +933,61 @@ async def post_context_ingest_files(
             ),
         )
 
+    # Only what the mirror stages may be added. Removals may name any clean
+    # path, so content ingested before this rule can still be withdrawn.
+    not_allowed = disallowed(relative_paths)
+    if not_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                "Only a project's report files, memories, and beril.yaml can be "
+                f"ingested; not allowed: {', '.join(not_allowed)}"
+            ),
+        )
+    # Every submission carries the approval it is checked against — removals
+    # are writes too.
+    unapproved = [f for f in APPROVAL_FILES if f not in relative_paths]
+    if unapproved:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                "A submission must include the project's approval files: "
+                f"{', '.join(unapproved)} missing from the manifest."
+            ),
+        )
+    slug = context_slugify(project)
+    if not slug:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Invalid project name: {project!r}",
+        )
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         root = Path(tmp_dir).resolve()
-        # Unpacking touches the disk, so it stays off the event loop.
-        await asyncio.to_thread(_extract_archive, archive_bytes, root)
+        # Unpacking touches the disk, so it stays off the event loop. Only the
+        # manifest's members are extracted, each bounded before any is written.
+        await asyncio.to_thread(
+            extract_members,
+            archive_bytes,
+            root,
+            relative_paths,
+            max_file_bytes=settings.context_max_file_bytes,
+            max_total_bytes=settings.context_max_expanded_bytes,
+            max_entries=settings.context_max_archive_entries,
+        )
+        # Parsing beril.yaml and hashing the reports is CPU-bound, so it stays
+        # off the event loop too.
+        await asyncio.to_thread(
+            check_approval,
+            root,
+            caller_orcid=user.orcid_id,
+            project_slug=slug,
+            slugify=context_slugify,
+        )
 
-        # Check the whole manifest against the archive before reading anything,
-        # so a manifest naming a missing file queues nothing.
-        missing = [p for p in relative_paths if not (root / p).is_file()]
-        if missing:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"Manifest files missing from the archive: {', '.join(missing)}",
-            )
+        manager = await resolve_context_manager(db, user)
+        db_project = await _resolve_project(db, user, project)
+        target_root = user_target_root(user.orcid_id, db_project.slug)
 
         logger.info(f"ingesting files: {relative_paths}")
 
@@ -975,17 +1000,8 @@ async def post_context_ingest_files(
         content_hashes: dict[str, str] = {}
         skipped: list[IngestResult] = []
         for relative_path in relative_paths:
-            source = root / relative_path
-            size = source.stat().st_size
-            if size > settings.context_max_file_bytes:
-                raise HTTPException(
-                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                    detail=(
-                        f"{relative_path} is too large: {size} bytes "
-                        f"(limit {settings.context_max_file_bytes})."
-                    ),
-                )
-            content = await asyncio.to_thread(source.read_bytes)
+            # Sizes were bounded before extraction (extract_members).
+            content = await asyncio.to_thread((root / relative_path).read_bytes)
             # Recorded against the batch row so a later ingest can tell whether
             # this exact content already landed.
             digest = hashlib.sha256(content).hexdigest()

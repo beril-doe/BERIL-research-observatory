@@ -126,6 +126,59 @@ evidence, resolution state, and computed artifact support. It also includes
 `claims.json` and refutations, so `--changed` notices updates. `runtime.json` is
 excluded from semantic scientific recall; inspect it directly with `/runtime`.
 
+### Submitting through BERIL
+
+`/submit` mirrors a completed project into the context service through BERIL
+(`ingest_context.py --project <id> --json`, which POSTs a zip and a manifest to
+`POST /api/context/ingest_files`). BERIL checks every submission before it
+touches the project or the context store, and refuses one that fails any check
+with a 4xx response whose `detail` names the problem:
+
+| Check | Refused with |
+|---|---|
+| `beril.yaml`, `REPORT.md` and `REVIEW.md` are in every submission (removal-only ones too) | 422 |
+| `beril.yaml` has `status: complete` and a `project_id` naming the project being ingested | 422 |
+| `approval.by` is the submitting user's ORCiD | 403 |
+| `approval.report_hash` / `review_hash` match the carried `REPORT.md` / `REVIEW.md` | 422 |
+| Only allowed files are added (below); `!remove` lines may name any path | 422 |
+| Entries are stored or deflated, not encrypted, not symlinks, and stay inside the archive | 400 |
+| Within the size limits (below) | 413 |
+| `force` is used only by a BERIL admin | 403 |
+
+**Allowed files** — exactly what the mirror stages: `README.md`,
+`RESEARCH_PLAN.md`, `REPORT.md`, `REVIEW.md`, `references.md`, `FINDINGS.md`,
+`EXECUTIVE_SUMMARY.md`, `FAILURE_ANALYSIS.md`, `DESIGN_NOTES.md`,
+`CORRECTIONS.md`, `beril.yaml`, `memories/<name>.md`, `REFUTATION_<n>.md`, and
+the generated `PROJECT_METADATA.md` and `CLAIMS_CONTEXT.md`.
+
+**Archive format** — a zip whose entries are stored or deflated
+(`zipfile.ZIP_DEFLATED`, which `ingest_context.py` writes). bzip2, LZMA and
+other compression methods are refused, as are encrypted entries. Only the
+members the manifest names are extracted. This only matters if you build an
+archive yourself.
+
+**Size limits** (server settings, defaults shown):
+
+| Limit | Setting | Default |
+|---|---|---|
+| Upload size | `BERIL_CONTEXT_MAX_ARCHIVE_BYTES` | 32 MiB |
+| Manifest size | `BERIL_CONTEXT_MAX_MANIFEST_BYTES` | 1 MiB |
+| Manifest entries | `BERIL_CONTEXT_MAX_INGEST_FILES` | 50 |
+| Any one file | `BERIL_CONTEXT_MAX_FILE_BYTES` | 50 MiB |
+| Named files, expanded | `BERIL_CONTEXT_MAX_EXPANDED_BYTES` | 128 MiB |
+| Entries in the whole archive, listed or not | `BERIL_CONTEXT_MAX_ARCHIVE_ENTRIES` | 1000 |
+
+The proxy in front of BERIL accepts request bodies up to 40 MiB on this path.
+
+Through `/submit`, a refusal is reported as `"failed"` in the upload tool's
+`context_submission` JSON, with the server's `detail` in the reason; the
+lakehouse archive has still succeeded. The usual cause is a report or review
+edited after approval: re-run `/berdl-review` and `/submit`.
+
+The approval check is a consistency check, not proof: it ties every ingest to
+its approver and to the approved bytes, but the submitter supplies the
+`beril.yaml` it checks.
+
 ### Batching, pacing, and resume safety
 
 The ingest path uses batch-style OpenViking calls: resources are queued with
