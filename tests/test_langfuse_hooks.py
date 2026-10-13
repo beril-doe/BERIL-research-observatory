@@ -90,16 +90,29 @@ def _run_wrapper_with_dotenv(tmp_path, dotenv, env_flag=None):
     return seen.read_text() if seen.exists() else None
 
 
+def _setup_reports_on(tmp_path, dotenv):
+    """Whether `beril setup` would report tracing as on for this .env."""
+    from beril_cli import setup_cmd
+
+    env = tmp_path / "setup.env"
+    if dotenv is not None:
+        env.write_text(dotenv)
+    value = setup_cmd._parse_env_file(env).get("TRACE_TO_LANGFUSE", "").strip().lower()
+    return value == "true"
+
+
 def test_run_wrapper_reads_the_opt_in_from_dotenv(tmp_path):
     # `beril setup` writes the opt-in to .env, and the BERDL Hub has no direnv
     # to load it, so the wrapper reads it itself (issue 454).
     for i, dotenv in enumerate((
         "TRACE_TO_LANGFUSE=true\n",
         'OTHER=1\nTRACE_TO_LANGFUSE="true"\n',
-        "export TRACE_TO_LANGFUSE=true  # opted in by beril setup\n",
+        "  TRACE_TO_LANGFUSE = 'true'  \n",
+        "TRACE_TO_LANGFUSE=True\n",  # setup lowercases before checking
         "TRACE_TO_LANGFUSE=false\nTRACE_TO_LANGFUSE=true\n",  # last one wins
     )):
         assert _run_wrapper_with_dotenv(tmp_path / str(i), dotenv) == "true", dotenv
+        assert _setup_reports_on(tmp_path / str(i), dotenv), dotenv
 
 
 def test_run_wrapper_ignores_dotenv_without_an_opt_in(tmp_path):
@@ -110,8 +123,15 @@ def test_run_wrapper_ignores_dotenv_without_an_opt_in(tmp_path):
         "# TRACE_TO_LANGFUSE=true\n",  # the commented line in .env.example
         "TRACE_TO_LANGFUSE=true\nTRACE_TO_LANGFUSE=false\n",
         "MY_TRACE_TO_LANGFUSE=true\n",
+        # Values setup's parser would not read as `true` stay off, so the
+        # launcher never traces a session `beril setup` reports as off.
+        'TRACE_TO_LANGFUSE="true false"\n',
+        "TRACE_TO_LANGFUSE=true # opted in\n",
+        "TRACE_TO_LANGFUSE=truex\n",
+        "export TRACE_TO_LANGFUSE=true\n",
     )):
         assert _run_wrapper_with_dotenv(tmp_path / str(i), dotenv) is None, dotenv
+        assert not _setup_reports_on(tmp_path / str(i), dotenv), dotenv
 
 
 def test_run_wrapper_lets_the_shell_override_dotenv(tmp_path):

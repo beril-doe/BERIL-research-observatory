@@ -20,9 +20,14 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)" || exit 0
 # installed, the BERDL Hub included, so without this the opt-in did nothing
 # there (issue 454). The shell wins, so TRACE_TO_LANGFUSE=false in the
 # environment still turns tracing off. .env is read, never sourced, and only
-# this one key is looked at; the last assignment wins, as in setup's parser.
+# this one key is looked at. The value is read the way setup's
+# _parse_env_file and _run_tracing_step read it (last assignment wins,
+# surrounding whitespace and quotes stripped, case ignored), and only `true`
+# opts in, so the launcher never traces a session that `beril setup` would
+# report as off.
 if [ -z "${TRACE_TO_LANGFUSE+x}" ] && [ -f "$root/.env" ]; then
-  flag="$(sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?TRACE_TO_LANGFUSE[[:space:]]*=[[:space:]]*["'"'"']?([^"'"'"'#[:space:]]*).*/\2/p' "$root/.env" | tail -n 1)"
+  flag="$(sed -n -E 's/^[[:space:]]*TRACE_TO_LANGFUSE[[:space:]]*=(.*)$/\1/p' "$root/.env" | tail -n 1 |
+    sed -E "s/^[[:space:]]+//; s/[[:space:]]+\$//; s/^'+//; s/'+\$//; s/^\"+//; s/\"+\$//" | tr "[:upper:]" "[:lower:]")"
   [ "$flag" = true ] && export TRACE_TO_LANGFUSE=true
 fi
 [ "${TRACE_TO_LANGFUSE:-}" = true ] || exit 0
