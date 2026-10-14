@@ -19,14 +19,23 @@ Every result names a resource by **address**: `<owner>/<project>/<path>`.
   - `PROJECT_METADATA.md`, a generated table of project_id, title, status, authors, dates and branch. Use it for "by author" or "by status" lookups.
 - **Central docs:** `beril/docs/<doc>/...` for `pitfalls`, `discoveries`, `performance` and `research_ideas`.
 
-Documents are indexed in fragments, so a hit's address usually continues past the file name. In `0009-…/alpha/REPORT.md/REPORT.md` or `beril/docs/pitfalls/pitfalls/Foreign_Key_Gotchas.md`, **the third segment is the source file**:
+Documents are indexed in fragments, so a hit's address usually continues past the file name. **For a project, the source file is the path after `<owner>/<project>/` up to and including the first segment that is a file name** (it has an extension, such as `.md` or `.yaml`). Everything after that is a fragment. For a central doc, the doc's name is the segment after `beril/docs/`.
 
-| Address starts with | Read this file |
+| Hit address | Read this file |
 |---|---|
-| `<owner>/<project>/<file>/…` | `projects/<project>/<file>` in this checkout |
-| `beril/docs/<doc>/…` | `docs/<doc>.md` |
+| `0009-…/alpha/REPORT.md/REPORT.md` | `projects/alpha/REPORT.md` |
+| `0009-…/alpha/memories/pitfalls.md/pitfalls.md` | `projects/alpha/memories/pitfalls.md` |
+| `beril/docs/pitfalls/pitfalls/Foreign_Key_Gotchas.md` | `docs/pitfalls.md` |
 
-If the project isn't in the checkout (someone else's, not yet merged), read it through the context layer: `beril context find "<topic>" --address <owner>/<project>/<file> --read-content`.
+`PROJECT_METADATA.md` (and `CLAIMS_CONTEXT.md`) are generated when the project is submitted, so they have no file in the checkout.
+
+If the project isn't in the checkout (someone else's, or not yet merged), read the file through the context layer. Pass the source file's address and a query, because `find` needs one, such as the query that found it:
+
+```bash
+beril context find "<query>" --address <owner>/<project>/<source file> --read-content
+```
+
+Each fragment of that file that matches comes back with its full text.
 
 Any address can be passed back to scope a read: `--address A`, or as `ls`'s argument.
 
@@ -40,7 +49,7 @@ Any address can be passed back to scope a read: `--address A`, or as `ls`'s argu
 | Has this gotcha been hit before? | `pitfalls` | Project memories plus the central archive, as documents |
 | What has been found about X? | `discoveries` | Findings, with stale central duplicates already suppressed |
 | What exists ("list every project") | `ls` | A listing question; embeddings can't enumerate |
-| The full text of a hit | `find --address <hit> --read-content` | Or read the local file (see § Addresses) |
+| The full text of a hit | `find "<query>" --address <source file address> --read-content` | Or read the local file (see § Addresses) |
 
 This is a toolkit, not a single command. Use it like bash: pick a command, look at what comes back, and **follow up**. § Using the toolkit with judgment covers when `find` is the wrong tool and how to refine. The command reference is further down.
 
