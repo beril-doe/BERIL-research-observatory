@@ -159,6 +159,19 @@ Skills are invoked automatically based on context, or explicitly with `/skill-na
 
 BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environment management outside the agent session. `beril start --agent <name>` launches Claude Code, Codex, Gemini CLI or omp. With `--agent omp`, session transcripts are written under `~/.beril/omp-sessions/<checkout>/` — in `$HOME`, which persists across BERDL pod restarts where the checkout does not — and the path is printed at launch, so a session can be handed to a transcript reader afterwards.
 
+`beril context` searches what the observatory already knows: every submitted project and the central docs. It uses your `beril login`.
+
+```bash
+beril context find "core genome fitness"          # semantic search across all projects and docs
+beril context pitfalls "spark OOM"                # has this gotcha been hit before?
+beril context discoveries "pangenome"             # findings, stale duplicates suppressed
+beril context grep "kbase_ke_pangenome" --docs    # exact text, in the central docs
+beril context ls beril/docs                       # browse by address
+beril context doctor                              # check your login and the service
+```
+
+Results name each resource by an address, `<owner>/<project>/<path>`. Pass one back with `--address` (or as `ls`'s argument) to look there. Otherwise, scope a read with `--project` (one of your own projects), `--owner`, `--all-owners`, `--path`, or `--docs`. Add `--json` to any command for the raw response. When BERIL can't be reached, these commands fail and say so; there is no offline mode.
+
 ---
 
 ### Getting BERDL Access
