@@ -14,7 +14,7 @@ The worklog answers **"what did the agent do, and why?"** for a human scanning a
 
 `projects/<id>/WORKLOG.md` — append-only, one file per project, alongside `RESEARCH_PLAN.md` and `REPORT.md`.
 
-Not in `memories/`. That directory is for cross-project knowledge destined for OpenViking ingestion (pitfalls, discoveries, performance). The worklog is project-local narrative and is not ingested.
+Not in `memories/`. That directory is for cross-project knowledge destined for the context layer (pitfalls, discoveries, performance). The worklog is project-local narrative and is not ingested.
 
 ## Entry format
 

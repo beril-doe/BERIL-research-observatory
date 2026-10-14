@@ -106,7 +106,7 @@ For each key finding, assess:
 | Is this novel? | Identify what BERDL data adds that wasn't known before |
 | Are there caveats? | Data coverage, confounders, methodological limitations |
 
-Also compare against **prior observatory work**, not just published literature: query the knowledge layer for related findings to agree with, extend, or contrast — see `knowledge-context`. Seed: `uv run --env-file .env knowledge/scripts/knowledge_query.py find "<finding's key concept>"`, then `read` related projects' REPORT/FINDINGS and cite them alongside the papers. (Falls back to local search if OpenViking is down.)
+Also compare against **prior observatory work**, not just published literature: query the knowledge layer for related findings to agree with, extend, or contrast — see `knowledge-context`. Seed: `beril context find "<finding's key concept>"` (or `beril context discoveries "<concept>"` for approved findings), then read related projects' REPORT/FINDINGS and cite them alongside the papers. If `beril context` is unavailable, say so and compare against this checkout's projects only.
 
 #### Step 7: Produce Synthesis
 
@@ -308,7 +308,7 @@ After completing the synthesis, tell the user:
 
 ## Integration
 
-- **Knowledge context**: After updating `REPORT.md`, `README.md`, or references, run or suggest `knowledge/scripts/ingest_context.py --project <project_id>` so OpenViking picks up the project changes incrementally.
+- **Knowledge context**: Project changes reach the context layer when the project is approved and archived by `/submit` — there is no separate refresh step after editing `REPORT.md`, `README.md`, or references.
 - **Reads from**: `data/*.csv`, `figures/`, `notebooks/*.ipynb`, `RESEARCH_PLAN.md`, `references.md`
 - **Calls**: `/literature-review` (for literature comparison)
 - **Produces**: `REPORT.md` (Key Findings, Results, Interpretation, Supporting Evidence, Future Directions, References); updated `README.md` (Status)
