@@ -120,7 +120,7 @@ Then **resume the original task** — pitfall capture should not derail the user
 
 ## Important Notes
 
-- **Knowledge Context Integration.** Pitfalls land in `projects/<id>/memories/pitfalls.md` (the durable per-project location). They reach the context layer — and other projects' `beril context pitfalls` searches — when the project is approved and archived by `/submit`; there is no separate refresh step.
+- **Knowledge Context Integration.** Pitfalls land in `projects/<id>/memories/pitfalls.md` (the durable per-project location). They reach the context layer — and other projects' `beril context pitfalls` searches — when `/submit` approves and archives the project and its best-effort mirror lands (see `knowledge-context` § How content gets in for checking and retrying it).
 - **Don't interrupt flow unnecessarily.** If the issue is minor and you already know the fix, apply the fix first, then ask about documenting it. The user's primary task always comes first.
 - **One pitfall at a time.** If multiple issues arise, handle each separately to avoid overwhelming the user.
 - **Be specific.** Vague entries like "queries can be slow" are not useful. Include the exact table, the exact error, the exact fix.

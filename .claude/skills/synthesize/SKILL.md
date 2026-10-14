@@ -308,7 +308,7 @@ After completing the synthesis, tell the user:
 
 ## Integration
 
-- **Knowledge context**: Project changes reach the context layer when the project is approved and archived by `/submit` — there is no separate refresh step after editing `REPORT.md`, `README.md`, or references.
+- **Knowledge context**: Project changes reach the context layer when `/submit` approves and archives the project and its best-effort mirror lands — editing `REPORT.md`, `README.md`, or references changes nothing in the index until then (see `knowledge-context` § How content gets in).
 - **Reads from**: `data/*.csv`, `figures/`, `notebooks/*.ipynb`, `RESEARCH_PLAN.md`, `references.md`
 - **Calls**: `/literature-review` (for literature comparison)
 - **Produces**: `REPORT.md` (Key Findings, Results, Interpretation, Supporting Evidence, Future Directions, References); updated `README.md` (Status)

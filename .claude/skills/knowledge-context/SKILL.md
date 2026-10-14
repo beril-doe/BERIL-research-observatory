@@ -36,7 +36,7 @@ Any address can be passed back to scope a read: `--address A`, or as `ls`'s argu
 |---|---|---|
 | Free-text / fuzzy ("anything about phage timing?") | `find` | Semantic top-K across everything |
 | Time-bounded ("changed in the last 7 days") | `find --since 7d --time-field updated_at` | Server-side time filter |
-| Exact name / ID / ORCiD / table ("every mention of Ada Lovelace") | `grep` | Deterministic and exhaustive; `find` may cut off |
+| Exact name / ID / ORCiD / table ("every mention of Ada Lovelace") | `grep` | Literal matches, not a ranked top-K (capped by `--node-limit`; see `grep` below) |
 | Has this gotcha been hit before? | `pitfalls` | Project memories plus the central archive, as documents |
 | What has been found about X? | `discoveries` | Findings, with stale central duplicates already suppressed |
 | What exists ("list every project") | `ls` | A listing question; embeddings can't enumerate |
@@ -65,7 +65,7 @@ Contradictory flags (an address plus `--project`, or `--owner` plus `--all-owner
 
 `find` is semantic top-K, best for exploring an unfamiliar concept. Reach for something else when:
 
-- You need **exhaustiveness** (every hit, no ranking cutoff): use `grep`.
+- You need **every literal hit** rather than a ranked top-K: use `grep`, with a `--node-limit` large enough (see the cap under `grep`).
 - You know the **exact token** (a gene ID, ORCiD, error string or table name): use `grep`, because semantic ranking can bury an exact string.
 - The question is a **known gotcha** or a **prior finding**: use `pitfalls` / `discoveries`. They return whole documents and apply the project-memory precedence rules for you.
 - You need to **enumerate**: use `ls`.
@@ -132,7 +132,9 @@ Output is `N result(s)`, then for each hit: its address, `score: 0.xxx`, and its
 
 ### `grep`: exact-pattern search
 
-Deterministic and exhaustive across all indexed file content in scope. Matches include incidental mentions, not just structured fields (see § Common workflows for the by-author caveat).
+Literal matches across all indexed file content in scope. Matches include incidental mentions, not just structured fields (see § Common workflows for the by-author caveat).
+
+**Results are capped.** At most `--node-limit` matches come back: 256 by default, 10,000 at most. When a search reaches the cap, `beril context grep` prints a `warning: results stopped at the N-match limit` on stderr. **Treat those results as incomplete**: raise `--node-limit` or narrow the scope before concluding that something is absent or that a list is complete.
 
 ```bash
 beril context grep "Ada Lovelace" --all-owners
@@ -175,10 +177,10 @@ Directories end in `/`. With `--json`, each entry carries `name`, `isDir`, `size
 
 ## Common workflows
 
-**"Find all projects by an author":** `grep` is exhaustive but matches **all** file content, not just author rows, so expect false positives from incidental mentions. For an authoritative list, keep only matches in the generated metadata file:
+**"Find all projects by an author":** `grep` matches **all** file content, not just author rows, so expect false positives from incidental mentions. Use a generous `--node-limit` (e.g. 2000) and check for the truncation warning. For an authoritative list, keep only matches in the generated metadata file:
 
 ```bash
-beril context grep "Ada Lovelace" --all-owners --json \
+beril context grep "Ada Lovelace" --all-owners --node-limit 2000 --json \
   | jq -r '[.matches[] | select(.address | contains("/PROJECT_METADATA.md")) | .address | split("/")[1]] | unique | .[]'
 ```
 
@@ -199,7 +201,15 @@ for owner in $(beril context ls --all-owners --simple); do beril context ls "$ow
 
 ## How content gets in
 
-A project enters the context layer when `/submit` approves and archives it. The submit step mirrors the approved files; see the `submit` skill. There is no user-side "refresh": editing files in the checkout changes nothing in the index until the next `/submit`. Central docs are maintained by BERIL admins.
+A project enters the context layer when `/submit` approves and archives it: after the lakehouse archive succeeds, `/submit` mirrors the approved files into the context layer. See the `submit` skill. Editing files in the checkout changes nothing in the index until the project is submitted again. Central docs are maintained by BERIL admins.
+
+**The mirror is best-effort.** The archive can succeed while the mirror is skipped (BERIL unreachable, not logged in) or fails. `/submit` reports which in its `context_submission` verdict (`ok`, `skipped` or `failed`). After a `/submit`, check that verdict before telling the user the project is searchable. If it's `skipped` or `failed`, the project's approver can retry the same mirror. It goes through BERIL with their login, and files that already landed are skipped:
+
+```bash
+uv run knowledge/scripts/ingest_context.py --project <project_id> --json
+```
+
+So **absence from results is not proof of absence**: a submitted project whose mirror never landed won't appear. When "no prior work" matters, also check this checkout's `projects/` before concluding.
 
 ## For other skills
 
