@@ -205,9 +205,11 @@ beril context doctor
   - list projects: the per-owner `ls` loop in `knowledge-context` § Common workflows
 
   **Do not enumerate `projects/` or read `projects/*/README.md` / REPORTs by hand for
-  context** — the knowledge layer has every submitted project indexed and ranked,
-  including ones not in this checkout, and hand-scanning misses the cross-project
-  connections it surfaces.
+  context** — the knowledge layer indexes and ranks submitted projects, including ones
+  not in this checkout, and hand-scanning misses the cross-project connections it
+  surfaces. One exception: indexing is best-effort (a submitted project's mirror can be
+  skipped or fail — see `knowledge-context` § How content gets in), so **before
+  concluding that no prior work exists**, also check `ls projects/` in this checkout.
 - **NOT_LOGGED_IN / AUTH_FAILED** → tell the user to run `beril login` in their own
   terminal (it asks for a personal access token created at `<BERIL URL>/account/tokens`), then
   continue — non-blocking, don't wait on it.
