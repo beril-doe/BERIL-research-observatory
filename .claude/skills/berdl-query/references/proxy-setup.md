@@ -50,7 +50,7 @@ The `--berdl-proxy` flag on BERDL scripts sets `grpc_proxy` and `https_proxy` to
 source .venv-berdl/bin/activate
 python -c "
 import sys, asyncio
-sys.argv = ['pproxy', '-l', 'http://:8123', '-r', 'socks5://127.0.0.1:1338', '-v']
+sys.argv = ['pproxy', '-l', 'http://127.0.0.1:8123', '-r', 'socks5://127.0.0.1:1338', '-v']
 asyncio.set_event_loop(asyncio.new_event_loop())
 from pproxy.server import main
 main()

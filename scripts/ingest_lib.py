@@ -150,7 +150,7 @@ def _start_pproxy_if_needed() -> None:
     subprocess.Popen(
         [sys.executable, "-c",
          "import sys, asyncio; "
-         "sys.argv = ['pproxy', '-l', 'http://:8123', '-r', 'socks5://127.0.0.1:1338']; "
+         "sys.argv = ['pproxy', '-l', 'http://127.0.0.1:8123', '-r', 'socks5://127.0.0.1:1338']; "
          "asyncio.set_event_loop(asyncio.new_event_loop()); "
          "from pproxy.server import main; main()"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
