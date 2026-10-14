@@ -1,292 +1,232 @@
 ---
 name: knowledge-context
-description: Use when searching BERIL project/docs context through OpenViking or refreshing the indexed context layer before research, synthesis, or pitfall work.
+description: Use when searching what the observatory already knows — submitted projects and the central docs — before research, synthesis, or pitfall work. Covers `beril context` find/grep/ls/pitfalls/discoveries and how to follow a hit to its source.
 allowed-tools: Bash, Read
 user-invocable: true
 ---
 
 # Knowledge Context Skill
 
-OpenViking holds an indexed context layer over BERIL projects and central docs. Use it for fast recall, then read the underlying file before editing or citing — search results are a map, not the source of truth.
+BERIL keeps an indexed context layer over every submitted project and the central docs. Query it with `beril context`, which uses the user's `beril login`. Use it for fast recall, then read the underlying file before editing or citing: search results are a map, not the source of truth.
 
-## Resource layout
+## Addresses
 
-- Projects: `viking://resources/projects/<project_id>/`
-  - Curated files: `README.md`, `RESEARCH_PLAN.md`, `REPORT.md`, `REVIEW.md`, `references.md`, `FINDINGS.md`, `EXECUTIVE_SUMMARY.md`, `FAILURE_ANALYSIS.md`, `DESIGN_NOTES.md`, `CORRECTIONS.md`, `beril.yaml`
-  - `PROJECT_METADATA.md` — generated table with project_id, title, status, authors, dates, branch, engine. Use this for "by author / by status" lookups (search the project URI, not a global index — the index doesn't exist).
-- Central docs: `viking://resources/users/beril/docs/<slug>/` for `pitfalls`, `discoveries`, `performance`, `research_ideas`.
+Every result names a resource by **address**: `<owner>/<project>/<path>`.
 
-## Picking the right primitive
+- **Projects:** `<owner ORCiD>/<project_id>/...`, for example `0009-0001-2345-6789/fitness_effects_conservation/REPORT.md/...`. Each submitted project carries its curated files (`README.md`, `RESEARCH_PLAN.md`, `REPORT.md`, `REVIEW.md`, `references.md`, `FINDINGS.md`, `EXECUTIVE_SUMMARY.md`, `FAILURE_ANALYSIS.md`, `DESIGN_NOTES.md`, `CORRECTIONS.md`, `beril.yaml`), plus:
+  - `memories/*.md`;
+  - `REFUTATION_<n>.md`;
+  - `PROJECT_METADATA.md`, a generated table of project_id, title, status, authors, dates and branch. Use it for "by author" or "by status" lookups.
+- **Central docs:** `beril/docs/<doc>/...` for `pitfalls`, `discoveries`, `performance` and `research_ideas`.
 
+Documents are indexed in fragments, so a hit's address usually continues past the file name. **For a project, the source file is the path after `<owner>/<project>/` up to and including the first segment that is a file name** (it has an extension, such as `.md` or `.yaml`). Everything after that is a fragment. For a central doc, the doc's name is the segment after `beril/docs/`.
+
+| Hit address | Read this file |
+|---|---|
+| `0009-…/alpha/REPORT.md/REPORT.md` | `projects/alpha/REPORT.md` |
+| `0009-…/alpha/memories/pitfalls.md/pitfalls.md` | `projects/alpha/memories/pitfalls.md` |
+| `beril/docs/pitfalls/pitfalls/Foreign_Key_Gotchas.md` | `docs/pitfalls.md` |
+
+`PROJECT_METADATA.md` (and `CLAIMS_CONTEXT.md`) are generated when the project is submitted, so they have no file in the checkout.
+
+If the project isn't in the checkout (someone else's, or not yet merged), read the file through the context layer. Pass the source file's address and a query, because `find` needs one, such as the query that found it:
+
+```bash
+beril context find "<query>" --address <owner>/<project>/<source file> --read-content
 ```
-QUERY="uv run knowledge/scripts/knowledge_query.py"
-```
 
-Credentials resolve from `~/.beril` after `beril login` (see § Configuration) —
-no `--env-file` needed. To override, set `OPENVIKING_URL` / `OPENVIKING_API_KEY`
-in the env or prepend `--env-file .env`.
+Each fragment of that file that matches comes back with its full text.
+
+Any address can be passed back to scope a read: `--address A`, or as `ls`'s argument.
+
+## Picking the right command
 
 | Question | Use | Why |
 |---|---|---|
-| Free-text / fuzzy ("anything about phage timing?") | `find` | Semantic top-K |
-| Time-bounded ("changed in last 7d") | `find --since 7d --time-field updated_at` | Server-side time filter |
-| Exact name / ID / ORCID ("all projects mentioning Ada Lovelace") | `grep` | Deterministic, exhaustive — `find` may cut off |
-| Enumerate URIs ("list every project") | `glob` or `ls` | Embeddings can't enumerate; this is a filesystem question |
-| Inspect a single resource | `stat`, `overview`, `read` | Direct access |
-| Walk a subtree | `tree` | Hierarchical view |
+| Free-text / fuzzy ("anything about phage timing?") | `find` | Semantic top-K across everything |
+| Time-bounded ("changed in the last 7 days") | `find --since 7d --time-field updated_at` | Server-side time filter |
+| Exact name / ID / ORCiD / table ("every mention of Ada Lovelace") | `grep` | Literal matches, not a ranked top-K (capped by `--node-limit`; see `grep` below) |
+| Has this gotcha been hit before? | `pitfalls` | Project memories plus the central archive, as documents |
+| What has been found about X? | `discoveries` | Findings, with stale central duplicates already suppressed |
+| What exists ("list every project") | `ls` | A listing question; embeddings can't enumerate |
+| The full text of a hit | `find "<query>" --address <source file address> --read-content` | Or read the local file (see § Addresses) |
 
-This is a toolkit, not a single command — use it like you use bash: pick a
-primitive, look at what comes back, and **follow up**. The sections below
-(`§ Using the toolkit with judgment`) cover when `find` is the wrong tool, how
-to refine a query, and how to drill from a pointer into the source. The
-per-command reference is further down.
+This is a toolkit, not a single command. Use it like bash: pick a command, look at what comes back, and **follow up**. § Using the toolkit with judgment covers when `find` is the wrong tool and how to refine. The command reference is further down.
+
+### Scope
+
+- With no scope, `find` searches **everything**: every owner's projects and the central docs.
+- `ls` and `grep` with no scope look only at the user's own projects.
+
+To narrow or widen:
+
+- `--project <id>` means **the user's own** project of that name. For a project whoever owns it, add `--all-owners`: `--project <id> --all-owners`.
+- `--owner <ORCiD>` narrows to one person; `--all-owners` spans everyone.
+- `--path <p>` narrows to a path within `--project`.
+- `--docs` means the central docs (`beril/docs`).
+- `--address <owner/project/path>` takes an address from an earlier result.
+
+Contradictory flags (an address plus `--project`, or `--owner` plus `--all-owners`) are refused before anything is sent. So are misspelled flags.
 
 ## Using the toolkit with judgment
 
 ### When `find` is *not* the right tool
 
-`find` is semantic top-K — best for exploring an unfamiliar concept ("anything
-about phage timing?"). Reach for something else when:
+`find` is semantic top-K, best for exploring an unfamiliar concept. Reach for something else when:
 
-- You need **exhaustiveness** (every hit, no ranking cutoff) → `grep`.
-- You know the **exact token** — a gene ID, ORCID, error string, table name →
-  `grep` (semantic ranking can bury an exact string).
-- You need to **enumerate** ("list every project", "which projects have a
-  REPORT") → `glob` / `ls`. Embeddings can't enumerate.
-- You want **related work** for a resource → `overview` it, then `find` on its
-  theme (there are no stored links between resources to walk).
-- You already know the URI and just want the content → `overview` / `read`.
+- You need **every literal hit** rather than a ranked top-K: use `grep`, with a `--node-limit` large enough (see the cap under `grep`).
+- You know the **exact token** (a gene ID, ORCiD, error string or table name): use `grep`, because semantic ranking can bury an exact string.
+- The question is a **known gotcha** or a **prior finding**: use `pitfalls` / `discoveries`. They return whole documents and apply the project-memory precedence rules for you.
+- You need to **enumerate**: use `ls`.
 
 ### The retrieval loop
 
 A first query is a starting point, not the answer. Read the result, then move:
 
-- **Too many / vague hits** → tighten the query terms, add
-  `--score-threshold 0.5`, or scope with `--project <id>` / `--target-uri`.
-- **Too few / zero hits** → broaden the terms, drop the threshold, widen the
-  scope, or switch `find` → `grep` on a single defining token.
-- **A promising hit** → `overview` it for the gist, then `read` the specific
-  file; to find related work, `find` on the theme the hit turned out to be about.
-- **Stop** when you can name the source files that answer the question, or when
-  two refinements surface nothing new. Don't keep querying past sufficiency.
+- **Too many or vague hits:** tighten the terms, add `--score-threshold 0.5`, or scope with `--project <id> --all-owners` / `--docs`.
+- **Too few or zero hits:** broaden the terms, drop the threshold, widen the scope, or switch from `find` to `grep` on a single defining token.
+- **A promising hit:** read its source file (see § Addresses). To find related work, `find` on the theme the hit turned out to be about.
+- **Stop** when you can name the source files that answer the question, or when two refinements surface nothing new. Don't keep querying past sufficiency.
 
-Search results are a **map**, not the source of truth — once a hit looks right,
-`read` the underlying file before editing or citing it.
+Once a hit looks right, **read the underlying file** before editing or citing it.
 
 ### Drill-down chains (worked examples)
 
 ```bash
 # "What's known about X?"  broad find -> read the strongest hit -> find related work
-$QUERY find "metal resistance biogeography" --limit 5
-$QUERY read viking://resources/projects/<top_hit>/REPORT.md
-$QUERY find "<the hit's specific organism or method>" --limit 5
+beril context find "metal resistance biogeography" --limit 5
+#   top hit 0009-…/metal_atlas/REPORT.md/… -> read projects/metal_atlas/REPORT.md
+beril context find "<the hit's specific organism or method>" --limit 5
 
-# "Has anyone already done Y?"  find -> if vague, grep a defining term -> confirm
-$QUERY find "carbon formulation scoring"
-$QUERY grep "CF formulation" --uri viking://resources/projects/ -i
-$QUERY glob '*' --uri viking://resources/projects/   # confirm the project exists
+# "Has anyone already done Y?"  find -> if vague, grep a defining term
+beril context find "carbon formulation scoring"
+beril context grep "CF formulation" --all-owners -i
 
-# "Pitfalls for database Z?"  grep the exact name across archive + per-project memories
-$QUERY grep "kbase.ke_pangenome" --uri viking://resources/users/beril/docs/pitfalls/
-$QUERY grep "kbase.ke_pangenome" --uri viking://resources/projects/ -i   # memories too
+# "Pitfalls for database Z?"  purpose-built, exact-token match
+beril context pitfalls "kbase_ke_pangenome" --exact
 ```
 
-### Degraded mode (knowledge layer unreachable)
+### When BERIL is unreachable
 
-If OpenViking is down, commands fall back automatically, in two tiers, and print
-a banner naming the tier that answered:
-
-- `find` / `grep` / `read` / `overview` → **BERDL lakehouse** (the submitted
-  project archive) first, then **local** project files. Banner
-  `⚠ … served from the BERDL lakehouse archive` means the submitted copy
-  answered; `⚠ … used local keyword search` means it fell through to your
-  working tree. Local/BERDL search is keyword-only (no semantics), so **prefer
-  exact tokens**, treat recall as **partial**, and still read the source.
-- `ls` / `tree` / `stat` / `glob` → **BERDL lakehouse** only (structural queries
-  over the archived object layout). If the lakehouse is unreachable/unauthorized
-  they report unavailable — there is no local equivalent.
-
-BERDL-served results reflect the **submitted** archive, which may differ from
-your local working tree, and cover only projects (not central `docs/`). BERDL
-`glob`/`tree`/`ls` walk the raw archived file layout, so their structure can
-differ from OpenViking's semantically-decomposed resource tree.
-
-To tell **server-down apart from an auth problem**, run the diagnostic:
+There is **no offline fallback**: when BERIL can't be reached, `beril context` fails and says so. Run the diagnostic to see why:
 
 ```bash
-$QUERY doctor          # OK | UNREACHABLE | NO API KEY | AUTH FAILED (exit 0/1)
+beril context doctor     # OK | NOT_LOGGED_IN | UNREACHABLE | AUTH_FAILED | UNAVAILABLE (exit 0/1)
 ```
 
-`UNREACHABLE` → server/URL/network; `NO API KEY` / `AUTH FAILED` → the client's
-`OPENVIKING_API_KEY` (see § Configuration → remote setup).
+- `NOT_LOGGED_IN` / `AUTH_FAILED`: the user runs `beril login`.
+- `UNREACHABLE`: a network or server problem.
+- `UNAVAILABLE`: BERIL is up but its context layer isn't answering.
 
-### `find` — semantic search
+In every failure case, tell the user, and fall back to reading this checkout's own files with your normal tools: `projects/*/` and `docs/{pitfalls,discoveries,performance}.md`. That covers only what's in this checkout, with no semantic search and nothing submitted elsewhere, so say that recall is partial.
+
+## Command reference
+
+Every command takes `--json` to print the raw response (addresses included), for filtering with `jq`.
+
+### `find`: semantic search
 
 ```bash
-$QUERY find "query terms"
-$QUERY find "query terms" --project <project_id>     # one project
-$QUERY find "query terms" --docs                     # central docs only
-$QUERY find "query terms" --target-uri viking://resources/projects/alpha/REPORT.md
-$QUERY find "query terms" --since 7d --time-field updated_at
-$QUERY find "query terms" --score-threshold 0.5 --limit 25
-$QUERY find "query terms" --json
+beril context find "query terms"                                  # everything
+beril context find "query terms" --project <id> --all-owners      # one project, any owner
+beril context find "query terms" --project <id>                   # one of the user's own projects
+beril context find "query terms" --docs                           # central docs only
+beril context find "query terms" --address <owner>/<project>/REPORT.md
+beril context find "query terms" --since 7d --time-field updated_at
+beril context find "query terms" --score-threshold 0.5 --limit 25
+beril context find "query terms" --read-content                   # full text, not just abstracts
 ```
 
-Power filter — pass an OV filter tree directly:
+Output is `N result(s)`, then for each hit: its address, `score: 0.xxx`, and its abstract (plus `--- content ---` with `--read-content`).
+
+### `grep`: exact-pattern search
+
+Literal matches across all indexed file content in scope. Matches include incidental mentions, not just structured fields (see § Common workflows for the by-author caveat).
+
+**Results are capped.** At most `--node-limit` matches come back: 256 by default, 10,000 at most. When a search reaches the cap, `beril context grep` prints a `warning: results stopped at the N-match limit` on stderr. **Treat those results as incomplete**: raise `--node-limit` or narrow the scope before concluding that something is absent or that a list is complete.
 
 ```bash
-$QUERY find "query terms" --filter '{"op":"must","field":"uri","conds":["viking://resources/projects/alpha/"]}'
+beril context grep "Ada Lovelace" --all-owners
+beril context grep "0000-0002" --all-owners -i
+beril context grep "TODO" --project <id> --all-owners --node-limit 50
+beril context grep "deprecated" --all-owners --exclude beril/docs
+beril context grep "kbase_ke_pangenome" --docs
 ```
 
-Filter ops the OV vector index supports: `must` (eq/in on a metadata field), `range` (gt/lt/gte/lte), `time_range`, `and` / `or` over `conds`. `--since`/`--until`/`--time-field` build the `time_range` for you.
+Output is `address:line: text` per match, then a count. Flags: `-i/--case-insensitive`, `--node-limit N`, `--exclude <address>`.
 
-### `grep` — exact-pattern search
-
-Deterministic, exhaustive across **all ingested file content** under the `--uri` subtree. Best for keyword lookups where `find` ranking would silently drop matches. Note that matches include incidental mentions, not just structured fields — see § Workflows for the by-author caveat.
+### `pitfalls` / `discoveries`: purpose-built document searches
 
 ```bash
-$QUERY grep "Ada Lovelace" --uri viking://resources/projects/
-$QUERY grep "ORCID-0000" --uri viking://resources/ -i
-$QUERY grep "TODO" --uri viking://resources/projects/alpha/ --node-limit 50
-$QUERY grep "deprecated" --uri viking://resources/ --exclude-uri viking://resources/users/beril/docs/
+beril context pitfalls "spark OOM"                       # semantic
+beril context pitfalls "kbase_ke_pangenome" --exact      # literal token match
+beril context pitfalls --project <id>                    # one of the user's own projects (+ central)
+beril context pitfalls --owner <ORCiD>                   # one owner's projects (+ central)
+beril context discoveries "core genome"                  # findings, stale duplicates suppressed
+beril context discoveries                                # list every discovery document
 ```
 
-Flags: `-i/--case-insensitive`, `--node-limit N`, `--exclude-uri <uri>`.
+Each result is a **document**: its address, its origin, its score and the matching excerpts.
+- `pitfalls` origins: `project_memory` (with the project) or `central`.
+- `discoveries` origins: `project_memory`, `central_legacy` or `central_background`.
 
-### `glob` — URI pattern enumeration
+The header reports how many stale central duplicates were suppressed in favor of a project's own copy.
 
-Pattern is **relative** to `--uri`. Defaults to `viking://`.
+### `ls`: listing
 
 ```bash
-$QUERY glob '*' --uri viking://resources/projects/                     # one project per row
-$QUERY glob '**/*.md' --uri viking://resources/projects/alpha/         # all .md files in a project
-$QUERY glob '**/REPORT.md' --uri viking://resources/projects/          # every project's REPORT.md
+beril context ls                                  # the user's own projects
+beril context ls --all-owners --simple            # every owner
+beril context ls <owner>                          # one owner's projects
+beril context ls <owner>/<project> -r             # a project's files, recursively
+beril context ls beril/docs                       # the central docs
 ```
 
-### `ls`, `tree`, `stat` — structural navigation
-
-```bash
-$QUERY ls viking://resources/projects/ --simple        # path list
-$QUERY ls viking://resources/projects/alpha/ -r        # recursive
-$QUERY tree viking://resources/projects/alpha/         # hierarchy
-$QUERY stat viking://resources/projects/alpha/         # metadata for one URI
-```
-
-### `overview`, `read` — resource access
-
-```bash
-$QUERY overview viking://resources/projects/<id>/      # L1 summary
-$QUERY read viking://resources/projects/<id>/REPORT.md # full content
-```
-
-## Refreshing context
-
-```bash
-INGEST="uv run knowledge/scripts/ingest_context.py"   # creds from ~/.beril; see § Configuration
-$INGEST --project <project_id>     # after editing one project
-$INGEST --changed                  # after mixed edits — diffs against state manifest
-$INGEST --all                      # full refresh
-$INGEST --all --limit 5            # cap project count (rate-limited VLMs)
-$INGEST --docs                     # central docs only
-```
-
-`--changed` and `--all` reconcile by manifest diff: removed projects are deleted from OV automatically. `--limit` caps how many projects ingest in one run and writes a partial manifest so a follow-up `--changed` finishes the rest.
-
-## Configuration
-
-**Remote server (recommended for most users):** BERIL runs a shared OpenViking
-server (currently the dev host `https://beril-dev.kbase.us`). The one-call setup
-is `beril login` — it validates your token and links + caches your OpenViking
-credential in `~/.beril`, so the query CLI resolves it automatically:
-
-```bash
-beril login                 # links OpenViking too; no browser cookie needed
-$QUERY doctor               # verify (no --env-file required once cached)
-```
-
-If login couldn't reach OpenViking (or you logged in before this was wired up),
-link it separately against the same stored token:
-
-```bash
-beril ov setup              # or `beril ov setup --regenerate` to rotate the key
-beril ov status             # show the cached credential + server health
-```
-
-`ContextConfig.from_env` precedence is: explicit env vars → the `~/.beril`
-cached credential → the local default URL. So `OPENVIKING_URL` /
-`OPENVIKING_API_KEY` (in `.env` or the shell) still override the cache when set
-— useful for CI or pointing at a different server. `beril ov print-env` emits
-those two lines if you'd rather populate `.env` (`eval "$(beril ov print-env)"`).
-
-`.env` keys (copy from `.env.example`), when you set them explicitly:
-
-- `OPENVIKING_URL` — defaults to `http://127.0.0.1:1933`
-- `OPENVIKING_API_KEY` — only when the server enforces auth (remote deployments)
-
-Full walkthrough (rotation, troubleshooting): `docs/remote-openviking-setup.md`.
-
-**Local server:** copy `knowledge/openviking/ov.conf.example` → `knowledge/openviking/ov.conf` and set the OpenRouter key in `embedding` and the CBORG key in `vlm`. The local `ov.conf` is gitignored.
-
-```bash
-uv run openviking-server doctor --config knowledge/openviking/ov.conf
-uv run openviking-server --config knowledge/openviking/ov.conf
-```
-
-Both scripts probe `OPENVIKING_URL` before opening a client. `ingest_context.py` (the write path) exits cleanly with a start hint when the server is unreachable. `knowledge_query.py` instead falls back to local keyword search for `find`/`grep`/`read`/`overview` (see § Degraded mode) so read queries never hard-fail — neither path produces a Python traceback.
-
-After the server is running, smoke-test ingest + query for the five most-recently-modified projects:
-
-```bash
-uv run knowledge/scripts/smoke_ingest_openviking.py
-```
+Directories end in `/`. With `--json`, each entry carries `name`, `isDir`, `size` and `modTime`.
 
 ## Common workflows
 
-**"Find all projects by an author"** — `grep` is exhaustive but matches **all** file content, not just author rows. So expect false positives from incidental mentions in REPORT/README/references. To get an authoritative list, scope to the structured metadata file via post-filtering:
+**"Find all projects by an author":** `grep` matches **all** file content, not just author rows, so expect false positives from incidental mentions. Use a generous `--node-limit` (e.g. 2000) and check for the truncation warning. For an authoritative list, keep only matches in the generated metadata file:
 
 ```bash
-$QUERY grep "Ada Lovelace" --uri viking://resources/projects/ \
-  | jq '[.matches[] | select(.uri | endswith("/PROJECT_METADATA.md")) | (.uri | capture("projects/(?<id>[^/]+)/").id)] | unique'
+beril context grep "Ada Lovelace" --all-owners --node-limit 2000 --json \
+  | jq -r '[.matches[] | select(.address | contains("/PROJECT_METADATA.md")) | .address | split("/")[1]] | unique | .[]'
 ```
 
-(`grep` always emits JSON, no `--json` flag needed.) The unfiltered `grep` is still useful as a starting set — the URI tells you whether the hit is in metadata vs prose.
-
-**"What changed in the last week?"** — `find` requires a non-empty query (server rejects `""`). Use a topic word or a broad term:
+**"What changed in the last week?":** `find` needs a non-empty query, so use a topic word or a broad term:
 
 ```bash
-$QUERY find "BERIL" --since 7d --time-field updated_at --limit 50 --json
+beril context find "BERIL" --since 7d --time-field updated_at --limit 50
 ```
 
-For a truly content-agnostic recency view, prefer `ls` / `tree` / `stat` and read the `modTime` field.
-
-**"List every project"** — filesystem question, not a search question:
+**"List every project":**
 
 ```bash
-$QUERY ls viking://resources/projects/ --simple
-# or, glob (pattern is relative to --uri):
-$QUERY glob '*' --uri viking://resources/projects/
+for owner in $(beril context ls --all-owners --simple); do beril context ls "$owner" --simple; done
+# beril/docs in that list is the central docs, not a project.
 ```
 
-**"What does this project relate to?"**
+**"What does this project relate to?":** read its `REPORT.md`, then `find` on its theme, organism or method.
+
+## How content gets in
+
+A project enters the context layer when `/submit` approves and archives it: after the lakehouse archive succeeds, `/submit` mirrors the approved files into the context layer. See the `submit` skill. Editing files in the checkout changes nothing in the index until the project is submitted again. Central docs are maintained by BERIL admins.
+
+**The mirror is best-effort.** The archive can succeed while the mirror is skipped (BERIL unreachable, not logged in) or fails. `/submit` reports which in its `context_submission` verdict (`ok`, `skipped` or `failed`). After a `/submit`, check that verdict before telling the user the project is searchable. If it's `skipped` or `failed`, the project's approver can retry the same mirror. It goes through BERIL with their login, and files that already landed are skipped:
 
 ```bash
-$QUERY overview viking://resources/projects/<id>/
-$QUERY find "<its theme, organism or method>" --limit 10
+uv run knowledge/scripts/ingest_context.py --project <project_id> --json
 ```
+
+So **absence from results is not proof of absence**: a submitted project whose mirror never landed won't appear. When "no prior work" matters, also check this checkout's `projects/` before concluding.
 
 ## For other skills
 
-Any skill that reads project files to answer a **cross-project** question
-("what's known", "what's been done", "is this already documented", "what
-relates to X") should consult the knowledge layer first instead of scanning
-`projects/*` by hand. The convention:
+Any skill that answers a **cross-project** question ("what's known", "what's been done", "is this already documented", "what relates to X") should consult the knowledge layer first instead of scanning `projects/*` by hand. The convention:
 
-1. Run a query from `§ Using the toolkit with judgment` with a topic-specific
-   seed (each calling skill supplies its own starter query).
-2. Treat results as a **map** — `read` the underlying file before citing.
-3. Iterate per the retrieval loop; stop at sufficiency.
-4. If the degraded banner appears, the layer fell back to local search — proceed
-   but verify; recall is partial.
+1. Run a query from § Using the toolkit with judgment with a topic-specific seed (each calling skill supplies its own starter query).
+2. Treat results as a **map**: read the underlying file before citing.
+3. Iterate per the retrieval loop, and stop at sufficiency.
+4. If `beril context` fails, run `beril context doctor`, tell the user, and fall back to this checkout's files. Recall is partial.
 
-Skills should reference this skill rather than embedding the loop, so the
-guidance stays in one place.
+Skills should reference this skill rather than embedding the loop, so the guidance stays in one place.
