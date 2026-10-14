@@ -155,7 +155,7 @@ standardizing onto (WorkflowHub, Nextflow, Galaxy, CWLProv) — is the natural
 entities, digests, and agents needed to assemble one `ro-crate-metadata.json`
 later, with zero new tooling now.
 
-## Relationship to the Atlas and OpenViking
+## Relationship to the Atlas and the context layer
 
 These per-project artifacts are the **project level** of a larger stack; they feed
 upward rather than duplicate it:
@@ -167,11 +167,11 @@ upward rather than duplicate it:
   **cross-project** home is the Atlas (`atlas/claims/*.md`, on `main`); `claims.json`
   is the structured input that *feeds* Atlas promotion — it does not create a second
   cross-project store.
-- OpenViking stages a human-readable projection of `claims.json` and numbered
+- The context layer stages a human-readable projection of `claims.json` and numbered
   `REFUTATION_N.md` files alongside existing curated project context. The
   projection labels author assertions, resolved/unresolved evidence, supporting
   versus contradicting evidence, and computed support. Original project files
-  remain authoritative; OpenViking results are pointers. `runtime.json` is
+  remain authoritative; context-layer results are pointers. `runtime.json` is
   deliberately excluded from semantic scientific recall and remains available
   only by direct project inspection.
 - *Source / lineage* provenance (references, data sources, cross-project deps) is

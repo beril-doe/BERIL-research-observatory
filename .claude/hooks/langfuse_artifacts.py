@@ -110,6 +110,19 @@ def _login():
         return None
 
 
+def _stored_secrets(rec) -> tuple[str, ...]:
+    """The login's secrets — its token, plus any credential an older login
+    cached beside it — so traces mask them. Falls back to the token alone if
+    the CLI predates ``stored_secrets``."""
+    try:
+        from beril_cli.auth_store import stored_secrets
+
+        return stored_secrets() or (rec.token,)
+    except Exception as e:
+        log(f"stored secrets unavailable: {type(e).__name__}: {e}")
+        return (rec.token,)
+
+
 @lru_cache(maxsize=1)
 def get_user_id() -> str | None:
     """LANGFUSE_USER_ID > ORCiD from `beril login` — one rule for both hooks."""
@@ -136,7 +149,7 @@ def relay_client_kwargs() -> dict | None:
     if rec is None:
         return None
     secrets = tuple(sorted({
-        value for value in (rec.token, rec.ov_user_key, *(os.environ.get(name) for name in _CREDENTIAL_ENV))
+        value for value in (*_stored_secrets(rec), *(os.environ.get(name) for name in _CREDENTIAL_ENV))
         if isinstance(value, str) and value
     }, key=len, reverse=True))
     return {

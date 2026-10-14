@@ -156,10 +156,9 @@ def _install_server_proxy(repo_root: Path, assume_yes: bool = False) -> int:
 
 
 def _run_login_step() -> None:
-    """Log in to BERIL (which also links OpenViking) as part of setup.
+    """Log in to BERIL as part of setup.
 
-    Best-effort, mirroring how ``beril login`` treats its own OpenViking
-    linking: setup must complete even if login is skipped or fails, so a bad
+    Best-effort: setup must complete even if login is skipped or fails, so a bad
     token, an unreachable server, or a non-interactive shell only warns. The
     user can always run ``beril login`` later.
 
@@ -175,8 +174,8 @@ def _run_login_step() -> None:
         print("  Run `beril login` any time to re-authenticate or switch servers.")
         return
 
-    print(f"  Log in to BERIL ({base_url}) — this also links OpenViking so the")
-    print("  knowledge-context tools work without extra setup.")
+    print(f"  Log in to BERIL ({base_url}) — the knowledge-context tools")
+    print("  (`beril context`) and session tracing use this login.")
 
     # run_login() with no token prompts via getpass, which needs a real
     # terminal. Off a TTY (CI, piped input) that would hang, so point the user
@@ -186,10 +185,10 @@ def _run_login_step() -> None:
         return
 
     if not _confirm("  Log in now?"):
-        print("  Skipped — run `beril login` later to enable OpenViking.")
+        print("  Skipped — run `beril login` later to enable `beril context`.")
         return
 
-    # run_login handles its own prompting, validation, and OV linking, and
+    # run_login handles its own prompting and validation, and
     # prints its own success/failure lines. A non-zero return is not fatal to
     # setup — just note it and continue.
     try:
@@ -327,7 +326,7 @@ def run_setup() -> int:
     else:
         print("  KBASE_AUTH_TOKEN is set.")
 
-    # ── Step 3: BERIL login (+ OpenViking) ──────────
+    # ── Step 3: BERIL login ─────────────────────────
     _step(3, "BERIL login + session tracing")
     _run_login_step()
     _run_tracing_step(env_path)
