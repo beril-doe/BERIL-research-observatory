@@ -289,6 +289,37 @@ def test_grep_prints_address_line_text_and_a_count(logged_in, beril, capsys):
     ]
 
 
+def _matches(n: int) -> dict:
+    return {
+        "matches": [{"address": f"0009-1/alpha/f{i}.md", "line": 1, "content": "x"}
+                    for i in range(n)],
+        "count": n, "match_count": n, "files_scanned": n,
+    }
+
+
+@pytest.mark.parametrize(
+    ("argv", "returned", "limit"),
+    [([], 256, 256), (["--node-limit", "10"], 10, 10), (["--json"], 256, 256)],
+)
+def test_grep_warns_when_results_reach_the_limit(logged_in, beril, capsys, argv, returned, limit):
+    """Regression (Codex adversarial review): the server stops at the match
+    limit and reports only what it returned, so a common token was silently
+    truncated."""
+    beril.on("GET", "/api/context/grep", _matches(returned))
+    main(["context", "grep", "x", "--all-owners", *argv])
+
+    captured = capsys.readouterr()
+    assert f"stopped at the {limit}-match limit" in captured.err
+    assert "warning" not in captured.out
+
+
+def test_grep_does_not_warn_below_the_limit(logged_in, beril, capsys):
+    beril.on("GET", "/api/context/grep", _matches(255))
+    main(["context", "grep", "x", "--all-owners"])
+
+    assert capsys.readouterr().err == ""
+
+
 def test_grep_exclude_is_an_address(logged_in, beril):
     beril.on("GET", "/api/context/grep", {"matches": [], "count": 0})
     main(["context", "grep", "x", "--all-owners", "--exclude", "0009-1/alpha/memories"])

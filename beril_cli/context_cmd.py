@@ -31,6 +31,11 @@ from beril_cli.context_client import ContextClient, ContextError, Scope
 # the house account.
 _DOCS = Scope(owner="beril", project="docs")
 
+# The server's grep budget when --node-limit is omitted. grep returns at most
+# this many matches and reports only how many it returned, so reaching it is
+# the only sign that matches were cut off.
+_DEFAULT_GREP_LIMIT = 256
+
 
 def add_parser(sub: argparse._SubParsersAction) -> None:
     """Register ``beril context`` and its subcommands on the top-level parser."""
@@ -75,7 +80,10 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
     _add_scope(grep)
     grep.add_argument("-i", "--case-insensitive", action="store_true")
     grep.add_argument("--exclude", metavar="ADDRESS", help="An address to leave out")
-    grep.add_argument("--node-limit", type=int, help="Maximum matches")
+    grep.add_argument(
+        "--node-limit", type=int,
+        help="Maximum matches (default 256, up to 10000); a warning says when it is reached",
+    )
     _add_json(grep)
 
     for name, help_text in (
@@ -216,6 +224,14 @@ def _grep(client: ContextClient, args: argparse.Namespace) -> None:
         case_insensitive=args.case_insensitive, node_limit=args.node_limit,
     )
     print(_dump(result) if args.json else format_grep(result))
+    limit = args.node_limit or _DEFAULT_GREP_LIMIT
+    if len(result.get("matches") or []) >= limit:
+        # On stderr, so the output — text or JSON — stays parseable.
+        print(
+            f"warning: results stopped at the {limit}-match limit and may be "
+            "incomplete; raise --node-limit (up to 10000) or narrow the scope.",
+            file=sys.stderr,
+        )
 
 
 def _documents(kind: str) -> Callable[[ContextClient, argparse.Namespace], None]:
