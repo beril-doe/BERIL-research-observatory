@@ -78,14 +78,16 @@ def _ensure_reachable(url: str) -> None:
 
 DIAGNOSE_TIMEOUT_SECONDS = 5.0
 
+# These tools talk to the store directly, which is an admin's job; users query
+# through BERIL (`beril context`) and never hold a store key.
 _SETUP_HINT = (
-    "No API key configured. Get one with the setup helper:\n"
-    "  uv run knowledge/scripts/setup_remote_ov.py --cookie '<beril_session>'\n"
-    "See docs/remote-openviking-setup.md."
+    "No API key configured. Direct store access is for BERIL admins: set\n"
+    "OPENVIKING_URL and OPENVIKING_API_KEY (an admin key) in .env. To search the\n"
+    "context layer as a user, use `beril context` instead."
 )
 _REGEN_HINT = (
-    "Your API key was rejected — it is invalid or expired. Mint a fresh one:\n"
-    "  uv run knowledge/scripts/setup_remote_ov.py --cookie '<beril_session>' --regenerate"
+    "Your API key was rejected — it is invalid or expired. Set a valid admin\n"
+    "key in OPENVIKING_API_KEY. To search as a user, use `beril context` instead."
 )
 
 # OV SDK exceptions that unambiguously mean "the key is bad", matched by class
