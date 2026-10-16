@@ -1,0 +1,39 @@
+project_id: annotation_coordinate_atlas
+status: complete       # exploration | proposed | active | analysis | reviewed | complete
+created_at: "2026-10-02T16:45:00Z"
+last_session_at: "2026-10-16T16:53:46Z"
+engine:
+  name: claude
+authors:
+  - name: "Mark Andrew Miller"
+    affiliation: "LBL"
+    orcid: "0000-0001-9076-6066"
+artifacts:
+  readme: true
+  research_plan: true
+  report: true
+  review: true
+plan_approval:
+  by: "0000-0001-9076-6066"
+  at: "2026-10-02T17:05:46Z"
+  via: agent-relayed
+  plan_hash: "sha256:939a7492a268a47c8c514afb7b792b67248128a08a2336e750697af188f4c332"
+approval:
+  by: "0000-0001-9076-6066"
+  at: "2026-10-16T16:53:46Z"
+  report_hash: "sha256:a172f57e80d4f39049c31c6a799643c50209c1f9488b93cdff3a094de8cacb49"
+  review: "REVIEW_15.md"
+  review_hash: "sha256:398695dc47c747b49aa1824cfc487710add143495c75265edf8d0167108005dd"
+  notebook_hashes:
+    "notebooks/01_semcat_discovery.ipynb": "sha256:f2d37acd4ab2dfb4d84b8e9ae6b785c0fa0dac19473e2f841f2cd289ba215f20"
+    "notebooks/02_ground_truth_sweep.ipynb": "sha256:9d93401e3d54dbaa70ad4fc95ce87e96d4550449c5f424e0ff8b36febe2d1858"
+    "notebooks/03_semcat_grade.ipynb": "sha256:28a1393dc5cfa941f65dc0eb384cf7d9de1eb6fdcc1f836ecd5bfb448e966515"
+    "notebooks/04_bgc_region_joinability.ipynb": "sha256:c672dabc66f8c3dbded2756178cc73f3600501e846e9e97bcda624f8f015fb9c"
+submissions:
+  - status: success
+    attempted_at: "2026-10-16T16:58:56Z"
+    archive_key: "s3a://cdm-lake/tenant-general-warehouse/microbialdiscoveryforge/projects/annotation_coordinate_atlas/"
+    file_count: 66
+    byte_total: 10822714
+    duration_seconds: 12.5
+    approved_at: "2026-10-16T16:53:46Z"

@@ -1,0 +1,13 @@
+{
+ "table": "nmdc.results.pfam_annotation_gff",
+ "method": "DataFrame.sample (Bernoulli, without replacement)",
+ "fraction": 1e-05,
+ "seed": 42,
+ "sampled_rows": 26779,
+ "null_rows": 0,
+ "N": 26779,
+ "mismatch_count": 0,
+ "max_end": 3625,
+ "max_model_end": 1530,
+ "mismatch_examples": []
+}
