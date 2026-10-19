@@ -179,6 +179,49 @@ The approval check is a consistency check, not proof: it ties every ingest to
 its approver and to the approved bytes, but the submitter supplies the
 `beril.yaml` it checks.
 
+### Importing the repo's projects (admin)
+
+Projects that predate `/submit` are indexed by an admin, each **owned by its
+author**, as if that author had submitted it. Two steps, on the target server:
+
+1. **The repo import** (`/admin/import`, or the data-repo webhook) creates a
+   project row per `projects/<id>/` and picks its owner by one rule
+   (`app/importer.py` `owner_orcid`): the first author with an ORCiD in
+   `beril.yaml`, else in an `Authors` section of `README.md`, then
+   `RESEARCH_PLAN.md`, then any other top-level `.md` file. The BERIL admin
+   account (`0009-0007-0287-2979`) never owns a project. An ORCiD with no
+   account gets a stub user, which its person adopts at first login. A project
+   with no ORCiD is owned by the sentinel user and **flagged**. A project whose
+   owner changes under the rule is re-owned on the next import, even if its
+   files haven't changed.
+2. **The context import** stages each project the way the `/submit` mirror
+   does and uploads it to `POST /api/admin/context/import_files`, which writes
+   it into the owner's namespace with BERIL's admin key and records it under
+   the owner's project and batch rows. A later `/submit` by that owner then
+   skips whatever is unchanged.
+
+```bash
+# As an admin, logged in to the target server (`beril login --base-url …`):
+uv run knowledge/scripts/import_projects.py --all --dry-run   # each project's owner; nothing written
+uv run knowledge/scripts/import_projects.py --all             # import everything importable
+uv run knowledge/scripts/import_projects.py <id> [<id> …]     # just these
+```
+
+Each project reports one of these outcomes:
+
+- `imported`;
+- `current` — nothing changed since the last import;
+- `flagged` — no author ORCiD: fix the project's authors, re-run the repo
+  import, then import again;
+- `not_imported` — the repo import hasn't seen it;
+- `in_progress` — still indexing when `--wait` ran out; it will land;
+- `failed`.
+
+Re-running is safe. `--force` re-sends unchanged files. The same archive limits
+and file allowlist as `/ingest_files` apply. The approval check does not, since
+these projects never went through `/submit`. Poll a batch with
+`GET /api/admin/context/import_status/{batch_id}`.
+
 ### Batching, pacing, and resume safety
 
 The ingest path uses batch-style OpenViking calls: resources are queued with

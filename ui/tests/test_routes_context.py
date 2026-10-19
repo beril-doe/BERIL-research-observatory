@@ -3672,3 +3672,219 @@ async def test_health_reports_the_store_without_naming_it(
 
     assert resp.status_code == 200
     assert resp.json() == {"status": status}
+
+
+# ---------------------------------------------------------------------------
+# Admin import — repo projects indexed under their owners
+# ---------------------------------------------------------------------------
+
+_OWNER_ORCID = "0000-0003-1111-2222"
+
+
+@pytest.fixture
+def admin_store():
+    """The store connection, and the class that built it (to see its key)."""
+    inst = MagicMock()
+    inst.insert_files = AsyncMock(return_value=_queued_with_tasks([("REPORT.md", "t1")]))
+    inst.task_statuses = AsyncMock(return_value={})
+    inst.remove_files = AsyncMock(side_effect=_removed_all)
+    with patch("app.routes.context.OpenVikingManager", return_value=inst) as cls:
+        yield inst, cls
+
+
+async def _repo_project(db_session, slug="alpha_proj", *, owner_orcid=_OWNER_ORCID):
+    """A project the repo importer created, owned per its rule."""
+    from app.db.models import UserProject
+
+    owner = BerilUser(orcid_id=owner_orcid, display_name="Owner")
+    db_session.add(owner)
+    await db_session.commit()
+    project = UserProject(
+        owner_id=owner.id, slug=slug, title=slug, origin="repo",
+        repo_path=f"projects/{slug}", is_public=True,
+    )
+    db_session.add(project)
+    await db_session.commit()
+    return owner, project
+
+
+async def _make_admin(db_session, user):
+    db_session.add(UserRole(user_id=user.id, role="admin"))
+    await db_session.commit()
+
+
+def _import(client, *, project="alpha_proj", members=None, dry_run=None, archive=True):
+    members = {"REPORT.md": b"# Report\n", "README.md": b"# Readme\n"} if members is None else members
+    data = {"project": project}
+    if dry_run is not None:
+        data["dry_run"] = str(dry_run).lower()
+    files = {
+        "archive": ("upload.zip", _zip_bytes(members), "application/zip"),
+        "manifest": ("manifest.txt", "\n".join(members).encode(), "text/plain"),
+    } if archive else None
+    return client.post("/api/admin/context/import_files", data=data, files=files)
+
+
+@pytest.mark.gated
+async def test_import_requires_an_admin(client, credentialed_user, db_session, admin_store):
+    await _repo_project(db_session)
+    _login(client)
+
+    assert _import(client).status_code == 403
+    admin_store[0].insert_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_import_lands_in_the_owners_namespace_on_the_admin_key(
+    client, credentialed_user, db_session, admin_store
+):
+    """No beril.yaml or approval is needed — these never went through
+    /submit — and the files land under the *owner*, recorded on the owner's
+    project and batch rows, written with BERIL's admin key."""
+    from app.db.models import ContextIngestBatch
+
+    inst, cls = admin_store
+    owner, project = await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = _import(client)
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert (body["project"], body["owner_orcid"], body["queued"]) == ("alpha_proj", _OWNER_ORCID, 1)
+    assert inst.insert_files.await_args.kwargs["target_root"] == (
+        f"viking://resources/users/{_OWNER_ORCID}/alpha_proj"
+    )
+    assert cls.call_args.args[1] == "admin-key"
+    batch = await db_session.get(ContextIngestBatch, body["batch_id"])
+    assert (batch.user_id, batch.project_id) == (owner.id, project.id)
+    assert "viking" not in resp.text
+
+
+@pytest.mark.gated
+async def test_import_keeps_the_allowlist(client, credentialed_user, db_session, admin_store):
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = _import(client, members={"REPORT.md": b"r", "data/raw.csv": b"x"})
+
+    assert resp.status_code == 422
+    assert "data/raw.csv" in resp.json()["detail"]
+    admin_store[0].insert_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_import_refuses_a_project_the_importer_has_not_seen(
+    client, credentialed_user, db_session, admin_store
+):
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = _import(client, project="never_imported")
+
+    assert resp.status_code == 404
+    assert "repo import" in resp.json()["detail"]
+
+
+@pytest.mark.gated
+async def test_import_refuses_a_flagged_project(client, credentialed_user, db_session, admin_store):
+    """No author ORCiD → the importer gave it to the sentinel; it is not
+    indexed under anyone."""
+    from app.importer import SENTINEL_ORCID
+
+    await _repo_project(db_session, "orphan", owner_orcid=SENTINEL_ORCID)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = _import(client, project="orphan")
+
+    assert resp.status_code == 409
+    assert "flagged" in resp.json()["detail"]
+    admin_store[0].insert_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_import_dry_run_reports_the_owner_and_touches_nothing(
+    client, credentialed_user, db_session, admin_store
+):
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = _import(client, dry_run=True, archive=False)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["owner_orcid"], body["dry_run"], body["batch_id"]) == (_OWNER_ORCID, True, None)
+    admin_store[1].assert_not_called()
+
+
+@pytest.mark.gated
+async def test_import_refuses_a_bad_directory_name(client, credentialed_user, db_session, admin_store):
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    assert _import(client, project="../etc").status_code == 422
+
+
+@pytest.mark.gated
+async def test_an_owners_own_submit_skips_what_the_import_landed(
+    client, credentialed_user, db_session, admin_store
+):
+    """The import records under the owner, so their later /submit of the
+    same, unchanged project sends nothing."""
+    from sqlalchemy import update
+
+    from app.db.models import ContextIngestFileRecord, UserProject
+
+    inst, _cls = admin_store
+    owner_project = UserProject(
+        owner_id=credentialed_user.id, slug="mine", title="mine",
+        origin="repo", repo_path="projects/mine", is_public=True,
+    )
+    db_session.add(owner_project)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    members = _approved(project_id="mine")
+    inst.insert_files.return_value = _queued_with_tasks(
+        [(path, f"t{i}") for i, path in enumerate(members)]
+    )
+    resp = _import(client, project="mine", members=members)
+    assert resp.status_code == 200, resp.text
+    await db_session.execute(update(ContextIngestFileRecord).values(status="completed"))
+    await db_session.commit()
+    inst.insert_files.reset_mock()
+
+    again = _ingest(client, project="mine", members=members)
+
+    assert again.status_code == 200, again.text
+    assert again.json()["skipped"] == len(members)
+    inst.insert_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_import_status_polls_any_batch_with_the_admin_key(
+    client, credentialed_user, db_session, admin_store
+):
+    inst, cls = admin_store
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    batch_id = _import(client).json()["batch_id"]
+    cls.reset_mock()
+    inst.task_statuses = AsyncMock(return_value={"t1": ("completed", None)})
+
+    resp = client.get(f"/api/admin/context/import_status/{batch_id}")
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "completed"
+    assert cls.call_args.args[1] == "admin-key"
+    # The importer is not the owner, so the user route still hides it.
+    assert client.get(f"/api/context/ingest_status/{batch_id}").status_code == 404
+
+
+async def test_import_status_requires_an_admin(client, credentialed_user):
+    _login(client)
+    assert client.get("/api/admin/context/import_status/whatever").status_code == 403

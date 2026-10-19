@@ -146,6 +146,18 @@ class ContextIngestResults(BaseModel):
     batch_id: str | None = None
 
 
+class ContextImportResults(ContextIngestResults):
+    """An admin import: the ingest outcome, plus whose project it landed in.
+
+    ``dry_run`` results carry only ``project`` and ``owner_orcid`` — the owner
+    an import *would* write under — and nothing was read or written.
+    """
+
+    project: str
+    owner_orcid: str
+    dry_run: bool = False
+
+
 class IngestFileStatus(BaseModel):
     relative_path: str
     status: str

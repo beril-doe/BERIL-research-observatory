@@ -5,8 +5,14 @@ from the git repository filesystem into the database and managed filestore.
 
 Key design points:
 - Idempotent: safe to run repeatedly; uses ProjectImportRecord to track state.
-- Sentinel user (SENTINEL_ORCID) owns projects with no linked ORCiD.
-- Known ORCiD IDs get a real BerilUser row created on first import.
+- Ownership follows one rule (``owner_orcid``): the first author ORCiD in
+  beril.yaml, else in an Authors section of README.md, RESEARCH_PLAN.md, or
+  another top-level .md file; the BERIL admin account never owns a project.
+- Sentinel user (SENTINEL_ORCID) owns projects with no ORCiD — flagged.
+- Known ORCiD IDs get a real BerilUser row created on first import; the
+  person adopts it at their first ORCiD login.
+- A project whose owner changes under the rule is re-imported (re-owned) even
+  when its files have not changed.
 - Files are physically copied into the managed volume under the same
   {owner_id}/{slug}/uploads/ structure used by user-uploaded files.
 - Re-imports a project if its README/PLAN/REPORT mtime is newer than
@@ -17,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,9 +31,10 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+import yaml
 
 from app.content_parser import (
-    ParsedProjectFields,
+    extract_section,
     parse_notebook_metadata,
     parse_project_fields,
     scan_project_files,
@@ -45,6 +53,13 @@ logger = logging.getLogger(__name__)
 
 SENTINEL_ORCID = "9999-9999-9999-9999"
 
+# The BERIL admin account, listed as a co-author on some projects. It never
+# owns one: ownership falls to the next author, as if it were not listed.
+ADMIN_AUTHOR_ORCID = "0009-0007-0287-2979"
+
+# An ORCiD iD: four groups of four, the last character a digit or X.
+_ORCID = re.compile(r"\b\d{4}-\d{4}-\d{4}-\d{3}[\dX]\b")
+
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -57,6 +72,8 @@ class ImportResult:
     status: str  # imported | skipped | failed
     project_id: str | None = None
     message: str = ""
+    # The owner's ORCiD; SENTINEL_ORCID when no author has one (flagged).
+    owner_orcid: str | None = None
 
 
 @dataclass
@@ -96,48 +113,113 @@ async def _get_or_create_sentinel(db: AsyncSession) -> BerilUser:
     return user
 
 
-async def resolve_owner(
-    db: AsyncSession,
-    parsed: ParsedProjectFields,
-) -> BerilUser:
-    """Return the BerilUser who should own this project.
+@dataclass(frozen=True)
+class OwnerClaim:
+    """Who a project's files say owns it, and where that was read."""
 
-    - If any contributor has an ORCiD, use the first one found.
-      Create a new BerilUser if that ORCiD isn't registered yet.
-    - Otherwise fall back to the sentinel user.
-    """
-    for contrib in parsed.contributors:
-        if not contrib.orcid:
+    orcid: str
+    source: str  # the file it came from, e.g. "beril.yaml" or "README.md"
+    name: str | None = None
+    affiliation: str | None = None
+
+
+def _authors_section(text: str) -> str:
+    return extract_section(text, "Authors") or extract_section(text, "Contributors") or ""
+
+
+def _author_line(section: str, orcid: str) -> tuple[str | None, str | None]:
+    """Best-effort ``(name, affiliation)`` from the author line naming ``orcid``."""
+    for line in section.splitlines():
+        if orcid not in line:
             continue
-        result = await db.execute(
-            select(BerilUser).where(BerilUser.orcid_id == contrib.orcid)
-        )
-        user = result.scalar_one_or_none()
-        if user is not None:
-            return user
-        # Create a stub account for this ORCiD
-        user = BerilUser(
-            orcid_id=contrib.orcid,
-            display_name=contrib.name,
-            affiliation=contrib.affiliation,
-        )
-        db.add(user)
-        try:
-            await db.commit()
-            await db.refresh(user)
-            logger.info("Created user for ORCiD %s (%s)", contrib.orcid, contrib.name)
-            return user
-        except IntegrityError:
-            await db.rollback()
-            # Another concurrent import beat us — fetch the now-existing row
-            result = await db.execute(
-                select(BerilUser).where(BerilUser.orcid_id == contrib.orcid)
-            )
-            user = result.scalar_one_or_none()
-            if user is not None:
-                return user
+        text = re.sub(r"\(?(?:https?://orcid\.org/|ORCID:\s*)?\[?" + re.escape(orcid) + r"\]?(?:\([^)]*\))?\)?", "", line)
+        text = re.sub(r"[*|]", " ", text).strip(" -—,\t")
+        parts = [p.strip(" ,()") for p in text.split(",", 1)]
+        name = parts[0] or None
+        affiliation = parts[1] if len(parts) > 1 and parts[1] else None
+        return name, affiliation
+    return None, None
 
-    return await _get_or_create_sentinel(db)
+
+def owner_orcid(project_dir: Path) -> OwnerClaim | None:
+    """The ORCiD that owns a repo project, or None (flag it) if none is found.
+
+    In order, the first author with an ORCiD in:
+
+    1. ``beril.yaml``'s ``authors`` list;
+    2. an ``Authors`` (or ``Contributors``) section of ``README.md``, then
+       ``RESEARCH_PLAN.md``, then any other top-level ``.md`` file.
+
+    "First author" means the first one *with an ORCiD* — an owner needs one.
+    The BERIL admin account is passed over wherever it appears. Read from the
+    files directly rather than through ``parse_contributors``, whose formats
+    and ORCiD pattern miss real author lines (and every iD ending in ``X``).
+    """
+    manifest = project_dir / "beril.yaml"
+    if manifest.exists():
+        try:
+            data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
+        except (yaml.YAMLError, UnicodeDecodeError, RecursionError):
+            data = {}
+        authors = data.get("authors") if isinstance(data, dict) else None
+        for author in authors if isinstance(authors, list) else []:
+            if not isinstance(author, dict):
+                continue
+            orcid = str(author.get("orcid") or "").strip()
+            if _ORCID.fullmatch(orcid) and orcid != ADMIN_AUTHOR_ORCID:
+                return OwnerClaim(
+                    orcid=orcid,
+                    source="beril.yaml",
+                    name=author.get("name") or None,
+                    affiliation=author.get("affiliation") or None,
+                )
+
+    named = [project_dir / "README.md", project_dir / "RESEARCH_PLAN.md"]
+    others = sorted(
+        p for p in project_dir.glob("*.md") if p.name not in {"README.md", "RESEARCH_PLAN.md"}
+    )
+    for path in [p for p in named if p.exists()] + others:
+        try:
+            section = _authors_section(path.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+        for orcid in _ORCID.findall(section):
+            if orcid != ADMIN_AUTHOR_ORCID:
+                name, affiliation = _author_line(section, orcid)
+                return OwnerClaim(orcid=orcid, source=path.name, name=name, affiliation=affiliation)
+    return None
+
+
+async def resolve_owner(db: AsyncSession, project_dir: Path) -> BerilUser:
+    """Return the BerilUser who should own this project (see ``owner_orcid``).
+
+    Creates a stub account for an ORCiD not yet registered — its person adopts
+    it at their first ORCiD login. With no ORCiD, the sentinel user owns it.
+    """
+    claim = owner_orcid(project_dir)
+    if claim is None:
+        return await _get_or_create_sentinel(db)
+    result = await db.execute(select(BerilUser).where(BerilUser.orcid_id == claim.orcid))
+    user = result.scalar_one_or_none()
+    if user is not None:
+        return user
+    user = BerilUser(
+        orcid_id=claim.orcid, display_name=claim.name, affiliation=claim.affiliation
+    )
+    db.add(user)
+    try:
+        await db.commit()
+        await db.refresh(user)
+        logger.info("Created user for ORCiD %s (%s)", claim.orcid, claim.name)
+        return user
+    except IntegrityError:
+        await db.rollback()
+        # Another concurrent import beat us — fetch the now-existing row.
+        result = await db.execute(select(BerilUser).where(BerilUser.orcid_id == claim.orcid))
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise
+        return user
 
 
 # ---------------------------------------------------------------------------
@@ -252,6 +334,10 @@ async def _copy_project_files(
         existing = result.scalar_one_or_none()
 
         if existing is not None:
+            if existing.storage_path != storage_path:
+                # The project changed owner, so its files moved; the old copy
+                # would otherwise be left behind under the previous owner.
+                await storage.delete(existing.storage_path)
             existing.storage_path = storage_path
             existing.size_bytes = size
             existing.content_type = pf.content_type
@@ -314,15 +400,26 @@ async def import_project(
     if not readme_path.exists():
         return ImportResult(repo_path=repo_path, status="skipped", message="No README.md")
 
-    # Check import record
+    # Check import record. Unchanged files are not enough to skip: the
+    # ownership rule may now name a different owner (a rule change, or an
+    # author list edited only in beril.yaml), and that re-owns the project.
     record = await _get_import_record(db, repo_path)
     if record is not None and record.status == "imported" and not _is_stale(record, project_dir):
-        return ImportResult(
-            repo_path=repo_path,
-            status="skipped",
-            project_id=record.project_id,
-            message="Up to date",
+        claim = owner_orcid(project_dir)
+        wanted = claim.orcid if claim else SENTINEL_ORCID
+        current = await db.execute(
+            select(BerilUser.orcid_id)
+            .join(UserProject, UserProject.owner_id == BerilUser.id)
+            .where(UserProject.repo_path == repo_path)
         )
+        if current.scalar_one_or_none() == wanted:
+            return ImportResult(
+                repo_path=repo_path,
+                status="skipped",
+                project_id=record.project_id,
+                message="Up to date",
+                owner_orcid=wanted,
+            )
 
     try:
         # Parse content
@@ -335,7 +432,7 @@ async def import_project(
         parsed = parse_project_fields(readme, plan, report, project_id=slug)
 
         # Resolve owner
-        owner = await resolve_owner(db, parsed)
+        owner = await resolve_owner(db, project_dir)
 
         # Upsert UserProject — match on repo_path slug
         result = await db.execute(
@@ -452,11 +549,15 @@ async def import_project(
             "Imported project %r → %s (%d files, owner=%s)",
             slug, project.id, n_files, owner.orcid_id,
         )
+        message = f"{n_files} files copied"
+        if owner.orcid_id == SENTINEL_ORCID:
+            message += "; flagged: no author ORCiD found"
         return ImportResult(
             repo_path=repo_path,
             status="imported",
             project_id=project.id,
-            message=f"{n_files} files copied",
+            message=message,
+            owner_orcid=owner.orcid_id,
         )
 
     except Exception as exc:
