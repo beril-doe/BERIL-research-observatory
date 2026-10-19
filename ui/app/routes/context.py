@@ -96,10 +96,11 @@ from app.db.crud import (
     get_ingest_batch,
     get_project_by_slug,
     latest_file_statuses,
+    project_target_roots,
     projects_with_memory,
     update_ingest_file_statuses,
 )
-from app.db.models import UserProject
+from app.db.models import ContextIngestFileRecord, UserProject
 from app.importer import SENTINEL_ORCID
 from app.db.session import get_db
 from app.routes.data import _safe_relative_path
@@ -1088,7 +1089,10 @@ async def _ingest(
     # What this project already has, so identical content is not re-sent.
     # Skipped entirely under force: the point of the flag is to re-ingest
     # regardless of what we believe already landed.
-    landed = {} if force else await completed_file_hashes(db, db_project.id)
+    landed = (
+        {} if force
+        else await completed_file_hashes(db, db_project.id, target_root=target_root)
+    )
 
     ingest_files = []
     content_hashes: dict[str, str] = {}
@@ -1141,7 +1145,9 @@ async def _ingest(
     # refused — changed nothing in the corpus, so they are passed over and the
     # newest record that *did* something answers.
     current = (
-        await latest_file_statuses(db, db_project.id, ignoring=(INGEST_FAILED,))
+        await latest_file_statuses(
+            db, db_project.id, ignoring=(INGEST_FAILED,), target_root=target_root
+        )
         if removals
         else {}
     )
@@ -1384,6 +1390,7 @@ async def post_admin_context_import(
 
     archive_bytes, relative_paths, removals = await _read_submission(archive, manifest)
     manager = _admin_context_manager()
+    retire_records = await _plan_retirement(db, owner, db_project)
     with tempfile.TemporaryDirectory() as tmp_dir:
         root = Path(tmp_dir).resolve()
         await _extract(archive_bytes, root, relative_paths)
@@ -1405,6 +1412,117 @@ async def post_admin_context_import(
         **{name: getattr(results, name) for name in ContextIngestResults.model_fields},
         project=db_project.slug,
         owner_orcid=owner.orcid_id,
+        retire_records=retire_records,
+    )
+
+
+# Marks a file in a previous owner's namespace whose removal has been planned
+# but not confirmed. ``unknown`` on purpose: it is not ``completed``, so a later
+# ingest to that namespace re-sends the file rather than trusting it landed;
+# and it is still "held", so the next import plans its removal again. Either
+# way, no interruption can leave a record claiming content the store lacks.
+RETIRE_PENDING = "Removal pending: the project was re-owned."
+
+
+async def _plan_retirement(
+    db: AsyncSession, owner: BerilUser, db_project: UserProject
+) -> list[str]:
+    """Mark for removal what this project left in a previous owner's namespace.
+
+    The repo importer re-owns a project in place — same row, new owner — so
+    its content may still sit under the old owner's ORCiD, searchable there
+    and attributed to the wrong person. For every file still held in a
+    namespace other than the current one, a removal-pending record is written
+    (one batch per namespace) and its id returned; the caller retires each
+    with ``/api/admin/context/retire_file/{record_id}``. Planning is quick and
+    database-only; the deletes are slow (the store confirms each before
+    returning), so they are not done inside the import request.
+    """
+    current_root = user_target_root(owner.orcid_id, db_project.slug)
+    pending: list[str] = []
+    for root in await project_target_roots(db, db_project.id):
+        if root == current_root:
+            continue
+        held = await latest_file_statuses(
+            db, db_project.id, ignoring=(INGEST_FAILED,), target_root=root
+        )
+        paths = sorted(p for p, s in held.items() if _held(s))
+        if not paths:
+            continue
+        batch = await create_ingest_batch(
+            db,
+            user_id=owner.id,
+            project_id=db_project.id,
+            target_root=root,
+            files=[
+                {"relative_path": p, "uri": target_uri(root, p), "ov_task_id": None,
+                 "status": INGEST_UNKNOWN, "error": RETIRE_PENDING, "content_sha256": None}
+                for p in paths
+            ],
+        )
+        logger.info(
+            "Planned retirement of %d file(s) of %s from previous namespace %s",
+            len(paths), db_project.slug, root,
+        )
+        await db.refresh(batch, ["files"])
+        pending.extend(f.id for f in batch.files)
+    return pending
+
+
+@ROUTER_CONTEXT.post("/api/admin/context/retire_file/{record_id}")
+async def post_admin_context_retire_file(
+    request: Request,
+    record_id: str,
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db),
+) -> IngestFileStatus:
+    """Remove one file a re-owned project left in its previous owner's
+    namespace, and record the outcome. Admins only.
+
+    ``record_id`` is a removal-pending record from an import's
+    ``retire_records``. One file per call because the store confirms each
+    delete before returning, which can take tens of seconds. Repeating a call
+    is harmless: a record already settled is reported as it stands, and
+    deleting a file already gone is not an error. Refuses to touch the
+    project's *current* namespace, and refuses until the current owner's copy
+    of the same file has landed — so a failed or unfinished import can never
+    leave the project with no copy at all.
+    """
+    await _require_admin(db, user)
+    record = await db.get(ContextIngestFileRecord, record_id)
+    if record is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Unknown removal record.")
+    await db.refresh(record, ["batch"])
+    batch = record.batch
+    db_project = await db.get(UserProject, batch.project_id)
+    owner = await db.get(BerilUser, db_project.owner_id) if db_project else None
+    if db_project is None or owner is None or not db_project.repo_path:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Unknown removal record.")
+    current_root = user_target_root(owner.orcid_id, db_project.slug)
+    if batch.target_root == current_root:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="That file is in the project's current namespace; it is not retired.",
+        )
+    if record.status == INGEST_UNKNOWN and record.error == RETIRE_PENDING:
+        landed = await completed_file_hashes(db, db_project.id, target_root=current_root)
+        if record.relative_path not in landed:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Not retired: the current owner's copy of {record.relative_path} "
+                    "has not landed yet. Import the project, let it finish, then retry."
+                ),
+            )
+        removed = await _admin_context_manager().remove_files(
+            [record.relative_path], target_root=batch.target_root
+        )
+        outcome = removed[0]
+        await update_ingest_file_statuses(db, {record.id: (outcome.status, outcome.reason)})
+        record.status, record.error = outcome.status, outcome.reason
+    return IngestFileStatus(
+        relative_path=record.relative_path, status=record.status, uri=record.uri,
+        error=record.error,
     )
 
 

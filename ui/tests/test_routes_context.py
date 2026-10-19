@@ -3888,3 +3888,201 @@ async def test_import_status_polls_any_batch_with_the_admin_key(
 async def test_import_status_requires_an_admin(client, credentialed_user):
     _login(client)
     assert client.get("/api/admin/context/import_status/whatever").status_code == 403
+
+
+async def _imported_then_reowned(client, db_session, inst, members):
+    """Import a repo project, settle it, then re-own it as the importer does."""
+    from sqlalchemy import update
+
+    from app.db.models import ContextIngestFileRecord
+
+    old_owner, project = await _repo_project(db_session)
+    inst.insert_files.return_value = _queued_with_tasks(
+        [(p, f"t{i}") for i, p in enumerate(members)]
+    )
+    assert _import(client, members=members).status_code == 200
+    await db_session.execute(update(ContextIngestFileRecord).values(status="completed"))
+    new_owner = BerilUser(orcid_id="0000-0004-5555-6666", display_name="New")
+    db_session.add(new_owner)
+    await db_session.commit()
+    project.owner_id = new_owner.id  # what the repo importer does on re-owning
+    await db_session.commit()
+    inst.insert_files.reset_mock()
+    return old_owner, new_owner, project
+
+
+_MEMBERS = {"REPORT.md": b"# Report\n", "README.md": b"# Readme\n"}
+
+
+async def _land_everything(db_session):
+    """Let every submitted file finish indexing."""
+    from sqlalchemy import update
+
+    from app.db.models import ContextIngestFileRecord
+
+    await db_session.execute(
+        update(ContextIngestFileRecord)
+        .where(ContextIngestFileRecord.status == "queued")
+        .values(status="completed")
+    )
+    await db_session.commit()
+
+
+@pytest.mark.gated
+async def test_a_reowned_project_is_written_to_the_new_owner_and_its_old_copy_planned_for_removal(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex review): the importer re-owns a project in place, so
+    its earlier completed records keep its id. The new owner's import must
+    still send every file, and the old namespace's files are marked
+    removal-pending and handed back — not deleted inside the request."""
+    from sqlalchemy import select
+
+    from app.db.models import ContextIngestFileRecord
+
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    old_owner, _new, _project = await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+
+    body = _import(client, members=_MEMBERS).json()
+
+    assert body["owner_orcid"] == "0000-0004-5555-6666" and body["skipped"] == 0
+    sent = inst.insert_files.await_args
+    assert {f.relative_path for f in sent.args[0]} == set(_MEMBERS)
+    assert sent.kwargs["target_root"].endswith("/0000-0004-5555-6666/alpha_proj")
+    inst.remove_files.assert_not_awaited()  # planned, not done here
+    assert len(body["retire_records"]) == 2
+    markers = (await db_session.execute(
+        select(ContextIngestFileRecord).where(ContextIngestFileRecord.id.in_(body["retire_records"]))
+    )).scalars().all()
+    assert {m.status for m in markers} == {"unknown"}
+
+
+@pytest.mark.gated
+async def test_retire_file_removes_one_file_and_is_safe_to_repeat(
+    client, credentialed_user, db_session, admin_store
+):
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    old_owner, _new, _project = await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+    await _land_everything(db_session)
+
+    first = client.post(f"/api/admin/context/retire_file/{records[0]}")
+    again = client.post(f"/api/admin/context/retire_file/{records[0]}")
+
+    assert first.status_code == 200 and first.json()["status"] == "removed"
+    assert again.json()["status"] == "removed"
+    inst.remove_files.assert_awaited_once()
+    assert inst.remove_files.await_args.kwargs["target_root"] == (
+        f"viking://resources/users/{old_owner.orcid_id}/alpha_proj"
+    )
+    assert "viking" not in first.text
+
+    for record in records[1:]:
+        client.post(f"/api/admin/context/retire_file/{record}")
+    inst.insert_files.reset_mock()
+    settled = _import(client, members=_MEMBERS).json()
+    assert settled["retire_records"] == []
+
+
+@pytest.mark.gated
+async def test_an_interrupted_retirement_never_hides_missing_files(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (found live): retirement was cut off part-way, recorded
+    nothing, and when the owner moved back the import trusted the old
+    completed records and skipped files that had been deleted. Pending
+    markers are written *before* any delete, and they do not count as
+    landed — so moving the owner back re-sends everything."""
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    old_owner, _new, project = await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    assert len(_import(client, members=_MEMBERS).json()["retire_records"]) == 2
+    # The retirement never ran (or ran part-way). The owner moves back:
+    project.owner_id = old_owner.id
+    await db_session.commit()
+    inst.insert_files.reset_mock()
+
+    back = _import(client, members=_MEMBERS).json()
+
+    assert back["skipped"] == 0
+    assert {f.relative_path for f in inst.insert_files.await_args.args[0]} == set(_MEMBERS)
+
+
+@pytest.mark.gated
+async def test_retire_waits_for_the_new_owners_copy_to_land(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex stop-gate): retiring while the new owner's import is
+    still indexing — or after it failed — could leave no copy at all."""
+    from sqlalchemy import update
+
+    from app.db.models import ContextIngestFileRecord
+
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+
+    early = client.post(f"/api/admin/context/retire_file/{records[0]}")
+    assert early.status_code == 409 and "has not landed" in early.json()["detail"]
+
+    await db_session.execute(
+        update(ContextIngestFileRecord)
+        .where(ContextIngestFileRecord.status == "queued")
+        .values(status="failed")
+    )
+    await db_session.commit()
+    assert client.post(f"/api/admin/context/retire_file/{records[0]}").status_code == 409
+    inst.remove_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_a_failed_retirement_is_planned_again(
+    client, credentialed_user, db_session, admin_store
+):
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+    await _land_everything(db_session)
+
+    async def refuse(paths, *, target_root):
+        return [IngestResult(relative_path=p, status="failed", reason="busy") for p in paths]
+
+    inst.remove_files.side_effect = refuse
+    assert client.post(f"/api/admin/context/retire_file/{records[0]}").json()["status"] == "failed"
+
+    replanned = _import(client, members=_MEMBERS).json()["retire_records"]
+    assert len(replanned) == 2  # the failed one is still held, as is the untried one
+
+
+@pytest.mark.gated
+async def test_retire_file_refuses_the_current_namespace_and_non_admins(
+    client, credentialed_user, db_session, admin_store
+):
+    from sqlalchemy import select
+
+    from app.db.models import ContextIngestFileRecord
+
+    inst, _cls = admin_store
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    assert _import(client).status_code == 200
+    current = (await db_session.execute(select(ContextIngestFileRecord))).scalars().first()
+
+    assert client.post(f"/api/admin/context/retire_file/{current.id}").status_code == 409
+    inst.remove_files.assert_not_awaited()
+    assert client.post("/api/admin/context/retire_file/nope").status_code == 404
+
+
+async def test_retire_file_requires_an_admin(client, credentialed_user):
+    _login(client)
+    assert client.post("/api/admin/context/retire_file/whatever").status_code == 403

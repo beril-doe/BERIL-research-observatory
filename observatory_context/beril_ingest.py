@@ -89,6 +89,9 @@ class IngestOutcome:
     timed_out: bool = False
     skipped: int = 0
     removed: int = 0
+    # The submission's own response body, for callers whose route returns
+    # more than the shared fields (the admin import's ``retire_records``).
+    response: dict = field(default_factory=dict)
 
     def summary(self) -> str:
         """One line describing the outcome, suitable for a verdict ``reason``."""
@@ -309,6 +312,7 @@ def ingest_project_files(
                 status=COMPLETED,
                 counts={SKIPPED: skipped, NOT_FOUND: int(body.get("not_found") or 0)},
                 skipped=skipped,
+                response=body,
             )
         raise BerilIngestError(
             "BERIL accepted the upload but returned no batch_id to poll "
@@ -321,6 +325,7 @@ def ingest_project_files(
     # The batch only tracks what was submitted, so skips are known from the
     # submission response alone and have to be carried across.
     outcome.skipped = skipped
+    outcome.response = body
     return outcome
 
 

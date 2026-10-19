@@ -493,9 +493,13 @@ async def create_ingest_batch(
 
 
 async def completed_file_hashes(
-    db: AsyncSession, project_id: str
+    db: AsyncSession, project_id: str, *, target_root: str | None = None
 ) -> dict[str, str]:
     """Return ``{relative_path: content_sha256}`` for this project's landed files.
+
+    ``target_root`` limits this to what landed *there*. A project re-owned by
+    the repo importer keeps its id but writes to a new namespace, and content
+    that landed under the previous owner has not landed under the new one.
 
     Only rows whose *latest* record is ``completed`` are returned, so a file
     that later failed or was re-queued is absent and will re-ingest. Rows with a
@@ -525,7 +529,10 @@ async def completed_file_hashes(
             ContextIngestBatch,
             ContextIngestFileRecord.batch_id == ContextIngestBatch.id,
         )
-        .where(ContextIngestBatch.project_id == project_id)
+        .where(
+            ContextIngestBatch.project_id == project_id,
+            *_at_root(target_root),
+        )
         .subquery()
     )
 
@@ -540,7 +547,11 @@ async def completed_file_hashes(
 
 
 async def latest_file_statuses(
-    db: AsyncSession, project_id: str, *, ignoring: tuple[str, ...] = ()
+    db: AsyncSession,
+    project_id: str,
+    *,
+    ignoring: tuple[str, ...] = (),
+    target_root: str | None = None,
 ) -> dict[str, str]:
     """``{relative_path: status}`` of each path's newest record in this project.
 
@@ -570,6 +581,7 @@ async def latest_file_statuses(
         .where(
             ContextIngestBatch.project_id == project_id,
             ContextIngestFileRecord.status.not_in(ignoring),
+            *_at_root(target_root),
         )
         .subquery()
     )
@@ -577,6 +589,25 @@ async def latest_file_statuses(
         select(latest.c.relative_path, latest.c.status).where(latest.c.rn == 1)
     )
     return {row.relative_path: row.status for row in result}
+
+
+def _at_root(target_root: str | None) -> tuple:
+    """A filter to one ingest namespace, or none."""
+    return () if target_root is None else (ContextIngestBatch.target_root == target_root,)
+
+
+async def project_target_roots(db: AsyncSession, project_id: str) -> list[str]:
+    """Every namespace this project's batches have written to, oldest first.
+
+    More than one only after the repo importer re-owned the project.
+    """
+    result = await db.execute(
+        select(ContextIngestBatch.target_root, func.min(ContextIngestBatch.created_at))
+        .where(ContextIngestBatch.project_id == project_id)
+        .group_by(ContextIngestBatch.target_root)
+        .order_by(func.min(ContextIngestBatch.created_at))
+    )
+    return [row[0] for row in result]
 
 
 async def projects_with_memory(db: AsyncSession, memory: str) -> set[str]:

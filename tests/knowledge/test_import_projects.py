@@ -44,9 +44,11 @@ def mod(tmp_path, monkeypatch):
 class FakeBeril:
     """Answers the admin import routes; records every request."""
 
-    def __init__(self, monkeypatch, module, *, admin=True, batch="b1"):
+    def __init__(self, monkeypatch, module, *, admin=True, batch="b1", retire=(), retire_ok=True,
+                 status="completed"):
         self.requests: list[httpx.Request] = []
-        self.admin, self.batch = admin, batch
+        self.admin, self.batch, self.status = admin, batch, status
+        self.retire_records, self.retire_ok = list(retire), retire_ok
         real = httpx.Client
         monkeypatch.setattr(
             module.httpx, "Client",
@@ -57,10 +59,16 @@ class FakeBeril:
         self.requests.append(request)
         if not self.admin:
             return httpx.Response(403, json={"detail": "Administrator access required."})
+        if request.url.path.startswith("/api/admin/context/retire_file/"):
+            return httpx.Response(200, json={
+                "relative_path": "REPORT.md", "address": "old/alpha/REPORT.md",
+                "status": "removed" if self.retire_ok else "failed", "error": None,
+            })
         if request.url.path.startswith("/api/admin/context/import_status/"):
             return httpx.Response(200, json={
-                "batch_id": self.batch, "project": "alpha", "status": "completed",
-                "counts": {"completed": 2}, "files": [],
+                "batch_id": self.batch, "project": "alpha", "status": self.status,
+                "counts": {self.status: 2},
+                "files": [{"relative_path": "REPORT.md", "status": self.status, "error": "x"}],
             })
         form = self.form(request)
         project = form.get("project")
@@ -78,6 +86,7 @@ class FakeBeril:
         return httpx.Response(200, json={
             "results": [], "queued": queued, "failed": 0, "skipped": skipped,
             "batch_id": self.batch, "project": project, "owner_orcid": OWNER,
+            "retire_records": self.retire_records,
         })
 
     @staticmethod
@@ -172,3 +181,33 @@ def test_an_unknown_project_name_is_refused(mod, monkeypatch, capsys):
     FakeBeril(monkeypatch, mod)
     assert mod.main(["../etc"]) == 1
     assert "no project directory" in capsys.readouterr().err
+
+
+def test_a_reowned_projects_old_copy_is_retired_one_file_per_call(mod, monkeypatch, capsys):
+    beril = FakeBeril(monkeypatch, mod, retire=["r1", "r2"])
+
+    assert mod.main(["alpha"]) == 0
+
+    retires = [r.url.path for r in beril.requests if "retire_file" in r.url.path]
+    assert retires == ["/api/admin/context/retire_file/r1", "/api/admin/context/retire_file/r2"]
+    assert "previous owner's copy: 2 removed" in capsys.readouterr().out
+
+
+def test_an_unretired_old_copy_fails_the_project_for_a_retry(mod, monkeypatch, capsys):
+    FakeBeril(monkeypatch, mod, retire=["r1"], retire_ok=False)
+
+    assert mod.main(["alpha"]) == 1
+    out = capsys.readouterr().out
+    assert _rows(out)["alpha"][1] == "failed" and "re-run to retry" in out
+
+
+@pytest.mark.parametrize("status", ["failed", "processing"])
+def test_the_old_copy_is_kept_unless_the_import_landed(mod, monkeypatch, capsys, status):
+    """Regression (Codex stop-gate): a failed or unfinished import must not be
+    followed by removing the previous owner's copy."""
+    beril = FakeBeril(monkeypatch, mod, retire=["r1"], status=status)
+
+    mod.main(["alpha", "--wait", "0"])
+
+    assert not any("retire_file" in r.url.path for r in beril.requests)
+    assert "previous owner's copy kept" in capsys.readouterr().out

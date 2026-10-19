@@ -28,6 +28,10 @@ since the last import), flagged (no author ORCiD — fix the project's authors,
 re-run the repo import), not imported (the repo import hasn't seen it),
 in progress (still indexing when the wait ran out — it may well land), or
 failed. Safe to re-run: unchanged files are skipped.
+
+A project the repo import has re-owned is written to its new owner, and the
+copy under the previous owner is removed, one file per request; anything not
+removed is retried on the next run.
 """
 
 from __future__ import annotations
@@ -52,6 +56,7 @@ from observatory_context.staging import stage_project  # noqa: E402
 
 IMPORT_PATH = "/api/admin/context/import_files"
 IMPORT_STATUS_PATH = "/api/admin/context/import_status"
+RETIRE_PATH = "/api/admin/context/retire_file"
 
 
 class Abort(Exception):
@@ -119,12 +124,48 @@ def import_one(
             )
         except BerilIngestError as exc:
             return Outcome(project_dir.name, "failed", str(exc), planned.owner)
+    records = outcome.response.get("retire_records") or []
+    detail = outcome.summary()
+    # The previous owner's copy goes only once this one has fully landed —
+    # otherwise a failed or unfinished import could leave no copy at all. (The
+    # server refuses an early retirement too.) Kept copies are retried next run.
+    if records and not outcome.ok:
+        detail += f"; previous owner's copy kept ({len(records)} file(s)) until this import lands"
+        records = []
+    retired, retire_failed = retire(http, base_url, token, records)
+    if retired or retire_failed:
+        detail += f"; previous owner's copy: {retired} removed"
+        if retire_failed:
+            detail += f", {retire_failed} not removed (re-run to retry)"
+    if retire_failed:
+        return Outcome(project_dir.name, "failed", detail, planned.owner)
     if outcome.ok:
         status = "current" if outcome.batch_id is None else "imported"
-        return Outcome(project_dir.name, status, outcome.summary(), planned.owner)
+        return Outcome(project_dir.name, status, detail, planned.owner)
     if outcome.timed_out:
-        return Outcome(project_dir.name, "in_progress", outcome.summary(), planned.owner)
-    return Outcome(project_dir.name, "failed", outcome.summary(), planned.owner)
+        return Outcome(project_dir.name, "in_progress", detail, planned.owner)
+    return Outcome(project_dir.name, "failed", detail, planned.owner)
+
+
+def retire(http: httpx.Client, base_url: str, token: str, records: list[str]) -> tuple[int, int]:
+    """Remove what a re-owned project left under its previous owner, one file
+    per call (each delete is confirmed by the store, which takes a while).
+
+    Returns ``(removed, not_removed)``. A file not removed stays marked
+    pending on the server and is planned again on the next import.
+    """
+    removed = failed = 0
+    for record in records:
+        try:
+            resp = http.post(
+                f"{base_url.rstrip('/')}{RETIRE_PATH}/{record}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            ok = resp.is_success and resp.json().get("status") == "removed"
+        except (httpx.HTTPError, ValueError):
+            ok = False
+        removed, failed = (removed + 1, failed) if ok else (removed, failed + 1)
+    return removed, failed
 
 
 def _detail(resp: httpx.Response) -> str:
@@ -190,7 +231,9 @@ def main(argv: list[str] | None = None) -> int:
     outcomes: list[Outcome] = []
     try:
         dirs = _project_dirs(args.projects, args.all)
-        with httpx.Client(timeout=120.0) as http:
+        # Long enough for one store-confirmed delete or a large upload; each
+        # request does one bounded piece of work.
+        with httpx.Client(timeout=300.0) as http:
             for d in dirs:
                 if args.dry_run:
                     outcome = owner_of(http, record.base_url, record.token, d.name)
