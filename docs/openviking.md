@@ -181,6 +181,12 @@ its approver and to the approved bytes, but the submitter supplies the
 
 ### Importing the repo's projects (admin)
 
+> **Scope: a one-time backfill of the projects in this git repo.** This
+> tooling exists only to ingest the set of projects currently under
+> `projects/`. It is not an ongoing ingest path and not a way to submit new
+> work: new and updated projects reach the context layer through `/submit`,
+> under their own authors.
+
 Projects that predate `/submit` are indexed by an admin, each **owned by its
 author**, as if that author had submitted it. Two steps, on the target server:
 

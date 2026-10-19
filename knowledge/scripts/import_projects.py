@@ -8,6 +8,11 @@
 # ///
 """Index the repo's projects into the context layer, each owned by its author.
 
+Scope: a one-time backfill of the projects in this git repo. This exists only
+to ingest the set of projects currently under ``projects/``; it is not an
+ongoing ingest path and not a way to submit new work. New and updated projects
+reach the context layer through ``/submit``, under their own authors.
+
 An admin tool. For the projects that predate ``/submit``: each is staged the
 way the ``/submit`` mirror stages it and uploaded to BERIL's admin import
 route, which lands it in its **owner's** namespace — as if they had submitted
