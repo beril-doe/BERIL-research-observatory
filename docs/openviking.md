@@ -217,6 +217,21 @@ Each project reports one of these outcomes:
 - `in_progress` — still indexing when `--wait` ran out; it will land;
 - `failed`.
 
+When the repo import **re-owns** a project (the rule's answer changed), the
+next context import writes it to the new owner. The old owner's copy is then
+removed one file per request (`POST /api/admin/context/retire_file/{id}`).
+Each removal is marked pending before anything is deleted, and is refused
+until the new owner's copy of that file has landed. Two known limits:
+
+- **A failed re-own can leave things half-moved.** The importer commits the
+  owner change before copying files, so a copy failure leaves the project
+  showing the new owner with files still stored under the old one. They stay
+  readable, the import is marked `failed`, and the retry finishes the move.
+- **A removal can race a reversal.** If the repo import re-owns the project
+  back to the old owner during a delete (seconds), that file is removed from
+  what is now the current namespace. The file is recorded `removed`, which is
+  not "landed", so the next import (or the owner's `/submit`) re-sends it.
+
 Re-running is safe. `--force` re-sends unchanged files. The same archive limits
 and file allowlist as `/ingest_files` apply. The approval check does not, since
 these projects never went through `/submit`. Poll a batch with

@@ -4086,3 +4086,24 @@ async def test_retire_file_refuses_the_current_namespace_and_non_admins(
 async def test_retire_file_requires_an_admin(client, credentialed_user):
     _login(client)
     assert client.post("/api/admin/context/retire_file/whatever").status_code == 403
+
+
+@pytest.mark.gated
+async def test_retire_file_rechecks_ownership_right_before_deleting(
+    client, credentialed_user, db_session, admin_store
+):
+    """Mitigation (Codex adversarial review): the project re-owned back to the
+    old namespace after planning is refused at the last check, not deleted."""
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    old_owner, _new, project = await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+    await _land_everything(db_session)
+    project.owner_id = old_owner.id  # re-owned back before the retirement runs
+    await db_session.commit()
+
+    resp = client.post(f"/api/admin/context/retire_file/{records[0]}")
+
+    assert resp.status_code == 409
+    inst.remove_files.assert_not_awaited()

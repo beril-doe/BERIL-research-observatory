@@ -1469,6 +1469,19 @@ async def _plan_retirement(
     return pending
 
 
+async def _current_root(db: AsyncSession, project_id: str) -> str | None:
+    """The project's namespace as the database says right now."""
+    row = (
+        await db.execute(
+            select(BerilUser.orcid_id, UserProject.slug)
+            .join(UserProject, UserProject.owner_id == BerilUser.id)
+            .where(UserProject.id == project_id)
+            .execution_options(populate_existing=True)
+        )
+    ).one_or_none()
+    return user_target_root(row.orcid_id, row.slug) if row else None
+
+
 @ROUTER_CONTEXT.post("/api/admin/context/retire_file/{record_id}")
 async def post_admin_context_retire_file(
     request: Request,
@@ -1514,10 +1527,27 @@ async def post_admin_context_retire_file(
                     "has not landed yet. Import the project, let it finish, then retry."
                 ),
             )
+        # Re-read the owner immediately before deleting, so nothing slow sits
+        # between the last check and the delete. Not a lock: a repo import
+        # that re-owns the project back to this namespace *during* the delete
+        # (seconds) is not prevented — see below.
+        if await _current_root(db, db_project.id) == batch.target_root:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail="The project was re-owned back to this namespace; it is not retired.",
+            )
         removed = await _admin_context_manager().remove_files(
             [record.relative_path], target_root=batch.target_root
         )
         outcome = removed[0]
+        if await _current_root(db, db_project.id) == batch.target_root:
+            # Lost the race: the namespace became current while the delete ran.
+            # The record below says ``removed`` there, which is not "landed",
+            # so the next import of the project re-sends the file.
+            logger.warning(
+                "Retired %s from %s while it became the project's current namespace; "
+                "the next import restores it", record.relative_path, batch.target_root,
+            )
         await update_ingest_file_statuses(db, {record.id: (outcome.status, outcome.reason)})
         record.status, record.error = outcome.status, outcome.reason
     return IngestFileStatus(
