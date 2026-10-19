@@ -560,3 +560,59 @@ class TestRunFullMigration:
         s2 = await run_full_migration(db_session, storage, projects_dir)
         assert s2.skipped == 1
         assert s2.imported == 0
+
+
+class TestReowningIsFailureSafe:
+    async def test_a_failure_part_way_keeps_every_old_blob(
+        self, db_session, storage, projects_root, monkeypatch
+    ):
+        """Regression (Codex adversarial review): the old blob was deleted as
+        each file moved, before the commit; a failure on a later file rolled
+        the rows back to paths that no longer existed. Old blobs now go only
+        after the commit, so a failed re-own leaves every row readable."""
+        from sqlalchemy import select
+
+        d = _make_project_dir(projects_root, "adp1", readme=_authors(f"Paramvir ({ALICE})"))
+        (d / "data.csv").write_text("x\n1\n")
+        first = await import_project(db_session, storage, d, projects_root)
+        pid = first.project_id  # the instance expires on the import's rollback
+        project = await db_session.get(UserProject, pid)
+        admin = BerilUser(orcid_id=ADMIN_AUTHOR_ORCID, display_name="Beril Admin")
+        db_session.add(admin)
+        await db_session.commit()
+        project.owner_id = admin.id  # as imported under the old rule
+        await db_session.commit()
+        rows = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.project_id == pid)
+        )).scalars().all()
+        for row in rows:
+            row.storage_path = f"{admin.id}/adp1/uploads/{row.filename}"
+            await storage.save(b"old", row.storage_path)
+        await db_session.commit()
+        old_paths = {r.filename: r.storage_path for r in rows}
+
+        real_save = storage.save
+        calls = {"n": 0}
+
+        async def flaky_save(data, path):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise OSError("disk full")
+            return await real_save(data, path)
+
+        monkeypatch.setattr(storage, "save", flaky_save)
+        result = await import_project(db_session, storage, d, projects_root)
+
+        assert result.status == "failed"
+        rows = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.project_id == pid)
+        )).scalars().all()
+        for row in rows:
+            await db_session.refresh(row)
+            assert row.storage_path == old_paths[row.filename]
+            assert storage.exists(row.storage_path)
+
+        monkeypatch.setattr(storage, "save", real_save)
+        retry = await import_project(db_session, storage, d, projects_root)
+        assert retry.status == "imported" and retry.owner_orcid == ALICE
+        assert not any(storage.exists(p) for p in old_paths.values())

@@ -304,9 +304,17 @@ async def _copy_project_files(
     """Copy all files from project_dir into the managed volume and create DB records.
 
     Returns the number of files copied.
+
+    Old blobs are deleted only after the rows that stop referencing them are
+    committed: a file that moved (the project changed owner) or left the
+    source tree keeps its old blob until then, so a failure part-way — which
+    rolls the rows back — never leaves a row pointing at a deleted blob. The
+    worst a failure leaves is a new copy nothing references yet, which the
+    retried import writes over.
     """
     copied = 0
     scanned = scan_project_files(project_dir)
+    superseded: list[str] = []
 
     for pf in scanned:
         src = project_dir / pf.relative_path
@@ -335,9 +343,9 @@ async def _copy_project_files(
 
         if existing is not None:
             if existing.storage_path != storage_path:
-                # The project changed owner, so its files moved; the old copy
-                # would otherwise be left behind under the previous owner.
-                await storage.delete(existing.storage_path)
+                # The project changed owner, so its files moved. The old copy
+                # goes once the new path is committed (below).
+                superseded.append(existing.storage_path)
             existing.storage_path = storage_path
             existing.size_bytes = size
             existing.content_type = pf.content_type
@@ -370,10 +378,12 @@ async def _copy_project_files(
     )
     for row in existing_result.scalars().all():
         if row.filename not in scanned_paths:
-            await storage.delete(row.storage_path)
+            superseded.append(row.storage_path)
             await db.delete(row)
 
     await db.commit()
+    for path in superseded:
+        await storage.delete(path)
     return copied
 
 
