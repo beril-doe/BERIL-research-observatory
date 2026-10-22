@@ -4,12 +4,14 @@ import pytest
 
 from app.db.models import BerilUser, ProjectFile, ProjectImportRecord, UserProject
 from app.importer import (
+    ADMIN_AUTHOR_ORCID,
     SENTINEL_ORCID,
     _get_import_record,
     _is_stale,
     _source_mtime,
     _upsert_import_record,
     import_project,
+    owner_orcid,
     resolve_owner,
     run_full_migration,
 )
@@ -169,33 +171,94 @@ class TestUpsertImportRecord:
 # ---------------------------------------------------------------------------
 
 
+ALICE = "0000-0001-2345-6789"
+BOB = "0000-0002-9999-000X"  # an iD ending in X — the old parser missed these
+
+
+def _authors(*lines: str) -> str:
+    return "# Project\n\n## Authors\n" + "".join(f"- {line}\n" for line in lines)
+
+
+class TestOwnerOrcid:
+    """The ownership rule, read straight from a project's files."""
+
+    def test_beril_yaml_first_author_with_an_orcid(self, tmp_path):
+        (tmp_path / "beril.yaml").write_text(
+            "authors:\n"
+            "  - {name: No Id}\n"
+            f"  - {{name: Bob, affiliation: LBNL, orcid: '{BOB}'}}\n"
+            f"  - {{name: Alice, orcid: '{ALICE}'}}\n"
+        )
+        (tmp_path / "README.md").write_text(_authors(f"Alice (https://orcid.org/{ALICE})"))
+
+        claim = owner_orcid(tmp_path)
+        assert (claim.orcid, claim.source, claim.name, claim.affiliation) == (
+            BOB, "beril.yaml", "Bob", "LBNL",
+        )
+
+    def test_readme_authors_when_beril_yaml_has_none(self, tmp_path):
+        (tmp_path / "beril.yaml").write_text("authors:\n  - {name: No Id}\n")
+        (tmp_path / "README.md").write_text(
+            _authors(f"Alice Smith (https://orcid.org/{ALICE}), LBNL", f"Bob (https://orcid.org/{BOB})")
+        )
+
+        claim = owner_orcid(tmp_path)
+        assert (claim.orcid, claim.source, claim.name) == (ALICE, "README.md", "Alice Smith")
+
+    def test_research_plan_then_other_markdown(self, tmp_path):
+        (tmp_path / "README.md").write_text("# Project\n\nNo authors here.\n")
+        (tmp_path / "ZZ_NOTES.md").write_text(_authors(f"Alice ({ALICE})"))
+        assert owner_orcid(tmp_path).source == "ZZ_NOTES.md"
+
+        (tmp_path / "RESEARCH_PLAN.md").write_text(_authors(f"**Bob** | ORCID: {BOB}"))
+        assert (owner_orcid(tmp_path).orcid, owner_orcid(tmp_path).source) == (
+            BOB, "RESEARCH_PLAN.md",
+        )
+
+    def test_an_orcid_outside_an_authors_section_does_not_count(self, tmp_path):
+        (tmp_path / "README.md").write_text(f"# Project\n\nSee https://orcid.org/{ALICE}.\n")
+        assert owner_orcid(tmp_path) is None
+
+    def test_the_beril_admin_account_never_owns(self, tmp_path):
+        (tmp_path / "README.md").write_text(_authors(
+            f"Beril Admin (https://orcid.org/{ADMIN_AUTHOR_ORCID})",
+            f"Paramvir (https://orcid.org/{ALICE})",
+        ))
+        assert owner_orcid(tmp_path).orcid == ALICE
+
+    def test_only_the_admin_account_means_no_owner(self, tmp_path):
+        (tmp_path / "beril.yaml").write_text(f"authors:\n  - {{orcid: '{ADMIN_AUTHOR_ORCID}'}}\n")
+        (tmp_path / "README.md").write_text(_authors(f"Beril Admin ({ADMIN_AUTHOR_ORCID})"))
+        assert owner_orcid(tmp_path) is None
+
+    def test_a_broken_beril_yaml_falls_through_to_the_readme(self, tmp_path):
+        (tmp_path / "beril.yaml").write_text("authors: [unclosed\n")
+        (tmp_path / "README.md").write_text(_authors(f"Alice ({ALICE})"))
+        assert owner_orcid(tmp_path).orcid == ALICE
+
+
 class TestResolveOwner:
-    async def test_returns_sentinel_when_no_orcid(self, db_session):
-        from app.content_parser import ParsedProjectFields
-        parsed = ParsedProjectFields(contributors=[])
-        owner = await resolve_owner(db_session, parsed)
+    async def test_returns_sentinel_when_no_orcid(self, db_session, tmp_path):
+        (tmp_path / "README.md").write_text("# P\n")
+        owner = await resolve_owner(db_session, tmp_path)
         assert owner.orcid_id == SENTINEL_ORCID
 
-    async def test_returns_existing_user_when_orcid_matches(self, db_session):
-        from app.content_parser import ParsedContributor, ParsedProjectFields
-        user = BerilUser(orcid_id="0000-0001-2345-6789", display_name="Alice")
+    async def test_returns_existing_user_when_orcid_matches(self, db_session, tmp_path):
+        user = BerilUser(orcid_id=ALICE, display_name="Alice")
         db_session.add(user)
         await db_session.commit()
+        (tmp_path / "README.md").write_text(_authors(f"Someone Else ({ALICE})"))
 
-        parsed = ParsedProjectFields(
-            contributors=[ParsedContributor(name="Alice", orcid="0000-0001-2345-6789")]
-        )
-        owner = await resolve_owner(db_session, parsed)
+        owner = await resolve_owner(db_session, tmp_path)
         assert owner.id == user.id
+        assert owner.display_name == "Alice"  # an existing account is not renamed
 
-    async def test_creates_user_for_new_orcid(self, db_session):
-        from app.content_parser import ParsedContributor, ParsedProjectFields
-        parsed = ParsedProjectFields(
-            contributors=[ParsedContributor(name="Bob", orcid="0000-0002-9999-0000")]
+    async def test_creates_a_stub_user_for_a_new_orcid(self, db_session, tmp_path):
+        (tmp_path / "beril.yaml").write_text(
+            f"authors:\n  - {{name: Bob, affiliation: LBNL, orcid: '{BOB}'}}\n"
         )
-        owner = await resolve_owner(db_session, parsed)
-        assert owner.orcid_id == "0000-0002-9999-0000"
-        assert owner.display_name == "Bob"
+        owner = await resolve_owner(db_session, tmp_path)
+        assert (owner.orcid_id, owner.display_name, owner.affiliation) == (BOB, "Bob", "LBNL")
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +310,55 @@ class TestImportProject:
         filenames = {f.filename for f in files}
         assert "README.md" in filenames
         assert "data.csv" in filenames
+
+    async def test_owner_follows_the_rule_and_flags_none(self, db_session, storage, projects_root):
+        owned = _make_project_dir(projects_root, "owned", readme=_authors(f"Alice ({ALICE})"))
+        orphan = _make_project_dir(projects_root, "orphan", readme="# Orphan\n")
+
+        r1 = await import_project(db_session, storage, owned, projects_root)
+        r2 = await import_project(db_session, storage, orphan, projects_root)
+
+        assert r1.owner_orcid == ALICE and "flagged" not in r1.message
+        assert r2.owner_orcid == SENTINEL_ORCID and "flagged" in r2.message
+
+    async def test_an_owner_change_reowns_an_unchanged_project(
+        self, db_session, storage, projects_root
+    ):
+        """The rule, not file mtimes, decides ownership: a project imported
+        under the old rule (here, the admin account as first author) is
+        re-owned on the next run even though no file changed — and its stored
+        files move to the new owner."""
+        from sqlalchemy import select
+
+        d = _make_project_dir(projects_root, "adp1", readme=_authors(f"Paramvir ({ALICE})"))
+        first = await import_project(db_session, storage, d, projects_root)
+        project = await db_session.get(UserProject, first.project_id)
+        admin = BerilUser(orcid_id=ADMIN_AUTHOR_ORCID, display_name="Beril Admin")
+        db_session.add(admin)
+        await db_session.commit()
+        # Simulate the old rule's answer, then move the files there too.
+        old_owner_id = project.owner_id
+        project.owner_id = admin.id
+        await db_session.commit()
+        rows = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.project_id == project.id)
+        )).scalars().all()
+        for row in rows:
+            old_path = f"{admin.id}/adp1/uploads/{row.filename}"
+            await storage.save(b"stale", old_path)
+            row.storage_path = old_path
+        await db_session.commit()
+
+        again = await import_project(db_session, storage, d, projects_root)
+
+        assert again.status == "imported" and again.owner_orcid == ALICE
+        await db_session.refresh(project)
+        assert project.owner_id == old_owner_id
+        rows = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.project_id == project.id)
+        )).scalars().all()
+        assert all(r.storage_path.startswith(f"{old_owner_id}/") for r in rows)
+        assert not any(storage.exists(f"{admin.id}/adp1/uploads/{r.filename}") for r in rows)
 
     async def test_skips_unchanged_project_on_reimport(self, db_session, storage, projects_root):
         d = _make_project_dir(
@@ -448,3 +560,180 @@ class TestRunFullMigration:
         s2 = await run_full_migration(db_session, storage, projects_dir)
         assert s2.skipped == 1
         assert s2.imported == 0
+
+
+class TestReowningIsFailureSafe:
+    async def test_a_failure_part_way_keeps_every_old_blob(
+        self, db_session, storage, projects_root, monkeypatch
+    ):
+        """Regression (Codex adversarial review): the old blob was deleted as
+        each file moved, before the commit; a failure on a later file rolled
+        the rows back to paths that no longer existed. Old blobs now go only
+        after the commit, so a failed re-own leaves every row readable."""
+        from sqlalchemy import select
+
+        d = _make_project_dir(projects_root, "adp1", readme=_authors(f"Paramvir ({ALICE})"))
+        (d / "data.csv").write_text("x\n1\n")
+        first = await import_project(db_session, storage, d, projects_root)
+        pid = first.project_id  # the instance expires on the import's rollback
+        project = await db_session.get(UserProject, pid)
+        admin = BerilUser(orcid_id=ADMIN_AUTHOR_ORCID, display_name="Beril Admin")
+        db_session.add(admin)
+        await db_session.commit()
+        project.owner_id = admin.id  # as imported under the old rule
+        await db_session.commit()
+        rows = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.project_id == pid)
+        )).scalars().all()
+        for row in rows:
+            row.storage_path = f"{admin.id}/adp1/uploads/{row.filename}"
+            await storage.save(b"old", row.storage_path)
+        await db_session.commit()
+        old_paths = {r.filename: r.storage_path for r in rows}
+
+        real_save = storage.save
+        calls = {"n": 0}
+
+        async def flaky_save(data, path):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise OSError("disk full")
+            return await real_save(data, path)
+
+        monkeypatch.setattr(storage, "save", flaky_save)
+        result = await import_project(db_session, storage, d, projects_root)
+
+        assert result.status == "failed"
+        rows = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.project_id == pid)
+        )).scalars().all()
+        for row in rows:
+            await db_session.refresh(row)
+            assert row.storage_path == old_paths[row.filename]
+            assert storage.exists(row.storage_path)
+
+        monkeypatch.setattr(storage, "save", real_save)
+        retry = await import_project(db_session, storage, d, projects_root)
+        assert retry.status == "imported" and retry.owner_orcid == ALICE
+        assert not any(storage.exists(p) for p in old_paths.values())
+
+    async def test_a_failed_cleanup_delete_neither_fails_the_import_nor_stops_the_rest(
+        self, db_session, storage, projects_root, monkeypatch, caplog
+    ):
+        """Regression (Codex review on #468): a delete that raised after the
+        commit marked a completed import failed and skipped every later
+        delete. Cleanup is now best-effort: each path is tried, a failure is
+        logged as an orphan, and the import still reports imported."""
+        from sqlalchemy import select
+
+        d = _make_project_dir(projects_root, "adp1", readme=_authors(f"Paramvir ({ALICE})"))
+        (d / "data.csv").write_text("x\n1\n")
+        first = await import_project(db_session, storage, d, projects_root)
+        pid = first.project_id
+        project = await db_session.get(UserProject, pid)
+        admin = BerilUser(orcid_id=ADMIN_AUTHOR_ORCID, display_name="Beril Admin")
+        db_session.add(admin)
+        await db_session.commit()
+        project.owner_id = admin.id
+        await db_session.commit()
+        rows = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.project_id == pid)
+        )).scalars().all()
+        old_paths = []
+        for row in rows:
+            row.storage_path = f"{admin.id}/adp1/uploads/{row.filename}"
+            await storage.save(b"old", row.storage_path)
+            old_paths.append(row.storage_path)
+        await db_session.commit()
+
+        real_delete = storage.delete
+        attempted = []
+
+        async def flaky_delete(path):
+            attempted.append(path)
+            if len(attempted) == 1:
+                raise PermissionError("read-only")
+            await real_delete(path)
+
+        monkeypatch.setattr(storage, "delete", flaky_delete)
+        result = await import_project(db_session, storage, d, projects_root)
+
+        assert result.status == "imported" and result.owner_orcid == ALICE
+        assert sorted(attempted) == sorted(old_paths)  # every delete was tried
+        assert "orphaned" in caplog.text
+        assert sum(storage.exists(p) for p in old_paths) == 1  # only the failed one remains
+
+
+class TestOwnersOwnRow:
+    """Regression (Codex review on #468): re-owning onto an author who already
+    has their own row for the slug (they /submit-ted it first) broke the
+    (owner_id, slug) constraint, and every retry failed the same way."""
+
+    async def _authors_row(self, db_session, slug):
+        author = BerilUser(orcid_id=ALICE, display_name="Alice")
+        db_session.add(author)
+        await db_session.commit()
+        row = UserProject(owner_id=author.id, slug=slug, title="mine", is_public=False)
+        db_session.add(row)
+        await db_session.commit()
+        return author, row.id
+
+    async def test_reowning_onto_an_authors_own_row_merges_into_it(
+        self, db_session, storage, projects_root
+    ):
+        from sqlalchemy import select
+
+        from app.db.models import ContextIngestBatch, ProjectReview
+
+        # Imported under the old rule: no author found → the sentinel owns it.
+        d = _make_project_dir(projects_root, "adp1", readme="# ADP1\n")
+        first = await import_project(db_session, storage, d, projects_root)
+        repo_id = first.project_id
+        db_session.add(ProjectReview(project_id=repo_id, reviewer="r", raw_content="ok"))
+        sentinel = (await db_session.execute(
+            select(BerilUser).where(BerilUser.orcid_id == SENTINEL_ORCID))).scalar_one()
+        db_session.add(ContextIngestBatch(
+            user_id=sentinel.id, project_id=repo_id, target_root="old-root"))
+        await db_session.commit()
+        # Meanwhile the author submitted it themselves.
+        author, own_id = await self._authors_row(db_session, "adp1")
+        db_session.add(ContextIngestBatch(user_id=author.id, project_id=own_id, target_root="own-root"))
+        await db_session.commit()
+        # Now the README names them, so the rule moves the project to them.
+        (d / "README.md").write_text(_authors(f"Alice ({ALICE})"))
+
+        result = await import_project(db_session, storage, d, projects_root)
+
+        assert result.status == "imported", result.message
+        assert result.project_id == own_id and result.owner_orcid == ALICE
+        rows = (await db_session.execute(
+            select(UserProject).where(UserProject.slug == "adp1"))).scalars().all()
+        assert [r.id for r in rows] == [own_id]
+        merged = rows[0]
+        assert (merged.repo_path, merged.origin, merged.is_public) == ("projects/adp1", "repo", True)
+        reviews = (await db_session.execute(
+            select(ProjectReview.project_id))).scalars().all()
+        assert reviews == [own_id]
+        roots = sorted((await db_session.execute(
+            select(ContextIngestBatch.target_root).where(ContextIngestBatch.project_id == own_id)
+        )).scalars().all())
+        assert roots == ["old-root", "own-root"]
+        files = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.project_id == own_id))).scalars().all()
+        assert files and all(f.storage_path.startswith(f"{author.id}/") for f in files)
+        record = await _get_import_record(db_session, "projects/adp1")
+        assert record.project_id == own_id
+
+    async def test_a_first_import_adopts_an_authors_own_row(
+        self, db_session, storage, projects_root
+    ):
+        _author, own_id = await self._authors_row(db_session, "fresh")
+        d = _make_project_dir(projects_root, "fresh", readme=_authors(f"Alice ({ALICE})"))
+
+        result = await import_project(db_session, storage, d, projects_root)
+
+        assert result.status == "imported", result.message
+        assert result.project_id == own_id
+        row = await db_session.get(UserProject, own_id)
+        await db_session.refresh(row)
+        assert (row.repo_path, row.is_public) == ("projects/fresh", True)

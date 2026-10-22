@@ -12,6 +12,7 @@ import asyncio
 import hashlib
 import logging
 import mimetypes
+import re
 import tempfile
 from collections import Counter
 from dataclasses import dataclass
@@ -31,6 +32,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,6 +55,7 @@ from app.context_manager.base import (
     MAX_OWNER_EXPANSION,
     MAX_PITFALL_LIMIT,
     TERMINAL_INGEST_STATUSES,
+    ContextImportResults,
     ContextIngestResults,
     ContextQueryResults,
     DiscoveryHit,
@@ -93,10 +96,12 @@ from app.db.crud import (
     get_ingest_batch,
     get_project_by_slug,
     latest_file_statuses,
+    project_target_roots,
     projects_with_memory,
     update_ingest_file_statuses,
 )
-from app.db.models import UserProject
+from app.db.models import ContextIngestFileRecord, UserProject
+from app.importer import SENTINEL_ORCID
 from app.db.session import get_db
 from app.routes.data import _safe_relative_path
 from app.routes.ingest_gate import (
@@ -911,6 +916,60 @@ def _parse_manifest(manifest_bytes: bytes) -> _Manifest:
     return _Manifest(paths, removals)
 
 
+async def _read_submission(
+    archive: UploadFile, manifest: UploadFile
+) -> tuple[bytes, list[str], list[str]]:
+    """Read and check the parts of a submission every ingest route shares.
+
+    Returns ``(archive_bytes, paths, removals)``. Bounds the upload and the
+    manifest, the number of entries, and which files may be added — only
+    what the mirror stages. Removals may name any clean path, so content
+    ingested before that rule can still be withdrawn. Nothing here touches
+    the database or a backend.
+    """
+    settings = get_settings()
+    archive_bytes = await read_capped(
+        archive, settings.context_max_archive_bytes, what="archive"
+    )
+    relative_paths, removals = _parse_manifest(
+        await read_capped(manifest, settings.context_max_manifest_bytes, what="manifest")
+    )
+    entries = len(relative_paths) + len(removals)
+    if entries > settings.context_max_ingest_files:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=(
+                f"Too many files: {entries} "
+                f"(limit {settings.context_max_ingest_files})."
+            ),
+        )
+    not_allowed = disallowed(relative_paths)
+    if not_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                "Only a project's report files, memories, and beril.yaml can be "
+                f"ingested; not allowed: {', '.join(not_allowed)}"
+            ),
+        )
+    return archive_bytes, relative_paths, removals
+
+
+async def _extract(archive_bytes: bytes, root: Path, relative_paths: list[str]) -> None:
+    """Unpack only the manifest's members into ``root``, each bounded before
+    any is written. Touches the disk, so it stays off the event loop."""
+    settings = get_settings()
+    await asyncio.to_thread(
+        extract_members,
+        archive_bytes,
+        root,
+        relative_paths,
+        max_file_bytes=settings.context_max_file_bytes,
+        max_total_bytes=settings.context_max_expanded_bytes,
+        max_entries=settings.context_max_archive_entries,
+    )
+
+
 @ROUTER_CONTEXT.post("/api/context/ingest_files")
 async def post_context_ingest_files(
     request: Request,
@@ -949,7 +1008,6 @@ async def post_context_ingest_files(
     batch exists and ``batch_id`` is ``None``. That is success, not a missing
     handle.
     """
-    settings = get_settings()
     # Everything that can refuse the submission runs first, so a rejected one
     # creates no project row, provisions nothing, and reaches no backend.
     if force and not await _is_admin(db, user):
@@ -957,33 +1015,7 @@ async def post_context_ingest_files(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forcing a re-ingest requires an administrator.",
         )
-    archive_bytes = await read_capped(
-        archive, settings.context_max_archive_bytes, what="archive"
-    )
-    relative_paths, removals = _parse_manifest(
-        await read_capped(manifest, settings.context_max_manifest_bytes, what="manifest")
-    )
-    entries = len(relative_paths) + len(removals)
-    if entries > settings.context_max_ingest_files:
-        raise HTTPException(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail=(
-                f"Too many files: {entries} "
-                f"(limit {settings.context_max_ingest_files})."
-            ),
-        )
-
-    # Only what the mirror stages may be added. Removals may name any clean
-    # path, so content ingested before this rule can still be withdrawn.
-    not_allowed = disallowed(relative_paths)
-    if not_allowed:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=(
-                "Only a project's report files, memories, and beril.yaml can be "
-                f"ingested; not allowed: {', '.join(not_allowed)}"
-            ),
-        )
+    archive_bytes, relative_paths, removals = await _read_submission(archive, manifest)
     # Every submission carries the approval it is checked against — removals
     # are writes too.
     unapproved = [f for f in APPROVAL_FILES if f not in relative_paths]
@@ -1004,17 +1036,7 @@ async def post_context_ingest_files(
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         root = Path(tmp_dir).resolve()
-        # Unpacking touches the disk, so it stays off the event loop. Only the
-        # manifest's members are extracted, each bounded before any is written.
-        await asyncio.to_thread(
-            extract_members,
-            archive_bytes,
-            root,
-            relative_paths,
-            max_file_bytes=settings.context_max_file_bytes,
-            max_total_bytes=settings.context_max_expanded_bytes,
-            max_entries=settings.context_max_archive_entries,
-        )
+        await _extract(archive_bytes, root, relative_paths)
         # Parsing beril.yaml and hashing the reports is CPU-bound, so it stays
         # off the event loop too.
         await asyncio.to_thread(
@@ -1027,53 +1049,89 @@ async def post_context_ingest_files(
 
         manager = await resolve_context_manager(db, user)
         db_project = await _resolve_project(db, user, project)
-        target_root = user_target_root(user.orcid_id, db_project.slug)
+        return await _ingest(
+            db,
+            owner=user,
+            manager=manager,
+            db_project=db_project,
+            root=root,
+            relative_paths=relative_paths,
+            removals=removals,
+            force=force,
+        )
 
-        logger.info(f"ingesting files: {relative_paths}")
 
-        # What this project already has, so identical content is not re-sent.
-        # Skipped entirely under force: the point of the flag is to re-ingest
-        # regardless of what we believe already landed.
-        landed = {} if force else await completed_file_hashes(db, db_project.id)
+async def _ingest(
+    db: AsyncSession,
+    *,
+    owner: BerilUser,
+    manager,
+    db_project: UserProject,
+    root: Path,
+    relative_paths: list[str],
+    removals: list[str],
+    force: bool,
+) -> ContextIngestResults:
+    """Ingest validated, extracted files into ``owner``'s copy of a project.
 
-        ingest_files = []
-        content_hashes: dict[str, str] = {}
-        skipped: list[IngestResult] = []
-        for relative_path in relative_paths:
-            # Sizes were bounded before extraction (extract_members).
-            content = await asyncio.to_thread((root / relative_path).read_bytes)
-            # Recorded against the batch row so a later ingest can tell whether
-            # this exact content already landed.
-            digest = hashlib.sha256(content).hexdigest()
-            if landed.get(relative_path) == digest:
-                # Reported, not omitted: the response accounts for every
-                # manifest entry so a skip can't be mistaken for a lost file.
-                # No batch row is written — a skip is not an ingest attempt, and
-                # recording one would let it satisfy a later skip check without
-                # anything ever having been indexed.
-                skipped.append(
-                    IngestResult(
-                        relative_path=relative_path,
-                        status=INGEST_SKIPPED,
-                        uri=target_uri(target_root, relative_path),
-                        reason="Identical content already ingested.",
-                    )
-                )
-                continue
-            content_hashes[relative_path] = digest
-            ingest_files.append(
-                ContextIngestFile(
+    Shared by a user's own submission and an admin's import on someone's
+    behalf: everything that decides *whether* to accept a submission runs in
+    the route, before this. ``owner`` is whose namespace the files land in and
+    whose project and batch rows record them — the caller for
+    ``/ingest_files``, the project's owner for an admin import. ``manager`` is
+    the store connection to write with. ``root`` holds the extracted manifest
+    members.
+    """
+    target_root = user_target_root(owner.orcid_id, db_project.slug)
+
+    logger.info(f"ingesting files: {relative_paths}")
+
+    # What this project already has, so identical content is not re-sent.
+    # Skipped entirely under force: the point of the flag is to re-ingest
+    # regardless of what we believe already landed.
+    landed = (
+        {} if force
+        else await completed_file_hashes(db, db_project.id, target_root=target_root)
+    )
+
+    ingest_files = []
+    content_hashes: dict[str, str] = {}
+    skipped: list[IngestResult] = []
+    for relative_path in relative_paths:
+        # Sizes were bounded before extraction (extract_members).
+        content = await asyncio.to_thread((root / relative_path).read_bytes)
+        # Recorded against the batch row so a later ingest can tell whether
+        # this exact content already landed.
+        digest = hashlib.sha256(content).hexdigest()
+        if landed.get(relative_path) == digest:
+            # Reported, not omitted: the response accounts for every
+            # manifest entry so a skip can't be mistaken for a lost file.
+            # No batch row is written — a skip is not an ingest attempt, and
+            # recording one would let it satisfy a later skip check without
+            # anything ever having been indexed.
+            skipped.append(
+                IngestResult(
                     relative_path=relative_path,
-                    content=content,
-                    content_type=mimetypes.guess_type(relative_path)[0],
+                    status=INGEST_SKIPPED,
+                    uri=target_uri(target_root, relative_path),
+                    reason="Identical content already ingested.",
                 )
             )
+            continue
+        content_hashes[relative_path] = digest
+        ingest_files.append(
+            ContextIngestFile(
+                relative_path=relative_path,
+                content=content,
+                content_type=mimetypes.guess_type(relative_path)[0],
+            )
+        )
 
     logger.info(
         "Ingesting %d file(s) to %s for user %s (%d unchanged, %d to remove)",
         len(ingest_files),
         target_root,
-        user.orcid_id,
+        owner.orcid_id,
         len(skipped),
         len(removals),
     )
@@ -1087,7 +1145,9 @@ async def post_context_ingest_files(
     # refused — changed nothing in the corpus, so they are passed over and the
     # newest record that *did* something answers.
     current = (
-        await latest_file_statuses(db, db_project.id, ignoring=(INGEST_FAILED,))
+        await latest_file_statuses(
+            db, db_project.id, ignoring=(INGEST_FAILED,), target_root=target_root
+        )
         if removals
         else {}
     )
@@ -1125,7 +1185,7 @@ async def post_context_ingest_files(
     if recorded:
         batch = await create_ingest_batch(
             db,
-            user_id=user.id,
+            user_id=owner.id,
             project_id=db_project.id,
             target_root=target_root,
             files=[
@@ -1174,14 +1234,24 @@ async def get_context_ingest_status(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Unknown ingest batch."
         )
+    return await _batch_status(db, batch, lambda: resolve_context_manager(db, user))
 
+
+async def _batch_status(db: AsyncSession, batch, open_manager) -> IngestBatchStatus:
+    """Refresh a batch's unsettled files from the store and roll them up.
+
+    ``open_manager`` builds the store connection to poll with — only called
+    when something is still pending, so a settled batch never needs one. A
+    user polls with their own; an admin import polls with BERIL's admin key,
+    which created those tasks.
+    """
     pending = {
         f.ov_task_id: f.id
         for f in batch.files
         if f.status not in TERMINAL_INGEST_STATUSES and f.ov_task_id
     }
     if pending:
-        manager = await resolve_context_manager(db, user)
+        manager = await open_manager()
         try:
             refreshed = await manager.task_statuses(list(pending))
         except (*QUERY_FAILURES, ContextUnavailableError) as exc:
@@ -1216,6 +1286,307 @@ async def get_context_ingest_status(
         counts={s: counts.get(s, 0) for s in INGEST_STATUSES},
         files=files,
     )
+
+
+def _admin_context_manager() -> OpenVikingManager:
+    """A store connection on BERIL's admin key — for writing into, and
+    polling, namespaces other than the caller's. Admin routes only."""
+    settings = get_settings()
+    if not settings.ov_admin_key:
+        logger.warning("Admin context access requested, but no admin key is configured")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=CONTEXT_UNAVAILABLE_DETAIL
+        )
+    return get_context_manager(settings.ov_admin_key)
+
+
+async def _require_admin(db: AsyncSession, user: BerilUser) -> None:
+    if not await _is_admin(db, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required."
+        )
+
+
+@ROUTER_CONTEXT.post("/api/admin/context/import_files")
+async def post_admin_context_import(
+    request: Request,
+    project: str = Form(..., description="The project's directory name under projects/."),
+    archive: UploadFile | None = File(None),
+    manifest: UploadFile | None = File(None),
+    dry_run: bool = Form(False),
+    force: bool = Form(False),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db),
+) -> ContextImportResults:
+    """Index a repo project into the context layer, owned by its author.
+
+    For the projects that predate ``/submit``: an admin stages a repo project
+    and uploads it here, and it lands in the **owner's** namespace, recorded
+    under the owner's project and batch rows — exactly as if they had
+    submitted it, so their own later ``/submit`` of it skips unchanged files.
+
+    Ownership is not decided here. It is the repo importer's
+    (``app.importer.owner_orcid``), which already created the project's row:
+    the project is found by its ``repo_path``, and its owner is that row's.
+    A project the importer has not seen is refused (run the repo import
+    first), and one it could find no author ORCiD for — owned by the sentinel
+    user — is refused as flagged. ``dry_run`` reports the owner and does
+    nothing else.
+
+    The same archive limits and allowlist as ``/ingest_files`` apply. The
+    approval check does not: these projects never went through ``/submit``.
+    Writes and polls use BERIL's admin key — the owner may never have logged
+    in. Poll with ``/api/admin/context/import_status/{batch_id}``.
+    """
+    await _require_admin(db, user)
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", project):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Invalid project directory name: {project!r}",
+        )
+    db_project = (
+        await db.execute(
+            select(UserProject).where(UserProject.repo_path == f"projects/{project}")
+        )
+    ).scalar_one_or_none()
+    if db_project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"projects/{project} has not been imported from the repo; "
+                "run the repo import (/admin/import) first."
+            ),
+        )
+    owner = await db.get(BerilUser, db_project.owner_id)
+    if owner is None or owner.orcid_id == SENTINEL_ORCID:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"projects/{project} is flagged: no author ORCiD was found. Add one "
+                "to beril.yaml or an Authors section, re-run the repo import, then "
+                "import it again."
+            ),
+        )
+    if context_slugify(db_project.slug) != db_project.slug:
+        # The owner's own /submit writes under the slugified name; an import
+        # anywhere else would leave two copies.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"projects/{project}'s slug {db_project.slug!r} is not a context slug "
+                f"({context_slugify(db_project.slug)!r}); rename the directory."
+            ),
+        )
+    if dry_run:
+        return ContextImportResults(
+            results=[], queued=0, failed=0,
+            project=db_project.slug, owner_orcid=owner.orcid_id, dry_run=True,
+        )
+    if archive is None or manifest is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="An import needs an archive and a manifest (or dry_run).",
+        )
+
+    archive_bytes, relative_paths, removals = await _read_submission(archive, manifest)
+    manager = _admin_context_manager()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        root = Path(tmp_dir).resolve()
+        await _extract(archive_bytes, root, relative_paths)
+        logger.info(
+            "Admin %s importing projects/%s for owner %s",
+            user.orcid_id, project, owner.orcid_id,
+        )
+        results = await _ingest(
+            db,
+            owner=owner,
+            manager=manager,
+            db_project=db_project,
+            root=root,
+            relative_paths=relative_paths,
+            removals=removals,
+            force=force,
+        )
+    # Planned only after this import has recorded its files: retire_file
+    # treats a path with *no* record in the current namespace as one the
+    # project no longer has, so the records must exist before any retirement
+    # can be asked for.
+    retire_records = await _plan_retirement(db, owner, db_project)
+    return ContextImportResults(
+        **{name: getattr(results, name) for name in ContextIngestResults.model_fields},
+        project=db_project.slug,
+        owner_orcid=owner.orcid_id,
+        retire_records=retire_records,
+    )
+
+
+# Marks a file in a previous owner's namespace whose removal has been planned
+# but not confirmed. ``unknown`` on purpose: it is not ``completed``, so a later
+# ingest to that namespace re-sends the file rather than trusting it landed;
+# and it is still "held", so the next import plans its removal again. Either
+# way, no interruption can leave a record claiming content the store lacks.
+RETIRE_PENDING = "Removal pending: the project was re-owned."
+
+
+async def _plan_retirement(
+    db: AsyncSession, owner: BerilUser, db_project: UserProject
+) -> list[str]:
+    """Mark for removal what this project left in a previous owner's namespace.
+
+    The repo importer re-owns a project in place — same row, new owner — so
+    its content may still sit under the old owner's ORCiD, searchable there
+    and attributed to the wrong person. For every file still held in a
+    namespace other than the current one, a removal-pending record is written
+    (one batch per namespace) and its id returned; the caller retires each
+    with ``/api/admin/context/retire_file/{record_id}``. Planning is quick and
+    database-only; the deletes are slow (the store confirms each before
+    returning), so they are not done inside the import request.
+    """
+    current_root = user_target_root(owner.orcid_id, db_project.slug)
+    pending: list[str] = []
+    for root in await project_target_roots(db, db_project.id):
+        if root == current_root:
+            continue
+        held = await latest_file_statuses(
+            db, db_project.id, ignoring=(INGEST_FAILED,), target_root=root
+        )
+        paths = sorted(p for p, s in held.items() if _held(s))
+        if not paths:
+            continue
+        batch = await create_ingest_batch(
+            db,
+            user_id=owner.id,
+            project_id=db_project.id,
+            target_root=root,
+            files=[
+                {"relative_path": p, "uri": target_uri(root, p), "ov_task_id": None,
+                 "status": INGEST_UNKNOWN, "error": RETIRE_PENDING, "content_sha256": None}
+                for p in paths
+            ],
+        )
+        logger.info(
+            "Planned retirement of %d file(s) of %s from previous namespace %s",
+            len(paths), db_project.slug, root,
+        )
+        await db.refresh(batch, ["files"])
+        pending.extend(f.id for f in batch.files)
+    return pending
+
+
+async def _current_root(db: AsyncSession, project_id: str) -> str | None:
+    """The project's namespace as the database says right now."""
+    row = (
+        await db.execute(
+            select(BerilUser.orcid_id, UserProject.slug)
+            .join(UserProject, UserProject.owner_id == BerilUser.id)
+            .where(UserProject.id == project_id)
+            .execution_options(populate_existing=True)
+        )
+    ).one_or_none()
+    return user_target_root(row.orcid_id, row.slug) if row else None
+
+
+@ROUTER_CONTEXT.post("/api/admin/context/retire_file/{record_id}")
+async def post_admin_context_retire_file(
+    request: Request,
+    record_id: str,
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db),
+) -> IngestFileStatus:
+    """Remove one file a re-owned project left in its previous owner's
+    namespace, and record the outcome. Admins only.
+
+    ``record_id`` is a removal-pending record from an import's
+    ``retire_records``. One file per call because the store confirms each
+    delete before returning, which can take tens of seconds. Repeating a call
+    is harmless: a record already settled is reported as it stands, and
+    deleting a file already gone is not an error. Refuses to touch the
+    project's *current* namespace, and refuses until the current owner's copy
+    of the same file has landed — so a failed or unfinished import can never
+    leave the project with no copy at all. A file the current namespace does
+    not hold — withdrawn there, or deleted from the repo since — is retired
+    without waiting.
+    """
+    await _require_admin(db, user)
+    record = await db.get(ContextIngestFileRecord, record_id)
+    if record is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Unknown removal record.")
+    await db.refresh(record, ["batch"])
+    batch = record.batch
+    db_project = await db.get(UserProject, batch.project_id)
+    owner = await db.get(BerilUser, db_project.owner_id) if db_project else None
+    if db_project is None or owner is None or not db_project.repo_path:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Unknown removal record.")
+    current_root = user_target_root(owner.orcid_id, db_project.slug)
+    if batch.target_root == current_root:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="That file is in the project's current namespace; it is not retired.",
+        )
+    if record.status == INGEST_UNKNOWN and record.error == RETIRE_PENDING:
+        # Wait only while the current owner's copy is in flight or failed.
+        # Landed (completed), withdrawn (an explicit removal), or never there
+        # (deleted from the repo since): nothing is coming, so the old copy
+        # goes. Read by status, not by hash — a completed row with no hash
+        # has still landed.
+        current = await latest_file_statuses(db, db_project.id, target_root=current_root)
+        if current.get(record.relative_path) not in (None, INGEST_COMPLETED, INGEST_REMOVED):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Not retired: the current owner's copy of {record.relative_path} "
+                    "has not landed yet. Import the project, let it finish, then retry."
+                ),
+            )
+        # Re-read the owner immediately before deleting, so nothing slow sits
+        # between the last check and the delete. Not a lock: a repo import
+        # that re-owns the project back to this namespace *during* the delete
+        # (seconds) is not prevented — see below.
+        if await _current_root(db, db_project.id) == batch.target_root:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail="The project was re-owned back to this namespace; it is not retired.",
+            )
+        removed = await _admin_context_manager().remove_files(
+            [record.relative_path], target_root=batch.target_root
+        )
+        outcome = removed[0]
+        if await _current_root(db, db_project.id) == batch.target_root:
+            # Lost the race: the namespace became current while the delete ran.
+            # The record below says ``removed`` there, which is not "landed",
+            # so the next import of the project re-sends the file.
+            logger.warning(
+                "Retired %s from %s while it became the project's current namespace; "
+                "the next import restores it", record.relative_path, batch.target_root,
+            )
+        await update_ingest_file_statuses(db, {record.id: (outcome.status, outcome.reason)})
+        record.status, record.error = outcome.status, outcome.reason
+    return IngestFileStatus(
+        relative_path=record.relative_path, status=record.status, uri=record.uri,
+        error=record.error,
+    )
+
+
+@ROUTER_CONTEXT.get("/api/admin/context/import_status/{batch_id}")
+async def get_admin_context_import_status(
+    request: Request,
+    batch_id: str,
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db),
+) -> IngestBatchStatus:
+    """Progress of an import batch, whoever owns it — polled with the admin
+    key that created its tasks. Admins only."""
+    await _require_admin(db, user)
+    batch = await get_ingest_batch(db, batch_id)
+    if batch is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unknown ingest batch."
+        )
+
+    async def open_manager():
+        return _admin_context_manager()
+
+    return await _batch_status(db, batch, open_manager)
 
 
 def _rollup_status(files: list[IngestFileStatus]) -> str:
