@@ -616,3 +616,49 @@ class TestReowningIsFailureSafe:
         retry = await import_project(db_session, storage, d, projects_root)
         assert retry.status == "imported" and retry.owner_orcid == ALICE
         assert not any(storage.exists(p) for p in old_paths.values())
+
+    async def test_a_failed_cleanup_delete_neither_fails_the_import_nor_stops_the_rest(
+        self, db_session, storage, projects_root, monkeypatch, caplog
+    ):
+        """Regression (Codex review on #468): a delete that raised after the
+        commit marked a completed import failed and skipped every later
+        delete. Cleanup is now best-effort: each path is tried, a failure is
+        logged as an orphan, and the import still reports imported."""
+        from sqlalchemy import select
+
+        d = _make_project_dir(projects_root, "adp1", readme=_authors(f"Paramvir ({ALICE})"))
+        (d / "data.csv").write_text("x\n1\n")
+        first = await import_project(db_session, storage, d, projects_root)
+        pid = first.project_id
+        project = await db_session.get(UserProject, pid)
+        admin = BerilUser(orcid_id=ADMIN_AUTHOR_ORCID, display_name="Beril Admin")
+        db_session.add(admin)
+        await db_session.commit()
+        project.owner_id = admin.id
+        await db_session.commit()
+        rows = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.project_id == pid)
+        )).scalars().all()
+        old_paths = []
+        for row in rows:
+            row.storage_path = f"{admin.id}/adp1/uploads/{row.filename}"
+            await storage.save(b"old", row.storage_path)
+            old_paths.append(row.storage_path)
+        await db_session.commit()
+
+        real_delete = storage.delete
+        attempted = []
+
+        async def flaky_delete(path):
+            attempted.append(path)
+            if len(attempted) == 1:
+                raise PermissionError("read-only")
+            await real_delete(path)
+
+        monkeypatch.setattr(storage, "delete", flaky_delete)
+        result = await import_project(db_session, storage, d, projects_root)
+
+        assert result.status == "imported" and result.owner_orcid == ALICE
+        assert sorted(attempted) == sorted(old_paths)  # every delete was tried
+        assert "orphaned" in caplog.text
+        assert sum(storage.exists(p) for p in old_paths) == 1  # only the failed one remains

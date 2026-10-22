@@ -382,8 +382,15 @@ async def _copy_project_files(
             await db.delete(row)
 
     await db.commit()
+    # Best-effort: the rows are committed and none references these blobs any
+    # more, so a failed delete only leaves an orphaned file. It must not abort
+    # the remaining deletes or report a completed import as failed — and no
+    # later run would see the path again, so it is logged for manual cleanup.
     for path in superseded:
-        await storage.delete(path)
+        try:
+            await storage.delete(path)
+        except OSError as exc:
+            logger.warning("Could not delete superseded blob %s (orphaned): %s", path, exc)
     return copied
 
 
