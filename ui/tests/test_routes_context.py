@@ -4152,3 +4152,35 @@ async def test_retirement_is_planned_only_after_the_import_recorded_its_files(
 
     assert resp.status_code == 409
     inst.remove_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_a_file_withdrawn_in_the_new_namespace_is_retired_too(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex stop-gate on #468): an explicit removal in the new
+    owner's import leaves a latest ``removed`` record there. Nothing is
+    coming, so the old copy must not wait for it."""
+    from app.db.crud import create_ingest_batch
+
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    old_owner, new_owner, project = await _imported_then_reowned(
+        client, db_session, inst, _MEMBERS
+    )
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+    await _land_everything(db_session)
+    # The new owner withdraws README.md in their own namespace.
+    await create_ingest_batch(
+        db_session, user_id=new_owner.id, project_id=project.id,
+        target_root=f"viking://resources/users/{new_owner.orcid_id}/alpha_proj",
+        files=[{"relative_path": "README.md", "uri": None, "ov_task_id": None,
+                "status": "removed", "error": None, "content_sha256": None}],
+    )
+
+    results = {}
+    for record in records:
+        resp = client.post(f"/api/admin/context/retire_file/{record}")
+        results[resp.json().get("relative_path")] = resp.status_code
+    assert results == {"README.md": 200, "REPORT.md": 200}

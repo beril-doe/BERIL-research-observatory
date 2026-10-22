@@ -1503,8 +1503,9 @@ async def post_admin_context_retire_file(
     deleting a file already gone is not an error. Refuses to touch the
     project's *current* namespace, and refuses until the current owner's copy
     of the same file has landed — so a failed or unfinished import can never
-    leave the project with no copy at all. A file with no copy in the current
-    namespace (deleted from the repo since) is retired without waiting.
+    leave the project with no copy at all. A file the current namespace does
+    not hold — withdrawn there, or deleted from the repo since — is retired
+    without waiting.
     """
     await _require_admin(db, user)
     record = await db.get(ContextIngestFileRecord, record_id)
@@ -1523,13 +1524,13 @@ async def post_admin_context_retire_file(
             detail="That file is in the project's current namespace; it is not retired.",
         )
     if record.status == INGEST_UNKNOWN and record.error == RETIRE_PENDING:
-        # Wait for the current owner's copy only if there is one. A path with
-        # no record in the current namespace is a file the project no longer
-        # has (deleted from the repo since): there is nothing to wait for, and
-        # the old copy simply goes.
+        # Wait only while the current owner's copy is in flight or failed.
+        # Landed (completed), withdrawn (an explicit removal), or never there
+        # (deleted from the repo since): nothing is coming, so the old copy
+        # goes. Read by status, not by hash — a completed row with no hash
+        # has still landed.
         current = await latest_file_statuses(db, db_project.id, target_root=current_root)
-        landed = await completed_file_hashes(db, db_project.id, target_root=current_root)
-        if record.relative_path in current and record.relative_path not in landed:
+        if current.get(record.relative_path) not in (None, INGEST_COMPLETED, INGEST_REMOVED):
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 detail=(
