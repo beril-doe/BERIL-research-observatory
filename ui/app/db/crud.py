@@ -636,6 +636,12 @@ async def projects_with_memory(db: AsyncSession, memory: str) -> set[str]:
     Re-ingest is add-only, so a file merely absent from a later manifest is
     untouched and still owned; only an explicit ``!remove`` withdraws it.
 
+    Each **namespace** has its own timeline, and the project owns the memory
+    if any of them settles ``completed``. A project re-owned by the repo
+    importer keeps its id but writes under its new owner; retiring the old
+    owner's copy records ``removed`` *there*, which must not override the new
+    owner's ``completed`` copy just because it is newer.
+
     Slugs, not ids: the tags in the central archive are project slugs.
     """
     relative_path = f"memories/{memory}.md"
@@ -645,7 +651,7 @@ async def projects_with_memory(db: AsyncSession, memory: str) -> set[str]:
             ContextIngestFileRecord.status.label("status"),
             func.row_number()
             .over(
-                partition_by=ContextIngestBatch.project_id,
+                partition_by=(ContextIngestBatch.project_id, ContextIngestBatch.target_root),
                 order_by=(
                     ContextIngestFileRecord.created_at.desc(),
                     ContextIngestFileRecord.id.desc(),

@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 import yaml
@@ -41,10 +41,13 @@ from app.content_parser import (
 )
 from app.db.models import (
     BerilUser,
+    ChatSession,
+    ContextIngestBatch,
     ProjectCollection,
     ProjectContributor,
     ProjectFile,
     ProjectImportRecord,
+    ProjectReview,
     UserProject,
 )
 from app.storage import LocalFileStorage
@@ -395,6 +398,55 @@ async def _copy_project_files(
 
 
 # ---------------------------------------------------------------------------
+# Reconciling an owner's own row
+# ---------------------------------------------------------------------------
+
+
+async def _merge_into_owners_row(
+    db: AsyncSession,
+    *,
+    repo_row: UserProject | None,
+    owners_row: UserProject,
+    repo_path: str,
+) -> UserProject:
+    """Make the owner's own row the repo project's row, folding in the old one.
+
+    The owner's row survives: it holds their own submissions (context records
+    under their namespace) and is what their own links point to; public
+    project pages are addressed by directory name, so nothing public moves.
+    Everything that belonged to the repo row moves onto it — imported files,
+    reviews, chat sessions, context records (so a copy under the previous
+    owner is still planned for removal), and the import record. Contributors
+    and collections are not moved: the import re-syncs them onto the owner's
+    row straight after this. Then the repo row is deleted.
+
+    With no repo row yet (first import), the owner's row is simply adopted.
+    """
+    if repo_row is not None:
+        old_id, new_id = repo_row.id, owners_row.id
+        for model in (ProjectFile, ProjectReview, ChatSession, ContextIngestBatch, ProjectImportRecord):
+            await db.execute(
+                update(model).where(model.project_id == old_id).values(project_id=new_id)
+            )
+        for model in (ProjectContributor, ProjectCollection):
+            await db.execute(delete(model).where(model.project_id == old_id))
+        owners_row.is_public = owners_row.is_public or repo_row.is_public
+        db.expunge(repo_row)
+        await db.execute(delete(UserProject).where(UserProject.id == old_id))
+        logger.info(
+            "Merged repo project %s (%s) into its owner's row %s", repo_path, old_id, new_id
+        )
+    else:
+        # A repo project is public, as one the importer creates would be.
+        owners_row.is_public = True
+    owners_row.repo_path = repo_path
+    owners_row.origin = "repo"
+    await db.commit()
+    await db.refresh(owners_row)
+    return owners_row
+
+
+# ---------------------------------------------------------------------------
 # Single-project import
 # ---------------------------------------------------------------------------
 
@@ -456,6 +508,22 @@ async def import_project(
             select(UserProject).where(UserProject.repo_path == repo_path)
         )
         project = result.scalar_one_or_none()
+
+        # The owner may already have a row of their own for this slug — they
+        # /submit-ted the project while the repo row belonged to someone else
+        # (the sentinel, under the old ownership rule). (owner_id, slug) is
+        # unique, so fold the repo row into theirs rather than collide.
+        own = (
+            await db.execute(
+                select(UserProject).where(
+                    UserProject.owner_id == owner.id, UserProject.slug == slug
+                )
+            )
+        ).scalar_one_or_none()
+        if own is not None and (project is None or own.id != project.id):
+            project = await _merge_into_owners_row(
+                db, repo_row=project, owners_row=own, repo_path=repo_path
+            )
 
         other_sections_json = json.dumps(parsed.other_sections) if parsed.other_sections else None
 

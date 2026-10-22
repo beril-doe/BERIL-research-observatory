@@ -4184,3 +4184,29 @@ async def test_a_file_withdrawn_in_the_new_namespace_is_retired_too(
         resp = client.post(f"/api/admin/context/retire_file/{record}")
         results[resp.json().get("relative_path")] = resp.status_code
     assert results == {"README.md": 200, "REPORT.md": 200}
+
+
+@pytest.mark.gated
+async def test_retiring_an_old_memory_copy_keeps_the_project_owning_its_memory(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex review on #468): the old owner's retired memory
+    records ``removed`` after the new owner's copy completed; read across
+    namespaces, that newer removal made the project look memory-less and
+    let stale central duplicates back into /discoveries."""
+    from app.db.crud import projects_with_memory
+
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    members = {**_MEMBERS, "memories/discoveries.md": b"## A finding\n"}
+    await _imported_then_reowned(client, db_session, inst, members)
+    inst.insert_files.return_value = _queued_with_tasks(
+        [(p, f"n{i}") for i, p in enumerate(members)]
+    )
+    records = _import(client, members=members).json()["retire_records"]
+    await _land_everything(db_session)
+    for record in records:
+        assert client.post(f"/api/admin/context/retire_file/{record}").status_code == 200
+
+    assert "alpha_proj" in await projects_with_memory(db_session, "discoveries")

@@ -662,3 +662,78 @@ class TestReowningIsFailureSafe:
         assert sorted(attempted) == sorted(old_paths)  # every delete was tried
         assert "orphaned" in caplog.text
         assert sum(storage.exists(p) for p in old_paths) == 1  # only the failed one remains
+
+
+class TestOwnersOwnRow:
+    """Regression (Codex review on #468): re-owning onto an author who already
+    has their own row for the slug (they /submit-ted it first) broke the
+    (owner_id, slug) constraint, and every retry failed the same way."""
+
+    async def _authors_row(self, db_session, slug):
+        author = BerilUser(orcid_id=ALICE, display_name="Alice")
+        db_session.add(author)
+        await db_session.commit()
+        row = UserProject(owner_id=author.id, slug=slug, title="mine", is_public=False)
+        db_session.add(row)
+        await db_session.commit()
+        return author, row.id
+
+    async def test_reowning_onto_an_authors_own_row_merges_into_it(
+        self, db_session, storage, projects_root
+    ):
+        from sqlalchemy import select
+
+        from app.db.models import ContextIngestBatch, ProjectReview
+
+        # Imported under the old rule: no author found → the sentinel owns it.
+        d = _make_project_dir(projects_root, "adp1", readme="# ADP1\n")
+        first = await import_project(db_session, storage, d, projects_root)
+        repo_id = first.project_id
+        db_session.add(ProjectReview(project_id=repo_id, reviewer="r", raw_content="ok"))
+        sentinel = (await db_session.execute(
+            select(BerilUser).where(BerilUser.orcid_id == SENTINEL_ORCID))).scalar_one()
+        db_session.add(ContextIngestBatch(
+            user_id=sentinel.id, project_id=repo_id, target_root="old-root"))
+        await db_session.commit()
+        # Meanwhile the author submitted it themselves.
+        author, own_id = await self._authors_row(db_session, "adp1")
+        db_session.add(ContextIngestBatch(user_id=author.id, project_id=own_id, target_root="own-root"))
+        await db_session.commit()
+        # Now the README names them, so the rule moves the project to them.
+        (d / "README.md").write_text(_authors(f"Alice ({ALICE})"))
+
+        result = await import_project(db_session, storage, d, projects_root)
+
+        assert result.status == "imported", result.message
+        assert result.project_id == own_id and result.owner_orcid == ALICE
+        rows = (await db_session.execute(
+            select(UserProject).where(UserProject.slug == "adp1"))).scalars().all()
+        assert [r.id for r in rows] == [own_id]
+        merged = rows[0]
+        assert (merged.repo_path, merged.origin, merged.is_public) == ("projects/adp1", "repo", True)
+        reviews = (await db_session.execute(
+            select(ProjectReview.project_id))).scalars().all()
+        assert reviews == [own_id]
+        roots = sorted((await db_session.execute(
+            select(ContextIngestBatch.target_root).where(ContextIngestBatch.project_id == own_id)
+        )).scalars().all())
+        assert roots == ["old-root", "own-root"]
+        files = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.project_id == own_id))).scalars().all()
+        assert files and all(f.storage_path.startswith(f"{author.id}/") for f in files)
+        record = await _get_import_record(db_session, "projects/adp1")
+        assert record.project_id == own_id
+
+    async def test_a_first_import_adopts_an_authors_own_row(
+        self, db_session, storage, projects_root
+    ):
+        _author, own_id = await self._authors_row(db_session, "fresh")
+        d = _make_project_dir(projects_root, "fresh", readme=_authors(f"Alice ({ALICE})"))
+
+        result = await import_project(db_session, storage, d, projects_root)
+
+        assert result.status == "imported", result.message
+        assert result.project_id == own_id
+        row = await db_session.get(UserProject, own_id)
+        await db_session.refresh(row)
+        assert (row.repo_path, row.is_public) == ("projects/fresh", True)
