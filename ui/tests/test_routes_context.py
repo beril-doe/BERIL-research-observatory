@@ -4107,3 +4107,48 @@ async def test_retire_file_rechecks_ownership_right_before_deleting(
 
     assert resp.status_code == 409
     inst.remove_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_a_file_the_project_no_longer_has_is_retired_without_waiting(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex review on #468): a file deleted from the repo since
+    the old owner's import is never sent to the new owner, so waiting for its
+    new copy refused it forever and left it searchable under the old owner."""
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    with_notes = {**_MEMBERS, "RESEARCH_PLAN.md": b"# Plan\n"}
+    await _imported_then_reowned(client, db_session, inst, with_notes)
+    # The plan was deleted from the repo; the new owner's import lacks it.
+    inst.insert_files.return_value = _queued_with_tasks(
+        [(p, f"n{i}") for i, p in enumerate(_MEMBERS)]
+    )
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+    await _land_everything(db_session)
+    statuses = {}
+    for record in records:
+        resp = client.post(f"/api/admin/context/retire_file/{record}")
+        statuses[resp.json()["relative_path"]] = (resp.status_code, resp.json()["status"])
+
+    assert statuses["RESEARCH_PLAN.md"] == (200, "removed")
+    assert all(v == (200, "removed") for v in statuses.values())
+
+
+@pytest.mark.gated
+async def test_retirement_is_planned_only_after_the_import_recorded_its_files(
+    client, credentialed_user, db_session, admin_store
+):
+    """A file sent in this import but not landed is still waited for — the
+    'no record' exemption above must not apply to it."""
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+
+    resp = client.post(f"/api/admin/context/retire_file/{records[0]}")
+
+    assert resp.status_code == 409
+    inst.remove_files.assert_not_awaited()

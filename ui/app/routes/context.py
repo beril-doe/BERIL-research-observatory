@@ -1390,7 +1390,6 @@ async def post_admin_context_import(
 
     archive_bytes, relative_paths, removals = await _read_submission(archive, manifest)
     manager = _admin_context_manager()
-    retire_records = await _plan_retirement(db, owner, db_project)
     with tempfile.TemporaryDirectory() as tmp_dir:
         root = Path(tmp_dir).resolve()
         await _extract(archive_bytes, root, relative_paths)
@@ -1408,6 +1407,11 @@ async def post_admin_context_import(
             removals=removals,
             force=force,
         )
+    # Planned only after this import has recorded its files: retire_file
+    # treats a path with *no* record in the current namespace as one the
+    # project no longer has, so the records must exist before any retirement
+    # can be asked for.
+    retire_records = await _plan_retirement(db, owner, db_project)
     return ContextImportResults(
         **{name: getattr(results, name) for name in ContextIngestResults.model_fields},
         project=db_project.slug,
@@ -1499,7 +1503,8 @@ async def post_admin_context_retire_file(
     deleting a file already gone is not an error. Refuses to touch the
     project's *current* namespace, and refuses until the current owner's copy
     of the same file has landed — so a failed or unfinished import can never
-    leave the project with no copy at all.
+    leave the project with no copy at all. A file with no copy in the current
+    namespace (deleted from the repo since) is retired without waiting.
     """
     await _require_admin(db, user)
     record = await db.get(ContextIngestFileRecord, record_id)
@@ -1518,8 +1523,13 @@ async def post_admin_context_retire_file(
             detail="That file is in the project's current namespace; it is not retired.",
         )
     if record.status == INGEST_UNKNOWN and record.error == RETIRE_PENDING:
+        # Wait for the current owner's copy only if there is one. A path with
+        # no record in the current namespace is a file the project no longer
+        # has (deleted from the repo since): there is nothing to wait for, and
+        # the old copy simply goes.
+        current = await latest_file_statuses(db, db_project.id, target_root=current_root)
         landed = await completed_file_hashes(db, db_project.id, target_root=current_root)
-        if record.relative_path not in landed:
+        if record.relative_path in current and record.relative_path not in landed:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 detail=(
