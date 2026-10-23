@@ -9,14 +9,14 @@ from __future__ import annotations
 
 SEMCAT = "globalusers.semantic_catalog"
 
-# The 8 tenants this account can read, per berdl_inventory.py (2026-10-02).
+# The tenant prefixes this account can read: the first component of every database
+# name returned by berdl_notebook_utils.get_db_structure() (checked 2026-10-22).
+# Every notebook uses this one list. NB02 compares it with the live listing and stops
+# if they differ, so a change in grants cannot silently change the frame.
 ACCESSIBLE_TENANTS = [
-    "bervodata", "culturebotai", "kbase", "kescience",
+    "bervodata", "culturebotai", "ese", "globalusers", "kbase", "kescience",
     "mamillerpa", "my", "nmdc", "refdata",
 ]
-
-# Of those, the ones SemCat actually indexes.
-ACCESSIBLE_IN_SEMCAT = ["kbase", "kescience", "nmdc", "refdata"]
 
 # ---------------------------------------------------------------------------
 # Facet regexes. Deliberately name-based: these define the SemCat-independent
@@ -105,7 +105,7 @@ def classify_coordinate_system(column_name, dtype, lower, upper, table_cols):
     import re
 
     name = (column_name or "").lower()
-    cols = " ".join(c.lower() for c in (table_cols or []))
+    cols = [c.lower() for c in (table_cols or [])]
 
     # 1. HMM/profile-model coordinates announce themselves in the name.
     if re.search(r"^(model|hmm|profile)_(start|end|stop|from|to)$|^(model|hmm)_", name):
@@ -132,8 +132,10 @@ def classify_coordinate_system(column_name, dtype, lower, upper, table_cols):
             return "geographic", "double type with bounds inside lat/lon range"
 
     # 4. Integer spans: nucleotide vs amino-acid, decided by magnitude + sibling refs.
-    has_contig = bool(re.search(r"contig|scaffold|chrom|replicon|^mag$|assembly", cols))
-    has_protein = bool(re.search(r"protein|uniprot|^md5$|pdb|gene_cluster|seq_len", cols))
+    # Each pattern is tested against each sibling name separately, so the anchored
+    # alternatives (^mag$, ^md5$) can match.
+    has_contig = any(re.search(r"contig|scaffold|chrom|replicon|^mag$|assembly", c) for c in cols)
+    has_protein = any(re.search(r"protein|uniprot|^md5$|pdb|gene_cluster|seq_len", c) for c in cols)
 
     if dtype in ("int", "bigint", "smallint"):
         if hi is not None and hi > 100_000:

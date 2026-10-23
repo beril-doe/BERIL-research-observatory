@@ -1,237 +1,272 @@
 # Report: Gene and Protein Function Annotations in BERDL, with Coordinates
 
-**Status:** reviewed · **Date:** 2026-10-07 · **Lakehouse snapshot:** 2026-10-07 ·
-**SemCat snapshot:** catalog generated 2026-10-06T19:38:26Z, read at `code_version` 0.27.0
+**Status:** revised for review · **Date:** 2026-10-22 · **Lakehouse read:** 2026-10-22 ·
+**SemCat measured:** `globalusers.semantic_catalog` catalog generated 2026-10-21T16:33:03Z
+(regenerated 2026-10-21T17:49:36Z), `code_version` 0.32.2, read through Spark. The SemCat CLI
+(`/opt/conda/bin/semcat`) used for two `join-keys` checks in NB04 prints no version from inside
+the notebook kernel, only a warning that three semcat installs are on the path, so its version
+and local catalog are not pinned here. A log kept outside this project
+(`semcat-demo-2026-10-22.log`) records the same two `join-keys` results under `semcat --version`
+0.33.0.
 
-> SemCat's `code_version` advances without the catalog being regenerated — 0.24.2 → 0.26.1 →
-> 0.27.0 were all observed against the same `generated_at` and the same 91,246 columns. The
-> version above is the one this run read; the catalog *content* is pinned by `generated_at`.
-
-> All four notebooks were re-executed in order against this single snapshot. An earlier
-> draft mixed a 2026-10-02 run with a 2026-10-06 re-run of one notebook; see **Correction 3**.
+All four notebooks were executed in order, in one run, against that snapshot. Every number
+below comes from a saved notebook output or a file in `data/`.
 
 A census of BERDL tables that assign function to genes and proteins or annotate regions of
-genomes, genes and proteins; a test of whether their coordinates can actually be used for
-collocation queries; and a graded assessment of SemCat as the instrument for finding them.
+genomes, genes and proteins; a test, by query, of whether their coordinates can be used for
+collocation; and a graded assessment of SemCat as the instrument for finding them.
 
 ---
 
 ## Key Findings
 
-### 1. Only 6 of 17 coordinate-bearing region tables can be joined to genes by position
+### 1. 13 of 23 coordinate-bearing tables can be placed against genes by position, but only 4 of the 14 region-annotation tables can, all in `kescience.mgnify`
 
 ![Coordinate frame map](figures/coordinate_frame_map.png)
 
-This is the finding that governs everything else, and it is the one that would be missed by
-reading schemas alone. "Has a start, an end, and a strand" and "can answer *which genes sit
-near this region*" are different properties, and in BERDL they come apart badly.
+"Has a start, an end and a strand" and "can answer *which genes sit near this region*" are
+different properties, and in BERDL they come apart for region annotations.
 
-Eighteen region-annotation tables were assessed for collocation. **Seventeen carry
-coordinates** (16 with explicit span columns, 1 with coordinates packed inside a JSON string);
-the eighteenth, `refdata.microagrobiome.bgc_catalog`, is included because it is a BGC table a
-researcher would reach for, and carries no sequence coordinates at all. Of the assessed set:
+**Population.** A census table is *coordinate-bearing* if it has a positional span: a start and
+an end, a start and a length, or a packed location string holding them. A sequence reference or
+a strand alone does not qualify. By that rule 23 of the 51 census tables are coordinate-bearing
+(NB02). `kbase.nmdc_arkin.metatranscriptomics_gold`, which names a scaffold and a strand but has
+no start or end, is not.
 
-| Collocation status | n | What it means |
-|---|---:|---|
-| **direct** | **5** | region and gene tables share a sequence namespace; interval join, no mapping step |
-| **bridged (1:1)** | **1** | placeable through an exact 1:1 bridge table in the same database |
-| self-contained (1), with a catch (1), but costly (1) | 3 | coordinates and function in one table; collocation is a self-join |
-| needs parsing | 1 | coordinates exist but are packed inside a JSON string |
-| **protein-space only** | **5** | coordinates are real but measured along a protein; they cannot reach a genome contig at all |
-| cross-frame | 1 | two span columns in one database, in two different coordinate systems |
-| **blocked** | **1** | coordinates present but impossible to place against genes |
-| **no coordinates at all** | **1** | `refdata.microagrobiome.bgc_catalog` — the one non-coordinate-bearing table in this set |
+**Rule.** A table is *joinable to genes by position* when an interval predicate in SQL places its
+rows against gene rows on the same nucleotide sequence identifier, and a query in NB04 §5 shows
+it doing so. Three routes count:
 
-**Positionally joinable: 6** — the 5 direct cases plus the 1 bridged case.
+- **direct**: a region table and a gene table in the same database share the sequence
+  identifier, and an interval join (±5 kb) returns genes;
+- **self**: the table's rows are themselves genes, so a self-join on a hash sample of whole
+  contigs must return neighbouring genes within ±5 kb. This is how a gene table that also
+  carries function (BV-BRC, IMG/VR) answers "what is next to this gene";
+- **bridged**: the sequence identifier comes from one bridge table that maps each row to exactly
+  one sequence, with the 1:1 property checked.
 
-The five direct cases are `kescience.mgnify.gene_bgc`, `gene_crispr`, `gene_defense`,
-`gene_mobilome` — all sharing `contig_id` with `kescience.mgnify.gene` — plus
-`refdata.fungal_db.pombase_gene_coords` against its sibling CDS/exon tables.
+Tables whose coordinates are amino-acid or HMM-model positions are *protein-space only* by rule.
+That verdict applies the rule to the census's coordinate-system evidence (NB02), not to a join
+query, and is marked as judgement below.
 
-The bridged case is **`kbase.genomes.feature`** (1,011,650,903 rows, the largest
-coordinate-bearing feature table in the census). An earlier version of this report listed it as
-*blocked*, on the grounds that the table carries `start`/`end`/`strand` but no sequence column.
-That was wrong, and the error is instructive: `kbase.genomes.contig_x_feature` places every
-feature on a contig with an **exact 1:1 mapping** — 1,011,650,903 rows, 1,011,650,903 distinct
-`feature_id`, across 32,868,698 contigs — so one join yields `contig_id` + `start` + `end` +
-`strand`, and a self-join on a single contig returns 14–15 CDS neighbours within ±5 kb. The
-general lesson is that **joinability is a property of a table's database, not of its own column
-list**; a bridge table has to be ruled out before coordinates are called unplaceable.
+| Verdict | Region tables | Gene tables | Evidence |
+|---|---:|---:|---|
+| **direct** | **4** | 0 | query: shared contigs + interval join |
+| **bridged** | 0 | **1** | query: bounded 1:1 check + self-join through the bridge |
+| **self** | 0 | **8** | query: self-join on sampled contigs |
+| no gene table | 1 | 0 | query: database listing |
+| protein-space only | 9 | 0 | judgement: rule applied to NB02 coordinate system |
+| **joinable** | **4 of 14** | **9 of 9** | **13 of 23** |
 
-Two genuine negative cases remain, each of which looks usable until examined:
+`refdata.microagrobiome.bgc_catalog`, a BGC table whose only coordinates are latitude and
+longitude, is outside the 23 and is shown in the figure for reference.
 
-- **`refdata.smag.bgc`** has clean BGC intervals *and* BiG-SCAPE gene-cluster-family
-  assignments that MGnify lacks — but SMAG ships no gene-coordinate table, so nothing can be
-  placed against those intervals inside BERDL. (Re-checked for a bridge table after the
-  `kbase.genomes` error: `refdata.smag` has no feature or gene table of any kind.)
-- **`refdata.microagrobiome.bgc_catalog`** is a BGC table whose only coordinates are
-  latitude and longitude.
+**The four joinable region tables** are all MGnify, all against `kescience.mgnify.gene` on
+`(biome_id, contig_id)`:
 
-*(Notebook: `04_bgc_region_joinability.ipynb`; data: `data/bgc_joinability.csv`)*
+| Region table | Region contigs found in `gene` | Regions with a gene within ±5 kb | Median genes |
+|---|---:|---:|---:|
+| `gene_bgc` | 28,494 / 28,494 | 35,354 / 35,354 | 18 |
+| `gene_crispr` | 34,392 / 34,623 | 42,185 / 42,437 | 8 |
+| `gene_defense` | 10,864 / 10,864 | 13,734 / 13,739 | 12 |
+| `gene_mobilome` | 49,160 / 49,160 | 171,373 / 171,373 | 11 |
 
-### 2. Both named queries work — in the MGnify frame
+SemCat agrees independently. Its `edges` table holds a verified `structural_fk` edge from
+`contig_id` in each of the four region tables to `kescience.mgnify.gene.contig_id`, and
+`semcat join-keys kescience.mgnify.gene_bgc kescience.mgnify.gene` lists `contig_id` as
+VERIFIED (NB04 §5f).
 
-The discriminating query passed decisively: **28,494 of 28,494** distinct `gene_bgc` contig
-identifiers (100%) match a `gene` contig identifier in the `soil` biome. Same namespace,
-literally the same strings, no mapping table.
+**The bridged gene table** is `kbase.genomes.feature` (1,011,650,903 rows). It has `start`,
+`end` and `strand` but no sequence column; `kbase.genomes.contig_x_feature` (also 1,011,650,903
+rows) supplies `contig_id`. A full `COUNT(DISTINCT feature_id)` over both tables is avoided.
+Instead NB04 takes every `feature_id` in one hash bucket (`pmod(xxhash64(feature_id), 1024) =
+0`). Since the bucket is a function of the ID, every copy of an ID falls in the same bucket,
+so the test is exact for those IDs. All 987,681 bucket IDs occur once in each table, and the
+two ID sets are identical. A self-join through the bridge on a 1/2^20 sample of contigs (34
+contigs, 1,241 features) finds a neighbour within ±5 kb for 1,235 features. SemCat lists
+`feature_id` between these tables only as an unverified value join, so the bridge rests on the
+NB04 check.
 
-The interval join is run with a **±5,000 bp flank**, so that it answers *inside or near*,
-which is what BGC-boundary work actually needs. Two different populations come out of it, and
-they should not be conflated:
+**The eight self-joinable gene tables** each return neighbours on every sampled sequence set:
+`kescience.mgnify.gene`, `refdata.fungal_db.pombase_gene_coords`,
+`kescience.fitnessbrowser.gene`, `globalusers.carbon_source_phenotypes.gene_calls_table`,
+`refdata.jgi_mycocosm.features` (end derived as `start + length_bp − 1`; there is no `end`
+column), `refdata.jgi_virus.metavr_protein`, `refdata.bvbrc.bvbrc_feature_fact` (positions
+are strings, cast to integers), and `kbase.content.c_<genome>_features` (span parsed from the
+JSON `location`). The pombase CDS and exon tables also nest inside their genes: 5,134 of 5,134
+CDS intervals and 18,025 of 18,026 exon intervals lie inside the gene with the same `gene_id`.
+
+**The negative region cases.** Nine region tables are protein-space only (judgement, above).
+`refdata.smag.bgc` has nucleotide BGC intervals and BiG-SCAPE family assignments that MGnify
+lacks, but none of the other nine tables in `refdata.smag` has a span column, so nothing in its
+database can place genes against those intervals.
+
+*(Notebook: `04_bgc_region_joinability.ipynb` §5; data: `data/bgc_joinability.csv`)*
+
+### 2. Both named queries work in the MGnify frame
+
+The discriminating query passes: **28,494 of 28,494** distinct `gene_bgc` contig identifiers
+match a `gene` contig identifier in the `soil` biome, which holds all 35,354 `gene_bgc` rows.
 
 | Measure | Window | Value |
 |---|---|---|
 | gene–BGC pairs | inside **or within 5 kb** | **754,313** across 35,354 BGCs (21.3 per BGC) |
 | genes strictly **inside** the BGC interval | inside only | **13.9 per BGC** |
 
-The 13.9 figure is the real check, and it is the one to compare against biology: BGCs are
-typically a handful to a few dozen genes, so a plausible inside-count indicates the join is
-operating in a genuinely shared coordinate frame rather than matching strings by coincidence.
-The 21.3 pairs-per-BGC figure is larger simply because the flank admits neighbouring genes by
-design. Extending to a three-table join (BGC region → gene coordinates → eggNOG function) also
-runs, so *which functions sit near a BGC* is answerable end to end.
+A BGC typically spans a handful to a few dozen genes, so 13.9 genes inside per BGC is consistent
+with a shared coordinate frame rather than coincidental string matches. The 21.3 figure is
+larger because the flank admits neighbouring genes by design. A three-table join (BGC region →
+gene coordinates → eggNOG function) also runs, so *which functions sit near a BGC* is answerable
+end to end.
 
-Multi-domain search separates into two strengths of question, which BERDL supports unequally:
+Multi-domain search separates into two strengths of question:
 
-- **Co-occurrence** ("proteins with domains X and Y") — answerable from any per-protein
-  domain list. 6,530 cluster representatives carry both PF00005 and PF00528.
-- **Order and spacing** ("X then Y, N residues apart") — needs per-domain amino-acid
-  coordinates. Counted **one protein, one vote** (a cluster votes for the order held by the
-  majority of its domain pairs, since 395 proteins — 6% — carry repeat copies and would
-  otherwise be counted several times): PF00528 precedes PF00005 in **6,167 of 6,530 proteins
-  = 94.4%**. The undeduplicated pair-level figure is 6,578 of 6,963 = 94.5%, so the
-  pseudo-replication is immaterial here — but it is reported both ways for the same reason
-  NB03 quotes per-`schema_sig` rates. Either way the result is permease N-terminal, ATPase
-  C-terminal: the expected fused ABC-transporter architecture. Inter-domain gap median
-  −392 aa (IQR −412 to −371; the sign encodes the ordering).
+- **Co-occurrence** ("proteins with domains X and Y") needs only a per-protein domain list.
+  6,530 cluster representatives carry both PF00005 and PF00528.
+- **Order and spacing** ("X then Y, N residues apart") needs per-domain amino-acid coordinates.
+  Counting one protein, one vote (395 proteins, 6%, carry repeat copies), PF00528 precedes
+  PF00005 in **6,167 of 6,530 proteins = 94.4%**; pair-level it is 6,578 of 6,963 = 94.5%. That
+  is the expected fused ABC-transporter architecture: permease N-terminal, ATPase C-terminal.
+  Inter-domain gap median −392 aa (IQR −412 to −371; the sign encodes the order).
 
-That the architecture comes out right is a second, independent check that the amino-acid
-coordinates mean what the census says they mean.
+That the architecture comes out right is a second check that the amino-acid coordinates mean
+what the census says they mean.
 
-*(Notebook: `04_bgc_region_joinability.ipynb`; data: `data/example_genes_near_bgc.csv`,
+*(Notebook: `04_bgc_region_joinability.ipynb` §1–4; data: `data/example_genes_near_bgc.csv`,
 `data/example_multidomain_hits.csv`)*
 
-### 3. The census: 51 annotation tables, 24 with coordinates, in four coordinate systems
+### 3. The census: 51 annotation tables, 23 coordinate-bearing (14 nucleotide, 5 amino-acid, 4 multi-frame)
 
-Full table in `data/annotation_sources.csv`; reproduced in **Results** below. 51 tables
-survived adjudication: 20 both assign function *and* annotate a region, 22 assign function
-without coordinates, 4 are region-only, 5 are reference vocabularies. A further **13
-name-based false positives were excluded and recorded**, because what a naive rule gets wrong
-is part of the answer.
+Full table in `data/annotation_sources.csv`; reproduced in **Results** below. 51 tables survive
+adjudication: 20 both assign function *and* annotate a region, 22 assign function without
+coordinates, 4 are region-only (3 with a span), 5 are reference vocabularies. A further **13
+name-based false positives are excluded and recorded**.
 
-Coordinate systems are not reducible to one axis: **15 nucleotide**, **5 amino-acid**, and
-**4 tables carrying multiple frames in a single row**.
+Of the 23 coordinate-bearing tables, **14 are nucleotide**, **5 amino-acid**, and **4 carry
+several frames in one row** (amino-acid plus HMM-model or reference-protein positions).
 
-Three facts in this census were recoverable only by reading values, not schemas:
+Three facts in the census are recoverable only by reading values, not schemas:
 
-- **`nmdc.results.pfam_annotation_gff`** — at 2,684,369,000 rows the largest annotation table
-  in BERDL — is named `_gff`, which implies genome coordinates. Its `start`/`end` are
-  **amino-acid**: `end − start + 1 == alignment_length` exactly, on every row sampled. Its
-  `model_start`/`model_end` are positions in the Pfam HMM, which is a third kind of coordinate
-  and not a sequence position at all.
-- **`kbase.content.c_<genome>_features`** packs `[["NZ_QSIR01000001.1", 1, "+", 855]]` —
-  contig, start, strand, length — into a string column called `location`, and SEED Subsystem
-  Ontology terms into `ontology_terms`. Full genomic coordinates plus ontology function
-  assignment, and **not one column name says start, end, strand, contig, pfam, or go.**
-- **`kbase.ke_pangenome.interproscan_domains`** carries **18 signature databases in one
-  table**, selectable only via `DISTINCT analysis`: Pfam (145,825,639 rows), Gene3D,
-  SUPERFAMILY, PANTHER, PRINTS, CDD, NCBIfam, ProSiteProfiles, MobiDBLite, SMART, FunFam,
-  ProSitePatterns, Coils, Hamap, PIRSF, SFLD, AntiFam — plus a 1-row `Gene3` value that looks
-  like a truncated `Gene3D`.
+- **`nmdc.results.pfam_annotation_gff`** (2,684,369,000 rows) is named `_gff`, which implies
+  genome coordinates. Its `start`/`end` are **amino-acid**: `end − start + 1 == alignment_length`
+  on all 26,779 rows of a seeded random sample (NB02 §9). Its `model_start`/`model_end` are
+  positions in the Pfam HMM.
+- **`kbase.content.c_<genome>_features`** packs `[["NZ_QSIR01000001.1", 1, "+", 855]]`
+  (contig, start, strand, length) into a string column called `location`, and SEED Subsystem
+  Ontology terms into `ontology_terms`. No column name says start, end, strand, contig, pfam or
+  go.
+- **`kbase.ke_pangenome.interproscan_domains`** holds 18 distinct `analysis` values: 17
+  signature databases (Pfam, 145,825,639 rows; Gene3D, SUPERFAMILY, PANTHER, PRINTS, CDD,
+  NCBIfam, ProSiteProfiles, MobiDBLite, SMART, FunFam, ProSitePatterns, Coils, Hamap, PIRSF,
+  SFLD, AntiFam) plus a 1-row `Gene3` value that looks like a truncated `Gene3D`.
 
-Two traps found in passing: `refdata.jgi_mycocosm.features` has `start` and `length_bp` but
-**no `end`**; and `nmdc.metadata.genome_feature_set` has the best-modelled GFF3 schema in
-BERDL (`seqid`/`start`/`end`/`strand`/`phase`/`feature_category_term_id`) and **0 rows**, in
-both the canonical and the staging copy.
+Two traps found in passing: `refdata.jgi_mycocosm.features` has `start` and `length_bp` but **no
+`end`**, and `nmdc.metadata.genome_feature_set` has the best-modelled GFF3 schema in BERDL
+(`seqid`/`start`/`end`/`strand`/`phase`/`feature_category_term_id`) and **0 rows**.
 
 *(Notebook: `02_ground_truth_sweep.ipynb`; data: `data/annotation_sources.csv`,
 `data/excluded_tables.csv`)*
 
-### 4. SemCat is high-precision and low-recall (H2), on the subset tested
+### 4. SemCat's labels find most census tables, but label few of the relevant columns, and their precision sits at the 0.80 threshold
 
 ![SemCat precision and recall](figures/semcat_precision_recall.png)
 
-On the pre-registered 200-column audit, adjudicated against sampled **values** rather than
-column names: **recall 32.3%**, **strict precision 85.0%** (51/60 judgeable), lenient 93.3% (56/60).
-That is H2's pattern — the labels SemCat applies are mostly right; it just applies very few.
+**Table level.** Of the 51 census tables, a *specific* SemCat label (e.g. `pfam_id`, `ec_number`,
+`coordinate`) flags 37; 13 more are flagged only by a generic label (`identifier`,
+`annotation_text`, …) that says nothing about gene function; 1 is missed because SemCat does
+not index it.
+
+**Column level**, on the pre-registered 200-column audit adjudicated against sampled values and
+quoted per `schema_sig` as the plan requires:
+
+| Measure | Value | 95% Wilson interval |
+|---|---|---|
+| recall (apt label in the right family) | 30/95 = **31.6%** (per column 30/100) | 0.23–0.41 |
+| strict precision | 45/56 = **80.4%** (per column 47/58 = 81.0%) | 0.68–0.89 |
+| lenient precision (delimited lists count as right) | 49/56 = **87.5%** (per column 51/58) | 0.76–0.94 |
+
+Strict precision by label family (per column): `function_id` 27/36 = 75% (0.59–0.86),
+`seqref` 15/16 = 94% (0.72–0.99), `span` 4/5 = 80% (0.38–0.96), `strand` 1/1. Recall by facet
+(per column): `function_id` 11/43 = 26%, `span` 17/43 = 40%, `strand` 2/14 = 14%.
 
 | Hypothesis | Criterion | Observed | Standing |
 |---|---|---|---|
-| H1 sufficient instrument | recall ≥0.80 on every facet **and** coordinate system resolvable | coordinate sub-test failed (5 systems share one label); recall 32.3% | **refuted** |
-| H2 high precision, low recall | recall <0.50 **and** precision ≥0.80 | 32.3% and 85.0% (93.3% lenient) — holds under both adjudication policies and both units of analysis | **supported** |
-| H3 structural not semantic | recall <0.50 **and** precision <0.80 **and** row_count ≥95% | precision 85.0% fails the <0.80 clause; other clauses hold | **refuted on its precision clause** |
-| H0 no value over a name regex | refuted by ≥1 true positive the regex misses | 2 census tables; 128 `function_id` columns outside regex reach | **refuted** |
+| H1 sufficient instrument | recall ≥0.80 on every facet **and** coordinate system resolvable | recall 31.6%; the `coordinate` label covers four systems, and 20 of its 78 columns resolve to none | **refuted** |
+| H2 high precision, low recall | recall <0.50 **and** precision ≥0.80 | recall 31.6%; strict 80.4%, lenient 87.5% | **supported by the pre-registered point-estimate rule, at the margin**: the strict interval (0.68–0.89) includes values below 0.80 |
+| H3 structural not semantic | recall <0.50 **and** precision <0.80 **and** row_count ≥95% | precision 80.4% fails the <0.80 clause on the point estimate; the other clauses hold | **not supported on the point estimate, not excluded at 95%** |
+| H0 no value over a name regex | refuted by ≥1 true positive the regex misses | 2 census tables found only by a SemCat-specific label: `globalusers.carbon_source_phenotypes.kofam_annotation_table`, `kbase.nmdc_arkin.metatranscriptomics_gold` | **refuted** |
 
-Where SemCat fails, concretely: `content_type` is NULL on **83.6%** of 91,246 columns (and
-**91.9%** of the 66,054 in-frame columns); `concepts` contains **1 molecular label in 119** —
-the rest are temperature, nitrate, depth, salinity, metals; `verified_joins` has **6 rows for
-2,509 tables**, so the join layer is effectively unpopulated; and the single `coordinate`
-label spans **five** coordinate systems, 32 of 78 (41%) of them geographic, with 22 columns
-unresolvable even after bringing in type, numeric bounds and sibling column names.
+The audit therefore does not separate H2 from H3 at 95% confidence. The point estimates put
+SemCat just on the H2 side, and the `function_id` family alone (75%) sits below 0.80.
 
-Where it is reliable: `row_count` was **exact on 59 of 60** verifiable tables (98.3%; the one
-miss, `refdata.jgi_virus.metavr_protein`, is off by 7 rows from growth since the snapshot),
-and it indexes **493 candidate
-annotation tables in tenants this account cannot read** — real value obtainable nowhere else.
+**Where SemCat falls short.** `content_type` is NULL on **83.0%** of 92,986 columns (91.8% of
+the 66,374 in the audited frame). `concepts` contains **1 molecular label in 101**. The
+`coordinate` label spans **four coordinate systems** (geographic, nucleotide, amino-acid, HMM
+model) plus 20 columns that type, bounds and sibling names cannot resolve; 32 of its 78 columns
+(41%) are geographic.
 
-Its table-level coverage is incomplete, though: within accessible tenants, **5 indexed tables
-no longer exist** and **163 live tables are absent from SemCat** — including all 25 of
-SemCat's own tables and `globalusers.kepangenome_parquet_1`, which holds a 1,011,650,903-row
-gene-coordinate table. Table-level agreement: **80.3%**.
+**Where it is reliable.** `row_count` is exact on **59 of 60** census tables (98.3%). The one
+mismatch, `refdata.jgi_virus.metavr_protein`, is 369,281,941 live against 369,281,934 in
+SemCat; what caused the 7-row difference was not determined. SemCat also indexes **483 candidate
+annotation tables in 13 tenants this account cannot read**.
 
-*(Notebooks: `01_semcat_discovery.ipynb`, `03_semcat_grade.ipynb`; data: `data/semcat_grade.csv`,
-`data/audit_precision.csv`, `data/audit_recall.csv`, `data/semcat_confusion_by_facet.csv`)*
+**Its join layer is populated.** Single-column joins are rows of `edges`: 19,094 rows, of which
+**4,004 are verified**, touching 1,872 of the 2,678 indexed tables. `verified_joins` is a
+different, much smaller table: its 6 rows are the joins SemCat verified by composite-key
+semijoin (four with two-column keys), all within `kescience.fitnessbrowser`. On this project's
+own join keys, SemCat holds verified edges for all four MGnify region tables and for the
+pombase CDS and exon tables, but not for the `kbase.genomes` bridge (Finding 1).
 
----
+**Table-level coverage.** 701 of the 864 tables in the account's listing (81.1%) are indexed; 0
+indexed tables are gone from the lakehouse and 163 listed tables are absent from SemCat. The
+absent tables include all 25 of SemCat's own tables and the 9 tables of
+`globalusers.kepangenome_parquet_1`, whose `feature` table has the same column list and row
+count (1,011,650,903) as `kbase.genomes.feature`.
 
-## Scope of the SemCat verdict — what was and was not tested
-
-**This evaluated 5 of SemCat's 25 tables.** The verdict in Finding 4 applies to that subset
-and to nothing else.
-
-**Exercised:** `catalog_meta`, `tables` (including `row_count` and `schema_sig`), `columns` (including
-`content_type`, `role`, `facet_layer`, `facet_confidence`, bounds), `concepts`, and
-`verified_joins` (row count only — with 6 rows there was nothing to evaluate).
-
-**Not exercised — 20 tables:** `column_embeddings`, `edges`, `database_edges`, `derivations`,
-`l4_curation`, `ontology_hierarchy`, `catalog_detectors`, `databases`, `tenants`,
-`compound_columns`, `compound_dict`, `compound_membership`, `compound_xref`, `taxon_columns`,
-`taxon_dict`, `taxon_membership`, `taxon_synonym`, `eav_attributes`, `eav_membership`,
-`quantity_members`.
-
-**No SemCat CLI was used.** There is no `semcat` executable on this machine's `PATH`, so
-neither `semcat resolve` nor `semcat joins` was exercised. If those commands exist in another
-environment, they may implement retrieval strategies — embedding similarity over
-`column_embeddings`, graph traversal over `edges` — that perform materially better than the
-raw `content_type` lookup measured here.
-
-This matters for how the verdict should be read. `column_embeddings` (128 columns' worth of
-vectors) and the 15,490-row `edges` table are precisely the components one would expect to
-compensate for sparse `content_type`: a semantic-similarity search might retrieve relevant
-columns that carry no label at all, which is the exact failure mode behind the 32% recall. **A
-fair statement is therefore: SemCat's *literal label lookup* is high-precision and
-low-recall. Whether SemCat *as a system* is low-recall is untested.** Finding 4 should not be
-cited as a verdict on the whole catalog.
+*(Notebooks: `01_semcat_discovery.ipynb`, `02_ground_truth_sweep.ipynb`, `03_semcat_grade.ipynb`;
+data: `data/semcat_grade.csv`, `data/audit_precision.csv`, `data/audit_recall.csv`,
+`data/nb01_summary.json`, `data/nb03_summary.json`)*
 
 ---
 
-> **A note on the claims ledger.** `beril claims build` flags **1 of 6** claims as `single-stream` with a confidence mismatch: the `pfam_annotation_gff` coordinate-system claim. The flag is correct and is left standing rather than argued away. The claim rests on one measurement by its nature — an exact arithmetic identity (`end − start + 1 == alignment_length`) that held on all N = 26,779 rows of a seeded random sample (NB02 §9) — which is not a statistical estimate a second method would independently corroborate, but has not been cross-checked by one either. The `coordinate`-label conflation claim, flagged in earlier builds, now carries a second stream: NB02 §10 checks SemCat-metadata typing against the live-data census and finds 0 contradictions across 36 overlapping columns.
+## Scope of the SemCat verdict: what was and was not tested
+
+Finding 4's precision and recall grade **literal `content_type` lookup**. They are not a verdict
+on SemCat's retrieval as a whole.
+
+**Exercised**, of the 25 tables in `globalusers.semantic_catalog`: `catalog_meta`, `tables`
+(including `row_count` and `schema_sig`), `columns` (including `content_type`, `role`, bounds,
+`ndv`), `concepts`, `verified_joins`, `edges` (counts of verified rows, and the verified edges
+on this project's join keys), and `column_embeddings` (row count and vector size only: 92,986
+vectors of dimension 384). The SemCat CLI's `join-keys` was run for two table pairs.
+
+**Not exercised:** semantic retrieval over `column_embeddings` (`semcat resolve`,
+`resolve-tables`) as a route to the census columns. That is the path most likely to raise
+recall on columns that carry no label at all, which is the failure behind the 31.6% recall.
+Whether SemCat *as a system* is low-recall remains untested.
+
+---
 
 ## Claims
 
-### Only 6 of 17 coordinate-bearing BERDL region-annotation tables can be joined to gene coordinates by position (5 directly, 1 through a 1:1 bridge)
+### 13 of 23 coordinate-bearing BERDL annotation tables can be placed against genes by position, but only 4 of the 14 region-annotation tables can, all in kescience.mgnify
 - confidence: high
+<!-- Nine of the 23 verdicts (protein-space only) apply the stated rule to the census coordinate
+     system rather than to a join query; NB04 §5g and data/bgc_joinability.csv mark them. -->
 - status: supported
 - supports:
-  - notebook: notebooks/04_bgc_region_joinability.ipynb#cell-21 [stream: joinability-frame-test] — "collocation_direct: 5, collocation_bridged: 1, collocation_positionally_joinable: 6, collocation_protein_only: 5"
-  - notebook: notebooks/02_ground_truth_sweep.ipynb#cell-28 [stream: schema-census] — "census: 51 tables, 24 coordinate-bearing (15 nucleotide, 5 amino-acid, 4 multiple frames)"
+  - notebook: notebooks/04_bgc_region_joinability.ipynb#cell-24 [stream: joinability-queries] — "joinable to genes by position: 13 of 23  (region tables 4 of 14; gene tables 9 of 9)"
+  - notebook: notebooks/04_bgc_region_joinability.ipynb#cell-21 [stream: joinability-queries] — "each bucket feature_id appears once in contig_x_feature and once in feature, and the two id sets are identical: True"
+  - notebook: notebooks/04_bgc_region_joinability.ipynb#cell-23 [stream: semcat-verified-edges] — "verified SemCat edges on these keys: 6"
+  - notebook: notebooks/02_ground_truth_sweep.ipynb#cell-15 [stream: census-coordinate-system] — "coordinate-bearing (coords yes or packed): 23"
 
 ### BGC regions and gene coordinates in kescience.mgnify share a contig namespace exactly, making "genes near a BGC" a single interval join
 - confidence: high
 - status: supported
 - supports:
-  - notebook: notebooks/04_bgc_region_joinability.ipynb#cell-5 [stream: identifier-overlap] — "shared_contigs 28,494 / 28,494 bgc_contigs = 100%"
-  - notebook: notebooks/04_bgc_region_joinability.ipynb#cell-12 [stream: biological-plausibility] — "gene_bgc_pairs 754313, bgcs_with_genes 35354, genes_per_bgc 21.3, genes_inside_per_bgc 13.9"
+  - notebook: notebooks/04_bgc_region_joinability.ipynb#cell-5 [stream: identifier-overlap] — "BGC contigs matched to a gene contig: 28494/28494 = 100.0%"
+  - notebook: notebooks/04_bgc_region_joinability.ipynb#cell-11 [stream: biological-plausibility] — "754313            35354        489978           21.3                  13.9"
+  - notebook: notebooks/04_bgc_region_joinability.ipynb#cell-23 [stream: semcat-verified-edges] — "kescience.mgnify.gene_bgc.contig_id               kescience.mgnify.gene.contig_id   structural_fk  verified                  1.0000"
 
 ### nmdc.results.pfam_annotation_gff uses amino-acid coordinates despite its _gff name, and additionally carries HMM-model coordinates in the same row
 - confidence: high
@@ -241,105 +276,112 @@ cited as a verdict on the whole catalog.
      single-stream. -->
 - status: supported
 - supports:
-  - notebook: notebooks/02_ground_truth_sweep.ipynb#cell-30 — "N tested: 26,779; end-start+1 != alignment_length: 0; max(end) in sample: 3,625; max(model_end): 1,530"
+  - notebook: notebooks/02_ground_truth_sweep.ipynb#cell-30 — "N tested            : 26,779"
 
-### SemCat's content_type label lookup is high-precision and low-recall: it labels a minority of relevant columns but is mostly correct when it does
+### SemCat's content_type label lookup has low recall, and its precision sits at the 0.80 threshold that separates H2 from H3
 - confidence: medium
 - status: supported
 - supports:
-  - notebook: notebooks/03_semcat_grade.ipynb#cell-11 [stream: value-adjudicated-precision] — "strict precision 51/60 = 85.0%, lenient 56/60 = 93.3%"
-  - notebook: notebooks/03_semcat_grade.ipynb#cell-18 [stream: label-family-recall] — "recall 30/93 schema_sig groups = 32.3%; 30/100 = 30.0% per column"
-  - notebook: notebooks/01_semcat_discovery.ipynb#cell-13 [stream: catalog-completeness] — "content_type NULL on 83.6% of 91,246 columns"
+  - notebook: notebooks/03_semcat_grade.ipynb#cell-19 [stream: value-adjudicated-precision] — "strict precision  45/56 = 80.4%"
+  - notebook: notebooks/03_semcat_grade.ipynb#cell-18 [stream: label-family-recall] — "per schema_sig  : 30/95 = 31.6%"
+  - notebook: notebooks/01_semcat_discovery.ipynb#cell-13 [stream: catalog-completeness] — "content_type_null     77,184 / 92,986 = 83.0%"
 - refutes:
-  - docs: scope — "20 of 25 SemCat tables untested, including column_embeddings and edges; no semcat CLI exercised. A retrieval path over embeddings could raise recall substantially, so this claim covers literal label lookup only."
+  - docs: scope — "Semantic retrieval over column_embeddings (semcat resolve) was not tested; it could raise recall, so this claim covers literal content_type lookup only."
 
 ### SemCat's content_type='coordinate' conflates geographic, nucleotide, amino-acid and HMM-model coordinates under one label
 - confidence: high
 - status: supported
 - supports:
-  - notebook: notebooks/01_semcat_discovery.ipynb#cell-7 [stream: semcat-metadata-typing] — "78 labelled columns: geographic: 32   molecular (nt/aa/model): 24   ambiguous: 22"
-  - notebook: notebooks/02_ground_truth_sweep.ipynb#cell-32 [stream: live-census-crosscheck] — "SemCat 'coordinate' columns: 78; in census tables: 36; contradictions: 0; census-confirmed systems under the one label: amino_acid, hmm_model, nucleotide"
+  - notebook: notebooks/01_semcat_discovery.ipynb#cell-6 [stream: semcat-metadata-typing] — "distinct coordinate systems sharing the single label 'coordinate': 4 (['amino_acid', 'geographic', 'hmm_model', 'nucleotide']), plus 20 columns resolved to none of them"
+  - notebook: notebooks/02_ground_truth_sweep.ipynb#cell-32 [stream: live-census-crosscheck] — "census-confirmed systems under the one label: ['amino_acid', 'hmm_model', 'nucleotide']"
 
-### SemCat's tables.row_count is accurate where verifiable, while its table-level coverage is 80.3% against the live catalog
+### SemCat's tables.row_count is accurate where verifiable, while its table-level coverage is 81.1% of the account's table listing
 - confidence: high
 - status: supported
 - supports:
-  - notebook: notebooks/02_ground_truth_sweep.ipynb#cell-23 [stream: coverage-diff] — "in SemCat but GONE live (stale) : 5; live but MISSING from SemCat : 163; agreement : 663/826 = 80%"
-  - notebook: notebooks/02_ground_truth_sweep.ipynb#cell-27 [stream: rowcount-verification] — "59 of 60 verifiable row counts exact (98.3%), computed live in-cell; H3 >=95% clause MET"
+  - notebook: notebooks/02_ground_truth_sweep.ipynb#cell-23 [stream: coverage-diff] — "agreement                       : 701/864 = 81%"
+  - notebook: notebooks/02_ground_truth_sweep.ipynb#cell-27 [stream: rowcount-verification] — "ACCURACY : 59/60 = 98.3%"
 
 ---
 
 ## Discoveries
 
 - A table's name can misstate its coordinate system at scale: `nmdc.results.pfam_annotation_gff`
-  (2.68B rows) is named `_gff` but stores amino-acid coordinates — confirmed by
-  `end − start + 1 == alignment_length` — plus HMM-model coordinates in the same row.
+  (2.68 billion rows) is named `_gff` but stores amino-acid coordinates, confirmed by
+  `end − start + 1 == alignment_length`, plus HMM-model coordinates in the same row.
 - "Has coordinates" and "can be joined to genes by position" are distinct table properties. In
-  BERDL only 6 of 17 coordinate-bearing region tables satisfy the second — and one of those six
-  was initially misjudged as unusable because its bridge table was not looked for.
-- `kbase.ke_pangenome.interproscan_domains` carries 18 signature databases in one table,
-  discoverable only from `DISTINCT analysis` — no column name enumerates them.
+  BERDL 13 of 23 coordinate-bearing annotation tables satisfy the second, but only 4 of the 14
+  region-annotation tables do, all in `kescience.mgnify`. The other region tables are in protein
+  coordinates (9) or have no gene table in their database (`refdata.smag.bgc`).
+- A table's joinability depends on its database, not only its own columns:
+  `kbase.genomes.feature` has no sequence column, and `kbase.genomes.contig_x_feature` places
+  each of its 1,011,650,903 features on a contig.
+- `kbase.ke_pangenome.interproscan_domains` carries 17 signature databases in one table,
+  discoverable only from `DISTINCT analysis`; no column name enumerates them.
 - Coordinates can hide inside a string: `kbase.content.c_<genome>_features.location` holds
   `[[contig, start, strand, length]]` as JSON, with SEED ontology terms in `ontology_terms`.
   No column name discloses either, so both semantic catalogs and name-based regexes miss it.
 - Pangenome domain tables (`interproscan_domains`, `bakta_pfam_domains`) key on *cluster
   representatives*, not genome genes, so their protein coordinates cannot reach a contig
   without a cluster-member mapping.
-- `nmdc.metadata.genome_feature_set` has the most complete GFF3 schema in BERDL and 0 rows —
-  a schema promising data that does not exist.
+- `nmdc.metadata.genome_feature_set` has the most complete GFF3 schema in BERDL and 0 rows.
 - Automated catalog labels can be right about vocabulary and wrong about cardinality:
-  `bakta_annotations.go` holds `GO:0000287;GO:0008927;…`, so `WHERE go = 'GO:0006064'`
-  silently matches nothing despite a correct `go_term` label.
+  `eggnog_mapper_annotations.KEGG_Reaction` holds `R01505,R04533,…`, so an equality predicate on
+  one reaction silently matches nothing despite a correct `kegg_reaction` label.
 
 ## Performance Notes
 
-- Live `DESCRIBE` across the whole accessible catalog is cheap: 826 tables / 67,587 columns in
-  ~110 s (0.13 s/table). Building an independent schema ground truth is affordable; there is
-  no need to trust a catalog's column list for this purpose.
-- Iceberg `COUNT(*)` is metadata-served and returns in seconds even at 2.68B rows — 60 tables
-  counted in under 30 s. Compute row counts in the notebook that reports them; caching them to
-  a file is how a chain goes stale (see Correction 5).
-- Value sampling for label adjudication should use `SELECT col ... WHERE col IS NOT NULL LIMIT
-  n` (limit pushdown, no shuffle). Avoid `DISTINCT`, which forces a shuffle on billion-row
-  tables.
-- A 12-value sample is too small for format adjudication: placeholder-heavy columns (`-`,
-  `nan`, `None`) return all-sentinel samples and produce false "mislabelled" verdicts. 60
-  values reduced sentinel-only outcomes from 7 to 1.
-- `kescience.mgnify.gene_bgc` and friends are partitioned by `biome_id`; filter on it. The
-  whole of `gene_bgc` (35,354 rows) is the `soil` biome.
+- A live `DESCRIBE` sweep of the accessible catalog is cheap: 840 tables and 67,910 columns in
+  49 s. An independent schema ground truth is affordable, so there is no need to trust a
+  catalog's column list for this purpose.
+- Iceberg `COUNT(*)` is metadata-served: 60 census tables, up to 2.68 billion rows, are counted
+  in 10 s. Compute row counts in the notebook that reports them rather than caching them in a
+  file, which is how a chain goes stale.
+- Value sampling: `SELECT col ... WHERE col IS NOT NULL LIMIT n` is the cheapest query but has no
+  row-order guarantee, so repeated runs adjudicate different values. The audit instead uses
+  `SELECT DISTINCT col ... ORDER BY xxhash64(col) LIMIT 60`, which is deterministic and diverse.
+  `DISTINCT` forces an aggregation, so on columns where SemCat reports `ndv > 100,000` a
+  hash-bucket prefilter (`pmod(xxhash64(col), 256) = 0`) bounds its cost. NB03 runs in 394 s.
+- Uniqueness on a billion-row key can be tested exactly on a subset by hashing the key:
+  every copy of a `feature_id` lands in the same `pmod(xxhash64(feature_id), 1024)` bucket. The
+  bucket check over both 1,011,650,903-row `kbase.genomes` tables takes 449 s.
+- Self-join checks sample whole contigs by hashing the contig ID, so every gene on a sampled
+  contig is present. The 1,895,015,043-row `bvbrc_feature_fact` takes 302 s at a 1/2^20
+  sample.
+- `kescience.mgnify.gene_bgc` and its sibling tables are partitioned by `biome_id`; filter on it.
+  All 35,354 `gene_bgc` rows are in the `soil` biome.
 
 ---
 
 ## Results
 
-### Coordinate-bearing tables (24)
+### Coordinate-bearing tables (23)
 
-| Table | Region type | Coord system | Frame | Span | Strand | Identifier systems | Rows |
-|---|---|---|---|---|---|---|---|
-| `kbase.ke_pangenome.interproscan_domains` | protein domain/motif | amino_acid | pangenome cluster-representative protein | start..stop | — | InterPro, Pfam, Gene3D, SUPERFAMILY, PANTHER, PRINTS, CDD, NCBIfam, +10 more | 833,303,130 |
-| `kbase.ke_pangenome.bakta_pfam_domains` | protein domain | amino_acid | pangenome cluster-representative protein | start..stop | — | Pfam | 18,807,208 |
-| `kescience.interpro.protein2ipr` | protein domain/motif | amino_acid | UniProt protein | start..stop | — | InterPro, Pfam, member-DB signatures | 1,175,529,272 |
-| `kescience.fitnessbrowser.genedomain` | protein domain | amino_acid | Fitness Browser protein (orgId+locusId) | begin..end | — | Pfam, TIGRFAM, EC (per-row via `domainDb`) | 456,712 |
-| `kescience.paperblast.site` | functional residue/site | amino_acid | protein sequence (db+id) | posFrom..posTo | — | PDB, UniProt, ligand IDs, PMIDs | 2,089,192 |
-| `nmdc.results.pfam_annotation_gff` | protein domain | **multiple** | gene's protein + Pfam HMM | start..end | — | Pfam | 2,684,369,000 |
-| `nmdc.results.annotation_kegg_orthology` | alignment segment | **multiple** | query protein + KO reference protein | q_start..q_end | — | KEGG KO | 1,831,998,811 |
-| `nmdc.results.annotation_enzyme_commission` | alignment segment | **multiple** | query protein + EC reference protein | q_start..q_end | — | EC | 1,231,453,377 |
-| `kescience.pdb.pdb_uniprot_mapping` | structural segment | **multiple** | PDB author numbering + SEQRES + UniProt | res/sp/pdb beg..end | — | PDB, UniProt | 966,977 |
-| `refdata.bvbrc.bvbrc_feature_fact` | gene/CDS | nucleotide | BV-BRC contig (within genome_id) | start_pos..end_pos | strand | EC, KEGG KO, protein families (all JSON-packed) | 1,895,015,043 |
-| `kbase.genomes.feature` | gene/CDS | nucleotide | contig, via the 1:1 `contig_x_feature` bridge | start..end | strand | type, source_database; free-text RAST function via `feature_x_protein`→`protein`→`functional_annotation_rast` (schema-confirmed, join not executed) | 1,011,650,903 |
-| `refdata.jgi_virus.metavr_protein` | gene/CDS (viral) | nucleotide | IMG/VR scaffold | start..end | strand | Pfam (array-typed), protein_cluster, product | 369,281,941 |
-| `kescience.mgnify.gene` | gene/CDS | nucleotide | MGnify contig | start..end | strand | via `gene_eggnog` / `gene_amr` / `gene_bgc` | 142,872,191 |
-| `kbase.nmdc_arkin.metatranscriptomics_gold` | expressed feature | nucleotide | contig/scaffold | — | strand | expression values | 75,119,498 |
-| `refdata.jgi_mycocosm.features` | gene/CDS/mRNA (fungal) | nucleotide | Mycocosm contig | start + **length_bp (no `end`)** | strand | free-text functions | 17,945,606 |
-| `globalusers.carbon_source_phenotypes.gene_calls_table` | gene call | nucleotide | contig | start..end | strand | KO via `kofam_annotation_table` | 5,111,055 |
-| `kescience.fitnessbrowser.gene` | gene/CDS | nucleotide | Fitness Browser scaffold | begin..end (string) | strand | via `besthitkegg` / `seedannotation` | 228,709 |
-| `refdata.smag.bgc` | **BGC** | nucleotide | SMAG MAG contig (accession_id) | start..end | — | antiSMASH, BiG-SCAPE class/family | 43,169 |
-| `kescience.mgnify.gene_crispr` | CRISPR array | nucleotide | MGnify contig | crispr_start..crispr_end | `orientation` | repeat/spacer properties | 42,437 |
-| `kescience.mgnify.gene_bgc` | **BGC** | nucleotide | MGnify contig | start_pos..end_pos | — | antiSMASH, MIBiG | 35,354 |
-| `kescience.mgnify.gene_mobilome` | mobile element | nucleotide | MGnify contig | start_pos..end_pos | — | element typing | 171,662 |
-| `kescience.mgnify.gene_defense` | defense system | nucleotide | MGnify contig | system_start..system_end | — | defense typing | 27,858 |
-| `refdata.fungal_db.pombase_gene_coords` | gene | nucleotide | *S. pombe* chromosome | start..end | strand | PomBase IDs | 12,685 |
-| `kbase.content.c_<genome>_features` | gene/CDS | nucleotide | **packed JSON** | `location[[contig,start,strand,len]]` | in JSON | SEED SSO ontology, free-text function | 3,734/genome |
+| Table | Region type | Coord system | Frame | Span | Strand | Identifier systems | Rows | Joinable to genes (NB04) |
+|---|---|---|---|---|---|---|---|---|
+| `kbase.ke_pangenome.interproscan_domains` | protein domain/motif | amino_acid | pangenome cluster-representative protein | start..stop | — | InterPro, Pfam, Gene3D, SUPERFAMILY, PANTHER, PRINTS, CDD, NCBIfam, +10 more | 833,303,130 | protein-space only |
+| `kbase.ke_pangenome.bakta_pfam_domains` | protein domain | amino_acid | pangenome cluster-representative protein | start..stop | — | Pfam | 18,807,208 | protein-space only |
+| `kescience.interpro.protein2ipr` | protein domain/motif | amino_acid | UniProt protein | start..stop | — | InterPro, Pfam, member-DB signatures | 1,175,529,272 | protein-space only |
+| `kescience.fitnessbrowser.genedomain` | protein domain | amino_acid | Fitness Browser protein (orgId+locusId) | begin..end | — | Pfam, TIGRFAM, EC (per-row via `domainDb`) | 456,712 | protein-space only |
+| `kescience.paperblast.site` | functional residue/site | amino_acid | protein sequence (db+id) | posFrom..posTo | — | PDB, UniProt, ligand IDs, PMIDs | 2,089,192 | protein-space only |
+| `nmdc.results.pfam_annotation_gff` | protein domain | **multiple** | gene's protein + Pfam HMM | start..end | — | Pfam | 2,684,369,000 | protein-space only |
+| `nmdc.results.annotation_kegg_orthology` | alignment segment | **multiple** | query protein + KO reference protein | q_start..q_end | — | KEGG KO | 1,831,998,811 | protein-space only |
+| `nmdc.results.annotation_enzyme_commission` | alignment segment | **multiple** | query protein + EC reference protein | q_start..q_end | — | EC | 1,231,453,377 | protein-space only |
+| `kescience.pdb.pdb_uniprot_mapping` | structural segment | **multiple** | PDB author numbering + SEQRES + UniProt | res/sp/pdb beg..end | — | PDB, UniProt | 966,977 | protein-space only |
+| `refdata.bvbrc.bvbrc_feature_fact` | gene/CDS | nucleotide | BV-BRC contig (within genome_id) | start_pos..end_pos | strand | EC, KEGG KO, protein families (all JSON-packed) | 1,895,015,043 | **self** |
+| `kbase.genomes.feature` | gene/CDS | nucleotide | contig, via `contig_x_feature` | start..end | strand | type, source_database; RAST function via `feature_x_protein`→`protein`→`functional_annotation_rast` (schema-confirmed, join not executed) | 1,011,650,903 | **bridged** |
+| `refdata.jgi_virus.metavr_protein` | gene/CDS (viral) | nucleotide | IMG/VR scaffold | start..end | strand | Pfam (array-typed), protein_cluster, product | 369,281,941 | **self** |
+| `kescience.mgnify.gene` | gene/CDS | nucleotide | MGnify contig | start..end | strand | via `gene_eggnog` / `gene_amr` / `gene_bgc` | 142,872,191 | **self** |
+| `refdata.jgi_mycocosm.features` | gene/CDS/mRNA (fungal) | nucleotide | Mycocosm contig | start + **length_bp (no `end`)** | strand | free-text functions | 17,945,606 | **self** |
+| `globalusers.carbon_source_phenotypes.gene_calls_table` | gene call | nucleotide | contig | start..end | strand | KO via `kofam_annotation_table` | 5,111,055 | **self** |
+| `kescience.fitnessbrowser.gene` | gene/CDS | nucleotide | Fitness Browser scaffold | begin..end (string) | strand | via `besthitkegg` / `seedannotation` | 228,709 | **self** |
+| `refdata.smag.bgc` | **BGC** | nucleotide | SMAG MAG contig (accession_id) | start..end | — | antiSMASH, BiG-SCAPE class/family | 43,169 | no gene table |
+| `kescience.mgnify.gene_crispr` | CRISPR array | nucleotide | MGnify contig | crispr_start..crispr_end | `orientation` | repeat/spacer properties | 42,437 | **direct** |
+| `kescience.mgnify.gene_bgc` | **BGC** | nucleotide | MGnify contig | start_pos..end_pos | — | antiSMASH, MIBiG | 35,354 | **direct** |
+| `kescience.mgnify.gene_mobilome` | mobile element | nucleotide | MGnify contig | start_pos..end_pos | — | element typing | 171,662 | **direct** |
+| `kescience.mgnify.gene_defense` | defense system | nucleotide | MGnify contig | system_start..system_end | — | defense typing | 27,858 | **direct** |
+| `refdata.fungal_db.pombase_gene_coords` | gene | nucleotide | *S. pombe* chromosome | start..end | strand | PomBase IDs | 12,685 | **self** |
+| `kbase.content.c_<genome>_features` | gene/CDS | nucleotide | **packed JSON** | `location[[contig,start,strand,len]]` | in JSON | SEED SSO ontology, free-text function | 3,734 per genome table (5 tables) | **self** |
 
 ### Function assignment without coordinates (22)
 
@@ -368,6 +410,11 @@ cited as a verdict on the whole catalog.
 | `kescience.mgnify.gene_amr` | 1 | AMRFinder typing | `gene_id` | 8,862 |
 | `refdata.smag.cas_proteins` | 1 | Cas protein typing | protein/MAG ids | 8,545 |
 
+### Region table without a span (1)
+
+`kbase.nmdc_arkin.metatranscriptomics_gold` (75,119,498 rows): expression values per feature
+with `img_scaffold_oid`, `length` and `strand`, but no start or end.
+
 ### Reference vocabularies (5)
 
 `refdata.interpro.entry_xref` (626,311,209) · `refdata.rhea.rhea2uniprot` (397,133) ·
@@ -379,7 +426,7 @@ cited as a verdict on the whole catalog.
 Recorded in `data/excluded_tables.csv`. Notable: `kbase.nmdc_arkin.metabolomics_gold` and
 `lipidomics_gold` (mass-spec scan numbers, not genomic spans);
 `nmdc.metadata.material_processing_set` (whose `is_stranded` and `stranded_orientation` are
-RNA-seq *library* strandedness — and are two of the six columns SemCat labels `strand`);
+RNA-seq *library* strandedness, and are two of the six columns SemCat labels `strand`);
 `refdata.spire.mag_coordinates` (named "coordinates", entirely geographic);
 `nmdc.metadata.genome_feature_set` (complete GFF3 schema, 0 rows).
 
@@ -387,353 +434,200 @@ RNA-seq *library* strandedness — and are two of the six columns SemCat labels 
 
 ## Interpretation
 
-The practical conclusion is that **coordinate system, not coordinate presence, is the thing to
-check first** when planning region-aware work in BERDL. The catalog contains over 8 billion
-rows of coordinate-bearing annotation, but those coordinates live in at least four
-incommensurable frames — nucleotide positions on a contig, amino-acid positions on a protein,
-residue numbering in a solved structure, and positions within an HMM profile — and two tables
-in the same database can disagree. `kescience.fitnessbrowser` is the cleanest illustration:
+**Coordinate system, not coordinate presence, is the thing to check first** when planning
+region-aware work in BERDL. The 23 coordinate-bearing census tables hold about 11.2 billion
+rows (the sum of the live counts in `data/annotation_sources.csv` and
+`data/row_counts_verified.csv`), in at least four incommensurable frames: nucleotide positions on a contig,
+amino-acid positions on a protein, residue numbering in a solved structure, and positions within
+an HMM profile. Two tables in one database can disagree. In `kescience.fitnessbrowser`,
 `gene.begin/end` are nucleotide positions on a scaffold while `genedomain.begin/end` are
-amino-acid positions on the protein. The tables join cleanly on `(orgId, locusId)` and must
-never be joined on position.
+amino-acid positions on the protein. The tables join cleanly on `(orgId, locusId)` and must not
+be joined on position.
 
-For BGC work specifically, the usable path is narrow but real. `kescience.mgnify` is the only
-place where a BGC region, a gene table, and functional annotation all share one frame and one
-key, and the demonstration confirms it end to end. The cost is coverage: 35,354 BGCs, all in
-the soil biome. `refdata.smag.bgc` has richer BGC semantics (BiG-SCAPE families, which support
-cluster-family questions MGnify cannot answer) and is unusable for collocation because SMAG
-ships no gene table. That is a tractable gap — it needs one table, not new science.
+The joinability result splits along the gene/region line. Every gene-coordinate table in the
+census can place genes against each other, which serves "what is next to this gene" wherever
+the gene table carries function (BV-BRC with EC/KO, IMG/VR with Pfam). Placing a *region* such
+as a BGC, CRISPR array or domain against genes works only in `kescience.mgnify`, where region
+tables, a gene table and functional annotation share one frame and one key. The cost there is
+coverage: the 35,354 BGCs are all from the soil biome. `refdata.smag.bgc` has richer BGC
+semantics (BiG-SCAPE families) but no gene table in its database. That gap needs one table, not
+new science.
 
-For multi-domain search, the pangenome domain tables are excellent *within protein space* and
-structurally unable to leave it. `interproscan_domains` supports exactly the ordered,
-spacing-aware queries that a tool like cblaster performs, and its 18 bundled signature
-databases make it the single richest functional resource in the lakehouse. But it keys on
-cluster representatives, so "find this domain architecture, then tell me what is next to it on
-the chromosome" requires a cluster-member-to-genome mapping that this analysis did not locate.
+For multi-domain search, the pangenome domain tables support ordered, spacing-aware queries of
+the kind cblaster performs, and `interproscan_domains` bundles 17 signature databases. But they
+key on cluster representatives, so "find this domain architecture, then tell me what is next to
+it on the chromosome" needs a cluster-member-to-genome mapping that this analysis did not
+locate.
 
-On SemCat: the honest summary is that it is better than its headline numbers suggest and worse
-than its interface implies. When it labels a column it is usually right (84–92%), including
-columns a name-based search would never find — 128 `function_id`-labelled columns fall outside
-the reach of this project's own regex. That is genuine, non-trivial value, and it is why H0 is
-refuted. But 83.6% of columns carry no label, one concept in 119 is molecular, the join layer
-has six rows, and the one label that speaks to this project's central question —
-`coordinate` — is ambiguous across five meanings. A user who treats `content_type` as a filter
-will get a clean, confident, badly incomplete answer, which is the worst failure mode a
-discovery tool can have. The right workflow is SemCat-as-seed then expand, never
-SemCat-as-bound. **With the large caveat in "Scope of the SemCat verdict" above: the
-embedding and graph layers that might fix precisely this were not tested.**
+On SemCat: its labels flag 37 of the 51 census tables specifically, but they label only about a
+third of the relevant columns, and the labels it does apply are right about four times in five.
+That is at the H2/H3 boundary, not clearly above it. A user who treats `content_type` as a filter
+gets a confident, incomplete answer. The workable pattern is SemCat-as-seed then expand, not
+SemCat-as-bound. Two SemCat layers do better than the labels: `row_count` is nearly always exact,
+and the verified `edges` cover the MGnify and pombase join keys this project established
+independently. Semantic retrieval over the embeddings, which could address the recall gap, was
+not tested.
 
 ### Literature Context
 
 - The discovery/exploration split in **Paton, Chen & Wu (2023,** *ACM Computing Surveys*,
-  doi:10.1145/3626521**)** maps directly onto what was measured. SemCat performs adequately at
-  *discovery* (finding candidate tables, especially outside a user's grants) and poorly at
-  *exploration* (understanding what a column means, and how tables relate — its
-  `verified_joins` layer is empty). Their framing anticipates that these fail independently;
-  this is an instance.
+  doi:10.1145/3626521**)** maps onto what was measured. SemCat's table inventory and row counts
+  serve *discovery* (finding candidate tables, including outside a user's grants). Its column
+  labels serve *exploration* (what a column means) less well. Its verified edges, which record
+  how tables relate, agree with this project's own join checks where both exist.
 - **Bianchini et al. (2023,** *Knowl. Inf. Syst.*, doi:10.1007/s10115-023-02014-1**)** describe
-  PERSEUS, a semantic metadata catalog over a data lake with the same design posture, and
-  treat annotation coverage as a known weak link. The 84% NULL rate found here is therefore
-  consistent with a general property of this architecture rather than a BERDL-specific defect
-  — a point in SemCat's favour, not against it.
+  PERSEUS, a semantic metadata catalog over a data lake with the same design posture, and treat
+  annotation coverage as a known weak link. The 83% NULL rate found here is consistent with
+  that being a general property of the architecture rather than a BERDL-specific defect.
 - **Gilchrist et al. (2021,** cblaster, *Bioinformatics Advances*,
-  doi:10.1093/bioadv/vbab016**)** states the functional requirement this census was scored
-  against: collocation search needs, per gene, a sequence identifier and a position in a shared
-  frame. The joinability result is essentially a report of how many BERDL tables meet
-  cblaster’s precondition — 6 of 17 coordinate-bearing tables.
-- **Jørgensen et al. (2024,** *NAR*, doi:10.1093/nar/gkae523**)** show that positional
-  information carries biology in BGC work (core genes central, specialized-metabolite BGCs
-  distal on the *Streptomyces* chromosome). This supports treating coordinate-free BGC tables
-  such as `refdata.microagrobiome.bgc_catalog` as categorically less useful, not merely less
-  convenient.
+  doi:10.1093/bioadv/vbab016**)** state the requirement this census is scored against:
+  collocation search needs, per gene, a sequence identifier and a position in a shared frame.
+  In BERDL, 13 of 23 coordinate-bearing tables meet it for genes, and 4 of 14 region tables
+  meet it for regions.
+- **Jørgensen et al. (2024,** *NAR*, doi:10.1093/nar/gkae523**)** show that position carries
+  biology in BGC work (core genes central, specialized-metabolite BGCs distal on the
+  *Streptomyces* chromosome). That supports treating coordinate-free BGC tables such as
+  `refdata.microagrobiome.bgc_catalog` as categorically less useful.
 - **van der Hooft et al. (2020,** *Chem. Soc. Rev.*, doi:10.1039/d0cs00162g**)** supply the
   MIBiG/BiG-SCAPE context that `kescience.mgnify.gene_bgc` (`nearest_mibig`) and
-  `refdata.smag.bgc` (`big_scape_class`, `gcf_class`) are expressed in, confirming the two
-  tables answer complementary questions.
+  `refdata.smag.bgc` (`big_scape_class`, `gcf_class`) are expressed in, so the two tables answer
+  complementary questions.
+- **Hurlbert (1984,** *Ecological Monographs*, doi:10.2307/1942661**)** defines
+  pseudoreplication. The audit counts cloned staging tables once (per `schema_sig`) and the
+  domain-order statistic counts each protein once for that reason.
 
-Prior BERIL work was checked through the knowledge layer. The nearest items —
+Prior BERIL work was checked through the knowledge layer. The nearest items,
 `gene_function_ecological_agora`'s `Final_Data_Catalog/Sources.md` and
-`plant_microbiome_ecotypes`' data manifest — are hand-compiled, project-scoped source lists.
-They overlap this census on the pangenome and MGnify tables but record neither coordinate
-system nor joinability. That several projects independently rebuilt partial versions of this
-list is itself evidence the census was needed.
+`plant_microbiome_ecotypes`' data manifest, are hand-compiled, project-scoped source lists. They
+overlap this census on the pangenome and MGnify tables but record neither coordinate system nor
+joinability.
 
 ### Novel Contribution
 
-Against `references.md` and the knowledge layer, two things appear not to have been recorded
-before — stated as claims about those two sources, which is all that was checked:
+Checked against `references.md` and the knowledge layer only, two things appear not to have been
+recorded before:
 
-1. **A coordinate-frame map of BERDL annotation tables.** Prior catalogues list tables and
-   purposes; none distinguishes nucleotide from amino-acid from HMM-model coordinates, nor
-   identifies which pairs are positionally joinable. The `_gff`-named table holding amino-acid
-   coordinates and the billion-row feature table with no sequence column are both the kind of
-   error this map exists to prevent.
-2. **A measured baseline for BERDL's semantic catalog.** No prior precision/recall assessment
-   of SemCat was found. The value-adjudicated protocol here (sample values, validate against
-   the format the label claims, separate cardinality errors from vocabulary errors) is
-   reusable for tracking whether catalog quality improves.
+1. **A coordinate-frame map of BERDL annotation tables**, with joinability tested by query. Prior
+   catalogues list tables and purposes; none distinguishes nucleotide from amino-acid from
+   HMM-model coordinates or tests which tables can be placed against genes.
+2. **A measured baseline for BERDL's semantic catalog.** No prior precision/recall assessment of
+   SemCat was found. The value-adjudicated protocol (sample values, validate against the format
+   the label claims, separate cardinality errors from vocabulary errors) can be rerun to track
+   whether catalog quality changes.
 
 ### Scope of the Claim
 
-**The census is complete for 8 of 21 tenants and metadata-only for the other 13.** This
-account can read 826 tables across 104 databases; SemCat indexes 2,509 tables across 22
-tenants. Everything verified here — coordinate systems, identifier systems, row counts,
-joinability — covers that **34%** slice. The 13 unreadable tenants include SemCat's largest
-(`enigma`) and contain 493 candidate annotation tables that could not be opened,
-among them the only operon-region tables found anywhere
-(`enigma.genome_depot_enigma.browser_operon`) and the only polysaccharide-utilization-locus
-table (`arkinlab.dbcan.dbcan_pul`). Read access was confirmed denied, not merely untested.
+**The census covers what one account could read on 2026-10-22.** The account's table listing
+has 864 tables across 105 databases under 10 tenant prefixes. 840 of them were read; the other
+24, all in `ese.ganymede`, are listed but return TABLE_OR_VIEW_NOT_FOUND. SemCat indexes 2,678
+tables across 22 tenants; 6 of those tenants are in the account's listing. Everything verified here (coordinate
+systems, identifier systems, row counts, joinability) covers that readable slice. Thirteen tenants
+outside the account's listing hold 483 SemCat-indexed candidate annotation tables, among them
+all 12 operon tables found (`enigma.genome_depot_enigma.browser_operon` and
+`browser_operon`/`browser_site_operons` tables in `phagefoundry` and `protect`) and a
+polysaccharide-utilization-locus table (`arkinlab.dbcan.dbcan_pul`). These could not be opened.
 
-What does not follow: this is **not** a census of BERDL. It is a census of the part of BERDL
-one account could open on 2026-10-02, and the region-annotation picture in particular is
-likely to be *understated*, because the inaccessible genome-browser tenants (`enigma`,
-`phagefoundry`, `protect`) carry `browser_gene`/`browser_operon`/`browser_site` families that
-are exactly the shape this project found scarce.
+This is therefore **not** a census of BERDL. The region-annotation picture in particular is
+likely understated, because unreadable genome-browser tenants (`enigma`, `phagefoundry`,
+`protect`) carry `browser_gene`/`browser_operon`/`browser_site` families of exactly the shape
+this project found scarce.
 
-The SemCat grade inherits the same boundary. Precision and recall were computed over the 636
-tables that are both live and indexed, in readable tenants only. Label quality in `enigma` or
-`phagefoundry` could differ systematically and was not sampled. And per the scope section
-above, the grade covers 5 of 25 SemCat tables and no CLI retrieval path.
+The SemCat grade has the same boundary. Precision and recall are computed over the 655 tables
+that are both read by the sweep and indexed. Label quality in `enigma` or `phagefoundry` could
+differ and was not sampled.
 
-The BGC demonstration is narrower still: one biome (`soil`), because all 35,354 rows of
-`gene_bgc` are soil. The 13.9-genes-per-BGC figure is a property of that cohort.
+The BGC demonstration covers one biome (`soil`), because all 35,354 `gene_bgc` rows are soil.
+The 13.9-genes-per-BGC figure describes that cohort.
 
 ### Limitations
 
-- **Ground truth was built by regex plus manual adjudication, and the regex is demonstrably
-  incomplete.** `kbase.content.c_<genome>_features` — which has contig, start, strand and
-  ontology terms — was missed by the name-based sweep and found only by reading the values of
-  a column called `location`. Others of this kind almost certainly remain. Recall figures for
-  SemCat are therefore computed against a ground truth that is itself a lower bound, which
-  means true recall may be *lower* than 32%, not higher.
+- **Ground truth is a regex plus manual adjudication, and the regex is incomplete.**
+  `kbase.content.c_<genome>_features`, which has contig, start, strand and ontology terms, was
+  missed by the name-based sweep and found only by reading a column called `location`. Others
+  of this kind probably remain, so SemCat's measured recall is against a ground truth that is
+  itself a lower bound.
 - **The full-frame confusion matrix (`data/semcat_confusion_by_facet.csv`) is biased against
-  SemCat** and should not be quoted as a precision estimate. It treats this project's regex as
-  truth, so SemCat is charged a false positive whenever it labels a column the regex failed to
-  recognise — which is SemCat succeeding. The value-adjudicated audit supersedes it.
-- **Precision rests on 60 judgeable columns.** Confidence intervals were not computed; a
-  binomial CI on 51/60 is roughly ±9 points, whose lower bound sits near the 0.80 decision
-  threshold. The H2 verdict should be read as "consistent with high precision", not
-  "precision is 85.0%".
-- The `strand` facet is too small for a stable per-facet rate — 17 genomic-strand columns
-  across all accessible tables, 13 of them inside the audited frame, against 4 SemCat labels —
-  though it is the worst performer on every measure.
-- Pseudo-replication was handled explicitly in the two places it could bite: per-`schema_sig`
-  for the SemCat audit (cloned staging tables) and per-protein for the domain-order statistic
-  (repeat domain copies). Both corrections were immaterial — they moved recall 30.0% → 32.3%
-  and domain order 94.5% → 94.4% — but neither was checked until review prompted it.
-- **The audit's value sample was not bit-reproducible for most of this project's life, and one
-  reported figure moved because of it.** `03` originally drew values with `LIMIT 60` and no
-  `ORDER BY`, which Spark/Iceberg do not guarantee to return in a stable order. Across five
-  full-chain re-runs one column migrated between `wrong_cardinality` and `wrong_label`, moving
-  lenient precision between 93.2% and 94.9%; an earlier draft quoted 94.9% while the artifacts
-  said 93.2% (`REVIEW_7.md` caught it). **Fixed in Correction 7** — the sampler is now
-  deterministic and the audit reproduces exactly. The figures in this report are from the first
-  run under the fixed sampler. What remains outside the project's control is the live catalog,
-  which is pinned by snapshot rather than frozen.
-- Coordinate systems were determined per table, not per row. A table could in principle mix
-  conventions across rows; this was not tested.
-- The sweep completed with **0 failures** on the final snapshot. An earlier run hit 13
-  failures from one cause (a stale `s3a://cdm-lake/users-sql` location under `mamillerpa`/`my`,
-  personal scratch databases); those tables had been removed by 2026-10-06.
-- `verified_joins` was assessed by row count (6) only. Its six entries were not checked for
-  correctness.
+  SemCat** and is not a precision estimate. It treats this project's regex as truth, so a correct
+  SemCat label on a column the regex missed counts as a false positive. The value-adjudicated
+  audit supersedes it.
+- **Precision rests on 56 judgeable `schema_sig` groups**, and its 95% interval (0.68–0.89)
+  straddles the 0.80 threshold. Of the 7 `wrong_label` verdicts, two rest on a single failing
+  value in 60: `pdb_uniprot_mapping.pdb_end` holds `66A` (a residue number with an insertion
+  code) under `coordinate`, and `annotation_hierarchies_unified.term_id` holds `5.3.-.-` (an EC
+  class) under `ontology_term_id`. The validators were fixed before the run and were not
+  changed after seeing these results.
+- **19 of the 100 precision columns carry labels with no validator** (`no_pattern`), including
+  `bgc_region_id`, `bgc_class`, `protein_family_id` and `product_prediction`, whose former
+  validators accepted any text. Precision covers the 58 columns whose labels assert a checkable
+  format.
+- The `strand` facet is too small for a stable rate. Across all 840 readable tables there are 18
+  genomic-strand columns and SemCat labels 2 of them (2/18, NB02). In the audited frame there are
+  14, all in the recall sample, and 2 are found (2/14, NB03).
+- Joinability has three limits. Protein-space verdicts (9) apply a rule rather than a query.
+  The self-join and bridge checks are samples, of hashed contigs and of a hashed `feature_id`
+  bucket. And "no gene table" for `refdata.smag.bgc` covers its own database only; a gene table
+  elsewhere in BERDL sharing its contig accessions was not searched for.
+- Coordinate systems were determined per table, not per row. A table could mix conventions
+  across rows; this was not tested.
 - Prior-art claims rest on `references.md` (OpenAlex-derived; PubMed and Semantic Scholar
-  returned nothing for these queries in this session) and the knowledge layer. This is not an
-  exhaustive literature review.
+  returned nothing for these queries when it was compiled) and the knowledge layer. This is not
+  an exhaustive literature review.
 
-### What Would Have Changed Our Mind
+### What Would Have Changed the Conclusions
 
-- **The pre-registered refutation of the main use-case finding** was an empty contig-id
-  intersection between `gene_bgc` and `gene`. Had that returned zero, the coordinates would
-  have been unusable for collocation regardless of completeness, and Finding 2 would have been
-  a negative result. Observed: **28,494/28,494 shared, 100%** — the strongest possible pass.
-  The 13.9-genes-per-BGC figure is the secondary check; an implausible value (0.2, or 400)
-  would have indicated a spurious string match even with full id overlap.
-- **H1 had two independent refutation routes and failed both.** The coordinate sub-test (if
-  SemCat could sort its `coordinate` columns into systems, H1 survived — it could not,
-  5 systems share the label) and the ≥0.80 recall bar (observed 32%).
+- **The pre-registered refutation of the main use case** was an empty contig-ID intersection
+  between `gene_bgc` and `gene`. Observed: 28,494 of 28,494 shared. An implausible
+  genes-inside-per-BGC value (0.2, or 400) would have flagged a spurious match despite full
+  overlap; observed 13.9.
+- **H1 had two refutation routes and fails both**: the `coordinate` label cannot be sorted into
+  one system from SemCat fields, and recall is 31.6% against a 0.80 bar.
+- **H2 versus H3 turns on precision near 0.80.** One more mislabelled `schema_sig` group in 56
+  would move strict precision to 78.6% and the point-estimate verdict to H3. The full-frame
+  rule-based figures (function_id 0.53, span 0.44, strand 0.50) point the same way but are biased
+  for the reason under Limitations.
 - **Looked for and not found:** a cluster-member-to-genome mapping that would let the pangenome
-  domain tables (`interproscan_domains`, 833M rows) reach a contig. None was located in the
-  readable catalog. This is the single biggest limit on the lakehouse's domain data and the
-  main reason 5 tables are stranded in protein space.
-- **Evidence against the headline SemCat verdict, stated here rather than left in a notebook:**
-  the full-frame rule-based figures (function_id precision 0.53, span 0.44, strand 0.50) are
-  much harsher than the audit's 85.0% and would support H3. They are reported as biased for
-  the reason given under Limitations, but a reader who rejects that argument should read the
-  precision verdict as unresolved between H2 and H3.
-- **A result that argues against the census being complete:** `kbase.content.c_<genome>_features`
-  proves at least one whole class of annotation table is invisible to name-based discovery.
-  The census should be read as a floor on BERDL's annotation holdings, not a ceiling.
-- **Prior movement.** The plan put H3 at MEDIUM-HIGH and H2 at LOW-MEDIUM. The evidence moved
-  the posterior the other way: H2 supported, H3 refuted on precision. The H3 *bookkeeping*
-  claims (row_count exact, coverage beyond own inventory) were confirmed, so the prior was
-  right about SemCat's structural value and wrong about its label quality.
+  domain tables reach a contig. None was located in the readable catalog.
+- **Against completeness:** `kbase.content.c_<genome>_features` shows that at least one class
+  of annotation table is invisible to name-based discovery. The census is a floor.
+- **Prior movement.** The plan put H3 at MEDIUM-HIGH and H2 at LOW-MEDIUM. The evidence lands
+  between them: H2 on the point estimate by 0.4 points, with H3 not excluded. The H3 bookkeeping
+  clauses (row_count exact, coverage beyond the account's own listing) hold.
 
-### Eight corrections made during analysis
+### Corrections history
 
-All are kept visible because each changed a reported number, and in one case a verdict. Two
-were self-detected (1, 2); **four were found by independent review** (3, 4, 5, 6); the seventh
-closes the root cause the sixth only diagnosed; **the eighth was found by a human reader who
-knew a prior project had already done the join I said was impossible** (8).
-Corrections 3 and 5 are the same defect — a cached value silently carrying an old snapshot —
-which survived its own first fix. That it recurred is the more useful finding than either
-instance.
+Each entry changed a reported number or verdict.
 
-**1. Precision, and the H3 → H2 flip.** The first pass of the audit sampled 12 values per
-column and scored each label simply correct-or-wrong, giving strict precision **77.8%** and
-therefore "H3 supported". Two defects: a 12-value sample frequently returned only placeholders
-(`-`, `nan`, `None`), which was scored against SemCat though it is a limitation of the
-*sample*; and multi-valued columns (`go` holding `GO:0000287;GO:0008927`) were scored
-identically to genuinely mislabelled ones. Re-run with 60 values and a four-way adjudication
-(`correct` / `wrong_cardinality` / `wrong_label` / `sentinel_only`, the last excluded):
-strict precision **83.9%** (on the 2026-10-02 snapshot; **86.4%** on the 2026-10-06 re-run;
-**85.0%** once sampling was made deterministic — Correction 7), verdict **H2**. Recall was ~32% under both passes and both snapshots, so H1's
-refutation never depended on this. Logged as a minor deviation in `RESEARCH_PLAN.md` Revision
-History v2 — no threshold, hypothesis or discrimination strategy changed, and the plan's own
-`plan_digest` confirms the approval remains valid. The revision nonetheless followed seeing a
-result and moved a verdict; the strict/lenient pair is a post-hoc choice that is non-decisive
-only because H2 holds under both figures.
-
-**2. Inter-domain gap.** First reported as median **−680.5 aa** from a 300-row sample taken
-*after* `ORDER BY gap_aa` — the extreme tail, not the distribution. Recomputed with
-`percentile_approx` over the full 6,963-row join: median **−392 aa**, IQR −412 to −371.
-
-**3. Mixed snapshots, caught by independent review.** While adding the `row_count`
-verification cell (itself a fix for a missing-provenance problem), `02_ground_truth_sweep.ipynb`
-was re-executed on 2026-10-06 while notebooks 01, 03 and 04 still held their 2026-10-02 run.
-Because 01 and 02 read live catalog state top-to-bottom, this silently desynchronised the
-report from the repository: `REPORT.md` quoted 883 accessible tables, 69,601 columns, 13 sweep
-failures and 159 stale / 185 missing, while the notebooks as saved produced 826 / 67,575 / 0
-and 5 / 163. `03_semcat_grade.ipynb`'s saved outputs were also stale against the
-`ground_truth_columns.csv` it reads. `REVIEW_1.md` found this by cross-checking file
-timestamps and cell outputs against the prose; it was not self-detected.
-
-Fixed by re-executing **all four notebooks in order** against a single 2026-10-06 snapshot and
-restating every affected figure. Two things emerged while doing so:
-
-- **SemCat is a fast-moving target.** Its `code_version` went 0.19.28 (2026-09-29) → 0.21.6
-  (2026-10-06 04:12) → 0.24.2 (2026-10-06 19:38) → 0.26.1 → 0.27.0 (code bumps seen 2026-10-07, catalog
-  content unchanged) — four version stamps inside nine days, two
-  of them within one working day. Indexed tables moved 2,599 → 2,509 and columns 93,617 →
-  91,246. Any measurement of this catalog is a measurement of one version of it, which is why
-  the header now pins the exact snapshot.
-- **Most of the apparent "staleness" improvement was SemCat catching up**, not the lakehouse
-  changing: the three dated NMDC staging databases that produced 159 stale tables on 10-02 had
-  been dropped from SemCat's index by 10-06, taking the figure to 5.
-
-The qualitative conclusions are unchanged across both snapshots — H1 and H0 refuted, H2
-supported, 5 of 17 coordinate-bearing tables directly joinable, the census stable at 51 entries. The numbers moved;
-the findings did not.
-
-**4. A pre-registered correction that had not been implemented.** `RESEARCH_PLAN.md` committed
-to computing every rate twice, per column and per distinct `schema_sig`, so that cloned staging
-tables could not inflate *n*. The first pass simply did not do this; `REVIEW_1.md` caught it.
-Now implemented in `03_semcat_grade.ipynb` §2b-bis. The precision sample contained no clones
-(59 columns → 59 groups), so precision is unaffected. The recall sample collapsed 100 columns
-into 93 groups, moving recall from 30.0% per column to **32.3%** per `schema_sig`. Per the
-plan, the `schema_sig` figure is the one quoted. The correction slightly *helps* SemCat, and
-does not change any verdict.
-
-**5. The same staleness bug, one layer deeper — found by `REVIEW_2.md`.** After fixing
-Correction 3, the §6a row-count cell still *said* it checked "against live Iceberg
-`COUNT(*)`" while its code read `data/row_counts_verified.json` — a file dated 2026-10-02
-that no cell or script regenerated. It fed the census's `row_count` column, the H3 ≥95%
-clause and a Performance Note, none of which the repository could actually reproduce. This is
-the identical failure mode `REVIEW_1.md` had already caught once, surviving in a place the
-first fix did not reach, and it was not self-detected either.
-
-§6a now issues the `COUNT(*)` queries itself and re-emits `annotation_sources.csv`,
-`row_counts_verified.json/csv` and `row_count_grade.csv` from that live result, so the number
-and the file cannot diverge. Measured live: **59 of 60 exact (98.3%)** — the target set is now
-exactly the census tables, hence 60 rather than the earlier 66. The H3 clause still passes with
-margin. The general lesson is recorded in `memories/pitfalls.md`: **compute a figure in the
-notebook that reports it; a cached intermediate is a snapshot waiting to desynchronise.**
-
-**6. Lenient precision was wrong in three places — found by `REVIEW_7.md`.** `REPORT.md`,
-`SCOREBOARD.md` and `claims.json` all stated lenient precision as **56/59 = 94.9%** while every
-artifact — the notebook's printed output, `data/audit_precision.csv`,
-`data/nb03_summary.json` and the figure's own title — said **55/59 = 93.2%**. The 94.9% was
-true of an earlier run in which the verdict split was `wrong_cardinality=5, wrong_label=3`;
-the current run splits 4/4. Corrected everywhere.
-
-The cause matters more than the number. The audit samples values with `LIMIT 60` and no
-`ORDER BY`, which Spark and Iceberg do not guarantee to return in a stable order across
-executions, so repeated full-chain re-runs can adjudicate a different 60 values per column.
-The README had described the audit as "seeded and reproducible"; the seed fixes which
-*columns* are audited, not which *values* within them, and that claim has been narrowed to say
-so. Strict precision (86.4%), recall (32.3%) and every hypothesis verdict were stable across
-all five re-runs — only the lenient figure moved, by about 2 points. A deterministic
-replacement was initially costed and deferred; it has since been **adopted** — see Correction 7.
-
-**7. The non-determinism behind Correction 6 is now fixed at the source.** NB03's value sampler
-was replaced with one that is deterministic by construction:
-
-```sql
-SELECT DISTINCT `col` AS v FROM <table>
-WHERE `col` IS NOT NULL [AND pmod(abs(xxhash64(CAST(`col` AS STRING))), 256) = 0]
-ORDER BY xxhash64(CAST(v AS STRING)) LIMIT 60
-```
-
-Three properties were needed and two cheaper designs were measured and rejected before
-settling on this one:
-
-| design | deterministic | diverse | cost (worst column) | verdict |
-|---|---|---|---|---|
-| `LIMIT 60`, no `ORDER BY` (original) | ✗ | ✓ | ~1 s | the defect |
-| `ORDER BY col LIMIT 60` | ✓ | ✗ | ~10 s | `-` sorts below every alphanumeric, so placeholder-heavy columns return nothing but sentinels |
-| `ORDER BY xxhash64(col) LIMIT 60` | ✓ | ✗ | ~67 s | identical values hash identically, so a repeated-value column returns one value 60× (measured on `gene_id`) |
-| **`DISTINCT` + `ORDER BY xxhash64`** | ✓ | ✓ | ~101 s | adopted |
-
-The hash-bucket prefilter is applied only where SemCat reports `ndv > 100,000`; it cuts the
-`DISTINCT` aggregation input ~256× (101 s → 67 s) while remaining a pure function of the value.
-It is skipped for low-cardinality columns, where bucketing could drop the distinct count below
-60.
-
-**What it changed.** One column that previously returned only placeholders
-(`biochemical_features_metadata.EC_Number`) now yields real values, because `DISTINCT` surfaces
-the non-placeholder minority a plain `LIMIT` had missed; it adjudicates as
-`wrong_cardinality`. Judgeable columns went 59 → 60 and `sentinel_only` 2 → 1, so **strict
-precision moved 86.4% → 85.0%** (the denominator grew while `correct` stayed at 51) and
-**lenient 93.2% → 93.3%**. Recall was untouched at **32.3%** — it adjudicates by label-family
-matching and never reads sampled values. No verdict moved; H2 still holds under both
-adjudication policies and both units of analysis.
-
-The figures are now reproducible rather than merely approximately stable, which is the point:
-the previous ±2-point run-to-run drift is gone, and the README no longer has to hedge about it.
-
-**8. `kbase.genomes.feature` was wrongly classified as unusable.** The census read that table in
-isolation, saw `start`/`end`/`strand` with no sequence column, and recorded 1,011,650,903 rows
-of coordinates as impossible to place. A reader pointed out that the
-`gene_function_ecological_agora` project already joins `kbase_genomes.feature` to
-`contig_x_feature` to place features on contigs. Checked live, and they were right:
-
-| check | result |
-|---|---|
-| `contig_x_feature` rows | 1,011,650,903 |
-| distinct `feature_id` | 1,011,650,903 — an **exact 1:1** placement |
-| distinct `contig_id` | 32,868,698 |
-| join output | `contig_id` + `start` + `end` + `strand` + `type` |
-| self-join on one contig, ±5 kb | 14–15 CDS neighbours — plausible gene density |
-
-Reclassified from `blocked` to `bridged (1:1)`. **Positionally joinable goes 5 → 6**; `blocked`
-goes 2 → 1. No hypothesis verdict is affected — this is a census/use-case finding, not an
-instrument one.
-
-The same database also carries `feature_x_protein`, `protein` (with `hash`) and
-`functional_annotation_rast` (253,173,194 rows of RAST free-text function keyed on
-`protein_hash`), so coordinates *and* function appear reachable within one database. **That
-five-way join was not executed** — it exceeded a 400 s timeout — so it is recorded as
-schema-confirmed only, and `kbase.genomes` is not credited in the census with a verified
-function assignment.
-
-Two things worth taking from this. First, the method error: **joinability is a property of a
-table's database, not of its own column list**, and the census checked column lists. After the
-correction I re-checked `refdata.smag` the same way and confirmed it genuinely has no feature
-or gene table, so that negative stands. Second, the detection route: twelve independent review
-rounds did not find this, because every one of them verified the report against the project's
-own artifacts, and the artifact was itself wrong. It took a reader who knew a different
-project's query. Internal consistency checking cannot find an error of omission in the
-underlying survey.
+1. **Precision adjudication (H3 → H2).** A 12-value sample scored placeholder-only samples and
+   delimited lists as mislabels. Moving to 60 values and a four-way adjudication changed the
+   verdict; logged in `RESEARCH_PLAN.md` Revision History v2.
+2. **Inter-domain gap.** A median taken after `ORDER BY gap_aa … LIMIT 300` reported the tail
+   (−680.5 aa). It is now computed over the full join (−392 aa).
+3. **Mixed snapshots.** Re-running one notebook alone desynchronised report and notebooks
+   (found by `REVIEW_1.md`). The rule since then is to run all four in order.
+4. **`schema_sig` deduplication**, pre-registered but not implemented at first (found by
+   `REVIEW_1.md`). It is now implemented and quoted.
+5. **Cached row counts.** A cell claimed live `COUNT(*)` but read a stale file (found by
+   `REVIEW_2.md`). Counts are now computed where they are first used.
+6. **A wrong lenient-precision figure** (94.9% against artifacts saying 93.2%), caused by a
+   non-deterministic value sample (found by `REVIEW_7.md`).
+7. **Deterministic value sampling** (`DISTINCT` + `ORDER BY xxhash64`) fixed the cause of 6.
+8. **`kbase.genomes.feature` was called unplaceable.** A reader pointed to the
+   `contig_x_feature` bridge, and the table was reclassified as bridged.
+9. **2026-10-22 revision, after a pre-publication audit and a Copilot code review.**
+   - **Joinability by query.** The verdict list was hand-typed. It is now derived from
+     queries under a stated rule applied to all 23 coordinate-bearing tables. That replaces
+     "6 of 17 joinable" with 13 of 23, of which 4 of 14 are region tables.
+   - **Census rule.** `metatranscriptomics_gold` has no span, so the coordinate-bearing count
+     goes from 24 to 23.
+   - **Validators.** Three fixes. `src/semcat.py`'s `^mag$`/`^md5$` now match per column.
+     Four `r"."` validators were removed. Placeholder filtering is now specific to the
+     content type, so `-` and `0` count as valid strand and coordinate values.
+   - **SemCat join layer.** The "join layer is unpopulated" reading came from counting
+     `verified_joins`. That table holds composite-key joins only; the single-column verified
+     joins are in `edges`.
+   - **Coordinate systems.** The count of systems no longer includes the "ambiguous" residual.
+   - **Rerun.** The chain was rerun against SemCat's 2026-10-21 catalog. Precision now sits at
+     the 0.80 threshold, and this report quotes it with an interval.
 
 ---
 
@@ -743,41 +637,43 @@ underlying survey.
 
 | Collection | Tables Used | Purpose |
 |---|---|---|
-| `globalusers_semantic_catalog` | `catalog_meta`, `tables`, `columns`, `concepts`, `verified_joins` | The instrument under test (5 of its 25 tables) |
+| `globalusers_semantic_catalog` | `catalog_meta`, `tables`, `columns`, `concepts`, `verified_joins`, `edges`, `column_embeddings` | The instrument under test (7 of its 25 tables) |
 | `kbase_ke_pangenome` | `interproscan_domains`, `bakta_pfam_domains`, `bakta_annotations`, `eggnog_mapper_annotations`, `interproscan_go`, `interproscan_pathways`, `gapmind_pathways`, `bakta_amr` | Pangenome domain and function annotation; multi-domain demonstration |
-| `kescience_mgnify` | `gene`, `gene_bgc`, `gene_crispr`, `gene_defense`, `gene_mobilome`, `gene_eggnog`, `gene_amr` | BGC/region collocation demonstration; the one fully joinable frame |
+| `kescience_mgnify` | `gene`, `gene_bgc`, `gene_crispr`, `gene_defense`, `gene_mobilome`, `gene_eggnog`, `gene_amr` | BGC/region collocation demonstration; the one frame where region tables join to genes |
 | `nmdc_results` | `pfam_annotation_gff`, `annotation_kegg_orthology`, `annotation_enzyme_commission` | Largest annotation tables; coordinate-system value checks |
 | `refdata_bvbrc` | `bvbrc_feature_fact`, `bvbrc_specialty_gene_fact` | Largest coordinate+strand feature table |
-| `refdata_smag` | `bgc`, `cas_proteins` | BGC regions with BiG-SCAPE families |
+| `refdata_smag` | all 10 tables (schemas), `bgc`, `cas_proteins` | BGC regions with BiG-SCAPE families; gene-table search |
 | `kescience_interpro`, `refdata_interpro` | `protein2ipr`, `entry`, `interpro2go`, `entry_xref` | InterPro domains in protein coordinates |
-| `kescience_fitnessbrowser` | `gene`, `genedomain`, `besthitkegg`, `seedannotation`, `besthitmetacyc` | The cross-frame case (nucleotide gene vs amino-acid domain) |
+| `kescience_fitnessbrowser` | `gene`, `genedomain`, `besthitkegg`, `seedannotation`, `besthitmetacyc` | Nucleotide gene table and amino-acid domain table in one database |
 | `kescience_pdb`, `kescience_paperblast` | `pdb_uniprot_mapping`, `pdb_pfam`, `site` | Residue-level structural and functional coordinates |
-| `refdata_jgi_virus`, `refdata_jgi_mycocosm`, `refdata_fungal_db` | `metavr_protein`, `features`, `pombase_*_coords` | Viral and fungal feature tables with strand |
-| `kbase_genomes`, `kbase_content`, `globalusers_kepangenome_parquet_1` | `feature`, `c_*_features`, `c_*_cdss` | Coordinate tables with absent or packed sequence references |
+| `refdata_jgi_virus`, `refdata_jgi_mycocosm`, `refdata_fungal_db` | `metavr_protein`, `features`, `pombase_gene/cds/exon_coords` | Viral and fungal feature tables with strand |
+| `kbase_genomes`, `kbase_content`, `globalusers_kepangenome_parquet_1` | `feature`, `contig_x_feature`, `functional_annotation_rast` (row count), `c_*_features`, `c_*_cdss`, `feature` | Coordinate tables whose sequence reference is bridged or packed |
 
 ### Generated Data
 
 | File | Rows | Description |
 |---|---:|---|
-| `data/annotation_sources.csv` | 51 | **Primary deliverable** — the census, with category, coordinate system, frame, span, strand, identifier systems, row count, basis and notes |
-| `data/bgc_joinability.csv` | 18 | Per region table: frame, gene partner, collocation verdict |
+| `data/annotation_sources.csv` | 51 | **Primary deliverable**: the census, with category, coordinate system, frame, span, strand, identifier systems, live row count, basis and notes |
+| `data/bgc_joinability.csv` | 24 | Per coordinate-bearing table (23, plus `microagrobiome.bgc_catalog` for reference): role, gene partner, verdict, joinable, and whether the verdict rests on a query or on the rule |
 | `data/excluded_tables.csv` | 13 | Name-based false positives, with the reason each was excluded |
 | `data/semcat_grade.csv` | 51 | Per census table: found by specific label / generic label only / missed |
-| `data/ground_truth_columns.csv` | 67,587 | Full live schema sweep of all accessible tables |
-| `data/ground_truth_table_facets.csv` | 826 | Per accessible table: which facets (controlled vocabulary, span, strand, sequence reference, packed) its live schema shows |
-| `data/semcat_candidates.csv` | 2,509 | Frozen SemCat-only answer (recorded before ground truth existed) |
+| `data/ground_truth_columns.csv` | 67,910 | Live schema sweep of the 840 readable tables |
+| `data/ground_truth_table_facets.csv` | 840 | Per readable table: which facets its live schema shows |
+| `data/sweep_failures.json` | 24 | Listed tables that could not be read (`ese.ganymede`) |
+| `data/semcat_candidates.csv` | 2,678 | Frozen SemCat-only answer (recorded before ground truth exists) |
 | `data/semcat_coordinate_typing.csv` | 78 | Every `content_type='coordinate'` column with its inferred system and basis |
-| `data/semcat_coordinate_crosscheck.csv` | 36 | The `coordinate` columns that fall in census tables: SemCat-inferred system vs census system, with a contradiction flag (NB02 §10) |
+| `data/semcat_coordinate_crosscheck.csv` | 36 | The `coordinate` columns that fall in census tables: SemCat-inferred system vs census system (NB02 §10) |
 | `data/audit_precision.csv` | 100 | Precision stratum, per-column verdict and detail |
 | `data/audit_recall.csv` | 100 | Recall stratum, per-column status |
-| `data/semcat_confusion_by_facet.csv` | 3 | Full-frame rule-based confusion (biased — see Limitations) |
-| `data/row_count_grade.csv` | 60 | SemCat `row_count` vs live `COUNT(*)`, computed in-notebook |
+| `data/semcat_confusion_by_facet.csv` | 3 | Full-frame rule-based confusion (biased; see Limitations) |
+| `data/row_count_grade.csv` | 60 | SemCat `row_count` vs live `COUNT(*)` |
 | `data/row_counts_verified.csv` | 60 | Live row counts for every census table |
-| `data/pfam_coordinate_check.json` | 1 | `pfam_annotation_gff` value check: seeded sample (fraction 1e-5, seed 42), N = 26,779, 0 rows with `end − start + 1 ≠ alignment_length` (NB02 §9) |
-| `data/semcat_coverage_diff.json` | 168 | 5 stale + 163 missing tables |
-| `data/interproscan_member_dbs.csv` | 18 | Signature databases inside `interproscan_domains` |
+| `data/pfam_coordinate_check.json` | 1 | `pfam_annotation_gff` value check: seeded sample (fraction 1e-5, seed 42), N = 26,779, 0 mismatches (NB02 §9) |
+| `data/semcat_coverage_diff.json` | 163 | 0 stale + 163 missing tables |
+| `data/interproscan_member_dbs.csv` | 18 | `analysis` values inside `interproscan_domains` (17 databases + `Gene3`) |
 | `data/example_genes_near_bgc.csv` | 400 | Worked "genes near a BGC" result |
 | `data/example_multidomain_hits.csv` | 300 | Worked multi-domain order/spacing result |
+| `data/nb01_summary.json` … `nb04_summary.json` | 1 each | Per-notebook summary figures, including SemCat version and wall time |
 
 ## Supporting Evidence
 
@@ -785,48 +681,41 @@ underlying survey.
 
 | Notebook | Purpose |
 |---|---|
-| `01_semcat_discovery.ipynb` | Freezes the SemCat-only answer *before* ground truth exists; runs the coordinate-system sub-test that refutes H1 |
-| `02_ground_truth_sweep.ipynb` | Independent live sweep of 826 tables; strand-recall discriminating query; builds the census |
-| `03_semcat_grade.ipynb` | The 200-column value-adjudicated audit; precision/recall; found/missed/wrong; H0 test |
-| `04_bgc_region_joinability.ipynb` | Contig-overlap discriminating query; coordinate-frame map; both demonstration queries |
+| `01_semcat_discovery.ipynb` | Freezes the SemCat-only answer *before* ground truth exists; coordinate-system sub-test (H1); SemCat join and embedding layers |
+| `02_ground_truth_sweep.ipynb` | Live sweep of the readable catalog; strand-recall discriminating query; builds the census; row-count and coverage checks |
+| `03_semcat_grade.ipynb` | The 200-column value-adjudicated audit; precision/recall with intervals; found/missed; H0 test |
+| `04_bgc_region_joinability.ipynb` | Contig-overlap discriminating query; both demonstration queries; joinability by query for every coordinate-bearing table |
 
-Supporting modules: `src/semcat.py` (shared regexes, coordinate classifier), `src/census.py`
-(curated adjudication with per-row `basis`), `src/validators.py` (value-based label
-validators), `q.py` (on-cluster SQL helper).
+Supporting modules: `src/semcat.py` (shared regexes, the accessible-tenant list, coordinate
+classifier), `src/census.py` (curated adjudication with per-row `basis`), `src/validators.py`
+(value-based label validators), `q.py` (on-cluster SQL helper).
 
 ### Figures
 
 | Figure | Description |
 |---|---|
-| `figures/coordinate_frame_map.png` | Every coordinate-bearing region table, grouped by frame and coloured by whether it can be joined to genes by position |
-| `figures/semcat_precision_recall.png` | Per-facet recall/precision against the H1 and H2/H3 thresholds; audit verdict breakdown |
+| `figures/coordinate_frame_map.png` | The 23 coordinate-bearing tables plus `microagrobiome.bgc_catalog`, coloured by joinability verdict; verdicts that rest on the rule rather than a join query are marked |
+| `figures/semcat_precision_recall.png` | Left: per-facet audited recall and strict precision with 95% Wilson intervals against the 0.80 and 0.50 thresholds. Right: verdict breakdown of the 100-column precision sample. Both panels use the value-adjudicated audit only. |
 
 ## Future Directions
 
-1. **Build the cluster-member-to-genome mapping.** This single missing artifact would move
-   `interproscan_domains` (833M rows, 18 signature databases) and `bakta_pfam_domains` out of
-   protein-space isolation and make domain-architecture-plus-genomic-neighbourhood queries
-   possible. Highest-value next step by a wide margin.
-2. **Re-run the SemCat grade against `column_embeddings` and `edges`, and against the
-   `semcat resolve` / `semcat joins` CLI paths.** The 32% recall measured here is for literal
-   label lookup; embedding retrieval is the obvious candidate to fix exactly that, and this
-   project did not test it. Until then the verdict is partial by construction.
-3. **Add a gene-coordinate table to `refdata.smag`**, or document the join path to one. SMAG's
-   BiG-SCAPE families are otherwise stranded.
-4. **Two cheap, high-value SemCat fixes** with a measured baseline now attached: split
-   `coordinate` into geographic / nucleotide / amino-acid / model, and mark multi-valued
-   columns so that `go_term` on a semicolon-delimited column does not read as a scalar.
-5. **Request read access** to `enigma`, `phagefoundry`, `protect` and `arkinlab` and extend
-   the census; they hold the operon, genome-browser and PUL tables this slice lacks.
-6. **Investigate `nmdc.metadata.genome_feature_set`** — the best feature schema in BERDL with
-   zero rows. If it can be populated it would become the reference feature table.
-7. ~~Make the audit's value sample deterministic.~~ **Done** — see Correction 7. The sampler
-   now uses `DISTINCT` + `ORDER BY xxhash64(value)` with an ndv-conditional hash-bucket
-   prefilter, so the audit reproduces exactly. The remaining non-determinism in the project is
-   the live catalog itself, which is pinned by snapshot in this report's header rather than
-   controlled.
-8. **Parse `kbase.content.*_features.location`** into typed columns, and sweep for other
-   packed-coordinate columns. One was found by accident; a systematic search is warranted.
+1. **Build the cluster-member-to-genome mapping.** It would move `interproscan_domains` (833M
+   rows, 17 signature databases) and `bakta_pfam_domains` out of protein space and make
+   domain-architecture-plus-neighbourhood queries possible.
+2. **Grade SemCat's semantic retrieval** (`semcat resolve` / `resolve-tables` over
+   `column_embeddings`) against the census. The 31.6% recall measured here is for literal label
+   lookup.
+3. **Add a gene-coordinate table to `refdata.smag`**, or document a join path to one, so its
+   BiG-SCAPE families can be placed against genes.
+4. **Two SemCat fixes with a measured baseline:** split `coordinate` into geographic /
+   nucleotide / amino-acid / model, and mark multi-valued columns so that a `kegg_reaction` label
+   on a comma-delimited column does not read as a scalar.
+5. **Request read access** to `enigma`, `phagefoundry`, `protect` and `arkinlab` and extend the
+   census; they hold the operon, genome-browser and PUL tables this slice lacks.
+6. **Investigate `nmdc.metadata.genome_feature_set`**, the best feature schema in BERDL, with
+   zero rows.
+7. **Parse `kbase.content.*_features.location`** into typed columns, and sweep for other
+   packed-coordinate columns.
 
 ## References
 
@@ -834,9 +723,6 @@ validators), `q.py` (on-cluster SQL helper).
   Surveys*. doi:10.1145/3626521
 - Bianchini D, De Antonellis V, Garda M (2023). "A semantics-enabled approach for personalised
   Data Lake exploration." *Knowledge and Information Systems*. doi:10.1007/s10115-023-02014-1
-- Masmoudi M, Ben Abdallah Ben Lamine S, Karray MH, Archimède B, Baazaoui Zghal H (2024).
-  "Semantic Data Integration and Querying: A Survey and Challenges." *ACM Computing Surveys*.
-  doi:10.1145/3653317
 - Gilchrist CLM, Booth T, van Wersch B, van Grieken L, Medema MH, Chooi Y-H (2021). "cblaster:
   a remote search tool for rapid identification and visualization of homologous gene clusters."
   *Bioinformatics Advances*. doi:10.1093/bioadv/vbab016
@@ -845,12 +731,8 @@ validators), `q.py` (on-cluster SQL helper).
 - van der Hooft JJJ, Mohimani H, Bauermeister A, Dorrestein PC, Duncan K, Medema MH (2020).
   "Linking genomics and metabolomics to chart specialized metabolic diversity." *Chemical
   Society Reviews*. doi:10.1039/d0cs00162g
-- Shi Y-M, Hirschmann M, Shi Y-N, et al. (2022). "Global analysis of biosynthetic gene clusters
-  reveals conserved and unique natural products in entomopathogenic nematode-symbiotic
-  bacteria." *Nature Chemistry*. doi:10.1038/s41557-022-00923-2
-- Felsenstein J (1985). "Phylogenies and the Comparative Method." *The American Naturalist*
-  125(1):1–15. doi:10.1086/284325 — basis for the per-`schema_sig` deduplication of replicated
-  staging tables in the unit-of-analysis decision.
+- Hurlbert SH (1984). "Pseudoreplication and the design of ecological field experiments."
+  *Ecological Monographs* 54(2):187–211. doi:10.2307/1942661
 
 ## Authors
 

@@ -15,7 +15,8 @@ discovery instrument for this census — for each table in the final answer, did
 SemCat find it, miss it, or describe it wrongly?
 
 ## Status
-Completed — of 17 coordinate-bearing BERDL region-annotation tables only 6 can be joined to genes by position, and SemCat's `content_type` labels are high-precision but low-recall, so they find a minority of the annotation tables a researcher needs.
+
+Completed — 13 of 23 coordinate-bearing BERDL annotation tables can be placed against genes by position, but only 4 of the 14 region-annotation tables can, all in `kescience.mgnify`. SemCat's specific `content_type` labels flag 37 of the 51 census tables (13 more only by a generic label, 1 missed), but at column level they label 31.6% of the relevant columns, with strict precision 80.4% (95% interval 0.68–0.89), at the 0.80 threshold.
 
 ## Overview
 A census-and-instrument-evaluation project. The primary deliverable is a catalog
@@ -30,15 +31,16 @@ which is only possible where coordinates exist in a shared coordinate system.
 - [Research Plan](RESEARCH_PLAN.md) — competing hypotheses, discrimination strategy, per-notebook plan
 - [Worklog](WORKLOG.md) — narrative record, including exploration findings
 - [References](references.md) — dataset-discovery and BGC-mining literature
-- [Pitfalls](memories/pitfalls.md) — ten traps (four SemCat, six tooling/analysis) found across exploration, analysis and review
+- [Pitfalls](memories/pitfalls.md) — thirteen traps (five SemCat, eight tooling/analysis) found across exploration, analysis, review and the 2026-10-22 revision
 - [Report](REPORT.md) — findings, the census, and the SemCat assessment
-- [Scoreboard](SCOREBOARD.md) — per-hypothesis standing and both corrections
+- [Scoreboard](SCOREBOARD.md) — per-hypothesis standing and the corrections history
 
 ## Reproduction
 
 **Prerequisites.** Run from BERDL JupyterHub (on-cluster). `python $BERIL_CORE/scripts/berdl_env.py --check`
-must report `on-cluster`. Read access to the `kbase`, `kescience`, `nmdc`, `refdata` and
-`globalusers` tenants. Python deps: `requirements.txt`.
+must report `on-cluster`. Read access to the tenant prefixes listed in `src/semcat.py`
+(`ACCESSIBLE_TENANTS`); NB02 stops if the account's live table listing shows a different set.
+Python deps: `requirements.txt`.
 
 **Note on tooling.** `$BERIL_CORE/scripts/run_sql.py` is an *off-cluster* tool and fails here
 with `No module named 'spark_connect_remote'`. Use `./q.py "<SQL>"`, which wraps
@@ -56,7 +58,9 @@ for nb in 01_semcat_discovery 02_ground_truth_sweep 03_semcat_grade 04_bgc_regio
 done
 ```
 
-Runtime ~25 min, dominated by value sampling in `03`.
+Each notebook prints its wall time in its last cell. On 2026-10-22 they were NB01 19 s,
+NB02 242 s, NB03 394 s and NB04 1,407 s (about 34 min in all). NB04 is dominated by the
+joinability checks on the billion-row `kbase.genomes` and `bvbrc` tables.
 
 **Reproducibility, stated precisely.** The audit is now deterministic end to end. The seed
 (`SEED = 20261002`) fixes *which columns* are sampled, and `03`'s value sampler fixes *which
@@ -75,23 +79,23 @@ prefilter — applied only where SemCat reports `ndv > 100,000` — keeps the co
 unchanged catalog reproduces the audit figures exactly.
 
 Earlier runs used `LIMIT 60` with no `ORDER BY`, which has no row-order guarantee; that caused
-~±2 points of drift in lenient precision and one genuinely wrong published figure. See
-Correction 7 in `REPORT.md`.
+drift in lenient precision and one wrong published figure (Correction 6 in `REPORT.md`), fixed by
+this sampler (Correction 7). Plain `LIMIT` is the cheaper query; `DISTINCT` costs an
+aggregation, which the hash-bucket prefilter bounds.
 
 **Run all four, always.** `01` and `02` read live BERDL and SemCat state top-to-bottom, and
 `03`/`04` consume their CSV outputs. Re-running one notebook alone silently desynchronises the
 others — this happened during development and is recorded as Correction 3 in `REPORT.md`. If
 you re-run anything, re-run the whole chain.
 
-**Expected drift.** SemCat regenerates often: its `code_version` moved 0.19.28 → 0.21.6 →
-0.24.2 → 0.26.1 → 0.27.0 within nine days during this project, with indexed tables going
-2,599 → 2,509. Row
-counts, stale/missing table counts and the exact precision/recall figures will therefore differ
-from those in `REPORT.md`, which pins its snapshot (catalog generated 2026-10-06T19:38:26Z,
-`code_version` 0.27.0) in the header. The
-qualitative hypothesis verdicts (H1/H0 refuted, H2 supported) were stable
-across two independent snapshots. The census itself (`src/census.py`) is a curated artifact and
-does not change on re-run.
+**Expected drift.** SemCat regenerates often, and its `code_version` can advance without the
+catalog content changing. `REPORT.md` pins the snapshot measured: catalog generated
+2026-10-21T16:33:03Z (regenerated 2026-10-21T17:49:36Z), `code_version` 0.32.2, read through
+Spark on 2026-10-22; NB01 prints these from `catalog_meta`. Re-running against a later catalog
+or a changed lakehouse will move row counts, coverage counts and the audit figures. Strict
+precision sits within half a point of the 0.80 H2/H3 threshold, so a rerun can change the
+point-estimate verdict between H2 and H3. The census itself (`src/census.py`) is a curated
+artifact and does not change on re-run.
 
 ## Authors
 Mark Andrew Miller (LBL, ORCID 0000-0001-9076-6066)

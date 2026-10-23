@@ -194,29 +194,23 @@ CENSUS = [
                "pombase_exon_coords (18,057) -- a proper exon/CDS/gene hierarchy, rare in BERDL."),
     dict(fq="kbase.genomes.feature", category="region", region_type="gene/CDS",
          coords="yes", coord_system="nucleotide",
-         coord_frame="contig, via the 1:1 kbase.genomes.contig_x_feature bridge",
+         coord_frame="contig, via the kbase.genomes.contig_x_feature bridge",
          seq_ref="contig_id (via contig_x_feature)", span=("start", "end"), strand="strand",
          id_systems=["type, source_database (int codes)",
                      "free-text RAST function via feature_x_protein -> protein.hash -> "
                      "functional_annotation_rast (schema-confirmed, join not executed)"],
-         basis="VALUE CHECK: contig_x_feature has 1,011,650,903 rows and 1,011,650,903 distinct "
-               "feature_id over 32,868,698 contigs -- an exact 1:1 placement; the join returns "
-               "contig_id+start+end+strand, and a self-join on one contig returns 14-15 CDS "
-               "neighbours within +/-5 kb",
-         notes="1,011,650,903 rows -- the largest coordinate-bearing feature table in the census. "
-               "CORRECTED: an earlier version of this census read `feature` in isolation, saw no "
-               "sequence column, and recorded the coordinates as unplaceable. That was wrong. "
-               "`kbase.genomes.contig_x_feature` places every feature on a contig with an exact 1:1 "
-               "mapping, so collocation works after one join. The lesson is that a table's "
-               "joinability is a property of its DATABASE, not of its own column list -- bridge "
-               "tables have to be looked for before declaring coordinates unusable. "
-               "`kbase.genomes` further carries `feature_x_protein`, `protein` (with `hash`) and "
-               "`functional_annotation_rast` (253,173,194 rows of RAST free-text function keyed on "
-               "`protein_hash`), so coordinates and function are in principle reachable in one "
-               "database; the full five-way join was NOT executed -- it exceeded a 400 s timeout -- "
-               "so that chain is schema-confirmed only. "
-               "globalusers.kepangenome_parquet_1.feature has an identical schema and row count, so "
-               "it is the same data under a second name -- and SemCat does not index it at all."),
+         basis="VALUE CHECK (NB04 section 5): in a hash bucket of feature_id, every feature_id is "
+               "unique in both feature and contig_x_feature and present in both; features on a "
+               "hash bucket of contigs all join to feature and have neighbours within +/-5 kb",
+         notes="The largest coordinate-bearing feature table in the census. `feature` has no sequence "
+               "column of its own; `kbase.genomes.contig_x_feature` places each feature on a contig, "
+               "so collocation works after one join. An earlier census read `feature` in isolation and "
+               "recorded the coordinates as unplaceable. `kbase.genomes` also carries "
+               "`feature_x_protein`, `protein` (with `hash`) and `functional_annotation_rast` (RAST "
+               "free-text function keyed on `protein_hash`); the join from coordinates to function "
+               "was not executed, so that chain is schema-confirmed only. "
+               "globalusers.kepangenome_parquet_1.feature has the same schema and row count (NB02), "
+               "and SemCat does not index it."),
     dict(fq="globalusers.carbon_source_phenotypes.gene_calls_table", category="region", region_type="gene call",
          coords="yes", coord_system="nucleotide", coord_frame="contig",
          seq_ref="contig", span=("start", "end"), strand="strand",
@@ -326,9 +320,13 @@ CENSUS = [
          notes="24,691 rows. Transporter classification. Companions tcdb.pfam_xref (8,869) and "
                "tcdb.go_xref (34,497) bridge TC numbers to Pfam and GO."),
     dict(fq="kbase.nmdc_arkin.metatranscriptomics_gold", category="region", region_type="expressed feature",
-         coords="yes", coord_system="nucleotide", coord_frame="contig/scaffold", seq_ref="see schema",
-         span=None, strand="strand", id_systems=["expression values"], basis="schema: has a strand column",
-         notes="75,119,498 rows. One of only two columns SemCat correctly labels `strand`."),
+         coords="no", coord_system="none", coord_frame=None, seq_ref="img_scaffold_oid",
+         span=None, strand="strand", id_systems=["expression values"],
+         basis="schema: img_scaffold_oid, length and strand, but no start or end column",
+         notes="Not coordinate-bearing under the census rule (a table is coordinate-bearing only if "
+               "it has a positional span: start+end, start+length, or a packed location). It names "
+               "a scaffold and a strand but gives no position on it. One of only two columns SemCat "
+               "correctly labels `strand`."),
 
     # ---------------- reference vocabularies (define terms; assign nothing to a gene) ----------------
     dict(fq="kescience.interpro.entry", category="reference_vocabulary", region_type=None, coords="no",

@@ -1169,3 +1169,56 @@ label lookup is high-precision (85% strict) and low-recall (30%), so it is an un
 find them. Caveats accepted at approval: one claim (`pfam_annotation_gff` coordinate system)
 stays high-confidence on a single evidence stream, and Future Direction 2, grading SemCat's
 embedding and edge retrieval paths, remains open.
+
+## 2026-10-22 · ! joinability now derived from queries, not a typed list
+A pre-publication audit found that NB04's per-table verdicts were a hand-typed list counted by a
+later cell, with one join actually run. NB04 §5 now states a rule (population: the 23 tables
+with a positional span; routes: direct, self, bridged; protein-space by rule) and derives every
+verdict from query outputs, marking the 9 rule-based ones. The headline changes from "6 of 17"
+to 13 of 23, of which only 4 of 14 region tables. `metatranscriptomics_gold` leaves the
+coordinate-bearing set because it has no span.
+→ [nb 04](notebooks/04_bgc_region_joinability.ipynb)
+→ [joinability](data/bgc_joinability.csv)
+
+## 2026-10-22 · ! validator fixes and a full rerun against SemCat's 2026-10-21 catalog
+Applied Copilot's three fixes: anchored sibling patterns now match per column; four `r"."`
+validators are removed; placeholder filtering is content-type specific. Unified the
+accessible-tenant list, which caught a new readable prefix (`ese`) whose 24 listed tables
+cannot be opened. Reran all four notebooks in order. Strict precision is now 45/56 = 80.4%
+with a 95% interval of 0.68–0.89, so the audit no longer separates H2 from H3. The report
+quotes the interval instead of the earlier "sits near the threshold".
+→ [nb 03](notebooks/03_semcat_grade.ipynb)
+→ [fig](figures/semcat_precision_recall.png)
+
+## 2026-10-22 · ! SemCat's join layer was misread
+The report called SemCat's join layer "effectively unpopulated" from the 6 rows of
+`verified_joins`. That table holds composite-key joins only. Single-column verified joins are
+in `edges`: 4,004 verified rows, including the MGnify `contig_id` joins this project
+established independently. REPORT.md, SCOREBOARD.md and references.md are corrected, and the
+corrections history is shortened to one or two lines per entry.
+→ [nb 01](notebooks/01_semcat_discovery.ipynb)
+→ [REPORT.md](REPORT.md)
+
+## 2026-10-23 · demoted for re-review → analysis
+REPORT.md and all four notebooks changed in the 2026-10-22 revision, so the 2026-10-16 approval
+no longer covers them. The author agreed to the demote. The old approval is archived under
+`previous_approvals` in `beril.yaml`; REVIEW.md and SUBMITTED.md are removed and will be
+rewritten if the revision is approved. REVIEW_1–15 are kept.
+→ [REPORT.md](REPORT.md)
+
+## 2026-10-23 · review completed → reviewed
+Claude reviewer (`claude-sonnet-5`) on the revised REPORT.md. No critical or important issues.
+It re-derived the joinability, precision/recall and coordinate-conflation figures from raw cell
+outputs. Low-priority notes: the memory files still quote "6 of 17" until approval re-extracts
+them; Future Direction 2 (grading SemCat's semantic retrieval) remains open; an optional census
+figure.
+→ [REVIEW_16.md](REVIEW_16.md)
+
+## 2026-10-23 · approved by 0000-0001-9076-6066 → complete
+Approved on [`REPORT.md`](REPORT.md) `sha256:a4cfbd34…` with [`REVIEW.md`](REVIEW.md) (a copy of
+`REVIEW_16.md`). Concluded: of 23 coordinate-bearing BERDL annotation tables, 13 can be placed
+against genes by position but only 4 of 14 region tables can, all in `kescience.mgnify`.
+SemCat's label lookup has 31.6% column recall and strict precision 80.4% (0.68–0.89), so the
+audit does not separate H2 from H3. Caveats accepted: the `pfam_annotation_gff` claim stays
+single-stream, 9 joinability verdicts rest on a rule rather than a query, and grading SemCat's
+semantic retrieval remains future work.

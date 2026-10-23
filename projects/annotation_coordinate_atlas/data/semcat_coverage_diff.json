@@ -1,11 +1,5 @@
 {
- "stale": [
-  "refdata.gbif_backbone.Description",
-  "refdata.gbif_backbone.Distribution",
-  "refdata.gbif_backbone.Multimedia",
-  "refdata.gbif_backbone.Reference",
-  "refdata.gbif_backbone.Taxon"
- ],
+ "stale": [],
  "missing": [
   "bervodata.bervo.entailed_edge",
   "bervodata.bervo.prefix",

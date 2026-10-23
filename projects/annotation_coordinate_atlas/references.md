@@ -10,11 +10,10 @@ case that motivates the coordinate requirement).
   *ACM Computing Surveys*. doi:10.1145/3626521 — 46 citations.
   The directly relevant framing. Surveys dataset search, data navigation, data
   annotation and **schema inference**, and names the dimensions along which such
-  systems are compared. Gives us the standard vocabulary for grading SemCat:
+  systems are compared. It supplies the standard vocabulary for grading SemCat:
   discovery (finding candidate tables) vs exploration (understanding their
   properties and relationships) are separate capabilities that can succeed or
-  fail independently. Our emerging result — SemCat is a good inventory and a poor
-  classifier — is exactly that split.
+  fail independently.
 
 - **Bianchini D, De Antonellis V, Garda M (2023). A semantics-enabled approach for
   personalised Data Lake exploration.** *Knowledge and Information Systems*.
@@ -26,16 +25,10 @@ case that motivates the coordinate requirement).
 
 - **Masmoudi M et al. (2024). Semantic Data Integration and Querying: A Survey and
   Challenges.** *ACM Computing Surveys*. doi:10.1145/3653317.
-  Context for the join-discovery question. Relevant to SemCat's
-  `verified_joins` table, which has **only 6 rows** against 2,599 indexed tables —
-  i.e. the join layer is essentially unpopulated, so cross-table coordinate
-  joins must be established by hand.
-
-- **Anuganti C (2024). Semantic-Aware Data Lake Architecture with Automated Schema
-  Evolution and Intelligent Data Discovery.** doi:10.32628/cseit24113394.
-  Low-citation venue; included only because it reports headline discovery-improvement
-  figures (78% better dataset identification) of the kind SemCat would need to
-  justify. Treat its numbers as marketing, not as a benchmark.
+  Background on join discovery as part of semantic data integration. Not cited in
+  REPORT.md. (SemCat records verified single-column joins in its `edges` table and
+  composite-key joins in `verified_joins`; REPORT.md gives the counts for the catalog
+  version measured.)
 
 ## Biosynthetic gene clusters — why coordinates matter
 
@@ -45,7 +38,7 @@ case that motivates the coordinate requirement).
   The best statement of the downstream use case the user named. cblaster's whole
   premise is detecting **collocated** genes — which requires, per gene, a
   sequence/contig identifier and a position in a shared coordinate frame. This is
-  the functional requirement our census is testing each table against: a table
+  the functional requirement the census tests each table against: a table
   with Pfam hits but no genome coordinates cannot support a cblaster-style query,
   however rich its annotations.
 
@@ -69,7 +62,14 @@ case that motivates the coordinate requirement).
   conserved and unique natural products in entomopathogenic nematode-symbiotic
   bacteria.** *Nature Chemistry*. doi:10.1038/s41557-022-00923-2.
   Example of the pangenome + BGC sequence-similarity-network analysis that the
-  `refdata.smag.bgc` family-number/GCF columns are designed to support.
+  `refdata.smag.bgc` family-number/GCF columns are designed to support. Background
+  only; not cited in REPORT.md.
+
+- **Hurlbert SH (1984). Pseudoreplication and the design of ecological field
+  experiments.** *Ecological Monographs* 54(2):187–211. doi:10.2307/1942661.
+  The standard statement of pseudoreplication: treating non-independent observations
+  as independent inflates *n*. Cited in REPORT.md for counting cloned staging tables
+  once (per `schema_sig`) and repeat-domain proteins once.
 
 ## Note on search coverage
 

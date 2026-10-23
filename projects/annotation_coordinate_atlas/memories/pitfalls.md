@@ -203,3 +203,32 @@ return None if f != f else f      # f != f is the NaN test
 ```
 A schema that was stable for one catalog version is not stable for the next; coerce
 defensively at the edge rather than guarding at each use.
+
+## 2026-10-22 — SemCat's verified single-column joins are in `edges`, not `verified_joins`
+
+**Symptom.** `globalusers.semantic_catalog.verified_joins` has 6 rows for about 2,700 indexed
+tables, which reads as "SemCat has almost no verified joins".
+
+**Cause.** `verified_joins` holds only the joins SemCat verified by composite-key semijoin (the
+notes `explain`/`joins` attach for composite keys). Single-column joins are rows of `edges`,
+with a `verified` flag: 4,004 verified rows in the catalog generated 2026-10-21.
+
+**Fix.** Count `edges WHERE verified`. Read SemCat's `docs/data-model.md` before judging a table
+by its row count.
+
+## 2026-10-22 — the table listing can name tables that cannot be read
+
+**Symptom.** `get_db_structure()` lists 24 tables under `ese.ganymede`; every `DESCRIBE` on them
+fails with `TABLE_OR_VIEW_NOT_FOUND`.
+
+**Fix.** Treat "listed" and "readable" as different sets. Count the tables the sweep actually
+read, and say which listed tables failed and why. A table-name comparison against SemCat still
+counts them as present.
+
+## 2026-10-22 — a hand-typed verdict list is not a result
+
+**Symptom.** A per-table joinability table was a literal list in the notebook, and a later cell
+counted it, so the headline count rested on one executed join and many typed judgements.
+
+**Fix.** Derive the verdict table from query outputs under a stated rule. Mark each verdict as
+"query" or "judgement" so a reader can see which is which.

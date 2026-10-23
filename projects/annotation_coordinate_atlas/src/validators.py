@@ -49,8 +49,6 @@ PATTERNS = {
     "strand":             (r"^[+\-]$|^[+-]?1$|^0$|^\.$|^(plus|minus|forward|reverse)$",
                            "+/-, 1/-1, or plus/minus"),
     "coordinate":         (r"^-?\d+(\.\d+)?$", "a number"),
-    "bgc_region_id":      (r".", "any non-null identifier"),
-    "bgc_class":          (r".", "a BGC class label"),
     "operon_id":          (r"^-?\d+$|^[A-Za-z0-9_.\-]+$", "an operon identifier"),
     "domain_id":          (r"^[A-Za-z0-9_.\-]+$", "a domain identifier"),
     "contig_id":          (r"^(?!-?\d+$)[A-Za-z0-9_.\-|:]+$", "a sequence/contig identifier, not a bare int"),
@@ -65,8 +63,6 @@ PATTERNS = {
     "length":             (r"^-?\d+(\.\d+)?$", "a number"),
     "gene_name":          (r"^[A-Za-z0-9_.\-()\[\]/' ]+$", "a gene name"),
     "gene_symbol":        (r"^[A-Za-z0-9_.\-()\[\]/' ]+$", "a gene symbol"),
-    "protein_family_id":  (r".", "a protein family identifier"),
-    "product_prediction": (r".", "a predicted product class"),
     "latitude":           (r"^-?([0-8]?\d(\.\d+)?|90(\.0+)?)$", "latitude in [-90, 90]"),
     "longitude":          (r"^-?(1[0-7]\d(\.\d+)?|[0-9]?\d(\.\d+)?|180(\.0+)?)$",
                            "longitude in [-180, 180]"),
@@ -125,11 +121,25 @@ def validate(content_type, values):
 
 SENTINELS = {"-", "--", "", ".", "na", "n/a", "nan", "none", "null", "unknown", "?", "0"}
 
+# Placeholders are content-type specific: "-" and "." are real strand values, and "0" is a
+# real strand, coordinate, length or numeric value. For those labels the values are
+# adjudicated like any other value instead of being skipped.
+NOT_PLACEHOLDER = {
+    "strand":    {"-", ".", "0"},
+    "coordinate": {"0"},
+    "length":    {"0"},
+    "latitude":  {"0"},
+    "longitude": {"0"},
+    "taxon_id":  {"0"},
+}
+
 MULTI_DELIMS = [";", ",", "|", " "]
 
 
-def is_sentinel(v):
-    return str(v).strip().lower() in SENTINELS
+def is_sentinel(v, content_type=None):
+    s = str(v).strip().lower()
+    ct = (content_type or "").strip().lower()
+    return s in SENTINELS and s not in NOT_PLACEHOLDER.get(ct, set())
 
 
 def validate2(content_type, values):
@@ -161,7 +171,7 @@ def validate2(content_type, values):
     if ct not in PATTERNS:
         return "no_pattern", f"no validator for content_type '{ct}'"
 
-    non_sentinel = [v for v in raw if not is_sentinel(v)]
+    non_sentinel = [v for v in raw if not is_sentinel(v, ct)]
     if not non_sentinel:
         return "sentinel_only", (f"all {len(raw)} sampled values are placeholders "
                                  f"(e.g. {raw[:3]}); cannot judge the label")
