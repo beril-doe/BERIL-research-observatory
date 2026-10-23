@@ -1,0 +1,9 @@
+[    29s] GOLD: 245123 biosamples, 5998 in ww groups; 252 Engineered paths
+[    29s] GOLD ww biosamples with NCBI accession: 5391 -> 5584 accessions
+[    29s] MGnify: 4352 samples
+[    42s] NMDC: 27352 biosamples, 201 ww by path/ENVO/keyword, 201 INSDC accessions
+[    42s] ext view rows: 10137
+[    42s] external label rows: 10137, distinct accessions 9390
+[    52s] joined rows: 10137
+[    52s] no-signal externally labelled samples: 1117 of 10136 found
+done

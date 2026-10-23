@@ -1,0 +1,5 @@
+trained_on,tested_on,cohort,n_test,pct_recovered,n_no_native,pct_recovered_no_native
+GOLD,MGnify,as reported,4352,49.8,729,2.1
+GOLD,MGnify,overlap excluded,3763,50.0,722,1.2
+MGnify,GOLD,as reported,5583,17.9,388,2.3
+MGnify,GOLD,overlap excluded,4994,14.4,381,0.5

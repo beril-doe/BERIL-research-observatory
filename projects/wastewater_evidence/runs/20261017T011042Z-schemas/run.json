@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "id": "20261017T011042Z-schemas",
+  "name": "schemas",
+  "command": [
+    "/home/mamillerpa/beril-workbench-v2/core/.venv-berdl/bin/python",
+    "-I",
+    "src/00_schemas.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792199442.6967387,
+  "ended_at": 1792199442.7291179,
+  "exit_code": 1,
+  "scripts": {
+    "src/00_schemas.py": "b30f1536b5d8aecb44c461d1b23c7347238f5871d59f867b37519d7a51430f9c"
+  },
+  "inputs": [],
+  "outputs": [],
+  "changed": []
+}

@@ -1,0 +1,14 @@
+[     1s] labelled samples: 10136 ({'GOLD': 5583, 'MGnify': 4352, 'NMDC': 201})
+[     1s] candidate rows: 50379, distinct (field,value): 754
+[     8s] background counts resolved for 754 of 758 (field,value) pairs
+[     8s] term_table.csv: 242 rows
+[     8s] term_table_gold_only.csv: 202 rows
+[     8s] term_table_mgnify_only.csv: 94 rows
+[     8s] holdout_transfer.csv: 2 rows
+[    33s] term-table hits over all BioSample: 148,289
+[    92s] applied_channel_compare.csv: 27 rows
+[    93s] subtype_assignment.csv: 14 rows
+[   103s] applied_new_examples.csv: 150 rows
+[   117s] bioproject_coherence.csv: 15 rows
+[   138s] trap_check.csv: 5 rows
+done

@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "id": "20261017T014030Z-transfer-validate",
+  "name": "transfer-validate",
+  "command": [
+    "/opt/conda/bin/python",
+    "src/04_transfer_validate.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792201230.9097903,
+  "ended_at": 1792201369.8078167,
+  "exit_code": 0,
+  "scripts": {
+    "src/04_transfer_validate.py": "bd02fca907e1d7f04eb2a19cad5fe606b8ac82bea339b9f4e108001e9124c815"
+  },
+  "inputs": [
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/labelled_samples.parquet",
+      "sha256": "12ec54e752594cb27a2613771c0befddaa686349f3cadff0db141fd3d6cd1246"
+    },
+    {
+      "name": "table:nmdc.ncbi_biosamples.content_pairs_aggregated"
+    },
+    {
+      "name": "table:nmdc.ncbi_biosamples.sra_biosamples_bioprojects"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/applied_channel_compare.csv",
+      "sha256": "90a526972cceed0ec9450d50a5d55f561c6cae7a057c244187781d512b149f8d"
+    },
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/applied_new_examples.csv",
+      "sha256": "88e57caa7738570157377554109b646601b45cf51c035afb5dbd7e036ba91948"
+    },
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/bioproject_coherence.csv",
+      "sha256": "1f025cd862e5f6d888883805d7f8c9479426d7d234a2c4bde7aec779c311f981"
+    },
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/holdout_transfer.csv",
+      "sha256": "c663f071391e1d85bbfb9f7bdf5691c043d2e0f9070312e671a6a1aa6a642115"
+    },
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/subtype_assignment.csv",
+      "sha256": "e2a4af15d7a88691b74b37f6bce041dd4b0a5fd393cf3781474d52f67b1a43c3"
+    },
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/term_table.csv",
+      "sha256": "4588d1a345e8a1810ecb76034dd238a102f6532fab32f4822ea1bf5b0b79ed19"
+    },
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/term_table_gold_only.csv",
+      "sha256": "680826cf630d362ea2580cd55d081756a8afebd6c47a0d9230610281f789145e"
+    },
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/term_table_mgnify_only.csv",
+      "sha256": "a256aa094a5e9343137b053601de18f51f45be3dfbb398470d00609883bb36d8"
+    },
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/trap_check.csv",
+      "sha256": "87237cbe6cde55fdd29a66e4473bf2e4f53081af42f107ff954c22b5cb7b8e39"
+    }
+  ],
+  "changed": []
+}

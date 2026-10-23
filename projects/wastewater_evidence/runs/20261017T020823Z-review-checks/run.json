@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "id": "20261017T020823Z-review-checks",
+  "name": "review-checks",
+  "command": [
+    "/opt/conda/bin/python",
+    "src/07_review_checks.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792202903.1268363,
+  "ended_at": 1792202912.402766,
+  "exit_code": 0,
+  "scripts": {
+    "src/07_review_checks.py": "9ba990643f94ef6ff1f7898ee8c773cf041adbdd26b0d15f72b322d0a71f883a"
+  },
+  "inputs": [
+    {
+      "path": "REVIEW_1.md",
+      "sha256": "8f6febae57725c0b6dd1207d6fd316ebe05eb35aefd36fb9dd674d3cc424071f"
+    },
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/labelled_samples.parquet",
+      "sha256": "12ec54e752594cb27a2613771c0befddaa686349f3cadff0db141fd3d6cd1246"
+    },
+    {
+      "path": "runs/20261017T014428Z-term-screen/out/term_screen.csv",
+      "sha256": "2b6889daff9eeb4e0970bcb9a87556f35db33311b51c672ac5a9319c26ebf912"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261017T020823Z-review-checks/out/chk_aviary_fields.csv",
+      "sha256": "2faad095d80fdf26c0e00fb8171b82d948cfab1ae8f77502096bbb65acd0bfd9"
+    },
+    {
+      "path": "runs/20261017T020823Z-review-checks/out/chk_digest_package.csv",
+      "sha256": "06baf2d893486562afce28f667f729ab732e7b8103ad34a911a7955bfe35d27b"
+    },
+    {
+      "path": "runs/20261017T020823Z-review-checks/out/chk_field_population.csv",
+      "sha256": "78d0170bfee2c922e921291c6bbd38de88807da11197001b5d708496ea23c4a7"
+    },
+    {
+      "path": "runs/20261017T020823Z-review-checks/out/chk_gold_industrial.csv",
+      "sha256": "4dbff920404b0630d6a52d7f11612429babe26e781107bd008007c9046c03df9"
+    },
+    {
+      "path": "runs/20261017T020823Z-review-checks/out/chk_holdout_by_group.csv",
+      "sha256": "699ee31ca81924b960d54951730d4757d0a8716167e8de5aa3823ba07d0ab64d"
+    },
+    {
+      "path": "runs/20261017T020823Z-review-checks/out/chk_holdout_overlap.csv",
+      "sha256": "9e3b2f6f77602d6235dcfb291ea523c77a9b482438754fbeda60767df601e3b1"
+    },
+    {
+      "path": "runs/20261017T020823Z-review-checks/out/chk_screen_basis.csv",
+      "sha256": "7bcc6f7af602e6c42533a80e405d0bb1b0b3fc4ecebf190d7906eaaa5c522edf"
+    },
+    {
+      "path": "runs/20261017T020823Z-review-checks/out/chk_screen_envo_dropped.csv",
+      "sha256": "30da8abd993f11bd041f3bd30acb17cf6f800b7df5d32ef03b52bf5afcde677b"
+    },
+    {
+      "path": "runs/20261017T020823Z-review-checks/out/chk_study_clustering.csv",
+      "sha256": "0e0d74dd5c6a0a05a549f352dd9337b720f3267e16c8d5ca99028fc1523ceb47"
+    },
+    {
+      "path": "runs/20261017T020823Z-review-checks/out/chk_subtype_denominator.csv",
+      "sha256": "ea0c941d5f553683b1ca4f1020b5b3224297e52e4d82678b4b3f954cd436c168"
+    }
+  ],
+  "changed": [
+    {
+      "path": ".agent-state.json",
+      "sha256": "7589b017cb15152b7a2e11ea614ea4bcc3ed09f6ffe8e15857ea05bcfc913ba9"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+trained_on,tested_on,ext_subtype,n_no_native,pct_recovered
+MGnify,GOLD,industrial_ww,235,0.0
+MGnify,GOLD,wastewater_other,74,0.0
+MGnify,GOLD,bioreactor_anaerobic_sludge,57,0.0
+MGnify,GOLD,digester,11,0.0
+MGnify,GOLD,activated_sludge,3,66.7
+MGnify,GOLD,sludge_generic,1,0.0
+GOLD,MGnify,agricultural_ww,372,0.0
+GOLD,MGnify,industrial_ww,286,0.0
+GOLD,MGnify,nutrient_removal_bioreactor,48,0.0
+GOLD,MGnify,wastewater_other,13,46.2
+GOLD,MGnify,activated_sludge,3,100.0
