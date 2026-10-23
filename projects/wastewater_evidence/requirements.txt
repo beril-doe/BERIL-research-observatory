@@ -1,0 +1,15 @@
+# Analysis runs use the cluster Python at /opt/conda/bin/python, which already
+# carries these. Listed for reproduction elsewhere.
+#
+# The documented BERDL client (spark_connect_remote) is NOT required and cannot
+# be installed: its GitHub organisation no longer resolves. src/berdl_spark.py
+# opens a plain Spark Connect session instead. See memories/pitfalls.md.
+pyspark[connect]==4.1.3
+pandas>=2.2
+pyarrow
+zstandard>=0.25.0
+pyyaml>=3.11
+grpcio
+grpcio-status
+protobuf
+matplotlib

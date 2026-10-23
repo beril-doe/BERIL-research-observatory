@@ -1,0 +1,12 @@
+source,ext_subtype,n_samples,n_bioprojects,largest_project_samples
+MGnify,agricultural_ww,372,3,338
+MGnify,industrial_ww,287,5,144
+GOLD,industrial_ww,235,21,86
+GOLD,wastewater_other,74,6,34
+GOLD,bioreactor_anaerobic_sludge,63,2,12
+MGnify,nutrient_removal_bioreactor,48,1,48
+MGnify,wastewater_other,19,4,12
+GOLD,digester,11,1,11
+GOLD,activated_sludge,4,3,2
+MGnify,activated_sludge,3,2,2
+GOLD,sludge_generic,1,1,1

@@ -1,0 +1,95 @@
+field,value,ext_subtype,n_total,bg_count,lift,purity,built_from
+env_broad_scale,sludge,nutrient_removal_bioreactor,277,3655,900.5211042488129,0.703971119133574,MGnify
+env_broad_scale,temperate stream,industrial_ww,192,396,5761.128342245989,1.0,MGnify
+env_broad_scale,wastewater/sludge,water_and_sludge,179,379,5611.969841300636,1.0,MGnify
+env_broad_scale,wastewater,activated_sludge,161,7189,266.1085937052523,0.7080745341614907,MGnify
+env_broad_scale,water trough,agricultural_ww,150,150,11882.327205882353,1.0,MGnify
+env_broad_scale,pig manure,water_and_sludge,150,167,10672.748987319479,1.0,MGnify
+env_broad_scale,aquatic biome,wastewater_other,131,29421,52.90727249143769,0.8091603053435115,MGnify
+env_broad_scale,water line,agricultural_ww,117,117,11882.327205882353,1.0,MGnify
+env_broad_scale,acid mine drainage,industrial_ww,79,287,3270.7451193892193,1.0,MGnify
+env_broad_scale,duck cecum,agricultural_ww,70,70,11882.327205882353,1.0,MGnify
+env_broad_scale,urban,industrial_ww,57,9384,72.1752611610501,0.9824561403508771,MGnify
+env_broad_scale,freshwater biome [envo_00000873],industrial_ww,54,3306,194.08519937012915,1.0,MGnify
+env_broad_scale,freshwater biome [envo:00000873],water_and_sludge,38,4154,108.69726379959785,1.0,MGnify
+env_broad_scale,small river,industrial_ww,36,130,3290.490610859729,1.0,MGnify
+env_broad_scale,industrial wastewate treatment plant,wastewater_other,14,22,7561.48094919786,1.0,MGnify
+env_broad_scale,anaerobic reactor,industrial_ww,13,97,1592.4768420254698,0.7692307692307693,MGnify
+env_broad_scale,bisphenol a culture medium,activated_sludge,10,10,11882.327205882353,1.0,MGnify
+env_broad_scale,oil well,industrial_ww,6,21,3394.9506302521013,1.0,MGnify
+env_broad_scale,envo:00002001,industrial_ww,4,571,83.23871948078707,1.0,MGnify
+env_broad_scale,constructed feature,wastewater_other,4,113,420.61335242061426,1.0,MGnify
+env_broad_scale,not spplicable,water_and_sludge,4,4,11882.327205882351,1.0,MGnify
+env_broad_scale,suspended biomass from biological reactor treating wastewater,water_and_sludge,4,4,11882.327205882351,1.0,MGnify
+env_broad_scale,common effluent treatment plant,industrial_ww,4,48,990.1939338235294,0.75,MGnify
+env_local_scale,barn,agricultural_ww,198,275,8555.275588235294,1.0,MGnify
+env_local_scale,lotic environments,industrial_ww,192,396,5761.128342245989,1.0,MGnify
+env_local_scale,wastewater/sludge,water_and_sludge,179,180,11816.314276960784,1.0,MGnify
+env_local_scale,sewage,activated_sludge,170,931,2169.705290010741,1.0,MGnify
+env_local_scale,anearobic bioreactor,water_and_sludge,150,173,10302.595843250596,1.0,MGnify
+env_local_scale,anaerobic,nutrient_removal_bioreactor,148,2886,609.3501131221719,1.0,MGnify
+env_local_scale,aviary,agricultural_ww,140,140,11882.327205882353,1.0,MGnify
+env_local_scale,field-scale pilot,industrial_ww,78,78,11882.327205882351,1.0,MGnify
+env_local_scale,organic feature,water_and_sludge,74,9401,93.5317746234756,0.972972972972973,MGnify
+env_local_scale,sewage plant,activated_sludge,70,110,7561.48094919786,0.9571428571428572,MGnify
+env_local_scale,lagoon [envo_00000038],industrial_ww,54,114,5628.470781733746,1.0,MGnify
+env_local_scale,water,wastewater_other,50,3922,151.48300874403816,1.0,MGnify
+env_local_scale,wastewater treatment plant [envo:00002043],water_and_sludge,38,674,669.9234923197765,1.0,MGnify
+env_local_scale,mbr,water_and_sludge,30,168,2121.844143907563,1.0,MGnify
+env_local_scale,bioreactor,water_and_sludge,28,5633,59.06358277378056,0.75,MGnify
+env_local_scale,artificial channel,industrial_ww,16,16,11882.327205882351,1.0,MGnify
+env_local_scale,effluent,water_and_sludge,16,220,864.1692513368984,1.0,MGnify
+env_local_scale,constructed feature,agricultural_ww,8,216,440.08619281045753,1.0,MGnify
+env_local_scale,mesophilic sludge digester,wastewater_other,6,10,7129.396323529412,1.0,MGnify
+env_local_scale,thermophilic anaerobic methanogenic reactor,nutrient_removal_bioreactor,6,32,2227.936351102941,1.0,MGnify
+env_local_scale,wastewater sludge,industrial_ww,6,14,5092.4259453781515,1.0,MGnify
+env_local_scale,oil well,industrial_ww,6,36,1980.3878676470588,1.0,MGnify
+env_local_scale,not spplicable,water_and_sludge,4,4,11882.327205882351,1.0,MGnify
+env_local_scale,envo:00002126,industrial_ww,4,159,298.9264705882353,1.0,MGnify
+env_local_scale,chlorinated_effluent,water_and_sludge,4,4,11882.327205882351,1.0,MGnify
+env_local_scale,environmental feature,water_and_sludge,4,165,288.05641711229947,1.0,MGnify
+env_local_scale,influent,water_and_sludge,4,252,188.60836834733894,1.0,MGnify
+env_local_scale,suspended biomass from biological reactor treating wastewater,water_and_sludge,4,4,11882.327205882351,1.0,MGnify
+env_local_scale,mesophilic anaerobic reactor,nutrient_removal_bioreactor,3,3,11882.327205882353,1.0,MGnify
+env_medium,activated sludge,activated_sludge,951,8200,1378.0601430236727,0.9495268138801262,MGnify
+env_medium,wastewater activated sludge,nutrient_removal_bioreactor,414,461,10670.896883373738,1.0,MGnify
+env_medium,stream water,industrial_ww,192,1276,1787.9363820763417,1.0,MGnify
+env_medium,wastewater/sludge,water_and_sludge,179,179,11882.327205882353,1.0,MGnify
+env_medium,pig manure,water_and_sludge,150,444,4014.299731717011,1.0,MGnify
+env_medium,sewage,wastewater_other,71,5776,146.06046253768127,0.7183098591549296,MGnify
+env_medium,cecal contents,agricultural_ww,69,1967,416.81778200604083,1.0,MGnify
+env_medium,waste water,industrial_ww,65,4845,159.41202649790566,0.8615384615384616,MGnify
+env_medium,bioprecipitate,industrial_ww,61,61,11882.327205882353,1.0,MGnify
+env_medium,sediment [envo_00002007],industrial_ww,54,145,4425.142545638944,1.0,MGnify
+env_medium,anaerobic digester sludge [envo:00003965],water_and_sludge,38,1486,303.8549352782836,1.0,MGnify
+env_medium,biosolids,activated_sludge,16,102,1863.8944636678202,1.0,MGnify
+env_medium,aerobic biomass,water_and_sludge,16,16,11882.327205882351,1.0,MGnify
+env_medium,anaerobic biomass,water_and_sludge,14,140,1188.2327205882352,1.0,MGnify
+env_medium,effluent,water_and_sludge,12,256,556.9840877757352,1.0,MGnify
+env_medium,sludge-water,activated_sludge,10,10,11882.327205882353,1.0,MGnify
+env_medium,raw primary sludge,activated_sludge,8,26,3656.1006787330316,0.875,MGnify
+env_medium,anaerobic digester biomass,wastewater_other,6,137,520.3938922284242,1.0,MGnify
+env_medium,wastewater sludge,industrial_ww,6,131,544.228726986978,1.0,MGnify
+env_medium,suspended biomass from biological reactor treating wastewater,water_and_sludge,4,4,11882.327205882351,1.0,MGnify
+env_medium,granular sludge,industrial_ww,4,237,200.54560685033508,1.0,MGnify
+env_medium,envo:00002126,industrial_ww,4,7,6789.901260504201,1.0,MGnify
+env_medium,not spplicable,water_and_sludge,4,4,11882.327205882351,1.0,MGnify
+isolation_source,waste water treatment plant aeration tank,wastewater_other,88,88,11882.327205882353,1.0,MGnify
+isolation_source,wastewater treatment plant,wastewater_other,69,3915,209.42032623394186,0.9855072463768116,MGnify
+isolation_source,sand,agricultural_ww,26,1166,264.9575534759358,1.0,MGnify
+isolation_source,anaerobic digester,activated_sludge,25,4707,63.10987468601208,0.88,MGnify
+isolation_source,anaerobic digester from wastewater treatment plant,activated_sludge,16,2195,86.6137746214659,1.0,MGnify
+isolation_source,wastewater treatment plant of a petroleum refinery complex,activated_sludge,12,266,536.0448363555948,1.0,MGnify
+isolation_source,mixed culture bioreactor,wastewater_other,12,12,11882.327205882353,1.0,MGnify
+isolation_source,active sludge of municipal wastewater-treating anaerobic digesters,activated_sludge,6,968,73.65078846621293,1.0,MGnify
+isolation_source,sewage system,wastewater_other,4,5,9505.861764705882,1.0,MGnify
+isolation_source,raw sewage,wastewater_other,4,477,99.6421568627451,1.0,MGnify
+isolation_source,wastewater bioreactor,wastewater_other,3,170,209.68812716262977,1.0,MGnify
+taxonomy_name,anas platyrhynchos,agricultural_ww,338,16920,237.36563803712974,1.0,MGnify
+taxonomy_name,sludge metagenome,nutrient_removal_bioreactor,200,38421,61.85329484335313,0.975,MGnify
+taxonomy_name,riverine metagenome,industrial_ww,192,11376,200.54560685033508,1.0,MGnify
+taxonomy_name,bioreactor sludge metagenome,water_and_sludge,139,6052,272.90870482776717,0.8057553956834532,MGnify
+taxonomy_name,biogas fermenter metagenome,water_and_sludge,66,4951,158.39902960780353,0.9090909090909091,MGnify
+taxonomy_name,mixed culture,nutrient_removal_bioreactor,58,1566,440.0861928104575,1.0,MGnify
+taxonomy_name,biofilter metagenome,nutrient_removal_bioreactor,48,4241,134.4851935586779,1.0,MGnify
+taxonomy_name,nitrifying bacterium enrichment culture,industrial_ww,6,8,8911.745404411764,1.0,MGnify

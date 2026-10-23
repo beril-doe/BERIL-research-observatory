@@ -1,0 +1,32 @@
+field,value,n
+isolation_source,,5
+isolation_source,anaerobic digestion sludge,2
+isolation_source,thermophilic anaerobic digestor sludge,2
+isolation_source,bovine post anaerobic digestion,2
+isolation_source,anaerobic digester,1
+isolation_source,anaerobic digestion,1
+isolation_source,anaerobic digestion reactor,1
+isolation_source,methane fermentation system,1
+env_broad_scale,,7
+env_broad_scale,anaerobic digestor,3
+env_broad_scale,sludge,1
+env_broad_scale,thermophilic anaerobic digestion reactor,1
+env_broad_scale,the sampling was carried out municipal wwtp of marrakech (morocco),1
+env_broad_scale,anaerobic digestion,1
+env_broad_scale,missing,1
+env_local_scale,,7
+env_local_scale,anaerobic digestor,3
+env_local_scale,missing,1
+env_local_scale,the sample was taken in the context of studying the diversity of microbial community in the anaerobic digesters ofwwtp marrakech.,1
+env_local_scale,anaerobic digestor sludge,1
+env_local_scale,anaerobic digestion,1
+env_local_scale,anaerobic sludge,1
+env_medium,,7
+env_medium,anaerobic digested sludge,3
+env_medium,missing,2
+env_medium,not applicable,1
+env_medium,environmental material,1
+env_medium,anaerobic sewadge sludge,1
+env_package,,15
+context_label,,13
+context_label,livestock,2

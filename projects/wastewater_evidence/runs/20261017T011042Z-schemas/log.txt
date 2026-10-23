@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/home/mamillerpa/.beril-v2/projects/wastewater_evidence/src/00_schemas.py", line 45, in <module>
+    spark = get_spark("ww-schemas")
+  File "/home/mamillerpa/.beril-v2/projects/wastewater_evidence/src/berdl_spark.py", line 41, in get_spark
+    from pyspark.sql import SparkSession
+ModuleNotFoundError: No module named 'pyspark'

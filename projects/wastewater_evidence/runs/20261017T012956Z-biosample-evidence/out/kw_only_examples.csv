@@ -1,0 +1,295 @@
+field,value,n
+isolation_source,,86973
+isolation_source,wastewater,12194
+isolation_source,wastewater metagenome,2589
+isolation_source,anaerobic digester,2513
+isolation_source,sewage,1926
+isolation_source,activated sludge,1777
+isolation_source,patient or hospital wastewater site,1642
+isolation_source,anaerobic digester from wastewater treatment plant,1575
+isolation_source,anaerobic digestion of organic wastes under variable temperature conditions and feedstocks,1401
+isolation_source,sludge,1294
+isolation_source,activated sludge metagenome,1232
+isolation_source,metagenome,1225
+isolation_source,bioreactor metagenome,1220
+isolation_source,hospital sewage,1039
+isolation_source,wastewater treatment plant,970
+isolation_source,activated sludge from shatin waste water treatment plant collected monthly from 2007 through 2015,920
+isolation_source,waste water,846
+isolation_source,missing,803
+isolation_source,bioreactor,724
+isolation_source,anaerobic digestion,678
+isolation_source,activated sludge tank,664
+isolation_source,anaerobic digester fluid,658
+isolation_source,hospital wastewater,631
+isolation_source,water from urban wastewater,622
+isolation_source,fermented activated sludge,487
+isolation_source,biomass from liquid digestate stored in the cstr at the surrey biofuel facility,466
+isolation_source,sludge metagenome,460
+isolation_source,raw sewage,457
+isolation_source,wwtp,455
+isolation_source,wastewater treatment facility,436
+isolation_source,anaerobic digesters,394
+isolation_source,anaerobic bioreactor sludge,376
+isolation_source,sludge sample,367
+isolation_source,microbial mat core from a hot spring runoff channel,366
+isolation_source,anaerobic digester metagenome,340
+isolation_source,anaerobic bioreactor effluent,329
+isolation_source,sludge composting,326
+isolation_source,freshwater metagenome,314
+isolation_source,active sludge of municipal wastewater-treating anaerobic digesters,306
+isolation_source,biogas plant anaerobic digester,304
+env_medium,,123947
+env_medium,wastewater,7534
+env_medium,digestate,4328
+env_medium,engineered,3883
+env_medium,missing,3002
+env_medium,aquatic,2972
+env_medium,not applicable,2073
+env_medium,water,1475
+env_medium,fresh water,935
+env_medium,biofilm,886
+env_medium,synthetic wastewater,774
+env_medium,biological waste material [envo:01000373],674
+env_medium,sediment,660
+env_medium,urban wastewater,622
+env_medium,sterile water,407
+env_medium,groundwater,304
+env_medium,soil,290
+env_medium,effluent water,290
+env_medium,anthropogenic environmental material [envo:0010001],287
+env_medium,envo_00002043,266
+env_medium,feedstock,258
+env_medium,open water wetland biomat,247
+env_medium,agricultural soil,240
+env_medium,built-environment,210
+env_medium,leachate [envo:00002141],210
+env_medium,anaerobic-aerobic,201
+env_medium,surface water influent,198
+env_medium,50 ml water,193
+env_medium,pig,165
+env_medium,marine sediment,148
+env_medium,effluent,137
+env_medium,rhizosphere,132
+env_medium,anthropogenic environmental material,130
+env_medium,not provided,126
+env_medium,organic material,122
+env_medium,envo:00002129,116
+env_medium,organic waste,102
+env_medium,anode biofilm,88
+env_medium,digestate from biogas reactor,87
+env_medium,reactor effluent,82
+env_local_scale,,147839
+env_local_scale,not applicable,2473
+env_local_scale,river,1647
+env_local_scale,missing,820
+env_local_scale,anaerobic bioreactor [envo:00002124],649
+env_local_scale,urban wastewater,622
+env_local_scale,wastewater,524
+env_local_scale,research facility,515
+env_local_scale,anaerobic digester,394
+env_local_scale,engineered,374
+env_local_scale,groundwater,302
+env_local_scale,bioreactor biome [envo:00002123],287
+env_local_scale,municipal wastewater effluent impacted river,247
+env_local_scale,agricultural soil,247
+env_local_scale,organic waste recycling,242
+env_local_scale,landfill [envo:00000533],210
+env_local_scale,farm,170
+env_local_scale,biological substrats,144
+env_local_scale,bioreactor,144
+env_local_scale,open photobioreactor,121
+env_local_scale,envo:00002124,116
+env_local_scale,water from the qiantang river was supplemented with domestic sewage and incubated for 28 days,102
+env_local_scale,environmental feature,97
+env_local_scale,municipal ww,96
+env_local_scale,anaerobic bioreactor,82
+env_local_scale,cell_pellet,74
+env_local_scale,stream bed (envo_00000383),72
+env_local_scale,waste-slurry,70
+env_local_scale,digestate,67
+env_local_scale,envo:00002235,66
+env_local_scale,arable soil,62
+env_local_scale,anaerobic membrane reactors treating domestic wastewater at 4c and 15c inoculated by soils and sediments from lake geneva and svalbard,62
+env_local_scale,not collected,62
+env_local_scale,water from the qiantang river was supplemented with domestic sewage and incubated for two days,62
+env_local_scale,envo:river,60
+env_local_scale,synthetic municipal,58
+env_local_scale,feces,56
+env_local_scale,"anoxic, mesophilic (37°c)",55
+env_local_scale,cultivated human feces,54
+env_local_scale,wwtp,51
+env_broad_scale,,123568
+env_broad_scale,building,6863
+env_broad_scale,bioreactor,4417
+env_broad_scale,engineered,4346
+env_broad_scale,aquatic,3020
+env_broad_scale,missing,2949
+env_broad_scale,urban biome,2067
+env_broad_scale,not applicable,1741
+env_broad_scale,wastewater,1177
+env_broad_scale,water,791
+env_broad_scale,bioreactor [envo:00002123],716
+env_broad_scale,bioaugmentation experiments with photogranules,495
+env_broad_scale,anaerobic bioreactor [envo:00002124],466
+env_broad_scale,wastewater effluent,395
+env_broad_scale,soil,348
+env_broad_scale,wastewater biome,317
+env_broad_scale,anaerobic digestion,307
+env_broad_scale,biomaterial containment unit [envo:01001816],287
+env_broad_scale,envo_00002001,265
+env_broad_scale,wastewater treatment,255
+env_broad_scale,wetland,247
+env_broad_scale,organic waste recycling,242
+env_broad_scale,laboratory scale bac biofilter study,242
+env_broad_scale,terrestrial environmental zone,240
+env_broad_scale,wastewater treatment biome,217
+env_broad_scale,landfill [envo:00000533],210
+env_broad_scale,wwtp,202
+env_broad_scale,estuarine biome,166
+env_broad_scale,research station,165
+env_broad_scale,aquatic biome,157
+env_broad_scale,river reach,150
+env_broad_scale,airplane,136
+env_broad_scale,freshwater biome[envo:00000873],130
+env_broad_scale,biogas plant substrate,126
+env_broad_scale,open photobioreactor,121
+env_broad_scale,sewer sediment biome,120
+env_broad_scale,envo:00002123,117
+env_broad_scale,-,95
+env_broad_scale,polar marine,92
+env_broad_scale,watercourse (envo:00000029),89
+sample_type,,136433
+sample_type,metagenomic assembly,9321
+sample_type,cell culture,2478
+sample_type,whole organism,2094
+sample_type,not applicable,1672
+sample_type,mixed culture,1575
+sample_type,water,1223
+sample_type,missing,689
+sample_type,sediment,577
+sample_type,single cell,538
+sample_type,wastewater,418
+sample_type,pure culture,352
+sample_type,sludge,323
+sample_type,control blank,322
+sample_type,bacterial culture,258
+sample_type,bacterial isolate,243
+sample_type,effluent,207
+sample_type,culture,176
+sample_type,activated sludge,133
+sample_type,environmental sample,133
+sample_type,not collected,129
+sample_type,manure,117
+sample_type,control spikein water,108
+sample_type,environmental,108
+sample_type,bacteria,92
+sample_type,complete bacterial genome,85
+sample_type,control blank library prep,84
+sample_type,freshwater,60
+sample_type,sorted cells from the bd influx,57
+sample_type,genomic dna,57
+sample_type,environmenal,56
+sample_type,influent / feed water,53
+sample_type,freshwater sediment metagenome,52
+sample_type,waste water system,52
+sample_type,microbe,51
+sample_type,anaerobic fermentation,49
+sample_type,environment,46
+sample_type,isolate,44
+sample_type,sewage,38
+sample_type,tissue sample,32
+source_name,,161560
+source_name,peritoneal dialysis overnight effluent,16
+source_name,liver,15
+source_name,hematoma effluent,13
+source_name,bacteria cells,12
+source_name,total embryo (50 embryo homogenate),10
+source_name,peritoneal dialysis fluid,10
+source_name,cathodic mec-disconnected using ammonium-enriched wastewater,8
+source_name,cathodic mec-connected using ammonium-enriched wastewater,8
+source_name,cathodic mec-connected using nitrate-enriched wastewater,8
+source_name,cathodic mec-disconnected using nitrate-enriched wastewater,8
+source_name,menstrual effluent-derrived endometrial stromal cells,6
+source_name,leaves,6
+source_name,peritoneal dialysis effluent,1
+taxonomy_name,severe acute respiratory syndrome coronavirus 2,75120
+taxonomy_name,metagenome,9024
+taxonomy_name,escherichia coli,7808
+taxonomy_name,uncultured bacterium,7061
+taxonomy_name,bioreactor metagenome,6567
+taxonomy_name,biofilm metagenome,2358
+taxonomy_name,klebsiella pneumoniae,2109
+taxonomy_name,soil metagenome,2091
+taxonomy_name,uncultured candidatus saccharibacteria bacterium,1149
+taxonomy_name,fermentation metagenome,1121
+taxonomy_name,aquatic metagenome,1051
+taxonomy_name,riverine metagenome,1003
+taxonomy_name,enterobacter cloacae,763
+taxonomy_name,freshwater sediment metagenome,710
+taxonomy_name,citrobacter freundii,682
+taxonomy_name,freshwater metagenome,655
+taxonomy_name,candidozyma auris,632
+taxonomy_name,uncultured gammaproteobacteria bacterium,580
+taxonomy_name,activated carbon metagenome,484
+taxonomy_name,listeria monocytogenes,438
+taxonomy_name,bacteroidota bacterium,401
+taxonomy_name,sediment metagenome,395
+taxonomy_name,hot springs metagenome,380
+taxonomy_name,enterococcus faecium,380
+taxonomy_name,bacillota bacterium,373
+taxonomy_name,pseudomonas aeruginosa,368
+taxonomy_name,pseudomonadota bacterium,362
+taxonomy_name,gut metagenome,358
+taxonomy_name,raoultella ornithinolytica,351
+taxonomy_name,salmonella enterica,349
+taxonomy_name,enterococcus faecalis,327
+taxonomy_name,uncultured archaeon,312
+taxonomy_name,bacterium,308
+taxonomy_name,pseudomonadota,297
+taxonomy_name,acinetobacter baumannii,292
+taxonomy_name,urban metagenome,258
+taxonomy_name,vibrio cholerae,253
+taxonomy_name,metagenomes,245
+taxonomy_name,plastisphere metagenome,229
+taxonomy_name,mixed culture metagenome,218
+package_content,generic.1.0,103679
+package_content,metagenome.environmental.1.0,20419
+package_content,microbe.1.0,15950
+package_content,pathogen.env.1.0,7864
+package_content,mimag.6.0,4024
+package_content,onehealthenteric.1.0,3487
+package_content,virus.1.0,1329
+package_content,pathogen.cl.1.0,728
+package_content,mimag.miscellaneous.6.0,501
+package_content,mimag.water.6.0,451
+package_content,mimarks.survey.miscellaneous.6.0,388
+package_content,mimarks.survey.soil.6.0,322
+package_content,mims.me.water.6.0,292
+package_content,mimag.microbial.6.0,259
+package_content,migs.ba.6.0,200
+package_content,mimarks.survey.host-associated.6.0,183
+package_content,mimarks.survey.water.6.0,173
+package_content,mims.me.miscellaneous.6.0,170
+package_content,mims.me.soil.6.0,152
+package_content,mimarks.survey.sediment.6.0,145
+package_content,mimarks.specimen.human-gut.6.0,102
+package_content,sars-cov-2.cl.1.0,70
+package_content,mimarks.specimen.6.0,69
+package_content,mimarks.survey.microbial.6.0,66
+package_content,invertebrate.1.0,62
+package_content,mims.me.microbial.6.0,45
+package_content,mims.me.human-gut.6.0,45
+package_content,mims.me.air.6.0,40
+package_content,mims.me.plant-associated.6.0,35
+package_content,mimarks.survey.plant-associated.6.0,33
+package_content,mimarks.survey.human-skin.6.0,31
+package_content,mimag.soil.6.0,30
+package_content,mimag.agriculture.6.0,27
+package_content,migs.ba.human-skin.6.0,24
+package_content,mimarks.survey.agriculture.6.0,23
+package_content,model.organism.animal.1.0,23
+package_content,mims.me.sediment.6.0,22
+package_content,mimarks.specimen.miscellaneous.6.0,19
+package_content,migs.ba.water.6.0,18
+package_content,mimarks.specimen.air.6.0,18

@@ -1,0 +1,42 @@
+[    27s] GOLD: 245123 biosamples, 5998 in ww groups; 252 Engineered paths
+[    27s] GOLD ww biosamples with NCBI accession: 5391 -> 5584 accessions
+[    27s] MGnify: 4352 samples
+[    40s] NMDC: 27352 biosamples, 201 ww by path/ENVO/keyword, 201 INSDC accessions
+[    41s] ext view rows: 10137
+[    41s] external label rows: 10137, distinct accessions 9390
+/opt/conda/lib/python3.13/site-packages/pandas/io/parquet.py:490: UserWarning: Could not serialize pd.DataFrame.attrs: Object of type PlanMetrics is not JSON serializable, defaulting to empty attributes.
+  impl.write(
+Traceback (most recent call last):
+  File "/home/mamillerpa/.beril-v2/projects/wastewater_evidence/src/03_external_vs_biosample.py", line 203, in <module>
+    joined.to_parquet(out / "labelled_samples.parquet", index=False)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.13/site-packages/pandas/core/frame.py", line 3135, in to_parquet
+    return to_parquet(
+        self,
+    ...<7 lines>...
+        **kwargs,
+    )
+  File "/opt/conda/lib/python3.13/site-packages/pandas/io/parquet.py", line 490, in to_parquet
+    impl.write(
+    ~~~~~~~~~~^
+        df,
+        ^^^
+    ...<6 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+  File "/opt/conda/lib/python3.13/site-packages/pandas/io/parquet.py", line 194, in write
+    df_metadata = {"PANDAS_ATTRS": json.dumps(df.attrs)}
+                                   ~~~~~~~~~~^^^^^^^^^^
+  File "/opt/conda/lib/python3.13/json/__init__.py", line 231, in dumps
+    return _default_encoder.encode(obj)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/opt/conda/lib/python3.13/json/encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "/opt/conda/lib/python3.13/json/encoder.py", line 261, in iterencode
+    return _iterencode(o, 0)
+  File "/opt/conda/lib/python3.13/json/encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+                    f'is not JSON serializable')
+TypeError: Object of type PlanMetrics is not JSON serializable
