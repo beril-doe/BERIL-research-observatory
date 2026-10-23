@@ -1,0 +1,70 @@
+project_id: annotation_coordinate_atlas
+status: complete       # exploration | proposed | active | analysis | reviewed | complete
+created_at: "2026-10-02T16:45:00Z"
+last_session_at: "2026-10-23T13:24:35Z"
+engine:
+  name: claude
+authors:
+  - name: "Mark Andrew Miller"
+    affiliation: "LBL"
+    orcid: "0000-0001-9076-6066"
+artifacts:
+  readme: true
+  research_plan: true
+  report: true
+  review: true
+plan_approval:
+  by: "0000-0001-9076-6066"
+  at: "2026-10-02T17:05:46Z"
+  via: agent-relayed
+  plan_hash: "sha256:939a7492a268a47c8c514afb7b792b67248128a08a2336e750697af188f4c332"
+approval:
+  by: "0000-0001-9076-6066"
+  at: "2026-10-23T13:24:35Z"
+  report_hash: "sha256:a4cfbd343cb232e2be8a4975ee6fc59f8bda6f3ccc2360c6605e5e1ba0403d13"
+  review: "REVIEW_16.md"
+  review_hash: "sha256:b87ec9762b4288c0657a8a56b246f0ad71f58566f02d72ebe6372164870ad774"
+  notebook_hashes:
+    "notebooks/01_semcat_discovery.ipynb": "sha256:03e1651684cd13c5dd19377fcbc9b9b029bc61d95c76ef9deaec7bfc9f6e9cd2"
+    "notebooks/02_ground_truth_sweep.ipynb": "sha256:bed9747b41af47b1fb8ebb4bbc41d5262db3813bca4cfcc816437dca66d1be11"
+    "notebooks/03_semcat_grade.ipynb": "sha256:6a461e3bc775a9adfd5dab6fc7a061aaa0421a465c222e5cccdf219d1a799557"
+    "notebooks/04_bgc_region_joinability.ipynb": "sha256:174702e97c3f37ed3c7e49b6e6f7c1e48ba539d17f5059509380b65369828987"
+previous_approvals:
+  - by: "0000-0001-9076-6066"
+    at: "2026-10-16T16:53:46Z"
+    report_hash: "sha256:a172f57e80d4f39049c31c6a799643c50209c1f9488b93cdff3a094de8cacb49"
+    review: "REVIEW_15.md"
+    review_hash: "sha256:398695dc47c747b49aa1824cfc487710add143495c75265edf8d0167108005dd"
+    notebook_hashes:
+      "notebooks/01_semcat_discovery.ipynb": "sha256:f2d37acd4ab2dfb4d84b8e9ae6b785c0fa0dac19473e2f841f2cd289ba215f20"
+      "notebooks/02_ground_truth_sweep.ipynb": "sha256:9d93401e3d54dbaa70ad4fc95ce87e96d4550449c5f424e0ff8b36febe2d1858"
+      "notebooks/03_semcat_grade.ipynb": "sha256:28a1393dc5cfa941f65dc0eb384cf7d9de1eb6fdcc1f836ecd5bfb448e966515"
+      "notebooks/04_bgc_region_joinability.ipynb": "sha256:c672dabc66f8c3dbded2756178cc73f3600501e846e9e97bcda624f8f015fb9c"
+    archived_at: "2026-10-23T12:39:00Z"
+submissions:
+  - status: success
+    attempted_at: "2026-10-16T16:58:56Z"
+    archive_key: "s3a://cdm-lake/tenant-general-warehouse/microbialdiscoveryforge/projects/annotation_coordinate_atlas/"
+    file_count: 66
+    byte_total: 10822714
+    duration_seconds: 12.5
+    approved_at: "2026-10-16T16:53:46Z"
+  - status: success
+    attempted_at: "2026-10-23T13:28:25Z"
+    archive_key: "s3a://cdm-lake/tenant-general-warehouse/microbialdiscoveryforge/projects/annotation_coordinate_atlas/"
+    file_count: 67
+    byte_total: 11430153
+    duration_seconds: 12.98
+    approved_at: "2026-10-23T13:24:35Z"
+agent_cost:
+  observed_by: claude-code
+  note: "Agent cost observed by Claude Code only. Work done by a human or by another agent is not counted, so this is a floor, not a project total."
+  stages:
+    - stage: reviewed
+      ended_at: "2026-10-16T17:43:22Z"
+      usd: 4.89
+      sessions_observed: 2
+    - stage: complete
+      ended_at: "2026-10-23T12:39:30Z"
+      usd: 17.22
+      sessions_observed: 2
