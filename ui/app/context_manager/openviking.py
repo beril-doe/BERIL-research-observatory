@@ -760,9 +760,7 @@ class OpenVikingManager(ContextManager):
                     spill.parent.mkdir, parents=True, exist_ok=True
                 )
                 await asyncio.to_thread(spill.write_bytes, file.content)
-                submitted = await ov_client.add_resource(
-                    str(spill), uri, reason=f"BERIL user upload {file.relative_path}"
-                )
+                submitted = await ov_client.add_resource(str(spill), uri)
         except SdkUnauthenticatedError:
             # Not a bad file: the credential itself was refused, so every file
             # in the batch would fail identically. Let it escape so the caller

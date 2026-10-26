@@ -195,16 +195,19 @@ def test_ingest_all_with_limit_writes_partial_manifest_so_changed_picks_up_remai
     assert "viking://resources/projects/beta/" not in targets
 
 
-def test_ingest_sends_the_reason_through_add_resource_options(tmp_path: Path) -> None:
-    """The pinned client takes the reason in ``options``, not as a keyword."""
+def test_ingest_sends_no_reason(tmp_path: Path) -> None:
+    """A ``reason`` makes the store run an LLM memory-extraction commit per
+    file on one shared, strictly ordered session; a large ingest made it spin
+    (2.1M requeues on dev). Nothing reads those memories, so none is sent."""
     write(tmp_path / "projects" / "alpha" / "README.md", "# A\n")
     write(tmp_path / "docs" / "pitfalls.md", "# P\n")
     client = FakeClient()
 
     ingest_all(make_config(tmp_path), client)
 
-    assert {"reason": "BERIL project alpha"} in client.add_options
-    assert {"reason": "BERIL doc pitfalls.md"} in client.add_options
+    assert client.add_options and all(
+        "reason" not in (options or {}) for options in client.add_options
+    )
 
 
 def test_ingest_ignores_related_projects_in_beril_yaml(tmp_path: Path) -> None:

@@ -1665,7 +1665,7 @@ async def test_add_resource_retries_transient_error(settings, patched_sdk):
     client = await OpenVikingClient.create("user-key")
 
     with patch("app.clients.openviking.asyncio.sleep", AsyncMock()) as sleep:
-        result = await client.add_resource("/tmp/f.md", "viking://x/f.md", reason="r")
+        result = await client.add_resource("/tmp/f.md", "viking://x/f.md")
 
     assert result == {"ok": True}
     assert patched_sdk.add_resource.await_count == 2
@@ -1678,9 +1678,21 @@ async def test_add_resource_gives_up_after_retry_cap(settings, patched_sdk):
 
     with patch("app.clients.openviking.asyncio.sleep", AsyncMock()):
         with pytest.raises(UnavailableError):
-            await client.add_resource("/tmp/f.md", "viking://x/f.md", reason="r")
+            await client.add_resource("/tmp/f.md", "viking://x/f.md")
 
     assert patched_sdk.add_resource.await_count == ADD_RESOURCE_RETRIES
+
+
+async def test_add_resource_sends_no_reason(settings, patched_sdk):
+    """A reason makes the store extract memories per file on one strictly
+    ordered session — a large ingest spun its queue for nothing BERIL reads."""
+    patched_sdk.add_resource = AsyncMock(return_value={"ok": True})
+    client = await OpenVikingClient.create("user-key")
+
+    await client.add_resource("/tmp/f.md", "viking://x/f.md")
+
+    kwargs = patched_sdk.add_resource.await_args.kwargs
+    assert "reason" not in kwargs and "reason" not in (kwargs.get("options") or {})
 
 
 async def test_add_resource_does_not_retry_other_errors(settings, patched_sdk):
@@ -1689,7 +1701,7 @@ async def test_add_resource_does_not_retry_other_errors(settings, patched_sdk):
     client = await OpenVikingClient.create("user-key")
 
     with pytest.raises(SdkOpenVikingError):
-        await client.add_resource("/tmp/f.md", "viking://x/f.md", reason="r")
+        await client.add_resource("/tmp/f.md", "viking://x/f.md")
 
     assert patched_sdk.add_resource.await_count == 1
 
