@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "id": "20261017T011424Z-mgnify-fetch",
+  "name": "mgnify-fetch",
+  "command": [
+    "/opt/conda/bin/python",
+    "-I",
+    "src/01_mgnify_fetch.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792199664.3151598,
+  "ended_at": 1792199824.244535,
+  "exit_code": 0,
+  "scripts": {
+    "src/01_mgnify_fetch.py": "4f0f06e4c690c35d841cdc9ab94806cbfce42cd7b397e445372623318df995b7"
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "runs/20261017T011424Z-mgnify-fetch/out/mgnify_biomes.parquet",
+      "sha256": "7710bea8f899419fceca50e37f1a5cf5a2e76128ae52fb9ba7983d31e72da354"
+    },
+    {
+      "path": "runs/20261017T011424Z-mgnify-fetch/out/mgnify_ww_sample_metadata.parquet",
+      "sha256": "d0cabbf3b978a3c3027fd311a9abdeb34fd26075be0c9b2860cf533170d7b722"
+    },
+    {
+      "path": "runs/20261017T011424Z-mgnify-fetch/out/mgnify_ww_samples.parquet",
+      "sha256": "caf31154aae383f96b4192a09cebfb218866c17115d8a63ce5cb813d3ac638fb"
+    }
+  ],
+  "changed": [
+    {
+      "path": "src/02a_biosample_evidence.py",
+      "sha256": "6f44527a1456f0545ed5eb5c70755cbb19c39b2aef271cf86633f3ac5ae47876"
+    }
+  ]
+}

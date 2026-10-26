@@ -1,0 +1,40 @@
+[    27s] GOLD: 245123 biosamples, 5998 in ww groups; 252 Engineered paths
+[    27s] GOLD ww biosamples with NCBI accession: 5391 -> 5584 accessions
+[    27s] MGnify: 4352 samples
+[    40s] NMDC: 27352 biosamples, 201 ww by path/ENVO/keyword, 201 INSDC accessions
+Traceback (most recent call last):
+  File "/home/mamillerpa/.beril-v2/projects/wastewater_evidence/src/03_external_vs_biosample.py", line 181, in <module>
+    reduce(lambda a, b: a.unionAll(b), parts).createOrReplaceTempView("ext_raw")
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/usr/local/spark/python/pyspark/sql/connect/dataframe.py", line 2022, in createOrReplaceTempView
+    _, _, ei = self._session.client.execute_command(command, self._plan.observations)
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/spark/python/pyspark/sql/connect/client/core.py", line 1195, in execute_command
+    data, _, metrics, observed_metrics, properties = self._execute_and_fetch(
+                                                     ~~~~~~~~~~~~~~~~~~~~~~~^
+        req, observations or {}
+        ^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/usr/local/spark/python/pyspark/sql/connect/client/core.py", line 1697, in _execute_and_fetch
+    for response in self._execute_and_fetch_as_iterator(
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        req, observations, progress=progress
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ):
+    ^
+  File "/usr/local/spark/python/pyspark/sql/connect/client/core.py", line 1674, in _execute_and_fetch_as_iterator
+    self._handle_error(error)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/usr/local/spark/python/pyspark/sql/connect/client/core.py", line 1982, in _handle_error
+    self._handle_rpc_error(error)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/usr/local/spark/python/pyspark/sql/connect/client/core.py", line 2079, in _handle_rpc_error
+    raise SparkConnectGrpcException(
+    ...<2 lines>...
+    ) from None
+pyspark.errors.exceptions.connect.SparkConnectGrpcException: <_MultiThreadedRendezvous of RPC that terminated with:
+	status = StatusCode.UNKNOWN
+	details = "Received http2 header with status: 413"
+	debug_error_string = "UNKNOWN:Received http2 header with status: 413"
+>

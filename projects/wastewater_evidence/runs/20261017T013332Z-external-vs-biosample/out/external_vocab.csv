@@ -1,0 +1,872 @@
+source,ext_subtype,field,value,n,pct
+GOLD,activated_sludge,isolation_source,,303,28.7
+GOLD,activated_sludge,isolation_source,activated sludge,191,18.1
+GOLD,activated_sludge,isolation_source,activated sludge sample,102,9.7
+GOLD,activated_sludge,isolation_source,aerobic reactor mixed liquor,94,8.9
+GOLD,activated_sludge,isolation_source,wastewater treatment plant,68,6.5
+GOLD,activated_sludge,isolation_source,wastewater/sludge,51,4.8
+GOLD,activated_sludge,isolation_source,activated sludge tank,30,2.8
+GOLD,activated_sludge,isolation_source,activated sludge from wastewater treatment plant,27,2.6
+GOLD,activated_sludge,isolation_source,wastewater activated sludge,16,1.5
+GOLD,activated_sludge,isolation_source,biomass from acid-phase anaerobic digester,15,1.4
+GOLD,activated_sludge,isolation_source,wastewater treatment plant of a petroleum refinery complex,12,1.1
+GOLD,activated_sludge,isolation_source,sludge collected from a pilot-scale biological nutrient removal reactor,10,0.9
+GOLD,activated_sludge,env_broad_scale,,728,69.1
+GOLD,activated_sludge,env_broad_scale,wastewater treatment plant,69,6.5
+GOLD,activated_sludge,env_broad_scale,aquatic biome [envo:00002030],69,6.5
+GOLD,activated_sludge,env_broad_scale,waste water microbiome,54,5.1
+GOLD,activated_sludge,env_broad_scale,anthropogenic environmental material,26,2.5
+GOLD,activated_sludge,env_broad_scale,wastewater,24,2.3
+GOLD,activated_sludge,env_broad_scale,missing,20,1.9
+GOLD,activated_sludge,env_broad_scale,activated sludge,13,1.2
+GOLD,activated_sludge,env_broad_scale,anaerobic digester,13,1.2
+GOLD,activated_sludge,env_broad_scale,anthropogenic terrestrial biome,12,1.1
+GOLD,activated_sludge,env_broad_scale,terrestrial biome [envo_00000446],4,0.4
+GOLD,activated_sludge,env_broad_scale,not applicable,4,0.4
+GOLD,activated_sludge,env_local_scale,,716,67.9
+GOLD,activated_sludge,env_local_scale,waste water [envo:00002001],69,6.5
+GOLD,activated_sludge,env_local_scale,bioreactor,58,5.5
+GOLD,activated_sludge,env_local_scale,activated sludge,41,3.9
+GOLD,activated_sludge,env_local_scale,wastewater treatment plant,40,3.8
+GOLD,activated_sludge,env_local_scale,anaerobic reactor,38,3.6
+GOLD,activated_sludge,env_local_scale,missing,20,1.9
+GOLD,activated_sludge,env_local_scale,anthropogenic environmental material,12,1.1
+GOLD,activated_sludge,env_local_scale,sewage plant,12,1.1
+GOLD,activated_sludge,env_local_scale,mesophilic,8,0.8
+GOLD,activated_sludge,env_local_scale,wastewater,7,0.7
+GOLD,activated_sludge,env_local_scale,wastewater treatment plant [envo_00002043],4,0.4
+GOLD,activated_sludge,env_medium,,714,67.7
+GOLD,activated_sludge,env_medium,activated sludge [envo:00002046],69,6.5
+GOLD,activated_sludge,env_medium,activated sludge,67,6.4
+GOLD,activated_sludge,env_medium,synthetic carrier material,54,5.1
+GOLD,activated_sludge,env_medium,anaerobic sludge,38,3.6
+GOLD,activated_sludge,env_medium,waste material,26,2.5
+GOLD,activated_sludge,env_medium,wastewater treatment plant,20,1.9
+GOLD,activated_sludge,env_medium,environmental material,12,1.1
+GOLD,activated_sludge,env_medium,sludge,11,1.0
+GOLD,activated_sludge,env_medium,water,9,0.9
+GOLD,activated_sludge,env_medium,anaerobic digester sludge,8,0.8
+GOLD,activated_sludge,env_medium,sludge rna,7,0.7
+GOLD,activated_sludge,taxonomy_name,activated sludge metagenome,543,51.5
+GOLD,activated_sludge,taxonomy_name,wastewater metagenome,261,24.8
+GOLD,activated_sludge,taxonomy_name,bioreactor metagenome,100,9.5
+GOLD,activated_sludge,taxonomy_name,sludge metagenome,88,8.3
+GOLD,activated_sludge,taxonomy_name,metagenome,31,2.9
+GOLD,activated_sludge,taxonomy_name,bioreactor sludge metagenome,15,1.4
+GOLD,activated_sludge,taxonomy_name,electrolysis cell metagenome,5,0.5
+GOLD,activated_sludge,taxonomy_name,anaerobic digester metagenome,3,0.3
+GOLD,activated_sludge,taxonomy_name,biofilm metagenome,2,0.2
+GOLD,activated_sludge,taxonomy_name,nitrospira sp.,1,0.1
+GOLD,activated_sludge,taxonomy_name,candidatus accumulibacter phosphatis,1,0.1
+GOLD,activated_sludge,taxonomy_name,candidatus leucobacter sulfamidivorax,1,0.1
+GOLD,activated_sludge,package_content,metagenome.environmental.1.0,708,67.2
+GOLD,activated_sludge,package_content,mims.me.wastewater.6.0,200,19.0
+GOLD,activated_sludge,package_content,generic.1.0,120,11.4
+GOLD,activated_sludge,package_content,mims.me.miscellaneous.6.0,24,2.3
+GOLD,activated_sludge,package_content,mimag.wastewater.6.0,1,0.1
+GOLD,activated_sludge,package_content,microbe.1.0,1,0.1
+GOLD,activated_sludge,sample_type,,1052,99.8
+GOLD,activated_sludge,sample_type,metagenomic assembly,2,0.2
+GOLD,activated_sludge,description_title,metagenome or environmental sample from activated sludge metagenome,166,15.7
+GOLD,activated_sludge,description_title,mims environmental/metagenome sample from activated sludge metagenome,122,11.6
+GOLD,activated_sludge,description_title,metagenome or environmental sample from sludge metagenome,80,7.6
+GOLD,activated_sludge,description_title,metagenome or environmental sample from wastewater metagenome,53,5.0
+GOLD,activated_sludge,description_title,mims environmental/metagenome sample from multiple,14,1.3
+GOLD,activated_sludge,description_title,read sequences from full scale mesophilic anaerobic digester at fredericia wwtp in denmark,14,1.3
+GOLD,activated_sludge,description_title,mims environmental/metagenome sample from bioreactor sludge metatranscriptome,11,1.0
+GOLD,activated_sludge,description_title,mbr sludge,6,0.6
+GOLD,activated_sludge,description_title,mims environmental/metagenome sample from electrolysis cell metagenome,5,0.5
+GOLD,activated_sludge,description_title,metagenomic sample from activated sludge of a municipal sewage treatment plant,4,0.4
+GOLD,activated_sludge,description_title,metagenome or environmental sample from bioreactor metagenome,3,0.3
+GOLD,activated_sludge,description_title,environmental/metagenome sample for activated sludge biomass,3,0.3
+GOLD,bioreactor_anaerobic_sludge,isolation_source,anaerobic bioreactor sludge,376,24.7
+GOLD,bioreactor_anaerobic_sludge,isolation_source,biomass from anaerobic digester,313,20.5
+GOLD,bioreactor_anaerobic_sludge,isolation_source,anaerobic bioreactor,208,13.6
+GOLD,bioreactor_anaerobic_sludge,isolation_source,anaerobic digester,122,8.0
+GOLD,bioreactor_anaerobic_sludge,isolation_source,anaerobic bioreactor biomass,116,7.6
+GOLD,bioreactor_anaerobic_sludge,isolation_source,full-scale biogas plant,59,3.9
+GOLD,bioreactor_anaerobic_sludge,isolation_source,enriched biomass from anaerobic dhs bioreactor,59,3.9
+GOLD,bioreactor_anaerobic_sludge,isolation_source,fermentation bioreactor biomass,57,3.7
+GOLD,bioreactor_anaerobic_sludge,isolation_source,,35,2.3
+GOLD,bioreactor_anaerobic_sludge,isolation_source,mesophilic biogas digester,30,2.0
+GOLD,bioreactor_anaerobic_sludge,isolation_source,anaerobic digester sludge,30,2.0
+GOLD,bioreactor_anaerobic_sludge,isolation_source,anaerobic digester from wastewater treatment plant,19,1.2
+GOLD,bioreactor_anaerobic_sludge,env_broad_scale,,1488,97.6
+GOLD,bioreactor_anaerobic_sludge,env_broad_scale,anaerobic digester,15,1.0
+GOLD,bioreactor_anaerobic_sludge,env_broad_scale,urban biome,9,0.6
+GOLD,bioreactor_anaerobic_sludge,env_broad_scale,anaerobic membrane reactor,4,0.3
+GOLD,bioreactor_anaerobic_sludge,env_broad_scale,missing,4,0.3
+GOLD,bioreactor_anaerobic_sludge,env_broad_scale,anthropogenic environmental material,3,0.2
+GOLD,bioreactor_anaerobic_sludge,env_broad_scale,anaerbic digester,1,0.1
+GOLD,bioreactor_anaerobic_sludge,env_broad_scale,anaerobic,1,0.1
+GOLD,bioreactor_anaerobic_sludge,env_local_scale,,1488,97.6
+GOLD,bioreactor_anaerobic_sludge,env_local_scale,reactor,15,1.0
+GOLD,bioreactor_anaerobic_sludge,env_local_scale,anaerobic bioreactor,9,0.6
+GOLD,bioreactor_anaerobic_sludge,env_local_scale,fo-anmbr,4,0.3
+GOLD,bioreactor_anaerobic_sludge,env_local_scale,missing,4,0.3
+GOLD,bioreactor_anaerobic_sludge,env_local_scale,sludge,3,0.2
+GOLD,bioreactor_anaerobic_sludge,env_local_scale,biogas reactor,1,0.1
+GOLD,bioreactor_anaerobic_sludge,env_local_scale,bioreactor,1,0.1
+GOLD,bioreactor_anaerobic_sludge,env_medium,,1488,97.6
+GOLD,bioreactor_anaerobic_sludge,env_medium,sludge,24,1.6
+GOLD,bioreactor_anaerobic_sludge,env_medium,anaerobic sludge,9,0.6
+GOLD,bioreactor_anaerobic_sludge,env_medium,anaerobic sludge digester,3,0.2
+GOLD,bioreactor_anaerobic_sludge,env_medium,slurry,1,0.1
+GOLD,bioreactor_anaerobic_sludge,taxonomy_name,bioreactor metagenome,922,60.5
+GOLD,bioreactor_anaerobic_sludge,taxonomy_name,anaerobic digester metagenome,328,21.5
+GOLD,bioreactor_anaerobic_sludge,taxonomy_name,activated sludge metagenome,172,11.3
+GOLD,bioreactor_anaerobic_sludge,taxonomy_name,wastewater metagenome,38,2.5
+GOLD,bioreactor_anaerobic_sludge,taxonomy_name,bioreactor sludge metagenome,34,2.2
+GOLD,bioreactor_anaerobic_sludge,taxonomy_name,biogas fermenter metagenome,16,1.0
+GOLD,bioreactor_anaerobic_sludge,taxonomy_name,metagenome,15,1.0
+GOLD,bioreactor_anaerobic_sludge,package_content,metagenome.environmental.1.0,1488,97.6
+GOLD,bioreactor_anaerobic_sludge,package_content,generic.1.0,24,1.6
+GOLD,bioreactor_anaerobic_sludge,package_content,mims.me.wastewater.6.0,13,0.9
+GOLD,bioreactor_anaerobic_sludge,sample_type,,1516,99.4
+GOLD,bioreactor_anaerobic_sludge,sample_type,bioreactor sludge,9,0.6
+GOLD,bioreactor_anaerobic_sludge,description_title,metagenome or environmental sample from bioreactor metagenome,63,4.1
+GOLD,bioreactor_anaerobic_sludge,description_title,mims environmental/metagenome sample from anaerobic digester metagenome,5,0.3
+GOLD,bioreactor_anaerobic_sludge,description_title,mims environmental/metagenome sample from bioreactor sludge,4,0.3
+GOLD,bioreactor_anaerobic_sludge,description_title,13114.angenent.65.s005,1,0.1
+GOLD,bioreactor_anaerobic_sludge,description_title,13114.angenent.65.s007,1,0.1
+GOLD,bioreactor_anaerobic_sludge,description_title,active sludge microbial communities of municipal wastewater-treating anaerobic digesters from hong kong - ad_ukc115_metag,1,0.1
+GOLD,bioreactor_anaerobic_sludge,description_title,active sludge microbial communities of municipal wastewater-treating anaerobic digesters from japan - ad_jpnmr1_metag,1,0.1
+GOLD,bioreactor_anaerobic_sludge,description_title,"wastewater treatment type i accumulibacter community from ebpr bioreactor in madison, wi, usa - reactor 1_1/23/2012_ dna",1,0.1
+GOLD,bioreactor_anaerobic_sludge,description_title,active sludge microbial communities of municipal wastewater-treating anaerobic digesters from japan – ad_jpnna4_metat,1,0.1
+GOLD,bioreactor_anaerobic_sludge,description_title,"metatranscriptome of enriched activated sludge microbial communities from anaerobic digester in wttp, new holstein, wisconsin, united states - aat_ur_asp2",1,0.1
+GOLD,bioreactor_anaerobic_sludge,description_title,"enriched cells from anaerobic digester biomass from university of british columbia, vancouver, canada - sybr_rep_1_zielsf.t2.bnct.02_j3",1,0.1
+GOLD,bioreactor_anaerobic_sludge,description_title,"enriched cells from anaerobic digester biomass from university of british columbia, vancouver, canada - sybr_rep_3_zielsf.t2.bnct.02_k14",1,0.1
+GOLD,digester,isolation_source,,125,55.8
+GOLD,digester,isolation_source,anaerobic digestion sludge,24,10.7
+GOLD,digester,isolation_source,thermophilic anaerobic digestion sludge,12,5.4
+GOLD,digester,isolation_source,mesophilic anaerobic digestion sludge,12,5.4
+GOLD,digester,isolation_source,anaerobic digestion,9,4.0
+GOLD,digester,isolation_source,enrichment reactor seeded with activated sludge,9,4.0
+GOLD,digester,isolation_source,paper sludge,7,3.1
+GOLD,digester,isolation_source,swh,6,2.7
+GOLD,digester,isolation_source,gz,5,2.2
+GOLD,digester,isolation_source,anaerobic sludge +40% fruit and vegetable waste,3,1.3
+GOLD,digester,isolation_source,anaerobic sludge+20% fruit and vegetable waste,3,1.3
+GOLD,digester,isolation_source,sludge,3,1.3
+GOLD,digester,env_broad_scale,anaerobic digester microbiome,117,52.2
+GOLD,digester,env_broad_scale,,90,40.2
+GOLD,digester,env_broad_scale,environmental system,9,4.0
+GOLD,digester,env_broad_scale,wast sludge,3,1.3
+GOLD,digester,env_broad_scale,urban biome (envo:01000249),3,1.3
+GOLD,digester,env_broad_scale,sludge,2,0.9
+GOLD,digester,env_local_scale,anaerobic sludge digester,110,49.1
+GOLD,digester,env_local_scale,,90,40.2
+GOLD,digester,env_local_scale,anaerobic sludge,8,3.6
+GOLD,digester,env_local_scale,mesophilic sludge digester,7,3.1
+GOLD,digester,env_local_scale,chemical enhanced primary treatment sludge,3,1.3
+GOLD,digester,env_local_scale,brewery (envo:00003885); anaerobic sludge (envo:00002129),3,1.3
+GOLD,digester,env_local_scale,wastewater treatment plant,1,0.4
+GOLD,digester,env_local_scale,sludge,1,0.4
+GOLD,digester,env_local_scale,wasterwater treatment plant,1,0.4
+GOLD,digester,env_medium,anaerobic digester biomass,117,52.2
+GOLD,digester,env_medium,,89,39.7
+GOLD,digester,env_medium,anaerobic digester sludge,5,2.2
+GOLD,digester,env_medium,anaerobic digester foam,3,1.3
+GOLD,digester,env_medium,waste sludge,3,1.3
+GOLD,digester,env_medium,waste water (envo:00002001),3,1.3
+GOLD,digester,env_medium,sludge,2,0.9
+GOLD,digester,env_medium,activated sludge,1,0.4
+GOLD,digester,env_medium,anaerobic digestion sludge,1,0.4
+GOLD,digester,taxonomy_name,anaerobic digester metagenome,136,60.7
+GOLD,digester,taxonomy_name,sludge metagenome,67,29.9
+GOLD,digester,taxonomy_name,mixed culture metagenome,11,4.9
+GOLD,digester,taxonomy_name,clostridium beijerinckii ncimb 8052,3,1.3
+GOLD,digester,taxonomy_name,metagenome,3,1.3
+GOLD,digester,taxonomy_name,bioreactor sludge metagenome,2,0.9
+GOLD,digester,taxonomy_name,bioreactor metagenome,1,0.4
+GOLD,digester,taxonomy_name,wastewater metagenome,1,0.4
+GOLD,digester,package_content,generic.1.0,124,55.4
+GOLD,digester,package_content,metagenome.environmental.1.0,89,39.7
+GOLD,digester,package_content,mims.me.wastewater.6.0,11,4.9
+GOLD,digester,sample_type,,224,100.0
+GOLD,digester,description_title,anaerobic digestion sludge of wastewater treatment plants,48,21.4
+GOLD,digester,description_title,metagenome or environmental sample from sludge metagenome,17,7.6
+GOLD,digester,description_title,2016w12-randers rt2,10,4.5
+GOLD,digester,description_title,metagenome or environmental sample from anaerobic digester metagenome,9,4.0
+GOLD,digester,description_title,mims environmental/metagenome sample from anaerobic digester metagenome,9,4.0
+GOLD,digester,description_title,2016w21-randers rt2,4,1.8
+GOLD,digester,description_title,2016w12-randersrt2,4,1.8
+GOLD,digester,description_title,metatranscriptome of cept sludge digestion,3,1.3
+GOLD,digester,description_title,metatrasncriptomics,3,1.3
+GOLD,digester,description_title,2011w14-fredericia rt,2,0.9
+GOLD,digester,description_title,2016w21-randersrt2,2,0.9
+GOLD,digester,description_title,metagenome-randers-0512,2,0.9
+GOLD,effluent,isolation_source,wastewater communities,21,43.8
+GOLD,effluent,isolation_source,effluent,14,29.2
+GOLD,effluent,isolation_source,effluent of wwtp using conventional activated sludge technology,9,18.8
+GOLD,effluent,isolation_source,wastewater treatment plant effluent,3,6.2
+GOLD,effluent,isolation_source,wastewater treatment plant effluent- jackson pike,1,2.1
+GOLD,effluent,env_broad_scale,,48,100.0
+GOLD,effluent,env_local_scale,,48,100.0
+GOLD,effluent,env_medium,,48,100.0
+GOLD,effluent,taxonomy_name,wastewater metagenome,48,100.0
+GOLD,effluent,package_content,metagenome.environmental.1.0,48,100.0
+GOLD,effluent,sample_type,,48,100.0
+GOLD,effluent,description_title,metagenome or environmental sample from wastewater metagenome,23,47.9
+GOLD,effluent,description_title,"wastewater effluent complex algal communities from wisconsin, to seasonally profile nutrient transformation and carbon sequestration - ji 6/11/14 d rna",1,2.1
+GOLD,effluent,description_title,"wastewater effluent complex algal communities from wisconsin, to seasonally profile nutrient transformation and carbon sequestration - ji 8/11/14 a brown dna",1,2.1
+GOLD,effluent,description_title,"wastewater effluent complex algal communities from wisconsin, to seasonally profile nutrient transformation and carbon sequestration - ji 7/17/14 b2 rna",1,2.1
+GOLD,effluent,description_title,jp3,1,2.1
+GOLD,effluent,description_title,"wastewater effluent complex algal communities from wisconsin, to seasonally profile nutrient transformation and carbon sequestration - ji 9/18/14 a rna",1,2.1
+GOLD,effluent,description_title,"wastewater effluent complex algal communities from wisconsin, to seasonally profile nutrient transformation and carbon sequestration - ji 7/17/14 b dna",1,2.1
+GOLD,effluent,description_title,"wastewater effluent complex algal communities from wisconsin, to seasonally profile nutrient transformation and carbon sequestration - ji 7/17/14 c rna",1,2.1
+GOLD,effluent,description_title,"wastewater effluent complex algal communities from wisconsin, to seasonally profile nutrient transformation and carbon sequestration - ji 9/18/14 c2 dna",1,2.1
+GOLD,effluent,description_title,"wastewater effluent complex algal communities from wisconsin, to seasonally profile nutrient transformation and carbon sequestration - ji 9/18/14 b dna",1,2.1
+GOLD,effluent,description_title,"wastewater effluent complex algal communities from wisconsin, to seasonally profile nutrient transformation and carbon sequestration - ji 8/11/14 a brown rna",1,2.1
+GOLD,effluent,description_title,"wastewater effluent complex algal communities from wisconsin, to seasonally profile nutrient transformation and carbon sequestration - ji 10/23/14 a2 rna",1,2.1
+GOLD,industrial_ww,isolation_source,,165,33.4
+GOLD,industrial_ww,isolation_source,rice wash waste,86,17.4
+GOLD,industrial_ww,isolation_source,water,35,7.1
+GOLD,industrial_ww,isolation_source,wastewater sample,30,6.1
+GOLD,industrial_ww,isolation_source,hospital wastewater,14,2.8
+GOLD,industrial_ww,isolation_source,feedlot catch-basin water,13,2.6
+GOLD,industrial_ww,isolation_source,ecological wastewater treatment plant,12,2.4
+GOLD,industrial_ww,isolation_source,natural feedlot,8,1.6
+GOLD,industrial_ww,isolation_source,organic dairy farm,8,1.6
+GOLD,industrial_ww,isolation_source,conventional feedlot,8,1.6
+GOLD,industrial_ww,isolation_source,conventional dairy farm,8,1.6
+GOLD,industrial_ww,isolation_source,abattoir waste,6,1.2
+GOLD,industrial_ww,env_broad_scale,,366,74.1
+GOLD,industrial_ww,env_broad_scale,anthropogenic terrestrial biome,64,13.0
+GOLD,industrial_ww,env_broad_scale,terrestrial biome,15,3.0
+GOLD,industrial_ww,env_broad_scale,freshwater biome,14,2.8
+GOLD,industrial_ww,env_broad_scale,wastewater treatment plant,12,2.4
+GOLD,industrial_ww,env_broad_scale,wastewater,12,2.4
+GOLD,industrial_ww,env_broad_scale,mine tailing pool,5,1.0
+GOLD,industrial_ww,env_broad_scale,oligotrophic freshwater,4,0.8
+GOLD,industrial_ww,env_broad_scale,aquatic biome[envo_00002030],1,0.2
+GOLD,industrial_ww,env_broad_scale,coal bed,1,0.2
+GOLD,industrial_ww,env_local_scale,,366,74.1
+GOLD,industrial_ww,env_local_scale,sewage plant,58,11.7
+GOLD,industrial_ww,env_local_scale,animal house,15,3.0
+GOLD,industrial_ww,env_local_scale,mine tailing,14,2.8
+GOLD,industrial_ww,env_local_scale,anthropised terrestrial environmental zone,6,1.2
+GOLD,industrial_ww,env_local_scale,mine tailing pool,5,1.0
+GOLD,industrial_ww,env_local_scale,secondary cooling water system of nuclear reactor,4,0.8
+GOLD,industrial_ww,env_local_scale,combined sewer,4,0.8
+GOLD,industrial_ww,env_local_scale,sewer_2,3,0.6
+GOLD,industrial_ww,env_local_scale,sewer_1,3,0.6
+GOLD,industrial_ww,env_local_scale,sewer,2,0.4
+GOLD,industrial_ww,env_local_scale,influent of dachang wastewater treatment plant,1,0.2
+GOLD,industrial_ww,env_medium,,366,74.1
+GOLD,industrial_ww,env_medium,sewage,20,4.0
+GOLD,industrial_ww,env_medium,biosolids,16,3.2
+GOLD,industrial_ww,env_medium,water,16,3.2
+GOLD,industrial_ww,env_medium,water of meat washing,15,3.0
+GOLD,industrial_ww,env_medium,waste water,14,2.8
+GOLD,industrial_ww,env_medium,wastewater,12,2.4
+GOLD,industrial_ww,env_medium,surface water,10,2.0
+GOLD,industrial_ww,env_medium,raw primary sludge,8,1.6
+GOLD,industrial_ww,env_medium,industrial wastewater,6,1.2
+GOLD,industrial_ww,env_medium,sediment,5,1.0
+GOLD,industrial_ww,env_medium,sludge,4,0.8
+GOLD,industrial_ww,taxonomy_name,wastewater metagenome,158,32.0
+GOLD,industrial_ww,taxonomy_name,metagenome,103,20.9
+GOLD,industrial_ww,taxonomy_name,food production metagenome,86,17.4
+GOLD,industrial_ww,taxonomy_name,aquatic metagenome,43,8.7
+GOLD,industrial_ww,taxonomy_name,terrestrial metagenome,32,6.5
+GOLD,industrial_ww,taxonomy_name,mine drainage metagenome,24,4.9
+GOLD,industrial_ww,taxonomy_name,freshwater metagenome,18,3.6
+GOLD,industrial_ww,taxonomy_name,bioreactor metagenome,13,2.6
+GOLD,industrial_ww,taxonomy_name,industrial waste metagenome,10,2.0
+GOLD,industrial_ww,taxonomy_name,sediment metagenome,5,1.0
+GOLD,industrial_ww,taxonomy_name,hydrocarbon metagenome,1,0.2
+GOLD,industrial_ww,taxonomy_name,anaerobic digester metagenome,1,0.2
+GOLD,industrial_ww,package_content,metagenome.environmental.1.0,329,66.6
+GOLD,industrial_ww,package_content,generic.1.0,130,26.3
+GOLD,industrial_ww,package_content,mims.me.wastewater.6.0,31,6.3
+GOLD,industrial_ww,package_content,mims.me.water.6.0,4,0.8
+GOLD,industrial_ww,sample_type,,494,100.0
+GOLD,industrial_ww,description_title,metagenome or environmental sample from wastewater metagenome,38,7.7
+GOLD,industrial_ww,description_title,metagenome or environmental sample from terrestrial metagenome,32,6.5
+GOLD,industrial_ww,description_title,mims environmental/metagenome sample from wastewater metagenome,30,6.1
+GOLD,industrial_ww,description_title,phd_metagenome_,19,3.8
+GOLD,industrial_ww,description_title,feedlot catch-basin water metagenome sample,13,2.6
+GOLD,industrial_ww,description_title,metagenome or environmental sample from bioreactor metagenome,12,2.4
+GOLD,industrial_ww,description_title,d3 anode sample 1,8,1.6
+GOLD,industrial_ww,description_title,metatranscriptome_,8,1.6
+GOLD,industrial_ww,description_title,metagenome or environmental sample from aquatic metagenome,8,1.6
+GOLD,industrial_ww,description_title,d4 plankton 1,6,1.2
+GOLD,industrial_ww,description_title,d1 plankton 1,5,1.0
+GOLD,industrial_ww,description_title,d5 anode sample 1,5,1.0
+GOLD,influent,isolation_source,untreated sewages,4,50.0
+GOLD,influent,isolation_source,wastewater treatment plant influent,3,37.5
+GOLD,influent,isolation_source,wastewater treatment plant influent- jackson pike,1,12.5
+GOLD,influent,env_broad_scale,,8,100.0
+GOLD,influent,env_local_scale,,8,100.0
+GOLD,influent,env_medium,,8,100.0
+GOLD,influent,taxonomy_name,wastewater metagenome,8,100.0
+GOLD,influent,package_content,metagenome.environmental.1.0,8,100.0
+GOLD,influent,sample_type,,8,100.0
+GOLD,influent,description_title,socl,1,12.5
+GOLD,influent,description_title,"sewage microbial communities from wwtp in marseille, france - spike3",1,12.5
+GOLD,influent,description_title,lm2,1,12.5
+GOLD,influent,description_title,"sewage microbial communities from wwtp in marseille, france - spike2",1,12.5
+GOLD,influent,description_title,"sewage microbial communities from wwtp in marseille, france - spike0",1,12.5
+GOLD,influent,description_title,jp2,1,12.5
+GOLD,influent,description_title,soco2,1,12.5
+GOLD,influent,description_title,"sewage microbial communities from wwtp in marseille, france - spike1",1,12.5
+GOLD,sewage,isolation_source,,1021,88.6
+GOLD,sewage,isolation_source,municipal mesophilic sewage sludge of the wastewater treatment plant in the city of morocco: marrakech.,33,2.9
+GOLD,sewage,isolation_source,sewage,22,1.9
+GOLD,sewage,isolation_source,wastewater,18,1.6
+GOLD,sewage,isolation_source,sha tin sewage treatment works as,12,1.0
+GOLD,sewage,isolation_source,urban wastewater,5,0.4
+GOLD,sewage,isolation_source,raw sewage,4,0.3
+GOLD,sewage,isolation_source,stanley sewage treatment works as,3,0.3
+GOLD,sewage,isolation_source,full-scale biogas plant,2,0.2
+GOLD,sewage,isolation_source,sewage enrichment,2,0.2
+GOLD,sewage,isolation_source,wwtp sludge,2,0.2
+GOLD,sewage,isolation_source,shek wu hui sewage treatment works,2,0.2
+GOLD,sewage,env_broad_scale,,1082,93.9
+GOLD,sewage,env_broad_scale,freshwater biome[envo_00000873],28,2.4
+GOLD,sewage,env_broad_scale,sewage system,14,1.2
+GOLD,sewage,env_broad_scale,wastewater treatment plant,12,1.0
+GOLD,sewage,env_broad_scale,envo:00002043,9,0.8
+GOLD,sewage,env_broad_scale,inland,3,0.3
+GOLD,sewage,env_broad_scale,aeration tank,3,0.3
+GOLD,sewage,env_broad_scale,wastewater,1,0.1
+GOLD,sewage,env_local_scale,,1082,93.9
+GOLD,sewage,env_local_scale,not applicable,28,2.4
+GOLD,sewage,env_local_scale,street-access sewage,14,1.2
+GOLD,sewage,env_local_scale,sewage,12,1.0
+GOLD,sewage,env_local_scale,envo:00002018,6,0.5
+GOLD,sewage,env_local_scale,envo:00002044,3,0.3
+GOLD,sewage,env_local_scale,bioreactor,3,0.3
+GOLD,sewage,env_local_scale,sewage treatment plant,3,0.3
+GOLD,sewage,env_local_scale,batch reactor,1,0.1
+GOLD,sewage,env_medium,,1082,93.9
+GOLD,sewage,env_medium,wastewater treatment plant[envo:00002043],28,2.4
+GOLD,sewage,env_medium,sewage,17,1.5
+GOLD,sewage,env_medium,sludge,12,1.0
+GOLD,sewage,env_medium,envo:00002018,4,0.3
+GOLD,sewage,env_medium,active sludge,3,0.3
+GOLD,sewage,env_medium,envo:00000890,2,0.2
+GOLD,sewage,env_medium,envo:00003965,1,0.1
+GOLD,sewage,env_medium,envo:00002057,1,0.1
+GOLD,sewage,env_medium,envo:00002046,1,0.1
+GOLD,sewage,env_medium,water,1,0.1
+GOLD,sewage,taxonomy_name,wastewater metagenome,1086,94.3
+GOLD,sewage,taxonomy_name,sludge metagenome,34,3.0
+GOLD,sewage,taxonomy_name,aquatic metagenome,22,1.9
+GOLD,sewage,taxonomy_name,bioreactor metagenome,5,0.4
+GOLD,sewage,taxonomy_name,activated sludge metagenome,3,0.3
+GOLD,sewage,taxonomy_name,manure metagenome,2,0.2
+GOLD,sewage,package_content,generic.1.0,974,84.5
+GOLD,sewage,package_content,metagenome.environmental.1.0,123,10.7
+GOLD,sewage,package_content,mims.me.microbial.6.0,28,2.4
+GOLD,sewage,package_content,mims.me.wastewater.6.0,24,2.1
+GOLD,sewage,package_content,mimarks.survey.wastewater.6.0,3,0.3
+GOLD,sewage,sample_type,,1150,99.8
+GOLD,sewage,sample_type,sludge,1,0.1
+GOLD,sewage,sample_type,digested sludge,1,0.1
+GOLD,sewage,description_title,sample from wastewater metagenome,792,68.8
+GOLD,sewage,description_title,danish sewage,64,5.6
+GOLD,sewage,description_title,metagenome or environmental sample from wastewater metagenome,53,4.6
+GOLD,sewage,description_title,mims environmental/metagenome sample from wastewater metagenome,43,3.7
+GOLD,sewage,description_title,metagenome or environmental sample from aquatic metagenome,22,1.9
+GOLD,sewage,description_title,resistome risks of wastewaters and aquatic environments deciphered by shotgun metagenomic assembly,18,1.6
+GOLD,sewage,description_title,urban wastewater metagenomic dna sample,5,0.4
+GOLD,sewage,description_title,analysis of the microbial community dynamics during acclimatization of a membrane bioreactor treating table olive processing wastewater,3,0.3
+GOLD,sewage,description_title,sequencing batch reactor sludge retention time 7 days,2,0.2
+GOLD,sewage,description_title,sequencing batch reactor sludge retention time 1 day,2,0.2
+GOLD,sewage,description_title,sequencing batch reactor sludge retention time 5 days,2,0.2
+GOLD,sewage,description_title,metagenome or environmental sample from bioreactor metagenome,2,0.2
+GOLD,sludge_generic,isolation_source,,1,33.3
+GOLD,sludge_generic,isolation_source,activated biomass in a lab-scale reactor treating industrial wastewater at 4 ppm do,1,33.3
+GOLD,sludge_generic,isolation_source,activated biomass in a lab-scale reactor treating industrial wastewater at 2 ppm do,1,33.3
+GOLD,sludge_generic,env_broad_scale,common effluent treatment plant,2,66.7
+GOLD,sludge_generic,env_broad_scale,,1,33.3
+GOLD,sludge_generic,env_local_scale,wastewater,2,66.7
+GOLD,sludge_generic,env_local_scale,,1,33.3
+GOLD,sludge_generic,env_medium,activated sludge,2,66.7
+GOLD,sludge_generic,env_medium,,1,33.3
+GOLD,sludge_generic,taxonomy_name,activated sludge metagenome,2,66.7
+GOLD,sludge_generic,taxonomy_name,candidatus amarolinea aalborgensis,1,33.3
+GOLD,sludge_generic,package_content,mims.me.wastewater.6.0,2,66.7
+GOLD,sludge_generic,package_content,generic.1.0,1,33.3
+GOLD,sludge_generic,sample_type,,3,100.0
+GOLD,sludge_generic,description_title,mims environmental/metagenome sample from activated sludge metagenome,2,66.7
+GOLD,sludge_generic,description_title,snp,1,33.3
+GOLD,wastewater_other,isolation_source,,413,38.4
+GOLD,wastewater_other,isolation_source,water from urban wastewater,149,13.9
+GOLD,wastewater_other,isolation_source,full-scale wastewater treatment plant aeration tank,129,12.0
+GOLD,wastewater_other,isolation_source,wastewater,71,6.6
+GOLD,wastewater_other,isolation_source,water,34,3.2
+GOLD,wastewater_other,isolation_source,swine feedlot wastewater,30,2.8
+GOLD,wastewater_other,isolation_source,activated sludge,30,2.8
+GOLD,wastewater_other,isolation_source,not applicable,20,1.9
+GOLD,wastewater_other,isolation_source,raw wastewater from wastewater treatment plants,18,1.7
+GOLD,wastewater_other,isolation_source,wastewaters,12,1.1
+GOLD,wastewater_other,isolation_source,wastewater treatment plant,10,0.9
+GOLD,wastewater_other,isolation_source,"national university of singapore, singapore",9,0.8
+GOLD,wastewater_other,env_broad_scale,,715,66.5
+GOLD,wastewater_other,env_broad_scale,missing,93,8.7
+GOLD,wastewater_other,env_broad_scale,urban,40,3.7
+GOLD,wastewater_other,env_broad_scale,ebpr sludge,33,3.1
+GOLD,wastewater_other,env_broad_scale,jiangsu,28,2.6
+GOLD,wastewater_other,env_broad_scale,reclaimed water facility,26,2.4
+GOLD,wastewater_other,env_broad_scale,wastewater treatment plant,21,2.0
+GOLD,wastewater_other,env_broad_scale,sewage system,20,1.9
+GOLD,wastewater_other,env_broad_scale,envo:00002043,18,1.7
+GOLD,wastewater_other,env_broad_scale,wastewater,12,1.1
+GOLD,wastewater_other,env_broad_scale,waste water [envo:00002001],12,1.1
+GOLD,wastewater_other,env_broad_scale,waste treatment plant,10,0.9
+GOLD,wastewater_other,env_local_scale,,733,68.2
+GOLD,wastewater_other,env_local_scale,wastewater treatment plant,162,15.1
+GOLD,wastewater_other,env_local_scale,ebpr bioreactor,33,3.1
+GOLD,wastewater_other,env_local_scale,facility,26,2.4
+GOLD,wastewater_other,env_local_scale,uasb,16,1.5
+GOLD,wastewater_other,env_local_scale,wwtp,16,1.5
+GOLD,wastewater_other,env_local_scale,wastewater treatment plant influent,13,1.2
+GOLD,wastewater_other,env_local_scale,waste treatment plant,10,0.9
+GOLD,wastewater_other,env_local_scale,suspended sediment [envo:01000113]|ice [envo:01001125],10,0.9
+GOLD,wastewater_other,env_local_scale,influent,9,0.8
+GOLD,wastewater_other,env_local_scale,wastewater treatment plant effluent,7,0.7
+GOLD,wastewater_other,env_local_scale,wastewater,6,0.6
+GOLD,wastewater_other,env_medium,,733,68.2
+GOLD,wastewater_other,env_medium,wastewater,93,8.7
+GOLD,wastewater_other,env_medium,waste water,52,4.8
+GOLD,wastewater_other,env_medium,sludge,31,2.9
+GOLD,wastewater_other,env_medium,water,30,2.8
+GOLD,wastewater_other,env_medium,reclaimed water,26,2.4
+GOLD,wastewater_other,env_medium,0.22µm filtered reactor supernatant,22,2.0
+GOLD,wastewater_other,env_medium,sewage,20,1.9
+GOLD,wastewater_other,env_medium,sewage [envo:00002018],14,1.3
+GOLD,wastewater_other,env_medium,biofilm,14,1.3
+GOLD,wastewater_other,env_medium,activated sludge,6,0.6
+GOLD,wastewater_other,env_medium,wastewater treatment plant,6,0.6
+GOLD,wastewater_other,taxonomy_name,wastewater metagenome,859,79.9
+GOLD,wastewater_other,taxonomy_name,aquatic metagenome,90,8.4
+GOLD,wastewater_other,taxonomy_name,bioreactor metagenome,37,3.4
+GOLD,wastewater_other,taxonomy_name,bioreactor sludge metagenome,33,3.1
+GOLD,wastewater_other,taxonomy_name,metagenome,13,1.2
+GOLD,wastewater_other,taxonomy_name,activated sludge metagenome,12,1.1
+GOLD,wastewater_other,taxonomy_name,viral metagenome,10,0.9
+GOLD,wastewater_other,taxonomy_name,soil metagenome,8,0.7
+GOLD,wastewater_other,taxonomy_name,hydrocarbon metagenome,7,0.7
+GOLD,wastewater_other,taxonomy_name,freshwater metagenome,4,0.4
+GOLD,wastewater_other,taxonomy_name,mixed culture metagenome,1,0.1
+GOLD,wastewater_other,taxonomy_name,escherichia coli,1,0.1
+GOLD,wastewater_other,package_content,metagenome.environmental.1.0,642,59.7
+GOLD,wastewater_other,package_content,mims.me.wastewater.6.0,253,23.5
+GOLD,wastewater_other,package_content,generic.1.0,128,11.9
+GOLD,wastewater_other,package_content,mimarks.survey.water.6.0,26,2.4
+GOLD,wastewater_other,package_content,mimarks.survey.wastewater.6.0,14,1.3
+GOLD,wastewater_other,package_content,mims.me.miscellaneous.6.0,7,0.7
+GOLD,wastewater_other,package_content,microbe.1.0,4,0.4
+GOLD,wastewater_other,package_content,mims.me.microbial.6.0,1,0.1
+GOLD,wastewater_other,sample_type,,1057,98.3
+GOLD,wastewater_other,sample_type,biological sample,14,1.3
+GOLD,wastewater_other,sample_type,whole organism,4,0.4
+GOLD,wastewater_other,description_title,na,149,13.9
+GOLD,wastewater_other,description_title,metagenome or environmental sample from wastewater metagenome,104,9.7
+GOLD,wastewater_other,description_title,wastewater metagenome,81,7.5
+GOLD,wastewater_other,description_title,mims environmental/metagenome sample from wastewater metagenome,42,3.9
+GOLD,wastewater_other,description_title,metagenome or environmental sample from aquatic metagenome,34,3.2
+GOLD,wastewater_other,description_title,mims environmental/metagenome sample from bioreactor sludge metagenome,33,3.1
+GOLD,wastewater_other,description_title,metagenome or environmental sample from bioreactor metagenome,27,2.5
+GOLD,wastewater_other,description_title,not applicable,18,1.7
+GOLD,wastewater_other,description_title,mimarks survey related sample from wastewater metagenome,14,1.3
+GOLD,wastewater_other,description_title,virus removal,6,0.6
+GOLD,wastewater_other,description_title,mims environmental/metagenome sample from activated sludge metagenome,5,0.5
+GOLD,wastewater_other,description_title,metagenome of wastewater,5,0.5
+MGnify,activated_sludge,isolation_source,,1170,92.9
+MGnify,activated_sludge,isolation_source,anaerobic digester,22,1.7
+MGnify,activated_sludge,isolation_source,anaerobic digester from wastewater treatment plant,16,1.3
+MGnify,activated_sludge,isolation_source,wastewater treatment plant of a petroleum refinery complex,12,1.0
+MGnify,activated_sludge,isolation_source,active sludge of municipal wastewater-treating anaerobic digesters,6,0.5
+MGnify,activated_sludge,isolation_source,not applicable,3,0.2
+MGnify,activated_sludge,isolation_source,activated sludge,3,0.2
+MGnify,activated_sludge,isolation_source,anaob enrichment reactor (r4),2,0.2
+MGnify,activated_sludge,isolation_source,polymer industry activated sludge,2,0.2
+MGnify,activated_sludge,isolation_source,textile industry activated sludge,2,0.2
+MGnify,activated_sludge,isolation_source,oil refinery activated sludge,2,0.2
+MGnify,activated_sludge,isolation_source,whey filtering industry activated sludge,2,0.2
+MGnify,activated_sludge,env_broad_scale,wastewater treatment plant,949,75.3
+MGnify,activated_sludge,env_broad_scale,wastewater,114,9.0
+MGnify,activated_sludge,env_broad_scale,,89,7.1
+MGnify,activated_sludge,env_broad_scale,anthropogenic terrestrial biome,67,5.3
+MGnify,activated_sludge,env_broad_scale,sludge,29,2.3
+MGnify,activated_sludge,env_broad_scale,bisphenol a culture medium,10,0.8
+MGnify,activated_sludge,env_broad_scale,urban,1,0.1
+MGnify,activated_sludge,env_broad_scale,common effluent treatment plant,1,0.1
+MGnify,activated_sludge,env_local_scale,wastewater treatment plant,820,65.1
+MGnify,activated_sludge,env_local_scale,sewage,170,13.5
+MGnify,activated_sludge,env_local_scale,,77,6.1
+MGnify,activated_sludge,env_local_scale,aerobic,76,6.0
+MGnify,activated_sludge,env_local_scale,sewage plant,67,5.3
+MGnify,activated_sludge,env_local_scale,activated sludge,16,1.3
+MGnify,activated_sludge,env_local_scale,bioreactor,7,0.6
+MGnify,activated_sludge,env_local_scale,polymers,2,0.2
+MGnify,activated_sludge,env_local_scale,textile,2,0.2
+MGnify,activated_sludge,env_local_scale,sewage sludge,2,0.2
+MGnify,activated_sludge,env_local_scale,oil refinery,2,0.2
+MGnify,activated_sludge,env_local_scale,whey filtering,2,0.2
+MGnify,activated_sludge,env_medium,activated sludge,903,71.7
+MGnify,activated_sludge,env_medium,sludge,179,14.2
+MGnify,activated_sludge,env_medium,,77,6.1
+MGnify,activated_sludge,env_medium,wastewater,23,1.8
+MGnify,activated_sludge,env_medium,sewage,20,1.6
+MGnify,activated_sludge,env_medium,biosolids,16,1.3
+MGnify,activated_sludge,env_medium,water,14,1.1
+MGnify,activated_sludge,env_medium,sludge-water,10,0.8
+MGnify,activated_sludge,env_medium,surface water,9,0.7
+MGnify,activated_sludge,env_medium,raw primary sludge,7,0.6
+MGnify,activated_sludge,env_medium,anthropogenic environmental material,2,0.2
+MGnify,activated_sludge,taxonomy_name,wastewater metagenome,777,61.7
+MGnify,activated_sludge,taxonomy_name,activated sludge metagenome,334,26.5
+MGnify,activated_sludge,taxonomy_name,metagenome,109,8.7
+MGnify,activated_sludge,taxonomy_name,bioreactor sludge metagenome,26,2.1
+MGnify,activated_sludge,taxonomy_name,anaerobic digester metagenome,6,0.5
+MGnify,activated_sludge,taxonomy_name,sludge metagenome,5,0.4
+MGnify,activated_sludge,taxonomy_name,bioreactor metagenome,3,0.2
+MGnify,activated_sludge,package_content,generic.1.0,1081,85.8
+MGnify,activated_sludge,package_content,mims.me.wastewater.6.0,103,8.2
+MGnify,activated_sludge,package_content,metagenome.environmental.1.0,76,6.0
+MGnify,activated_sludge,sample_type,,1260,100.0
+MGnify,activated_sludge,description_title,unprocessed dna and rna from wastewater treatment plant communities,35,2.8
+MGnify,activated_sludge,description_title,wwtp,16,1.3
+MGnify,activated_sludge,description_title,16s pao reactor,7,0.6
+MGnify,activated_sludge,description_title,croatian wastewater treatment sludge,6,0.5
+MGnify,activated_sludge,description_title,metagenomic sample from activated sludge of a municipal sewage treatment plant,4,0.3
+MGnify,activated_sludge,description_title,metagenome or environmental sample from bioreactor metagenome,2,0.2
+MGnify,activated_sludge,description_title,sequencing batch reactor sludge retention time 7 days,2,0.2
+MGnify,activated_sludge,description_title,sequencing batch reactor sludge retention time 1 day,2,0.2
+MGnify,activated_sludge,description_title,metagenomic sample from activated sludge of a textile dyeing plant,2,0.2
+MGnify,activated_sludge,description_title,sequencing batch reactor sludge retention time 5 days,2,0.2
+MGnify,activated_sludge,description_title,metagenomic sample from activated sludge in a polymers synthesis facility,2,0.2
+MGnify,activated_sludge,description_title,activated sludge of a polymers factory,2,0.2
+MGnify,agricultural_ww,isolation_source,,347,93.0
+MGnify,agricultural_ww,isolation_source,sand,26,7.0
+MGnify,agricultural_ww,env_broad_scale,water trough,150,40.2
+MGnify,agricultural_ww,env_broad_scale,water line,117,31.4
+MGnify,agricultural_ww,env_broad_scale,duck cecum,70,18.8
+MGnify,agricultural_ww,env_broad_scale,,26,7.0
+MGnify,agricultural_ww,env_broad_scale,marine,8,2.1
+MGnify,agricultural_ww,env_broad_scale,"water sources, duck cecum",1,0.3
+MGnify,agricultural_ww,env_broad_scale,aquatic biome,1,0.3
+MGnify,agricultural_ww,env_local_scale,barn,198,53.1
+MGnify,agricultural_ww,env_local_scale,aviary,140,37.5
+MGnify,agricultural_ww,env_local_scale,,26,7.0
+MGnify,agricultural_ww,env_local_scale,constructed feature,8,2.1
+MGnify,agricultural_ww,env_local_scale,mesoscopic physical object,1,0.3
+MGnify,agricultural_ww,env_medium,water,275,73.7
+MGnify,agricultural_ww,env_medium,cecal contents,69,18.5
+MGnify,agricultural_ww,env_medium,,26,7.0
+MGnify,agricultural_ww,env_medium,fish food product,2,0.5
+MGnify,agricultural_ww,env_medium,sediment,1,0.3
+MGnify,agricultural_ww,taxonomy_name,anas platyrhynchos,338,90.6
+MGnify,agricultural_ww,taxonomy_name,sediment metagenome,26,7.0
+MGnify,agricultural_ww,taxonomy_name,marine metagenome,8,2.1
+MGnify,agricultural_ww,taxonomy_name,wastewater metagenome,1,0.3
+MGnify,agricultural_ww,package_content,generic.1.0,339,90.9
+MGnify,agricultural_ww,package_content,metagenome.environmental.1.0,26,7.0
+MGnify,agricultural_ww,package_content,mimarks.survey.water.6.0,8,2.1
+MGnify,agricultural_ww,sample_type,,373,100.0
+MGnify,agricultural_ww,description_title,pekin duck water sources,338,90.6
+MGnify,agricultural_ww,description_title,metagenome or environmental sample from sediment metagenome,26,7.0
+MGnify,agricultural_ww,description_title,mimarks survey related sample from 7742,8,2.1
+MGnify,agricultural_ww,description_title,palm oil mill effluent,1,0.3
+MGnify,industrial_ww,isolation_source,,436,87.7
+MGnify,industrial_ww,isolation_source,sediment from c1,2,0.4
+MGnify,industrial_ww,isolation_source,sediment from c2,2,0.4
+MGnify,industrial_ww,isolation_source,sediment from d3,2,0.4
+MGnify,industrial_ww,isolation_source,sediment from b4,2,0.4
+MGnify,industrial_ww,isolation_source,sediment from d1,2,0.4
+MGnify,industrial_ww,isolation_source,sediment from b3,2,0.4
+MGnify,industrial_ww,isolation_source,sediment from d4,2,0.4
+MGnify,industrial_ww,isolation_source,sediment from b1,2,0.4
+MGnify,industrial_ww,isolation_source,sediment from e1,2,0.4
+MGnify,industrial_ww,isolation_source,sediment from e4,2,0.4
+MGnify,industrial_ww,isolation_source,sediment from a1,2,0.4
+MGnify,industrial_ww,env_broad_scale,temperate stream,192,38.6
+MGnify,industrial_ww,env_broad_scale,acid mine drainage,79,15.9
+MGnify,industrial_ww,env_broad_scale,urban,56,11.3
+MGnify,industrial_ww,env_broad_scale,freshwater biome [envo_00000873],54,10.9
+MGnify,industrial_ww,env_broad_scale,small river,36,7.2
+MGnify,industrial_ww,env_broad_scale,wastewater,30,6.0
+MGnify,industrial_ww,env_broad_scale,wastewater treatment plant,10,2.0
+MGnify,industrial_ww,env_broad_scale,anaerobic reactor,10,2.0
+MGnify,industrial_ww,env_broad_scale,oil well,6,1.2
+MGnify,industrial_ww,env_broad_scale,anaerobic bioreactor,4,0.8
+MGnify,industrial_ww,env_broad_scale,envo:00002001,4,0.8
+MGnify,industrial_ww,env_broad_scale,common effluent treatment plant,3,0.6
+MGnify,industrial_ww,env_local_scale,lotic environments,192,38.6
+MGnify,industrial_ww,env_local_scale,field-scale pilot,78,15.7
+MGnify,industrial_ww,env_local_scale,wastewater treatment plant,78,15.7
+MGnify,industrial_ww,env_local_scale,lagoon [envo_00000038],54,10.9
+MGnify,industrial_ww,env_local_scale,stream,36,7.2
+MGnify,industrial_ww,env_local_scale,artificial channel,16,3.2
+MGnify,industrial_ww,env_local_scale,wastewater,9,1.8
+MGnify,industrial_ww,env_local_scale,oil well,6,1.2
+MGnify,industrial_ww,env_local_scale,wastewater sludge,6,1.2
+MGnify,industrial_ww,env_local_scale,,5,1.0
+MGnify,industrial_ww,env_local_scale,anaerobic bioreactor,4,0.8
+MGnify,industrial_ww,env_local_scale,envo:00002126,4,0.8
+MGnify,industrial_ww,env_medium,stream water,192,38.6
+MGnify,industrial_ww,env_medium,bioprecipitate,61,12.3
+MGnify,industrial_ww,env_medium,waste water,56,11.3
+MGnify,industrial_ww,env_medium,sediment [envo_00002007],54,10.9
+MGnify,industrial_ww,env_medium,water,54,10.9
+MGnify,industrial_ww,env_medium,activated sludge,44,8.9
+MGnify,industrial_ww,env_medium,biofilm material,8,1.6
+MGnify,industrial_ww,env_medium,wastewater sludge,6,1.2
+MGnify,industrial_ww,env_medium,sludge,5,1.0
+MGnify,industrial_ww,env_medium,,5,1.0
+MGnify,industrial_ww,env_medium,granular sludge,4,0.8
+MGnify,industrial_ww,env_medium,envo:00002126,4,0.8
+MGnify,industrial_ww,taxonomy_name,riverine metagenome,192,38.6
+MGnify,industrial_ww,taxonomy_name,metagenome,117,23.5
+MGnify,industrial_ww,taxonomy_name,wastewater metagenome,104,20.9
+MGnify,industrial_ww,taxonomy_name,sediment metagenome,54,10.9
+MGnify,industrial_ww,taxonomy_name,environmental samples,14,2.8
+MGnify,industrial_ww,taxonomy_name,activated sludge metagenome,7,1.4
+MGnify,industrial_ww,taxonomy_name,nitrifying bacterium enrichment culture,6,1.2
+MGnify,industrial_ww,taxonomy_name,groundwater metagenome,2,0.4
+MGnify,industrial_ww,taxonomy_name,bioreactor sludge metagenome,1,0.2
+MGnify,industrial_ww,package_content,generic.1.0,344,69.2
+MGnify,industrial_ww,package_content,mims.me.wastewater.6.0,97,19.5
+MGnify,industrial_ww,package_content,mimarks.survey.sediment.6.0,54,10.9
+MGnify,industrial_ww,package_content,metagenome.environmental.1.0,2,0.4
+MGnify,industrial_ww,sample_type,,497,100.0
+MGnify,industrial_ww,description_title,dynamics of bacterial communities mediating the treatment of an as-rich acid mine drainage in a field-scale pilot,79,15.9
+MGnify,industrial_ww,description_title,processed metagenomic and transcriptomic activated sludge samples,30,6.0
+MGnify,industrial_ww,description_title,mbr sludge,6,1.2
+MGnify,industrial_ww,description_title,support material stage_ii,6,1.2
+MGnify,industrial_ww,description_title,mims environmental/metagenome sample from activated sludge metagenome,5,1.0
+MGnify,industrial_ww,description_title,mallard creek - back creek (residential),4,0.8
+MGnify,industrial_ww,description_title,sugar creek - upstream b site,4,0.8
+MGnify,industrial_ww,description_title,mallard creek - upstream b site,4,0.8
+MGnify,industrial_ww,description_title,sugar creek - t010 (residential),4,0.8
+MGnify,industrial_ww,description_title,sugar creek - downstream a site,4,0.8
+MGnify,industrial_ww,description_title,mallard creek plant - primary clarifier eff.,4,0.8
+MGnify,industrial_ww,description_title,sugar creek plant - final clarifier eff.,4,0.8
+MGnify,nutrient_removal_bioreactor,isolation_source,,748,100.0
+MGnify,nutrient_removal_bioreactor,env_broad_scale,wastewater treatment plant,414,55.3
+MGnify,nutrient_removal_bioreactor,env_broad_scale,sludge,195,26.1
+MGnify,nutrient_removal_bioreactor,env_broad_scale,na,58,7.8
+MGnify,nutrient_removal_bioreactor,env_broad_scale,,48,6.4
+MGnify,nutrient_removal_bioreactor,env_broad_scale,missing,22,2.9
+MGnify,nutrient_removal_bioreactor,env_broad_scale,not applicable,6,0.8
+MGnify,nutrient_removal_bioreactor,env_broad_scale,anaerobic reactor,3,0.4
+MGnify,nutrient_removal_bioreactor,env_broad_scale,wastewater,1,0.1
+MGnify,nutrient_removal_bioreactor,env_broad_scale,palm oil mill effluent,1,0.1
+MGnify,nutrient_removal_bioreactor,env_local_scale,wastewater treatment plant,494,66.0
+MGnify,nutrient_removal_bioreactor,env_local_scale,anaerobic,148,19.8
+MGnify,nutrient_removal_bioreactor,env_local_scale,,48,6.4
+MGnify,nutrient_removal_bioreactor,env_local_scale,aerobic,47,6.3
+MGnify,nutrient_removal_bioreactor,env_local_scale,thermophilic anaerobic methanogenic reactor,6,0.8
+MGnify,nutrient_removal_bioreactor,env_local_scale,mesophilic anaerobic reactor,3,0.4
+MGnify,nutrient_removal_bioreactor,env_local_scale,activated sludge,1,0.1
+MGnify,nutrient_removal_bioreactor,env_local_scale,closed biodigester,1,0.1
+MGnify,nutrient_removal_bioreactor,env_medium,wastewater activated sludge,414,55.3
+MGnify,nutrient_removal_bioreactor,env_medium,water,256,34.2
+MGnify,nutrient_removal_bioreactor,env_medium,,48,6.4
+MGnify,nutrient_removal_bioreactor,env_medium,sludge,23,3.1
+MGnify,nutrient_removal_bioreactor,env_medium,wastewater,3,0.4
+MGnify,nutrient_removal_bioreactor,env_medium,biofilm,3,0.4
+MGnify,nutrient_removal_bioreactor,env_medium,reactor,1,0.1
+MGnify,nutrient_removal_bioreactor,taxonomy_name,activated sludge metagenome,414,55.3
+MGnify,nutrient_removal_bioreactor,taxonomy_name,sludge metagenome,195,26.1
+MGnify,nutrient_removal_bioreactor,taxonomy_name,mixed culture,58,7.8
+MGnify,nutrient_removal_bioreactor,taxonomy_name,biofilter metagenome,48,6.4
+MGnify,nutrient_removal_bioreactor,taxonomy_name,anaerobic digester metagenome,22,2.9
+MGnify,nutrient_removal_bioreactor,taxonomy_name,biogas fermenter metagenome,6,0.8
+MGnify,nutrient_removal_bioreactor,taxonomy_name,metagenome,3,0.4
+MGnify,nutrient_removal_bioreactor,taxonomy_name,nitrosomonas europaea atcc 19718,1,0.1
+MGnify,nutrient_removal_bioreactor,taxonomy_name,elaeis guineensis,1,0.1
+MGnify,nutrient_removal_bioreactor,package_content,generic.1.0,467,62.4
+MGnify,nutrient_removal_bioreactor,package_content,mimarks.survey.wastewater.6.0,275,36.8
+MGnify,nutrient_removal_bioreactor,package_content,mims.me.miscellaneous.6.0,6,0.8
+MGnify,nutrient_removal_bioreactor,sample_type,,748,100.0
+MGnify,nutrient_removal_bioreactor,description_title,mp_reactors,3,0.4
+MGnify,nutrient_removal_bioreactor,description_title,60-15-88-rna1,1,0.1
+MGnify,nutrient_removal_bioreactor,description_title,rna timecourse ad14 15:00 2h,1,0.1
+MGnify,nutrient_removal_bioreactor,description_title,hktp6,1,0.1
+MGnify,nutrient_removal_bioreactor,description_title,nebr1,1,0.1
+MGnify,nutrient_removal_bioreactor,description_title,usst3,1,0.1
+MGnify,nutrient_removal_bioreactor,description_title,16s-amp-1144,1,0.1
+MGnify,nutrient_removal_bioreactor,description_title,16samp-2588,1,0.1
+MGnify,nutrient_removal_bioreactor,description_title,16samp-287,1,0.1
+MGnify,nutrient_removal_bioreactor,description_title,16samp-3917,1,0.1
+MGnify,nutrient_removal_bioreactor,description_title,16samp-3937,1,0.1
+MGnify,nutrient_removal_bioreactor,description_title,16samp-496,1,0.1
+MGnify,wastewater_other,isolation_source,,419,68.1
+MGnify,wastewater_other,isolation_source,waste water treatment plant aeration tank,88,14.3
+MGnify,wastewater_other,isolation_source,wastewater treatment plant,68,11.1
+MGnify,wastewater_other,isolation_source,mixed culture bioreactor,12,2.0
+MGnify,wastewater_other,isolation_source,sewage system,4,0.7
+MGnify,wastewater_other,isolation_source,raw sewage,4,0.7
+MGnify,wastewater_other,isolation_source,wastewater bioreactor,3,0.5
+MGnify,wastewater_other,isolation_source,effluent of sewage treatment plant in hong hong,2,0.3
+MGnify,wastewater_other,isolation_source,influent of sewage treatment plant in hong hong,2,0.3
+MGnify,wastewater_other,isolation_source,activated sludge of sewage treatment plant in hong hong,2,0.3
+MGnify,wastewater_other,isolation_source,sewage enrichment,2,0.3
+MGnify,wastewater_other,isolation_source,activated biomass of a wastewater treatment plant treating hydrocarbon contaminated wastewater at high tds (total dissolved solids),2,0.3
+MGnify,wastewater_other,env_broad_scale,,418,68.0
+MGnify,wastewater_other,env_broad_scale,aquatic biome,106,17.2
+MGnify,wastewater_other,env_broad_scale,host-associated,50,8.1
+MGnify,wastewater_other,env_broad_scale,industrial wastewate treatment plant,14,2.3
+MGnify,wastewater_other,env_broad_scale,anaerobic digester microbiome,6,1.0
+MGnify,wastewater_other,env_broad_scale,wastewater,4,0.7
+MGnify,wastewater_other,env_broad_scale,constructed feature,4,0.7
+MGnify,wastewater_other,env_broad_scale,wastewater treatment plant,4,0.7
+MGnify,wastewater_other,env_broad_scale,anthropogenic environment,2,0.3
+MGnify,wastewater_other,env_broad_scale,grassland,2,0.3
+MGnify,wastewater_other,env_broad_scale,fresh landfill leachate,1,0.2
+MGnify,wastewater_other,env_broad_scale,freshwater biome,1,0.2
+MGnify,wastewater_other,env_local_scale,,432,70.2
+MGnify,wastewater_other,env_local_scale,wastewater treatment plant,115,18.7
+MGnify,wastewater_other,env_local_scale,water,50,8.1
+MGnify,wastewater_other,env_local_scale,mesophilic sludge digester,6,1.0
+MGnify,wastewater_other,env_local_scale,wastewater,4,0.7
+MGnify,wastewater_other,env_local_scale,organic feature,2,0.3
+MGnify,wastewater_other,env_local_scale,wastes,2,0.3
+MGnify,wastewater_other,env_local_scale,the initial methanogenic phases (imp),1,0.2
+MGnify,wastewater_other,env_local_scale,envo 00002123,1,0.2
+MGnify,wastewater_other,env_local_scale,envo:00000020,1,0.2
+MGnify,wastewater_other,env_local_scale,the stable methanogenic phases (smp),1,0.2
+MGnify,wastewater_other,env_medium,,418,68.0
+MGnify,wastewater_other,env_medium,water,107,17.4
+MGnify,wastewater_other,env_medium,sewage,51,8.3
+MGnify,wastewater_other,env_medium,waste water,9,1.5
+MGnify,wastewater_other,env_medium,anaerobic digester biomass,6,1.0
+MGnify,wastewater_other,env_medium,activated sludge,4,0.7
+MGnify,wastewater_other,env_medium,sediment,2,0.3
+MGnify,wastewater_other,env_medium,soil,2,0.3
+MGnify,wastewater_other,env_medium,envo_00002019,1,0.2
+MGnify,wastewater_other,env_medium,envo_00002025,1,0.2
+MGnify,wastewater_other,env_medium,envo_00002036,1,0.2
+MGnify,wastewater_other,env_medium,envo_00002023,1,0.2
+MGnify,wastewater_other,taxonomy_name,wastewater metagenome,498,81.0
+MGnify,wastewater_other,taxonomy_name,metagenome,84,13.7
+MGnify,wastewater_other,taxonomy_name,bioreactor metagenome,13,2.1
+MGnify,wastewater_other,taxonomy_name,activated sludge metagenome,7,1.1
+MGnify,wastewater_other,taxonomy_name,anaerobic digester metagenome,6,1.0
+MGnify,wastewater_other,taxonomy_name,sediment metagenome,4,0.7
+MGnify,wastewater_other,taxonomy_name,compost metagenome,2,0.3
+MGnify,wastewater_other,taxonomy_name,prokaryote enrichment culture,1,0.2
+MGnify,wastewater_other,package_content,generic.1.0,410,66.7
+MGnify,wastewater_other,package_content,metagenome.environmental.1.0,191,31.1
+MGnify,wastewater_other,package_content,mims.me.wastewater.6.0,10,1.6
+MGnify,wastewater_other,package_content,mimarks.survey.wastewater.6.0,4,0.7
+MGnify,wastewater_other,sample_type,,615,100.0
+MGnify,wastewater_other,description_title,sample from wastewater metagenome,167,27.2
+MGnify,wastewater_other,description_title,metagenome or environmental sample from wastewater metagenome,92,15.0
+MGnify,wastewater_other,description_title,black water project,36,5.9
+MGnify,wastewater_other,description_title,metagenome or environmental sample from metagenome,21,3.4
+MGnify,wastewater_other,description_title,extraction_control,14,2.3
+MGnify,wastewater_other,description_title,ocf,9,1.5
+MGnify,wastewater_other,description_title,mims environmental/metagenome sample from activated sludge metagenome,4,0.7
+MGnify,wastewater_other,description_title,mims environmental/metagenome sample from wastewater metagenome,3,0.5
+MGnify,wastewater_other,description_title,survey related sample for lipid-accumulating wastewater microbial community,2,0.3
+MGnify,wastewater_other,description_title,effluent of sewage treatment plant in hong hong,2,0.3
+MGnify,wastewater_other,description_title,mims environmental/metagenome sample from bacteria,2,0.3
+MGnify,wastewater_other,description_title,influent of sewage treatment plant in hong hong,2,0.3
+MGnify,water_and_sludge,isolation_source,,820,95.5
+MGnify,water_and_sludge,isolation_source,not applicable,5,0.6
+MGnify,water_and_sludge,isolation_source,wwtp verbania (effluent),1,0.1
+MGnify,water_and_sludge,isolation_source,exp tend vb 90ww,1,0.1
+MGnify,water_and_sludge,isolation_source,exp tend no 10ww,1,0.1
+MGnify,water_and_sludge,isolation_source,river agogna,1,0.1
+MGnify,water_and_sludge,isolation_source,exp tend cn 10ww,1,0.1
+MGnify,water_and_sludge,isolation_source,exp tend vb 10ww,1,0.1
+MGnify,water_and_sludge,isolation_source,exp tend vb 100ww,1,0.1
+MGnify,water_and_sludge,isolation_source,mix effluent,1,0.1
+MGnify,water_and_sludge,isolation_source,st_influent,1,0.1
+MGnify,water_and_sludge,isolation_source,st_activated sludge,1,0.1
+MGnify,water_and_sludge,env_broad_scale,,295,34.3
+MGnify,water_and_sludge,env_broad_scale,wastewater/sludge,179,20.8
+MGnify,water_and_sludge,env_broad_scale,pig manure,150,17.5
+MGnify,water_and_sludge,env_broad_scale,terrestrial biome,72,8.4
+MGnify,water_and_sludge,env_broad_scale,sludge,51,5.9
+MGnify,water_and_sludge,env_broad_scale,freshwater biome [envo:00000873],38,4.4
+MGnify,water_and_sludge,env_broad_scale,wastewater treatment plant,28,3.3
+MGnify,water_and_sludge,env_broad_scale,aquatic biome,24,2.8
+MGnify,water_and_sludge,env_broad_scale,wastewater,12,1.4
+MGnify,water_and_sludge,env_broad_scale,suspended biomass from biological reactor treating wastewater,4,0.5
+MGnify,water_and_sludge,env_broad_scale,not spplicable,4,0.5
+MGnify,water_and_sludge,env_broad_scale,sewage sludge,2,0.2
+MGnify,water_and_sludge,env_local_scale,,305,35.5
+MGnify,water_and_sludge,env_local_scale,wastewater/sludge,179,20.8
+MGnify,water_and_sludge,env_local_scale,anearobic bioreactor,150,17.5
+MGnify,water_and_sludge,env_local_scale,organic feature,72,8.4
+MGnify,water_and_sludge,env_local_scale,wastewater treatment plant [envo:00002043],38,4.4
+MGnify,water_and_sludge,env_local_scale,mbr,30,3.5
+MGnify,water_and_sludge,env_local_scale,wastewater treatment plant,24,2.8
+MGnify,water_and_sludge,env_local_scale,bioreactor,21,2.4
+MGnify,water_and_sludge,env_local_scale,effluent,16,1.9
+MGnify,water_and_sludge,env_local_scale,influent,4,0.5
+MGnify,water_and_sludge,env_local_scale,environmental feature,4,0.5
+MGnify,water_and_sludge,env_local_scale,suspended biomass from biological reactor treating wastewater,4,0.5
+MGnify,water_and_sludge,env_medium,,303,35.3
+MGnify,water_and_sludge,env_medium,wastewater/sludge,179,20.8
+MGnify,water_and_sludge,env_medium,pig manure,150,17.5
+MGnify,water_and_sludge,env_medium,sludge,73,8.5
+MGnify,water_and_sludge,env_medium,anaerobic digester sludge [envo:00003965],38,4.4
+MGnify,water_and_sludge,env_medium,water,36,4.2
+MGnify,water_and_sludge,env_medium,wastewater,21,2.4
+MGnify,water_and_sludge,env_medium,aerobic biomass,16,1.9
+MGnify,water_and_sludge,env_medium,anaerobic biomass,14,1.6
+MGnify,water_and_sludge,env_medium,effluent,12,1.4
+MGnify,water_and_sludge,env_medium,suspended biomass from biological reactor treating wastewater,4,0.5
+MGnify,water_and_sludge,env_medium,not spplicable,4,0.5
+MGnify,water_and_sludge,taxonomy_name,metagenome,349,40.6
+MGnify,water_and_sludge,taxonomy_name,wastewater metagenome,297,34.6
+MGnify,water_and_sludge,taxonomy_name,bioreactor sludge metagenome,112,13.0
+MGnify,water_and_sludge,taxonomy_name,biogas fermenter metagenome,60,7.0
+MGnify,water_and_sludge,taxonomy_name,anaerobic digester metagenome,38,4.4
+MGnify,water_and_sludge,taxonomy_name,activated sludge metagenome,3,0.3
+MGnify,water_and_sludge,package_content,generic.1.0,820,95.5
+MGnify,water_and_sludge,package_content,metagenome.environmental.1.0,39,4.5
+MGnify,water_and_sludge,sample_type,,859,100.0
+MGnify,water_and_sludge,description_title,sample from wastewater metagenome,110,12.8
+MGnify,water_and_sludge,description_title,biogas,90,10.5
+MGnify,water_and_sludge,description_title,wastewater metagenome,81,9.4
+MGnify,water_and_sludge,description_title,danish sewage,64,7.5
+MGnify,water_and_sludge,description_title,anaerobic digester sludge,38,4.4
+MGnify,water_and_sludge,description_title,metagenome or environmental sample from wastewater metagenome,29,3.4
+MGnify,water_and_sludge,description_title,nirs nirk nosz batch tests transcripts,21,2.4
+MGnify,water_and_sludge,description_title,wastewater microbiota,12,1.4
+MGnify,water_and_sludge,description_title,sample info.,8,0.9
+MGnify,water_and_sludge,description_title,sample,4,0.5
+MGnify,water_and_sludge,description_title,metagenome or environmental sample from activated sludge metagenome,3,0.3
+MGnify,water_and_sludge,description_title,sewage sludge soil,2,0.2
+NMDC,nmdc_ww,isolation_source,water from urban wastewater,149,74.1
+NMDC,nmdc_ww,isolation_source,,26,12.9
+NMDC,nmdc_ww,isolation_source,water from urban biogas,26,12.9
+NMDC,nmdc_ww,env_broad_scale,,175,87.1
+NMDC,nmdc_ww,env_broad_scale,urban biome,26,12.9
+NMDC,nmdc_ww,env_local_scale,,175,87.1
+NMDC,nmdc_ww,env_local_scale,bioreactor,17,8.5
+NMDC,nmdc_ww,env_local_scale,anaerobic bioreactor,9,4.5
+NMDC,nmdc_ww,env_medium,,175,87.1
+NMDC,nmdc_ww,env_medium,biosolids,17,8.5
+NMDC,nmdc_ww,env_medium,anaerobic sludge,9,4.5
+NMDC,nmdc_ww,taxonomy_name,wastewater metagenome,149,74.1
+NMDC,nmdc_ww,taxonomy_name,biogas fermenter metagenome,26,12.9
+NMDC,nmdc_ww,taxonomy_name,activated sludge metagenome,17,8.5
+NMDC,nmdc_ww,taxonomy_name,bioreactor metagenome,9,4.5
+NMDC,nmdc_ww,package_content,metagenome.environmental.1.0,175,87.1
+NMDC,nmdc_ww,package_content,generic.1.0,26,12.9
+NMDC,nmdc_ww,sample_type,,175,87.1
+NMDC,nmdc_ww,sample_type,bioreactor biomass,17,8.5
+NMDC,nmdc_ww,sample_type,bioreactor sludge,9,4.5
+NMDC,nmdc_ww,description_title,na,175,87.1
+NMDC,nmdc_ww,description_title,13114.angenent.65.s005,1,0.5
+NMDC,nmdc_ww,description_title,13114.angenent.65.s007,1,0.5
+NMDC,nmdc_ww,description_title,13114.mcmahon.21.s008,1,0.5
+NMDC,nmdc_ww,description_title,13114.mcmahon.21.s010,1,0.5
+NMDC,nmdc_ww,description_title,13114.angenent.65.s009,1,0.5
+NMDC,nmdc_ww,description_title,13114.angenent.65.s006,1,0.5
+NMDC,nmdc_ww,description_title,13114.mcmahon.21.s017,1,0.5
+NMDC,nmdc_ww,description_title,13114.mcmahon.21.s002,1,0.5
+NMDC,nmdc_ww,description_title,13114.angenent.65.s001,1,0.5
+NMDC,nmdc_ww,description_title,13114.angenent.65.s004,1,0.5
+NMDC,nmdc_ww,description_title,13114.mcmahon.21.s005,1,0.5

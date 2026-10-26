@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "id": "20261017T011707Z-biosample-evidence",
+  "name": "biosample-evidence",
+  "command": [
+    "/opt/conda/bin/python",
+    "src/02a_biosample_evidence.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792199827.2876117,
+  "ended_at": 1792199972.0932264,
+  "exit_code": 0,
+  "scripts": {
+    "src/02a_biosample_evidence.py": "6f44527a1456f0545ed5eb5c70755cbb19c39b2aef271cf86633f3ac5ae47876"
+  },
+  "inputs": [
+    {
+      "name": "table:nmdc.ncbi_biosamples.biosamples_flattened"
+    },
+    {
+      "name": "table:nmdc.ncbi_biosamples.env_triads_flattened"
+    },
+    {
+      "name": "table:kbase.ontology_source.statements"
+    },
+    {
+      "name": "table:kbase.ontology_source.entailed_edge"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261017T011707Z-biosample-evidence/out/envo_evidence_by_term.csv",
+      "sha256": "ebe50dc5b4888b212c518fe1f5af1ae9db67732fe56ba6bf8b47493206c00bce"
+    },
+    {
+      "path": "runs/20261017T011707Z-biosample-evidence/out/envo_terms.csv",
+      "sha256": "36b6dc3b01d279cb046ecf0483e092fdcd26307cecaef08ca7fe59e4e7312975"
+    },
+    {
+      "path": "runs/20261017T011707Z-biosample-evidence/out/evidence_crosstab.csv",
+      "sha256": "93d758085de32617145fa75b3eb6c93ee507625b213611c93ea4da8dd25ca69f"
+    },
+    {
+      "path": "runs/20261017T011707Z-biosample-evidence/out/keyword_by_field.csv",
+      "sha256": "d93aeb5ae52e4b5fe95313c04147b4425791fda7ed83929ec1527f5b15c97eab"
+    },
+    {
+      "path": "runs/20261017T011707Z-biosample-evidence/out/kw_only_examples.csv",
+      "sha256": "81f96e463ff472c9606331a210255476e560ab878b851e3f0bd66ecc50939be9"
+    },
+    {
+      "path": "runs/20261017T011707Z-biosample-evidence/out/package_counts.csv",
+      "sha256": "d2f799388915853868950bb2adf8f47a128c492f49f3c4d27d753be8c650dad3"
+    },
+    {
+      "path": "runs/20261017T011707Z-biosample-evidence/out/structured_only_examples.csv",
+      "sha256": "1e02bef2ac850ca606dfd6199ed0c9a51d09e67a9b33ee69d065c4b72d8d9740"
+    },
+    {
+      "path": "runs/20261017T011707Z-biosample-evidence/out/subtype_by_field.csv",
+      "sha256": "9ea667c00856cba8034be378ba31be6b441552cca30f948af0be6b0d2bb8ce25"
+    },
+    {
+      "path": "runs/20261017T011707Z-biosample-evidence/out/taxonomy_counts.csv",
+      "sha256": "52aaa8cca07bd19edf15257a7a091987ce475dc90fc0eb58ffe2142187e058e9"
+    }
+  ],
+  "changed": [
+    {
+      "path": "data/gold_raw/parse_nohup.log",
+      "sha256": "0c44bc1500c2c65442f47210e90e0f023e0697d60fecd6f1cf9690d1f7024f50"
+    }
+  ]
+}

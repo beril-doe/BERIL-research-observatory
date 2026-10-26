@@ -1,0 +1,15 @@
+[   97s] v23_coherence_flagged.csv: 15 rows
+[   97s] v23_coherence_base.csv: 3 rows
+   channel  total_projects  total_samples_in_projects  total_flagged  top_projects  top_samples  top_flagged  pct_samples_in_top_projects  pct_flagged_in_top_projects
+   keyword            6056                     754538         428483          4720       404750       403668                         53.6                         94.2
+   package            1348                     300854         248139          1249       244003       243578                         81.1                         98.2
+term_table            2806                     263773         111314          2027        95690        95032                         36.3                         85.4
+[  106s] v23_study_overlap.csv: 3 rows
+                                             relation   n
+          accessions labelled by both GOLD and MGnify 589
+MGnify test accessions sharing a BioProject with GOLD 840
+GOLD test accessions sharing a BioProject with MGnify 835
+[  115s] v23_lift_recheck.csv: 3 rows
+[  115s] v23_lift_unresolved.csv: 0 rows
+  terms passing as built: 242; corrected: 239; flips: 3 (3 lost, 0 gained)
+done

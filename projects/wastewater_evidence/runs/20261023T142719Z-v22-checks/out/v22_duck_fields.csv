@@ -1,0 +1,6 @@
+term,field,n_samples_in_group,group_size
+aviary,env_local_scale,140,373
+barn,env_local_scale,198,373
+duck cecum,env_broad_scale,70,373
+water line,env_broad_scale,117,373
+water trough,env_broad_scale,150,373
