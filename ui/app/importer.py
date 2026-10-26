@@ -308,8 +308,11 @@ async def _copy_project_files(
 
     Returns the number of files copied.
 
+    Imported copies are stored under ``{owner_id}/{slug}/repo/``, apart from
+    user uploads (``uploads/``) and GitHub-synced files (``github/``).
+
     Old blobs are deleted only after the rows that stop referencing them are
-    committed: a file that moved (the project changed owner) or left the
+    committed, and never while another row still uses them: a file that moved (the project changed owner) or left the
     source tree keeps its old blob until then, so a failure part-way — which
     rolls the rows back — never leaves a row pointing at a deleted blob. The
     worst a failure leaves is a new copy nothing references yet, which the
@@ -321,7 +324,10 @@ async def _copy_project_files(
 
     for pf in scanned:
         src = project_dir / pf.relative_path
-        storage_path = f"{owner_id}/{slug}/uploads/{pf.relative_path}"
+        # Imported copies have their own area: user uploads live under
+        # ``uploads/`` with the same relative paths, and sharing it let an
+        # import overwrite — or a repo removal delete — a user's own file.
+        storage_path = f"{owner_id}/{slug}/repo/{pf.relative_path}"
 
         # Determine title for notebooks
         title: str | None = None
@@ -390,6 +396,17 @@ async def _copy_project_files(
     # the remaining deletes or report a completed import as failed — and no
     # later run would see the path again, so it is logged for manual cleanup.
     for path in superseded:
+        # A blob another row still points at is not ours to delete: imports
+        # once shared ``uploads/`` with user uploads, so an old import path can
+        # be an upload's file too.
+        still_used = (
+            await db.execute(
+                select(ProjectFile.id).where(ProjectFile.storage_path == path).limit(1)
+            )
+        ).first()
+        if still_used is not None:
+            logger.info("Kept superseded blob %s: another file record uses it", path)
+            continue
         try:
             await storage.delete(path)
         except OSError as exc:

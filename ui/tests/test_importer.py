@@ -737,3 +737,82 @@ class TestOwnersOwnRow:
         row = await db_session.get(UserProject, own_id)
         await db_session.refresh(row)
         assert (row.repo_path, row.is_public) == ("projects/fresh", True)
+
+
+class TestImportsLeaveUploadsAlone:
+    """Regression (Codex review on #468): imports and user uploads shared
+    ``{owner}/{slug}/uploads/<path>``, so importing a repo file overwrote an
+    upload of the same name, and removing it from the repo deleted the
+    upload's blob."""
+
+    async def test_imported_files_are_stored_apart_from_uploads(
+        self, db_session, storage, projects_root
+    ):
+        from sqlalchemy import select
+
+        d = _make_project_dir(projects_root, "sep", readme=_authors(f"Alice ({ALICE})"))
+        result = await import_project(db_session, storage, d, projects_root)
+        rows = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.project_id == result.project_id)
+        )).scalars().all()
+        assert rows and all("/sep/repo/" in r.storage_path for r in rows)
+
+    async def test_an_authors_upload_survives_adoption_and_a_repo_removal(
+        self, db_session, storage, projects_root
+    ):
+        from sqlalchemy import select
+
+        author = BerilUser(orcid_id=ALICE, display_name="Alice")
+        db_session.add(author)
+        await db_session.commit()
+        own = UserProject(owner_id=author.id, slug="mine", title="mine")
+        db_session.add(own)
+        await db_session.commit()
+        upload_path = f"{author.id}/mine/uploads/data.csv"
+        await storage.save(b"the user's own data", upload_path)
+        db_session.add(ProjectFile(
+            project_id=own.id, file_type="data", filename="data.csv", storage_path=upload_path,
+            size_bytes=19, source="upload", is_public=False,
+        ))
+        await db_session.commit()
+        d = _make_project_dir(projects_root, "mine", readme=_authors(f"Alice ({ALICE})"))
+        (d / "data.csv").write_text("the repo's data\n")
+
+        await import_project(db_session, storage, d, projects_root)
+        assert (storage.root / upload_path).read_bytes() == b"the user's own data"
+
+        (d / "data.csv").unlink()
+        (d / "README.md").write_text(_authors(f"Alice ({ALICE})") + "\nchanged\n")
+        await import_project(db_session, storage, d, projects_root)
+
+        assert (storage.root / upload_path).read_bytes() == b"the user's own data"
+        upload = (await db_session.execute(
+            select(ProjectFile).where(ProjectFile.source == "upload"))).scalar_one()
+        assert upload.storage_path == upload_path
+
+    async def test_a_superseded_blob_still_used_by_another_row_is_kept(
+        self, db_session, storage, projects_root
+    ):
+        """An import made before the split stored its copy at the upload's
+        path; moving it to ``repo/`` must not delete the upload's file."""
+        from sqlalchemy import select
+
+        d = _make_project_dir(projects_root, "old", readme=_authors(f"Alice ({ALICE})"))
+        result = await import_project(db_session, storage, d, projects_root)
+        pid = result.project_id
+        project = await db_session.get(UserProject, pid)
+        row = (await db_session.execute(select(ProjectFile).where(
+            ProjectFile.project_id == pid, ProjectFile.filename == "README.md"))).scalar_one()
+        shared = f"{project.owner_id}/old/uploads/README.md"
+        row.storage_path = shared  # where the import used to put it
+        await storage.save(b"upload", shared)
+        db_session.add(ProjectFile(
+            project_id=pid, file_type="doc", filename="README.md", storage_path=shared,
+            size_bytes=6, source="upload", is_public=False,
+        ))
+        await db_session.commit()
+        (d / "README.md").write_text(_authors(f"Alice ({ALICE})") + "\nedited\n")
+
+        await import_project(db_session, storage, d, projects_root)
+
+        assert storage.exists(shared)
