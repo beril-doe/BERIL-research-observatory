@@ -146,6 +146,22 @@ class ContextIngestResults(BaseModel):
     batch_id: str | None = None
 
 
+class ContextImportResults(ContextIngestResults):
+    """An admin import: the ingest outcome, plus whose project it landed in.
+
+    ``dry_run`` results carry only ``project`` and ``owner_orcid`` — the owner
+    an import *would* write under — and nothing was read or written.
+    """
+
+    project: str
+    owner_orcid: str
+    dry_run: bool = False
+    # Files still held in a previous owner's namespace (the project was
+    # re-owned): each is marked removal-pending and must be retired, one per
+    # call, with ``POST /api/admin/context/retire_file/{record_id}``.
+    retire_records: list[str] = Field(default_factory=list)
+
+
 class IngestFileStatus(BaseModel):
     relative_path: str
     status: str

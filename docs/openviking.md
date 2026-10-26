@@ -179,6 +179,70 @@ The approval check is a consistency check, not proof: it ties every ingest to
 its approver and to the approved bytes, but the submitter supplies the
 `beril.yaml` it checks.
 
+### Importing the repo's projects (admin)
+
+> **Scope: a one-time backfill of the projects in this git repo.** This
+> tooling exists only to ingest the set of projects currently under
+> `projects/`. It is not an ongoing ingest path and not a way to submit new
+> work: new and updated projects reach the context layer through `/submit`,
+> under their own authors.
+
+Projects that predate `/submit` are indexed by an admin, each **owned by its
+author**, as if that author had submitted it. Two steps, on the target server:
+
+1. **The repo import** (`/admin/import`, or the data-repo webhook) creates a
+   project row per `projects/<id>/` and picks its owner by one rule
+   (`app/importer.py` `owner_orcid`): the first author with an ORCiD in
+   `beril.yaml`, else in an `Authors` section of `README.md`, then
+   `RESEARCH_PLAN.md`, then any other top-level `.md` file. The BERIL admin
+   account (`0009-0007-0287-2979`) never owns a project. An ORCiD with no
+   account gets a stub user, which its person adopts at first login. A project
+   with no ORCiD is owned by the sentinel user and **flagged**. A project whose
+   owner changes under the rule is re-owned on the next import, even if its
+   files haven't changed.
+2. **The context import** stages each project the way the `/submit` mirror
+   does and uploads it to `POST /api/admin/context/import_files`, which writes
+   it into the owner's namespace with BERIL's admin key and records it under
+   the owner's project and batch rows. A later `/submit` by that owner then
+   skips whatever is unchanged.
+
+```bash
+# As an admin, logged in to the target server (`beril login --base-url …`):
+uv run knowledge/scripts/import_projects.py --all --dry-run   # each project's owner; nothing written
+uv run knowledge/scripts/import_projects.py --all             # import everything importable
+uv run knowledge/scripts/import_projects.py <id> [<id> …]     # just these
+```
+
+Each project reports one of these outcomes:
+
+- `imported`;
+- `current` — nothing changed since the last import;
+- `flagged` — no author ORCiD: fix the project's authors, re-run the repo
+  import, then import again;
+- `not_imported` — the repo import hasn't seen it;
+- `in_progress` — still indexing when `--wait` ran out; it will land;
+- `failed`.
+
+When the repo import **re-owns** a project (the rule's answer changed), the
+next context import writes it to the new owner. The old owner's copy is then
+removed one file per request (`POST /api/admin/context/retire_file/{id}`).
+Each removal is marked pending before anything is deleted, and is refused
+until the new owner's copy of that file has landed. Two known limits:
+
+- **A failed re-own can leave things half-moved.** The importer commits the
+  owner change before copying files, so a copy failure leaves the project
+  showing the new owner with files still stored under the old one. They stay
+  readable, the import is marked `failed`, and the retry finishes the move.
+- **A removal can race a reversal.** If the repo import re-owns the project
+  back to the old owner during a delete (seconds), that file is removed from
+  what is now the current namespace. The file is recorded `removed`, which is
+  not "landed", so the next import (or the owner's `/submit`) re-sends it.
+
+Re-running is safe. `--force` re-sends unchanged files. The same archive limits
+and file allowlist as `/ingest_files` apply. The approval check does not, since
+these projects never went through `/submit`. Poll a batch with
+`GET /api/admin/context/import_status/{batch_id}`.
+
 ### Batching, pacing, and resume safety
 
 The ingest path uses batch-style OpenViking calls: resources are queued with

@@ -200,6 +200,23 @@ class OpenVikingClient:
         """
         await self._client.rm(uri, recursive=True, wait=True)
 
+    async def list_tasks(self, *, status: str | None = None, limit: int = 50) -> list[dict]:
+        """Async task records, optionally of one status (``pending``,
+        ``running``, ``completed``, ``failed``), newest first, at most ``limit``."""
+        return await self._client.list_tasks(status=status, limit=limit)
+
+    async def queue_status(self) -> dict:
+        """The processing queues' state: ``{is_healthy, has_errors, status}``,
+        ``status`` being a text table (pending / in progress / processed / errors
+        per queue). Private in SDK 0.1.12 (``_get_queue_status``), which the
+        server's own status endpoint uses; there is no public equivalent."""
+        return await self._client._get_queue_status()
+
+    async def models_status(self) -> dict:
+        """The models' state, same shape: VLM and embedding usage tables with
+        each model's last call time. Private in SDK 0.1.12 too."""
+        return await self._client._get_models_status()
+
     async def get_task(self, task_id: str) -> dict | None:
         """Fetch an async task record, or None if the backend no longer has it.
 

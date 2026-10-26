@@ -89,6 +89,9 @@ class IngestOutcome:
     timed_out: bool = False
     skipped: int = 0
     removed: int = 0
+    # The submission's own response body, for callers whose route returns
+    # more than the shared fields (the admin import's ``retire_records``).
+    response: dict = field(default_factory=dict)
 
     def summary(self) -> str:
         """One line describing the outcome, suitable for a verdict ``reason``."""
@@ -154,8 +157,13 @@ def submit_ingest(
     archive: bytes,
     manifest: list[str],
     client: httpx.Client | None = None,
+    path: str = INGEST_PATH,
+    form: dict[str, str] | None = None,
 ) -> dict:
     """POST one archive + manifest. Returns the decoded ingest response.
+
+    ``path`` and ``form`` (extra form fields) default to the user's own
+    ``/ingest_files``; the admin import posts the same shape elsewhere.
 
     Raises :class:`BerilIngestError` on transport failure or a non-2xx — a
     rejected upload is a real failure here, unlike the gates in the caller,
@@ -168,8 +176,8 @@ def submit_ingest(
     with _client_ctx(client, UPLOAD_TIMEOUT_SECONDS) as http:
         try:
             resp = http.post(
-                _url(base_url, INGEST_PATH),
-                data={"project": project},
+                _url(base_url, path),
+                data={"project": project, **(form or {})},
                 files=files,
                 headers=_auth(token),
             )
@@ -189,6 +197,7 @@ def poll_batch(
     client: httpx.Client | None = None,
     sleep=time.sleep,
     monotonic=time.monotonic,
+    status_path: str = STATUS_PATH,
 ) -> IngestOutcome:
     """Poll a batch until every file is terminal, or ``max_wait`` elapses.
 
@@ -203,7 +212,7 @@ def poll_batch(
         while True:
             try:
                 resp = http.get(
-                    _url(base_url, f"{STATUS_PATH}/{batch_id}"), headers=_auth(token)
+                    _url(base_url, f"{status_path}/{batch_id}"), headers=_auth(token)
                 )
                 _guard(resp, "check ingest status")
                 last = _json(resp)
@@ -257,9 +266,16 @@ def ingest_project_files(
     files: list[Path],
     removals: list[str] | tuple[str, ...] = (),
     client: httpx.Client | None = None,
+    ingest_path: str = INGEST_PATH,
+    status_path: str = STATUS_PATH,
+    form: dict[str, str] | None = None,
     **poll_kwargs,
 ) -> IngestOutcome:
     """Archive, submit, and poll to a terminal state. The whole mirror.
+
+    ``ingest_path``/``status_path``/``form`` default to a user's own
+    submission; the admin import (``import_projects.py``) points them at
+    ``/api/admin/context/*``.
 
     ``removals`` are project-relative paths to withdraw, sent as ``!remove``
     lines. Naming a path the server does not hold is harmless — it reports
@@ -277,6 +293,8 @@ def ingest_project_files(
         archive=archive,
         manifest=manifest,
         client=client,
+        path=ingest_path,
+        form=form,
     )
     batch_id = body.get("batch_id")
     queued = int(body.get("queued") or 0)
@@ -294,16 +312,20 @@ def ingest_project_files(
                 status=COMPLETED,
                 counts={SKIPPED: skipped, NOT_FOUND: int(body.get("not_found") or 0)},
                 skipped=skipped,
+                response=body,
             )
         raise BerilIngestError(
             "BERIL accepted the upload but returned no batch_id to poll "
             f"(queued={queued}, failed={failed})"
         )
 
-    outcome = poll_batch(base_url, token, str(batch_id), client=client, **poll_kwargs)
+    outcome = poll_batch(
+        base_url, token, str(batch_id), client=client, status_path=status_path, **poll_kwargs
+    )
     # The batch only tracks what was submitted, so skips are known from the
     # submission response alone and have to be carried across.
     outcome.skipped = skipped
+    outcome.response = body
     return outcome
 
 
