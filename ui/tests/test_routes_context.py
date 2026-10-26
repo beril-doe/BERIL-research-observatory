@@ -4356,3 +4356,22 @@ async def test_unfinished_lists_unsettled_records_oldest_first(
     assert client.get(
         "/api/admin/context/unfinished", params={"project": "elsewhere"}
     ).json()["files"] == []
+
+
+@pytest.mark.gated
+async def test_unfinished_reports_truncation_only_when_rows_were_left_out(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex stop-gate): exactly ``limit`` rows read as truncated."""
+    inst, _cls = admin_store
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    inst.insert_files.return_value = _queued_with_tasks([("REPORT.md", "t1"), ("README.md", "t2")])
+    assert _import(client).status_code == 200
+
+    exact = client.get("/api/admin/context/unfinished", params={"limit": 2}).json()
+    short = client.get("/api/admin/context/unfinished", params={"limit": 1}).json()
+
+    assert (len(exact["files"]), exact["truncated"]) == (2, False)
+    assert (len(short["files"]), short["truncated"]) == (1, True)

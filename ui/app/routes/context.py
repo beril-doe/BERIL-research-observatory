@@ -1641,10 +1641,14 @@ async def get_admin_context_unfinished(
     awaiting retirement, not ingests.
     """
     await _require_admin(db, user)
-    rows = await unfinished_ingest_files(db, project=project, limit=limit)
+    # One past the limit, to tell a full page from a truncated one.
+    rows = await unfinished_ingest_files(db, project=project, limit=limit + 1)
+    truncated = len(rows) > limit
+    rows = rows[:limit]
     return {
+        # Of the files listed: with ``truncated``, there are more than these.
         "counts": dict(Counter(r.status for r in rows)),
-        "truncated": len(rows) == limit,
+        "truncated": truncated,
         "files": [
             {
                 "project": r.slug,
