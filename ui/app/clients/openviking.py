@@ -225,8 +225,14 @@ class OpenVikingClient:
         """
         return await self._client.get_task(task_id)
 
-    async def add_resource(self, path: str, target_uri: str, *, reason: str) -> dict:
+    async def add_resource(self, path: str, target_uri: str) -> dict:
         """Submit a file on disk for ingestion at ``target_uri``.
+
+        No ``reason``: the store turns one into an LLM memory-extraction commit on
+        a shared session (``__openviking_resource_reason__``), and those commits run
+        strictly in order. A large ingest built a long chain that the queue spun on
+        (dev, 2026-10-26: 2.1M requeues, ~46 completed) for memories BERIL never
+        reads. Omitted, the store skips memory linking entirely (``empty_reason``).
 
         ``wait=False`` returns as soon as OpenViking queues the work — indexing
         finishes asynchronously. Callers must not block on completion inside a
@@ -237,9 +243,7 @@ class OpenVikingClient:
         """
         for attempt in range(1, ADD_RESOURCE_RETRIES + 1):
             try:
-                return await self._client.add_resource(
-                    path=path, to=target_uri, wait=False, options={"reason": reason}
-                )
+                return await self._client.add_resource(path=path, to=target_uri, wait=False)
             except TRANSIENT_OV_ERRORS:
                 if attempt == ADD_RESOURCE_RETRIES:
                     raise

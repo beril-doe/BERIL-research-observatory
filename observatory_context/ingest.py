@@ -338,29 +338,26 @@ def _current_manifest(config: ContextConfig) -> dict[str, dict[str, str]]:
 
 def _ingest_project_dir(config: ContextConfig, client: Any, project_dir: Path) -> None:
     staged = stage_project(project_dir, config.staging_dir)
-    _add_resource(
-        client,
-        staged,
-        project_target_uri(project_dir.name),
-        f"BERIL project {project_dir.name}",
-    )
+    _add_resource(client, staged, project_target_uri(project_dir.name))
 
 
 def _ingest_doc(config: ContextConfig, client: Any, doc_path: Path) -> None:
     staged = stage_doc(doc_path, config.staging_dir)
-    _add_resource(
-        client, staged, docs_target_uri(doc_path), f"BERIL doc {doc_path.name}"
-    )
+    _add_resource(client, staged, docs_target_uri(doc_path))
 
 
-def _add_resource(client: Any, path: Path, target_uri: str, reason: str) -> None:
+def _add_resource(client: Any, path: Path, target_uri: str) -> None:
+    """Submit ``path`` for ingestion at ``target_uri``, retrying transient errors.
+
+    No ``reason``: the store turns one into an LLM memory-extraction commit on
+    a shared session (``__openviking_resource_reason__``), and those commits run
+    strictly in order. A large ingest built a long chain that the queue spun on
+    (dev, 2026-10-26: 2.1M requeues, ~46 completed) for memories BERIL never
+    reads. Omitted, the store skips memory linking entirely (``empty_reason``).
+    """
     for attempt in range(1, ADD_RESOURCE_RETRIES + 1):
         try:
-            # The reason travels in ``options``: the pinned client takes no
-            # ``reason`` keyword (it moved into AddResourceOptions).
-            client.add_resource(
-                path=str(path), to=target_uri, wait=False, options={"reason": reason}
-            )
+            client.add_resource(path=str(path), to=target_uri, wait=False)
             return
         except TRANSIENT_OV_ERRORS:
             if attempt == ADD_RESOURCE_RETRIES:
