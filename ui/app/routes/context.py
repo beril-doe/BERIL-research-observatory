@@ -97,6 +97,7 @@ from app.db.crud import (
     get_project_by_slug,
     latest_file_statuses,
     project_target_roots,
+    unfinished_ingest_files,
     projects_with_memory,
     update_ingest_file_statuses,
 )
@@ -1587,6 +1588,76 @@ async def get_admin_context_import_status(
         return _admin_context_manager()
 
     return await _batch_status(db, batch, open_manager)
+
+
+@ROUTER_CONTEXT.get("/api/admin/context/queue")
+async def get_admin_context_queue(
+    request: Request,
+    task_limit: int = Query(default=50, ge=1, le=500),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """What the context store is working on. Admins only.
+
+    For telling a backlog from a stall: ``queues`` has each processing queue's
+    pending, in-progress, processed, requeued and error counts (``semantic``
+    is summarization, the slow one); ``models`` has each configured model and,
+    once it has been called since the store last started, its call count and
+    last call time — a model silent while work is pending points at its
+    credentials or quota. Counters reset when the store restarts. ``tasks``
+    lists pending, running and failed tasks,
+    at most ``task_limit`` of each, as the store reports them (``failed``
+    ones carry their error).
+
+    This is the store's own, live view. BERIL's records of the same work are
+    at ``/api/admin/context/unfinished``.
+    """
+    await _require_admin(db, user)
+    try:
+        return await _admin_context_manager().store_activity(task_limit=task_limit)
+    except QUERY_FAILURES as exc:
+        logger.warning("Context store activity check failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=CONTEXT_UNAVAILABLE_DETAIL
+        ) from exc
+
+
+@ROUTER_CONTEXT.get("/api/admin/context/unfinished")
+async def get_admin_context_unfinished(
+    request: Request,
+    project: str | None = Query(default=None, description="One project's slug."),
+    limit: int = Query(default=500, ge=1, le=5000),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Files BERIL's ingest records still show as unfinished — queued,
+    processing, or unknown — oldest first. Admins only.
+
+    BERIL's view as last *seen*: a record changes only when its batch is
+    polled (``/api/context/ingest_status`` or
+    ``/api/admin/context/import_status``), so a file may already have finished
+    in the store; poll its batch to bring it up to date. ``unknown`` records
+    with a "Removal pending" error are a re-owned project's old copies
+    awaiting retirement, not ingests.
+    """
+    await _require_admin(db, user)
+    rows = await unfinished_ingest_files(db, project=project, limit=limit)
+    return {
+        "counts": dict(Counter(r.status for r in rows)),
+        "truncated": len(rows) == limit,
+        "files": [
+            {
+                "project": r.slug,
+                "owner_orcid": r.orcid_id,
+                "address": to_address(target_uri(r.target_root, r.relative_path)),
+                "status": r.status,
+                "error": r.error,
+                "recorded_at": r.created_at.isoformat() if r.created_at else None,
+                "batch_id": r.batch_id,
+            }
+            for r in rows
+        ],
+    }
 
 
 def _rollup_status(files: list[IngestFileStatus]) -> str:

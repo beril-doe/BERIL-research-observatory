@@ -7,9 +7,15 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
-from app.context_manager.base import INGEST_COMPLETED, INGEST_REMOVED
+from app.context_manager.base import (
+    INGEST_COMPLETED,
+    INGEST_PROCESSING,
+    INGEST_QUEUED,
+    INGEST_REMOVED,
+    INGEST_UNKNOWN,
+)
 from app.db.models import (
     BerilUser,
     ContextIngestBatch,
@@ -589,6 +595,41 @@ async def latest_file_statuses(
         select(latest.c.relative_path, latest.c.status).where(latest.c.rn == 1)
     )
     return {row.relative_path: row.status for row in result}
+
+
+async def unfinished_ingest_files(
+    db: AsyncSession, *, project: str | None = None, limit: int = 500
+) -> list:
+    """Ingest records not yet settled — queued, processing, or unknown —
+    oldest first, at most ``limit``; optionally for one project slug.
+
+    BERIL's view, as last *seen*: a record moves only when something polls
+    its batch, so a file may have finished in the store since.
+    """
+    owner = aliased(BerilUser)
+    query = (
+        select(
+            UserProject.slug,
+            owner.orcid_id,
+            ContextIngestBatch.id.label("batch_id"),
+            ContextIngestBatch.target_root,
+            ContextIngestFileRecord.relative_path,
+            ContextIngestFileRecord.status,
+            ContextIngestFileRecord.error,
+            ContextIngestFileRecord.created_at,
+        )
+        .join(ContextIngestBatch, ContextIngestFileRecord.batch_id == ContextIngestBatch.id)
+        .join(UserProject, ContextIngestBatch.project_id == UserProject.id)
+        .join(owner, ContextIngestBatch.user_id == owner.id)
+        .where(ContextIngestFileRecord.status.in_(
+            (INGEST_QUEUED, INGEST_PROCESSING, INGEST_UNKNOWN)
+        ))
+        .order_by(ContextIngestFileRecord.created_at, ContextIngestFileRecord.id)
+        .limit(limit)
+    )
+    if project is not None:
+        query = query.where(UserProject.slug == project)
+    return (await db.execute(query)).all()
 
 
 def _at_root(target_root: str | None) -> tuple:

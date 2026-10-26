@@ -4210,3 +4210,149 @@ async def test_retiring_an_old_memory_copy_keeps_the_project_owning_its_memory(
         assert client.post(f"/api/admin/context/retire_file/{record}").status_code == 200
 
     assert "alpha_proj" in await projects_with_memory(db_session, "discoveries")
+
+
+# ---------------------------------------------------------------------------
+# Admin diagnostics: the store's queue, and BERIL's unfinished records
+# ---------------------------------------------------------------------------
+
+_QUEUE_TEXT = """+----------------+---------+-------------+-----------+----------+--------+-------+
+|     Queue      | Pending | In Progress | Processed | Requeued | Errors | Total |
++----------------+---------+-------------+-----------+----------+--------+-------+
+|   Embedding    |    0    |      0      |   5092    |    0     |   0    | 5092  |
+|    Semantic    |   42    |      3      |   1377    |    26    |   1    | 1377  |
+|     TOTAL      |   42    |      3      |   11726   |   4471   |   1    | 11726 |
++----------------+---------+-------------+-----------+----------+--------+-------+"""
+
+_MODELS_TEXT = """Account: beril
+Embedding dimension: 3072
+
+VLM Models:
++----------------------------+----------+-------+---------+------------+----------+--------------------------+
+|           Model            | Provider | Calls | Prompt  | Completion |  Total   |       Last Updated       |
++----------------------------+----------+-------+---------+------------+----------+--------------------------+
+| vertex_ai/gemini-2.5-flash | litellm  | 3822  | 8714310 |  6861686   | 15575996 | 2026-10-21T20:26:57.600Z |
++----------------------------+----------+-------+---------+------------+----------+--------------------------+
+
+
+Embedding Models:
++--------------------------------+----------+-------+---------+------------+---------+--------------------------+
+|             Model              | Provider | Calls | Prompt  | Completion |  Total  |       Last Updated       |
++--------------------------------+----------+-------+---------+------------+---------+--------------------------+
+| vertex_ai/gemini-embedding-001 | litellm  | 5499  | 5607778 |     0      | 5607778 | 2026-10-21T20:55:34.962Z |
++--------------------------------+----------+-------+---------+------------+---------+--------------------------+
+"""
+
+
+def test_status_tables_parse_into_rows():
+    """The store's real status text (server 0.4.22), as data."""
+    from app.context_manager.openviking import parse_status_tables
+
+    queues = parse_status_tables(_QUEUE_TEXT)["table"]
+    semantic = next(q for q in queues if q["queue"] == "Semantic")
+    assert (semantic["pending"], semantic["in_progress"], semantic["errors"]) == (42, 3, 1)
+
+    models = parse_status_tables(_MODELS_TEXT)
+    assert set(models) == {"vlm_models", "embedding_models"}
+    vlm = models["vlm_models"][0]
+    assert (vlm["model"], vlm["calls"], vlm["last_updated"]) == (
+        "vertex_ai/gemini-2.5-flash", 3822, "2026-10-21T20:26:57.600Z"
+    )
+
+
+async def test_store_activity_gathers_queues_models_and_tasks():
+    from app.context_manager.openviking import OpenVikingManager
+
+    fake = MagicMock()
+    fake.queue_status = AsyncMock(return_value={"is_healthy": True, "status": _QUEUE_TEXT})
+    fake.models_status = AsyncMock(return_value={"is_healthy": True, "status": _MODELS_TEXT})
+    fake.list_tasks = AsyncMock(side_effect=lambda status, limit: (
+        [{"task_id": "t9", "status": "failed", "error": "quota"}] if status == "failed" else []
+    ))
+    fake.close = AsyncMock()
+    with patch("app.context_manager.openviking.OpenVikingClient.create", AsyncMock(return_value=fake)):
+        activity = await OpenVikingManager(MagicMock(ov_url="http://ov"), "k").store_activity(task_limit=7)
+
+    assert activity["healthy"] is True
+    assert {q["queue"] for q in activity["queues"]} == {"Embedding", "Semantic", "TOTAL"}
+    assert activity["task_counts"] == {"pending": 0, "running": 0, "failed": 1}
+    assert activity["tasks"]["failed"][0]["error"] == "quota"
+    assert {c.kwargs["limit"] for c in fake.list_tasks.await_args_list} == {7}
+    fake.close.assert_awaited_once()
+
+
+async def test_queue_requires_an_admin(client, credentialed_user, admin_store):
+    _login(client)
+    assert client.get("/api/admin/context/queue").status_code == 403
+    admin_store[1].assert_not_called()
+
+
+async def test_queue_reports_the_store_on_the_admin_key(
+    client, credentialed_user, db_session, admin_store
+):
+    inst, cls = admin_store
+    inst.store_activity = AsyncMock(return_value={"healthy": True, "queues": [], "models": {},
+                                                  "task_counts": {}, "tasks": {}})
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = client.get("/api/admin/context/queue", params={"task_limit": 5})
+
+    assert resp.status_code == 200 and resp.json()["healthy"] is True
+    assert cls.call_args.args[1] == "admin-key"
+    assert inst.store_activity.await_args.kwargs == {"task_limit": 5}
+
+
+async def test_queue_reports_an_unreachable_store_as_502(
+    client, credentialed_user, db_session, admin_store
+):
+    from app.context_manager.openviking import QUERY_FAILURES
+
+    inst, _cls = admin_store
+    inst.store_activity = AsyncMock(side_effect=QUERY_FAILURES[0]("down"))
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = client.get("/api/admin/context/queue")
+
+    assert resp.status_code == 502
+    assert "down" not in resp.text
+
+
+async def test_unfinished_requires_an_admin(client, credentialed_user):
+    _login(client)
+    assert client.get("/api/admin/context/unfinished").status_code == 403
+
+
+@pytest.mark.gated
+async def test_unfinished_lists_unsettled_records_oldest_first(
+    client, credentialed_user, db_session, admin_store
+):
+    from sqlalchemy import update
+
+    from app.db.models import ContextIngestFileRecord
+
+    inst, _cls = admin_store
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    inst.insert_files.return_value = _queued_with_tasks([("REPORT.md", "t1"), ("README.md", "t2")])
+    assert _import(client).status_code == 200
+    await db_session.execute(
+        update(ContextIngestFileRecord)
+        .where(ContextIngestFileRecord.relative_path == "README.md")
+        .values(status="completed")
+    )
+    await db_session.commit()
+
+    body = client.get("/api/admin/context/unfinished").json()
+
+    assert body["counts"] == {"queued": 1} and body["truncated"] is False
+    [only] = body["files"]
+    assert (only["project"], only["owner_orcid"], only["status"]) == (
+        "alpha_proj", _OWNER_ORCID, "queued"
+    )
+    assert only["address"] == f"{_OWNER_ORCID}/alpha_proj/REPORT.md"
+    assert client.get(
+        "/api/admin/context/unfinished", params={"project": "elsewhere"}
+    ).json()["files"] == []
