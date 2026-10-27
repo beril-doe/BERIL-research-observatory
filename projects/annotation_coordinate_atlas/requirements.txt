@@ -1,0 +1,9 @@
+# On-cluster (BERDL JupyterHub) deps. The JH kernel supplies pyspark and
+# berdl_notebook_utils; they are listed for completeness, not to be pip-installed.
+#
+# berdl_notebook_utils   (JH kernel; provides get_spark_session, get_db_structure)
+# pyspark                (JH kernel)
+pandas>=2.0
+matplotlib>=3.7
+nbformat>=5.9
+nbconvert>=7.0
