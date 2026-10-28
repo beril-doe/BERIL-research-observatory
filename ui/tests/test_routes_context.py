@@ -4375,3 +4375,112 @@ async def test_unfinished_reports_truncation_only_when_rows_were_left_out(
 
     assert (len(exact["files"]), exact["truncated"]) == (2, False)
     assert (len(short["files"]), short["truncated"]) == (1, True)
+
+
+# ---------------------------------------------------------------------------
+# ISSUE-02: recursive listing depth
+# ---------------------------------------------------------------------------
+
+
+async def test_ls_forwards_a_depth_for_recursive_listings(client, credentialed_user, manager):
+    _login(client)
+    resp = client.get("/api/context/ls", params={"project": "alpha", "recursive": True, "depth": 8})
+
+    assert resp.status_code == 200
+    assert manager.list_files.await_args.kwargs["depth"] == 8
+
+
+async def test_ls_depth_needs_recursive_and_is_bounded(client, credentialed_user, manager):
+    from app.context_manager.base import MAX_LS_DEPTH
+
+    _login(client)
+    assert client.get("/api/context/ls", params={"depth": 3}).status_code == 422
+    assert client.get(
+        "/api/context/ls", params={"recursive": True, "depth": MAX_LS_DEPTH + 1}
+    ).status_code == 422
+    manager.list_files.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# ISSUE-04: time bounds validated, not left to the store
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bound", ["1y", "2y", "garbage", "6mo", "7D", "-7d", "7.5d", "2026-02-30"])
+async def test_find_refuses_a_bound_the_store_cannot_read(client, credentialed_user, manager, bound):
+    """Regression (ISSUE-04): the store's rejection surfaced as a 502 (and,
+    behind Cloudflare, an HTML page). Each value here is one the store's own
+    parser rejects (checked against openviking 0.4.22)."""
+    _login(client)
+    resp = client.post("/api/context/find", json={"query": "q", "since": bound})
+
+    assert resp.status_code == 422
+    assert "since" in resp.text and "time bound" in resp.text
+    manager.query.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "bound",
+    ["7d", "2w", "30m", "12h", "45s", "2026-01-31", "2026-01-31T12:00:00Z",
+     "2026-01-31T12:00:00+02:00", "2026-01-31 12:00", "20260131", " 7d"],
+)
+async def test_find_accepts_every_bound_the_store_reads(client, credentialed_user, manager, bound):
+    _login(client)
+    resp = client.post("/api/context/find", json={"query": "q", "until": bound})
+
+    assert resp.status_code == 200
+    assert manager.query.await_args.args[0].until == bound.strip()
+
+
+# ---------------------------------------------------------------------------
+# ISSUE-01 guard: the store's version
+# ---------------------------------------------------------------------------
+
+
+def test_expected_store_version_matches_the_pinned_server():
+    """The expected version is the server the SDK is pinned against."""
+    import re
+    from pathlib import Path
+
+    from app.clients.openviking import EXPECTED_STORE_VERSION
+
+    pyproject = (Path(__file__).resolve().parents[2] / "pyproject.toml").read_text()
+    pinned = re.search(r'"openviking==([\d.]+)"', pyproject).group(1)
+    assert EXPECTED_STORE_VERSION == pinned
+
+
+@pytest.mark.parametrize(
+    ("version", "ok"),
+    [("0.4.22", True), ("0.4.23", True), ("0.5.0", True), ("0.4.15", False),
+     ("0.4.9", False), (None, False), ("", False)],
+)
+def test_store_version_ok(version, ok):
+    from app.clients.openviking import store_version_ok
+
+    assert store_version_ok(version) is ok
+
+
+async def test_queue_reports_the_store_version(client, credentialed_user, db_session, admin_store):
+    inst, _cls = admin_store
+    inst.store_activity = AsyncMock(return_value={"healthy": True, "queues": [], "models": {},
+                                                  "task_counts": {}, "tasks": {}})
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    with patch("app.clients.openviking.ov_health", AsyncMock(return_value={"version": "0.4.15"})):
+        body = client.get("/api/admin/context/queue").json()
+
+    assert (body["store_version"], body["store_version_ok"]) == ("0.4.15", False)
+    assert body["expected_store_version"]
+
+
+async def test_startup_logs_an_old_store_loudly(caplog):
+    from app.main import _check_store_version
+
+    with patch("app.clients.openviking.ov_health", AsyncMock(return_value={"version": "0.4.15"})):
+        await _check_store_version()
+    assert any(r.levelname == "ERROR" and "0.4.15" in r.getMessage() for r in caplog.records)
+
+    caplog.clear()
+    with patch("app.clients.openviking.ov_health", AsyncMock(return_value={"version": "0.4.22"})):
+        await _check_store_version()
+    assert not any(r.levelname == "ERROR" for r in caplog.records)

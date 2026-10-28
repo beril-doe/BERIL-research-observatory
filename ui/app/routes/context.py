@@ -51,6 +51,7 @@ from app.context_manager.base import (
     INGEST_UNKNOWN,
     MAX_DISCOVERY_LIMIT,
     MAX_GREP_NODE_LIMIT,
+    MAX_LS_DEPTH,
     MAX_LS_NODE_LIMIT,
     MAX_OWNER_EXPANSION,
     MAX_PITFALL_LIMIT,
@@ -66,6 +67,7 @@ from app.context_manager.base import (
     PitfallHit,
     PitfallResults,
 )
+from app.clients.openviking import store_version_report
 from app.context_manager.addresses import to_address
 from app.context_manager.openviking import (
     HOUSE_ACCOUNT_ID,
@@ -395,6 +397,15 @@ async def get_context_files(
     recursive: bool = Query(default=False),
     simple: bool = Query(default=False, description="Return paths only."),
     node_limit: int | None = Query(default=None, ge=1, le=MAX_LS_NODE_LIMIT),
+    depth: int | None = Query(
+        default=None,
+        ge=1,
+        le=MAX_LS_DEPTH,
+        description=(
+            "With recursive: how many levels below the target to list "
+            f"(default {MAX_LS_DEPTH}). Listings are bounded by node_limit too."
+        ),
+    ),
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db)
 ) -> list:
@@ -416,6 +427,11 @@ async def get_context_files(
     An un-ingested project lists empty rather than 404 — a legitimate state,
     and distinguishing it would report on what an owner has yet to write.
     """
+    if depth is not None and not recursive:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="`depth` applies to a recursive listing; add `recursive`.",
+        )
     target = _read_uri(user, project, path, owner=owner, all_owners=all_owners)
 
     manager = await resolve_context_manager(db, user)
@@ -425,6 +441,7 @@ async def get_context_files(
             recursive=recursive,
             simple=simple,
             node_limit=node_limit,
+            depth=depth,
         )
     except QUERY_FAILURES as exc:
         logger.warning("Context listing failed for user %s: %s", user.id, exc)
@@ -1609,17 +1626,22 @@ async def get_admin_context_queue(
     at most ``task_limit`` of each, as the store reports them (``failed``
     ones carry their error).
 
+    ``store_version`` / ``expected_store_version`` / ``store_version_ok``:
+    whether the store is at least the version BERIL's SDK is written for — an
+    older store rejects newer request fields, which users see only as 502s.
+
     This is the store's own, live view. BERIL's records of the same work are
     at ``/api/admin/context/unfinished``.
     """
     await _require_admin(db, user)
     try:
-        return await _admin_context_manager().store_activity(task_limit=task_limit)
+        activity = await _admin_context_manager().store_activity(task_limit=task_limit)
     except QUERY_FAILURES as exc:
         logger.warning("Context store activity check failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=CONTEXT_UNAVAILABLE_DETAIL
         ) from exc
+    return {**await store_version_report(), **activity}
 
 
 @ROUTER_CONTEXT.get("/api/admin/context/unfinished")
