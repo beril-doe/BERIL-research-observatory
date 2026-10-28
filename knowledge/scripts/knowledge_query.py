@@ -7,6 +7,13 @@
 #     "boto3",
 # ]
 # ///
+"""Query the OpenViking store directly — an admin tool.
+
+Needs OPENVIKING_URL and an admin OPENVIKING_API_KEY. Users never hold a store
+key: they search the context layer through BERIL with `beril context`
+(see docs/context-layer.md).
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -32,7 +39,9 @@ from observatory_context.query import (
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Query BERIL context in OpenViking")
+    parser = argparse.ArgumentParser(
+        description="Query the OpenViking store directly (admin; users: `beril context`)"
+    )
     commands = parser.add_subparsers(dest="command", required=True)
 
     find = commands.add_parser("find", help="Semantic search")

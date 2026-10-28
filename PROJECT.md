@@ -34,7 +34,7 @@ When working on a science project, capture learnings in **per-project memory fil
 
 **Each memory entry is project-tagged.** A `[{project_id}]` tag at the start of an entry makes the OV ingestion uniform and enables cross-project search later.
 
-**Source-of-truth contract.** `projects/*/memories/*.md` is the raw/provenance memory layer: it records what a specific project captured, reviewed, and approved. The central `docs/{pitfalls,discoveries,performance}.md` files are read-only for this PR: today they are the frozen pre-redirect archive, and long term they should become a processed/curated handbook layer derived from project memories plus human synthesis. Skills may still read `docs/` as background context, but no skill writes raw project memory there anymore. Retroactive migration and curated `docs/` regeneration are deferred until the OpenViking ingestion layer + UI are in place.
+**Source-of-truth contract.** `projects/*/memories/*.md` is the raw/provenance memory layer: it records what a specific project captured, reviewed, and approved. The central `docs/{pitfalls,discoveries,performance}.md` files are read-only for this PR: today they are the frozen pre-redirect archive, and long term they should become a processed/curated handbook layer derived from project memories plus human synthesis. Skills may still read `docs/` as background context, but no skill writes raw project memory there anymore. Retroactive migration and curated `docs/` regeneration are deferred until the context layer's ingestion + UI are in place.
 
 ## Documentation Files
 
@@ -80,7 +80,7 @@ Each science project in `projects/` should have:
 - `data/`: Agent-derived data from queries and analysis (gitignore large files)
 - `user_data/`: User-provided input data — gene lists, phenotype tables, external databases (gitignore large files)
 - `figures/`: Key visualizations saved as PNG files
-- `memories/`: Per-project captured knowledge that the OpenViking layer will eventually ingest for cross-project retrieval. Three kinds: `pitfalls.md` (live-captured by `/pitfall-capture`, append-only with corrections), `discoveries.md` and `performance.md` (approval-gated; written by `/submit` Phase 2c from approved `REPORT.md` sections). Created on demand. These files are the raw/provenance source of truth; central `docs/pitfalls.md` / `docs/discoveries.md` / `docs/performance.md` are read-only in this PR and can evolve later into the processed/curated layer.
+- `memories/`: Per-project captured knowledge that the context layer ingests at `/submit` for cross-project retrieval (`beril context pitfalls` / `discoveries`). Three kinds: `pitfalls.md` (live-captured by `/pitfall-capture`, append-only with corrections), `discoveries.md` and `performance.md` (approval-gated; written by `/submit` Phase 2c from approved `REPORT.md` sections). Created on demand. These files are the raw/provenance source of truth; central `docs/pitfalls.md` / `docs/discoveries.md` / `docs/performance.md` are read-only in this PR and can evolve later into the processed/curated layer.
 - `requirements.txt`: Python dependencies
 - `src/`: Reusable scripts (if applicable)
 
