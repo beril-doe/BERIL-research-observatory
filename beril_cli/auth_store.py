@@ -21,21 +21,20 @@ AUTH_DIR = Path.home() / ".beril"
 AUTH_PATH = AUTH_DIR / "auth.json"
 
 
+# Credentials an older `beril login` cached beside the token. Nothing reads
+# them any more — the context layer is reached through BERIL with the token
+# alone — and the next save drops them; until then they are still secrets on
+# disk, so ``stored_secrets`` reports them for masking.
+_LEGACY_SECRET_FIELDS = ("ov_user_key",)
+
+
 @dataclass
 class AuthRecord:
-    """Shape of the persisted auth blob.
-
-    ``ov_url`` / ``ov_user_key`` cache the user's OpenViking credential so a
-    single ``beril login`` links both BERIL and OpenViking. They are optional:
-    an old auth.json predating them, or a login where OpenViking couldn't be
-    reached, reads as logged-in-but-OV-unlinked (both None).
-    """
+    """Shape of the persisted auth blob."""
     token: str
     base_url: str
     orcid_id: str
     display_name: str | None
-    ov_url: str | None = None
-    ov_user_key: str | None = None
 
 
 def save(
@@ -44,8 +43,6 @@ def save(
     base_url: str,
     orcid_id: str,
     display_name: str | None,
-    ov_url: str | None = None,
-    ov_user_key: str | None = None,
 ) -> None:
     """Write auth.json with mode 0600 (POSIX).
 
@@ -53,9 +50,7 @@ def save(
     creation time — a Path.write_text + chmod dance would briefly expose
     a 0644 file to any process racing us.
 
-    ``ov_url`` / ``ov_user_key`` are the cached OpenViking credential; pass
-    both when a login (or ``beril ov setup``) successfully links OpenViking,
-    or leave them None to record a BERIL-only login.
+    Replaces the whole file, so fields an older login cached are dropped.
     """
     AUTH_DIR.mkdir(parents=True, exist_ok=True)
     payload: AuthRecord = AuthRecord(
@@ -63,8 +58,6 @@ def save(
         base_url=base_url,
         orcid_id = orcid_id,
         display_name=display_name,
-        ov_url=ov_url,
-        ov_user_key=ov_user_key,
     )
     # 0o600 on POSIX; ignored (no-op) on Windows. This intentionally
     # replaces any existing file.
@@ -109,9 +102,6 @@ def load() -> AuthRecord | None:
             base_url=raw["base_url"],
             orcid_id=raw["orcid_id"],
             display_name=raw.get("display_name"),
-            # Optional — absent in older files or a BERIL-only login.
-            ov_url=raw.get("ov_url"),
-            ov_user_key=raw.get("ov_user_key"),
         )
     except KeyError:
         return None
@@ -122,17 +112,20 @@ def load() -> AuthRecord | None:
     return data
 
 
-def load_ov() -> tuple[str, str] | None:
-    """Return the cached ``(ov_url, ov_user_key)``, or None if not linked.
-
-    Convenience for consumers (the query CLI, ``beril ov``) that only need
-    the OpenViking credential. Returns None when not logged in or when the
-    login didn't link OpenViking (either field missing).
-    """
+def stored_secrets() -> tuple[str, ...]:
+    """Every secret value auth.json holds: the token, plus any credential an
+    older login cached beside it. For masking — a reader must not echo them.
+    Empty when not logged in or the file is unreadable."""
     record = load()
-    if record is None or not record.ov_url or not record.ov_user_key:
-        return None
-    return (record.ov_url, record.ov_user_key)
+    if record is None:
+        return ()
+    try:
+        with AUTH_PATH.open("r") as f:
+            raw = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        raw = {}
+    legacy = [raw.get(name) for name in _LEGACY_SECRET_FIELDS] if isinstance(raw, dict) else []
+    return tuple(v for v in (record.token, *legacy) if isinstance(v, str) and v)
 
 
 def clear() -> None:

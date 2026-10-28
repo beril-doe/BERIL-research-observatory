@@ -16,7 +16,7 @@ missing SDK, an expired login, or an unreachable server never blocks a session.
 
 ## Setup (per user, once)
 
-1. `beril login` — the same login that links OpenViking. There is nothing
+1. `beril login` — the same login `beril context` uses. There is nothing
    else to obtain.
 2. Opt in. `beril setup` asks ("Enable session tracing?", default Yes) and
    writes the answer to `.env`; to change it later, edit the flag there
@@ -132,8 +132,8 @@ total, and that route is removed from Langfuse Cloud on 2026-11-16.
 The hooks preserve prompts, responses, tool inputs and outputs, with narrowly
 targeted credential masking. Both traces and Markdown attachments replace:
 
-- Exact credential values from the BERIL login record (the BERIL token and
-  linked OpenViking key) and these environment variables: `LANGFUSE_SECRET_KEY`,
+- Exact credential values from the BERIL login record (the BERIL token, and
+  any store key an older login cached beside it) and these environment variables: `LANGFUSE_SECRET_KEY`,
   `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
   `CBORG_API_KEY`, `KBASE_AUTH_TOKEN`, `AWS_SECRET_ACCESS_KEY`,
   `AWS_SESSION_TOKEN`, `S3_SECRET_KEY`, and `MINIO_SECRET_KEY`.
@@ -181,7 +181,7 @@ holding the secret key has full API access to the project — read, write, and
 delete anyone's traces. So the keypair never leaves the server:
 
 - **Users hold only their BERIL token.** It is per-user, revocable from the
-  account page, and already what OpenViking access is brokered with. Losing a
+  account page, and already what context-layer access is brokered with. Losing a
   laptop means revoking one token, not rotating the project.
 - **The relay is write-only.** It exposes exactly the three paths the SDK
   writes to. Reading or deleting traces through it is impossible; teammates

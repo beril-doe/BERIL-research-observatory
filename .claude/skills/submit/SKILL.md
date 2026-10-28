@@ -296,7 +296,7 @@ The context service skips any file whose exact content it already holds, so re-r
 - **Size limits** (server settings; defaults shown): archive 32 MiB, manifest 1 MiB, 50 manifest entries, 50 MiB per file, 128 MiB for the named files expanded, and 1,000 entries in the whole archive, listed or not.
 - **`force` is admin-only.** Re-ingesting regardless of what already landed is a repair tool; a non-admin `force` is refused (403).
 
-Through `/submit`, a refusal shows up as `"failed"` with reason `context-service submission failed: BERIL returned <code> on …: <detail>` — the lakehouse archive has still succeeded. Report the detail to the user, fix the cause (usually a file changed after approval: re-run `/berdl-review` and `/submit`), and re-run. Don't work around a refusal by editing `beril.yaml` by hand; see `docs/openviking.md` § "Submitting through BERIL" for the full reference.
+Through `/submit`, a refusal shows up as `"failed"` with reason `context-service submission failed: BERIL returned <code> on …: <detail>` — the lakehouse archive has still succeeded. Report the detail to the user, fix the cause (usually a file changed after approval: re-run `/berdl-review` and `/submit`), and re-run. Don't work around a refusal by editing `beril.yaml` by hand; see `docs/context-layer.md` § "What BERIL accepts" for the full reference.
 
 Verdict mapping in the tool's `context_submission` JSON:
 

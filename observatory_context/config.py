@@ -90,23 +90,6 @@ def s3_settings() -> dict[str, str | None]:
     }
 
 
-def _cached_ov_credential() -> tuple[str | None, str | None]:
-    """Return ``(ov_url, ov_user_key)`` cached by ``beril login`` / ``beril ov``.
-
-    Reads ~/.beril/auth.json via ``beril_cli.auth_store``. The import is guarded
-    so ``observatory_context`` keeps working in environments where ``beril_cli``
-    isn't on the path (returns ``(None, None)`` — same as no cached credential).
-    """
-    try:
-        from beril_cli import auth_store
-    except ImportError:
-        return (None, None)
-    creds = auth_store.load_ov()
-    if creds is None:
-        return (None, None)
-    return creds
-
-
 @dataclass(frozen=True)
 class ContextConfig:
     repo_root: Path
@@ -117,27 +100,12 @@ class ContextConfig:
     def from_env(cls, repo_root: Path | None = None) -> "ContextConfig":
         root = repo_root or Path(__file__).resolve().parents[1]
 
-        # Precedence: a *complete* explicit env pair wins (CI, `--env-file .env`,
-        # manual export), then fall back to the credential `beril login` / `beril
-        # ov setup` cached in ~/.beril. This lets the query CLI work with no
-        # env-file once the user has logged in.
-        #
-        # URL and key are resolved as a PAIR, not independently: the cached
-        # credential is a matched ({base_url}/ov, user_key) tuple, and a partial
-        # env override (e.g. `.env` setting only OPENVIKING_URL) must not splice
-        # a local/dev URL onto the cached prod key — that mismatch points a real
-        # key at the wrong server. So we only take the env pair when BOTH halves
-        # are present; otherwise we use the cached pair whole.
+        # From the environment only (`.env`, CI, a manual export). These tools
+        # talk to the store directly, which is an admin's job: users reach the
+        # context layer through BERIL (`beril context`) with their BERIL login,
+        # and `beril login` no longer caches a store credential to fall back to.
         url = os.getenv("OPENVIKING_URL")
         key = os.getenv("OPENVIKING_API_KEY")
-        if not url or not key:
-            cached_url, cached_key = _cached_ov_credential()
-            # Only swap in the cached credential when it's a complete pair;
-            # otherwise keep whatever env gave us (e.g. a local dev URL with no
-            # key, which is valid for an unauthenticated OpenViking). This
-            # avoids splicing an env URL onto a cached key, or vice versa.
-            if cached_url and cached_key:
-                url, key = cached_url, cached_key
 
         return cls(
             repo_root=root,

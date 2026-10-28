@@ -2,7 +2,7 @@
 
 `projects/<id>/claims.json` is a generated, per-project projection of the
 author-written `## Claims` section in `REPORT.md`. Version `2.0` is the stable
-contract for downstream consumers such as planning-workflow and OpenViking.
+contract for downstream consumers such as planning-workflow and the context layer.
 It is not a second cross-project claims database.
 
 ## Top-level contract (schema `2.0`)
