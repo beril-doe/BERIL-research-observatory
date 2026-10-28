@@ -819,6 +819,7 @@ class OpenVikingManager(ContextManager):
         recursive: bool = False,
         simple: bool = False,
         node_limit: int | None = None,
+        depth: int | None = None,
     ) -> list:
         """List the resources at ``uri``, or at each of several in turn.
 
@@ -851,6 +852,7 @@ class OpenVikingManager(ContextManager):
                         recursive=recursive,
                         simple=simple,
                         node_limit=budget.for_call(),
+                        depth=depth,
                     )
                 except SdkNotFoundError:
                     # The backend raises for a path it does not know. Per URI,

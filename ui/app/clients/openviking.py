@@ -29,6 +29,7 @@ from openviking_sdk.errors import (
 )
 
 from app.config import get_settings
+from app.context_manager.base import MAX_LS_DEPTH
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ class OpenVikingError(RuntimeError):
         super().__init__(message)
         self.status_code = status_code
         self.code = code
+
 
 
 class OpenVikingClient:
@@ -141,14 +143,28 @@ class OpenVikingClient:
         recursive: bool = False,
         simple: bool = False,
         node_limit: int | None = None,
+        depth: int | None = None,
     ) -> list:
         """List resources at a full ``viking://`` URI.
 
         Takes a complete URI rather than a bare path: callers now resolve the
         target themselves (scoping it to the authenticated user), so prepending
         a scheme here would mean parsing it back off again.
+
+        A recursive listing goes through the store's ``tree``, not
+        ``ls(recursive=True)``: the store's recursive ``ls`` stops 3 levels
+        below its root with no way to ask for more (``level_limit=3``,
+        hard-coded in 0.4.22), which drops the fragments documents are indexed
+        as. ``tree`` takes the depth (``depth``, default ``MAX_LS_DEPTH``) and
+        returns entries of the same shape; ``simple`` keeps only their URIs.
         """
-        options = {"recursive": recursive, "simple": simple}
+        if recursive:
+            options = {"output": "original", "level_limit": depth or MAX_LS_DEPTH}
+            if node_limit is not None:
+                options["node_limit"] = node_limit
+            entries = await self._client.tree(uri, **options)
+            return [e.get("uri") for e in entries] if simple else entries
+        options = {"recursive": False, "simple": simple}
         if node_limit is not None:
             options["node_limit"] = node_limit
         return await self._client.ls(uri, **options)
@@ -279,6 +295,46 @@ def _parse_result(response: httpx.Response) -> dict:
         code = err.get("code")
         message = err.get("message") or message
     raise OpenVikingError(message, status_code=response.status_code, code=code)
+
+
+# The store version the pinned SDK (openviking_sdk 0.1.12) is written for. The
+# store refuses request fields it does not know (extra="forbid"), so a store
+# older than this rejects some of BERIL's requests — prod ran 0.4.15 against
+# this SDK and every ``read_content`` find failed. Pinned to the root
+# pyproject's ``openviking==`` by a test.
+EXPECTED_STORE_VERSION = "0.4.22"
+
+
+def _version_tuple(version: str) -> tuple[int, ...]:
+    parts = []
+    for piece in version.split("."):
+        digits = "".join(ch for ch in piece if ch.isdigit())
+        if not digits:
+            break
+        parts.append(int(digits))
+    return tuple(parts)
+
+
+def store_version_ok(version: str | None) -> bool:
+    """Whether a store reporting ``version`` is at least the expected one.
+    An unknown version is not ok: it cannot be shown to be compatible."""
+    if not version:
+        return False
+    return _version_tuple(version) >= _version_tuple(EXPECTED_STORE_VERSION)
+
+
+async def store_version_report() -> dict:
+    """``{store_version, expected_store_version, store_version_ok}`` from the
+    store's public health check; ``store_version`` is None if unreachable."""
+    try:
+        version = (await ov_health()).get("version")
+    except (OpenVikingError, ValueError):
+        version = None
+    return {
+        "store_version": version,
+        "expected_store_version": EXPECTED_STORE_VERSION,
+        "store_version_ok": store_version_ok(version),
+    }
 
 
 async def ov_health() -> dict:
