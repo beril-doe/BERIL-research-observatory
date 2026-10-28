@@ -35,6 +35,8 @@ _DOCS = Scope(owner="beril", project="docs")
 # this many matches and reports only how many it returned, so reaching it is
 # the only sign that matches were cut off.
 _DEFAULT_GREP_LIMIT = 256
+# The server's listing budget when --node-limit is omitted.
+_DEFAULT_LS_LIMIT = 1000
 
 
 def add_parser(sub: argparse._SubParsersAction) -> None:
@@ -72,7 +74,14 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
     _add_scope(ls, address_flag=False)
     ls.add_argument("-r", "--recursive", action="store_true")
     ls.add_argument("--simple", action="store_true", help="Addresses only")
-    ls.add_argument("--node-limit", type=int, help="Maximum entries")
+    ls.add_argument(
+        "--node-limit", type=int,
+        help="Maximum entries (default 1000, up to 10000); a warning says when it is reached",
+    )
+    ls.add_argument(
+        "--depth", type=int,
+        help="With -r: how many levels below the address to list (default: all)",
+    )
     _add_json(ls)
 
     grep = actions.add_parser("grep", help="Exact-pattern search")
@@ -210,11 +219,39 @@ def _find(client: ContextClient, args: argparse.Namespace) -> None:
 
 
 def _ls(client: ContextClient, args: argparse.Namespace) -> None:
+    if args.depth is not None and not args.recursive:
+        raise ValueError("--depth applies to a recursive listing; add -r")
     listed = client.ls(
         _scope(args), recursive=args.recursive, simple=args.simple,
-        node_limit=args.node_limit,
+        node_limit=args.node_limit, depth=args.depth,
     )
     print(_dump(listed) if args.json else format_ls(listed))
+    # On stderr, so the output — text or JSON — stays parseable. A listing that
+    # looks complete but is not leads to "no such document" conclusions.
+    limit = args.node_limit or _DEFAULT_LS_LIMIT
+    if len(listed) >= limit:
+        print(
+            f"warning: the listing stopped at the {limit}-entry limit and may be "
+            "incomplete; raise --node-limit (up to 10000) or list a narrower address.",
+            file=sys.stderr,
+        )
+    if args.depth is not None and _reaches_depth(listed, args.depth):
+        print(
+            f"warning: directories at depth {args.depth} were not expanded; "
+            "raise --depth to see what is below them.",
+            file=sys.stderr,
+        )
+
+
+def _reaches_depth(listed: list, depth: int) -> bool:
+    """Whether a recursive listing has a directory at its depth limit — whose
+    contents were therefore not listed. Needs entries with ``rel_path``, which
+    a ``--simple`` listing does not have."""
+    return any(
+        isinstance(e, dict) and e.get("isDir")
+        and len(str(e.get("rel_path") or "").strip("/").split("/")) >= depth
+        for e in listed
+    )
 
 
 def _grep(client: ContextClient, args: argparse.Namespace) -> None:
@@ -350,17 +387,22 @@ def format_ls(listed: list) -> str:
 
 
 def format_grep(result: dict) -> str:
-    """``address:line: text`` per match, then a count."""
+    """``address:line: text`` per match, then a count of matches and of the
+    files they are in.
+
+    The file count is the distinct addresses among the matches. The store's
+    own ``files_scanned`` is not used: depending on how it searched, it is
+    either the files scanned or the files that matched, and saying "scanned"
+    made a no-match search read as "nothing was searched".
+    """
     matches = result.get("matches") or []
     lines = [
         f"{m.get('address') or ''}:{m.get('line')}: {(m.get('content') or '').strip()}"
         for m in matches
     ]
     count = result.get("count", len(matches))
-    scanned = result.get("files_scanned")
-    lines.append(
-        f"{count} match(es)" + (f" in {scanned} file(s) scanned" if scanned is not None else "")
-    )
+    files = len({m.get("address") for m in matches})
+    lines.append(f"{count} match(es)" + (f" in {files} file(s)" if count and files else ""))
     return "\n".join(lines)
 
 

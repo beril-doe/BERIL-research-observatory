@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -30,6 +31,11 @@ def build_project_metadata(project_dir: str | Path) -> ProjectMetadata:
     engine_value = beril.get("engine")
     engine: dict[str, Any] = engine_value if isinstance(engine_value, dict) else {}
     authors = _authors(beril.get("authors"))
+    if not any(a["name"] or a["orcid"] for a in authors):
+        # Most projects predate beril.yaml; their authors are only in prose.
+        authors = _markdown_authors(readme) or _markdown_authors(
+            _read_text(project_path / "RESEARCH_PLAN.md")
+        )
     author_names = [author["name"] for author in authors if author["name"]]
 
     markdown = _metadata_markdown(
@@ -101,6 +107,71 @@ def _authors(value: Any) -> list[dict[str, str]]:
             }
         )
     return authors
+
+
+_ORCID = re.compile(r"\d{4}-\d{4}-\d{4}-\d{3}[\dX]")
+_AUTHORS_HEADING = re.compile(r"^#{2,3}\s*(Authors|Contributors)\b", re.IGNORECASE)
+_ANY_HEADING = re.compile(r"^#{1,6}\s")
+_ROLE_WORDS = {"author", "authors", "contributor", "lead", "pi"}
+
+
+def _markdown_authors(text: str) -> list[dict[str, str]]:
+    """Authors from a markdown ``## Authors`` (or ``Contributors``) list.
+
+    The fallback for projects with no ``beril.yaml`` authors — most of the
+    repo — so their ``PROJECT_METADATA.md`` names who wrote them. Reads the
+    formats the repo's READMEs actually use: ``Name (https://orcid.org/…),
+    Affiliation``; ``**Name** | ORCID: … | Role``; ``Name (ORCID: [id](url)) —
+    Affiliation``; ``Name (Affiliation) — ORCID …``; and an author split over
+    bullets (``**Name**`` then ``ORCID: …`` then ``Affiliation: …``).
+    """
+    lines = text.splitlines()
+    start = next((i for i, row in enumerate(lines) if _AUTHORS_HEADING.match(row.strip())), None)
+    if start is None:
+        return []
+    authors: list[dict[str, str]] = []
+    for raw in lines[start + 1:]:
+        line = raw.strip()
+        if _ANY_HEADING.match(line):
+            break
+        if not line.startswith(("-", "*")):
+            continue
+        item = line.lstrip("-* ").strip()
+        if not item:
+            continue
+        lowered = item.lower()
+        if authors and lowered.startswith(("orcid:", "affiliation:")):
+            # A continuation bullet for the author above.
+            key, _, value = item.partition(":")
+            if key.strip().lower() == "orcid":
+                found = _ORCID.search(value)
+                authors[-1]["orcid"] = found.group(0) if found else authors[-1]["orcid"]
+            else:
+                authors[-1]["affiliation"] = _clean(value)
+            continue
+        authors.append(_author_from_line(item))
+    return [a for a in authors if a["name"] or a["orcid"]]
+
+
+def _author_from_line(item: str) -> dict[str, str]:
+    found = _ORCID.search(item)
+    orcid = found.group(0) if found else ""
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", item)        # [text](url) -> text
+    text = re.sub(r"https?://\S+", "", text)
+    text = _ORCID.sub("", text)
+    text = re.sub(r"\bORCID\b:?", "", text, flags=re.IGNORECASE)
+    text = text.replace("**", "")
+    text = re.sub(r"\(\s*\)", "", text)
+    # Name first; then whatever follows a separator is the affiliation.
+    parts = [p.strip(" ,;-—()") for p in re.split(r"\s*[|—,(]\s*|\s+-\s+", text)]
+    parts = [p for p in parts if p and p.lower() not in _ROLE_WORDS]
+    name = parts[0] if parts else ""
+    affiliation = ", ".join(parts[1:])
+    return {"name": _clean(name), "affiliation": _clean(affiliation), "orcid": orcid}
+
+
+def _clean(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip(" ,;-—()")
 
 
 def _metadata_markdown(
