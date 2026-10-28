@@ -86,6 +86,31 @@ ATLAS_SECTIONS = [
 
 
 
+async def _check_store_version() -> None:
+    """Log loudly if the context store is older than the SDK expects.
+
+    Not fatal: an older store still answers most requests, and refusing to
+    start would turn a partial outage into a full one. But a store older than
+    the pinned SDK rejects the fields it does not know, and each rejection
+    surfaces to users only as a generic 502 — prod ran 0.4.15 under a 0.4.22
+    SDK and every full-text search failed that way. Admins also see it at
+    ``/api/admin/context/queue``.
+    """
+    from app.clients.openviking import store_version_report
+
+    report = await store_version_report()
+    if report["store_version_ok"]:
+        logger.info("Context store version %s (expected >= %s)",
+                    report["store_version"], report["expected_store_version"])
+        return
+    logger.error(
+        "Context store version %s is older than %s, which BERIL's store SDK is "
+        "written for (or could not be read). Requests using newer fields will "
+        "fail as 502s until the store is upgraded.",
+        report["store_version"], report["expected_store_version"],
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -96,6 +121,7 @@ async def lifespan(app: FastAPI):
         await init_db(settings.db_url)
         app.state.repo_data = await initialize_data(settings)
         app.state.base_context = generate_base_context(settings, app.state.repo_data)
+        await _check_store_version()
     yield
     await close_db()
 

@@ -1,8 +1,9 @@
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .addresses import Address, OptionalAddress
 
@@ -12,6 +13,10 @@ from .addresses import Address, OptionalAddress
 MAX_FIND_LIMIT = 200
 MAX_FIND_NODE_LIMIT = 10_000
 MAX_LS_NODE_LIMIT = 10_000
+# How deep a recursive listing may go below its root. Generous on purpose: the
+# store's own recursive ``ls`` stops at 3 levels, which hides every fragment of
+# a decomposed document; listings are bounded by ``node_limit`` regardless.
+MAX_LS_DEPTH = 64
 MAX_GREP_NODE_LIMIT = 10_000
 MAX_PITFALL_LIMIT = 50
 MAX_DISCOVERY_LIMIT = 50
@@ -146,6 +151,22 @@ class ContextIngestResults(BaseModel):
     batch_id: str | None = None
 
 
+class ContextImportResults(ContextIngestResults):
+    """An admin import: the ingest outcome, plus whose project it landed in.
+
+    ``dry_run`` results carry only ``project`` and ``owner_orcid`` — the owner
+    an import *would* write under — and nothing was read or written.
+    """
+
+    project: str
+    owner_orcid: str
+    dry_run: bool = False
+    # Files still held in a previous owner's namespace (the project was
+    # re-owned): each is marked removal-pending and must be retired, one per
+    # call, with ``POST /api/admin/context/retire_file/{record_id}``.
+    retire_records: list[str] = Field(default_factory=list)
+
+
 class IngestFileStatus(BaseModel):
     relative_path: str
     status: str
@@ -175,10 +196,9 @@ class ContextQuery(BaseModel):
     The route resolves those into the target the manager searches, so a caller
     cannot name a location outside the corpus.
 
-    The time bounds accept whatever the backend accepts (an ISO date, or a
-    relative form like ``7d``); they are validated as non-empty strings here
-    and interpreted downstream, so a malformed bound is the backend's to
-    reject.
+    The time bounds are checked here against the store's own grammar (see
+    ``check_time_bound``), so a malformed one is a 422 naming the field rather
+    than a backend rejection that can only surface as an opaque 502.
 
     ``read_content`` asks for each hit's full text, not just its abstract. It
     is off by default because a broad query would otherwise return every
@@ -197,6 +217,49 @@ class ContextQuery(BaseModel):
     time_field: Literal["updated_at", "created_at"] | None = None
     node_limit: int | None = Field(default=None, ge=1, le=MAX_FIND_NODE_LIMIT)
     read_content: bool = False
+
+    @field_validator("since", "until")
+    @classmethod
+    def _time_bound(cls, value: str | None) -> str | None:
+        return None if value is None else check_time_bound(value)
+
+
+# The store's time-bound grammar (openviking.utils.search_filters, identical in
+# 0.4.15 and 0.4.22): a relative amount — seconds, minutes, hours, days or
+# weeks before now — a date, or an ISO 8601 datetime. ``m`` is minutes; there
+# is no month or year unit.
+_RELATIVE_BOUND = re.compile(r"\d+[smhdw]")
+_DATE_BOUND = re.compile(r"\d{4}-\d{2}-\d{2}")
+TIME_BOUND_FORMS = (
+    "a relative amount like 30m, 12h, 7d or 2w (s, m = minutes, h, d, w; "
+    "no month or year unit), a date like 2026-01-31, or an ISO 8601 datetime"
+)
+
+
+def check_time_bound(value: str) -> str:
+    """Return ``value`` if the store can read it as a time bound, else raise.
+
+    Mirrors the store's own parser, which accepts a relative amount, a
+    ``YYYY-MM-DD`` date, or anything ``datetime.fromisoformat`` reads (with a
+    trailing ``Z`` for UTC). Checked here because the store's rejection could
+    only surface as a 502 the caller cannot tell from an outage.
+    """
+    value = value.strip()
+    if _RELATIVE_BOUND.fullmatch(value):
+        return value
+    if _DATE_BOUND.fullmatch(value):
+        try:
+            datetime.strptime(value, "%Y-%m-%d")
+            return value
+        except ValueError:
+            pass
+    else:
+        try:
+            datetime.fromisoformat(value[:-1] + "+00:00" if value.endswith("Z") else value)
+            return value
+        except ValueError:
+            pass
+    raise ValueError(f"not a recognized time bound; use {TIME_BOUND_FORMS}")
 
 
 class QueryResult(BaseModel):

@@ -216,7 +216,7 @@ def test_every_query_command_calls_the_pinned_client_correctly(argv):
 
 @pytest.mark.parametrize("mode", ["all", "docs"])
 def test_interactive_ingest_calls_the_pinned_client_correctly(tmp_path, mode):
-    """Regression: 0.4.22's add_resource() takes ``reason`` only in options."""
+    """Regression: the interactive ingest's add_resource() call matches the pinned client."""
     from observatory_context.config import ContextConfig
     from observatory_context.ingest import ingest_all, ingest_docs
 
@@ -229,13 +229,6 @@ def test_interactive_ingest_calls_the_pinned_client_correctly(tmp_path, mode):
     (ingest_all if mode == "all" else ingest_docs)(ContextConfig(repo_root=tmp_path), client)
 
     assert "add_resource" in client.calls
-
-
-def test_add_resource_reason_is_an_option_the_server_knows():
-    """The reason goes in ``options``; it must be a field the client and the
-    server both carry."""
-    assert "reason" in _declared(openviking_sdk.AddResourceOptions)
-    assert "reason" not in inspect.signature(_ov.SyncHTTPClient.add_resource).parameters
 
 
 def test_scripts_do_not_call_relations_methods():

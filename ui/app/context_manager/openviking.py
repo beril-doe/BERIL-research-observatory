@@ -141,6 +141,50 @@ async def context_health() -> bool:
     return True
 
 
+def parse_status_tables(text: str) -> dict[str, list[dict]]:
+    """The store's status text as data: each ASCII table becomes rows.
+
+    The store reports queue and model state as text tables (``+---+`` rules,
+    ``| a | b |`` rows). Each table becomes a list of ``{column: value}`` rows,
+    keyed by the line of text just above it (``"VLM Models:"`` →
+    ``"vlm_models"``), or ``"table"`` when nothing names it. Column names are
+    lower-cased with underscores; whole numbers become ints. Anything that is
+    not a table is ignored.
+    """
+    tables: dict[str, list[dict]] = {}
+    title = "table"
+    header: list[str] | None = None
+    rows: list[dict] = []
+
+    def close() -> None:
+        nonlocal header, rows
+        if header is not None:
+            name, n = title, 2
+            while name in tables:
+                name, n = f"{title}_{n}", n + 1
+            tables[name] = rows
+        header, rows = None, []
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("+"):
+            continue
+        if line.startswith("|"):
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            if header is None:
+                header = [re.sub(r"\W+", "_", c.lower()).strip("_") for c in cells]
+            else:
+                rows.append({
+                    k: int(v) if v.isdigit() else v for k, v in zip(header, cells)
+                })
+            continue
+        close()
+        if line:
+            title = re.sub(r"\W+", "_", line.rstrip(":").lower()).strip("_") or "table"
+    close()
+    return tables
+
+
 class ReservedNamespaceError(ValueError):
     """Raised when a user's identity would claim the house namespace."""
 
@@ -716,9 +760,7 @@ class OpenVikingManager(ContextManager):
                     spill.parent.mkdir, parents=True, exist_ok=True
                 )
                 await asyncio.to_thread(spill.write_bytes, file.content)
-                submitted = await ov_client.add_resource(
-                    str(spill), uri, reason=f"BERIL user upload {file.relative_path}"
-                )
+                submitted = await ov_client.add_resource(str(spill), uri)
         except SdkUnauthenticatedError:
             # Not a bad file: the credential itself was refused, so every file
             # in the batch would fail identically. Let it escape so the caller
@@ -777,6 +819,7 @@ class OpenVikingManager(ContextManager):
         recursive: bool = False,
         simple: bool = False,
         node_limit: int | None = None,
+        depth: int | None = None,
     ) -> list:
         """List the resources at ``uri``, or at each of several in turn.
 
@@ -809,6 +852,7 @@ class OpenVikingManager(ContextManager):
                         recursive=recursive,
                         simple=simple,
                         node_limit=budget.for_call(),
+                        depth=depth,
                     )
                 except SdkNotFoundError:
                     # The backend raises for a path it does not know. Per URI,
@@ -821,6 +865,32 @@ class OpenVikingManager(ContextManager):
             # the connection.
             await ov_client.close()
         return listed
+
+    async def store_activity(self, *, task_limit: int = 50) -> dict:
+        """What the store is working on: its queues, its models, and its
+        pending, running and failed tasks (at most ``task_limit`` of each).
+
+        An admin diagnostic — needs a key that can see every task (BERIL's
+        admin key). Queue and model state are parsed from the store's status
+        tables; task records are passed through as the store reports them.
+        """
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        try:
+            queue = await ov_client.queue_status()
+            models = await ov_client.models_status()
+            tasks = {
+                status: await ov_client.list_tasks(status=status, limit=task_limit)
+                for status in ("pending", "running", "failed")
+            }
+        finally:
+            await ov_client.close()
+        return {
+            "healthy": bool(queue.get("is_healthy")) and bool(models.get("is_healthy")),
+            "queues": parse_status_tables(queue.get("status") or "").get("table", []),
+            "models": parse_status_tables(models.get("status") or ""),
+            "task_counts": {status: len(found) for status, found in tasks.items()},
+            "tasks": tasks,
+        }
 
     async def find_pitfalls(
         self,
