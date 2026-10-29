@@ -203,6 +203,11 @@ class ContextQuery(BaseModel):
     ``read_content`` asks for each hit's full text, not just its abstract. It
     is off by default because a broad query would otherwise return every
     matching document in full.
+
+    ``limit`` is how many results come back, at most — the best-ranked ones.
+    ``node_limit`` is how many backend nodes the search may rank to find them;
+    omitted, it is set wider than ``limit`` (see ``OpenVikingManager.query``).
+    Raising it widens the search, never the number returned.
     """
 
     query: str
@@ -380,8 +385,10 @@ class DiscoveryResults(BaseModel):
 
 
 class ContextQueryResults(BaseModel):
-    """``total`` is the backend's own count, which may exceed ``len(results)``
-    when the query was limited."""
+    """``total`` is how many results the search reached before they were
+    trimmed to the query's ``limit``. More than ``len(results)`` means more
+    ranked results exist past the limit; it is not a count of every match — a
+    semantic search ranks the whole scope, it does not filter it."""
 
     query: str
     results: list[QueryResult]

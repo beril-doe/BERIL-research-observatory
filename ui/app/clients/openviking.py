@@ -22,6 +22,7 @@ from openviking_sdk.errors import (
     DeadlineExceededError,
     EmbeddingFailedError,
     InternalError,
+    InvalidArgumentError,
     ProcessingError,
     ResourceExhaustedError,
     UnavailableError,
@@ -34,6 +35,10 @@ from app.context_manager.base import MAX_LS_DEPTH
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(10.0)
+
+# The fields of one entry in the store's listing. ``stat`` returns these plus
+# a few of its own; a file listed directly is trimmed to the listing's shape.
+_LS_ENTRY_FIELDS = ("name", "size", "mode", "modTime", "isDir", "uri")
 
 # Errors that usually clear on a retry — OV's temp tier collides under
 # back-to-back uploads. Same set the batch CLI ingest retries on.
@@ -157,17 +162,31 @@ class OpenVikingClient:
         hard-coded in 0.4.22), which drops the fragments documents are indexed
         as. ``tree`` takes the depth (``depth``, default ``MAX_LS_DEPTH``) and
         returns entries of the same shape; ``simple`` keeps only their URIs.
+
+        A file lists as itself: its one entry, as its directory's listing would
+        show it. The store refuses to ``ls`` or ``tree`` a file ("not a
+        directory"), but every address a listing returns must be listable in
+        turn — so the refusal is answered with the file's ``stat``.
         """
-        if recursive:
-            options = {"output": "original", "level_limit": depth or MAX_LS_DEPTH}
+        try:
+            if recursive:
+                options = {"output": "original", "level_limit": depth or MAX_LS_DEPTH}
+                if node_limit is not None:
+                    options["node_limit"] = node_limit
+                entries = await self._client.tree(uri, **options)
+                return [e.get("uri") for e in entries] if simple else entries
+            options = {"recursive": False, "simple": simple}
             if node_limit is not None:
                 options["node_limit"] = node_limit
-            entries = await self._client.tree(uri, **options)
-            return [e.get("uri") for e in entries] if simple else entries
-        options = {"recursive": False, "simple": simple}
-        if node_limit is not None:
-            options["node_limit"] = node_limit
-        return await self._client.ls(uri, **options)
+            return await self._client.ls(uri, **options)
+        except InvalidArgumentError:
+            entry = await self._client.stat(uri)
+            # Decided by the store's own answer, not the error's wording: a
+            # directory refused for some other reason keeps its error.
+            if entry.get("isDir"):
+                raise
+            entry = {key: entry.get(key) for key in _LS_ENTRY_FIELDS}
+            return [entry["uri"]] if simple else [entry]
 
     async def grep(
         self,

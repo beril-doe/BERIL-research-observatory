@@ -222,6 +222,51 @@ async def test_a_recursive_listing_goes_through_tree_with_a_depth(settings, patc
     assert patched_sdk.tree.await_args.kwargs["level_limit"] == 5
 
 
+_FILE_URI = "viking://resources/users/beril/docs/pitfalls/pitfalls/Gotchas/Spark.md"
+_STAT = {
+    "name": "Spark.md", "size": 3969, "mode": 420, "modTime": "2026-09-22T19:44:55Z",
+    "isDir": False, "uri": _FILE_URI, "isLocked": False, "id": "00e7db4a",
+}
+
+
+@pytest.mark.parametrize("recursive", [False, True])
+@pytest.mark.parametrize(
+    "uri",
+    [_FILE_URI, "viking://resources/users/0000-1/alpha/beril.yaml/beril.md"],
+    ids=["central-docs", "project"],
+)
+async def test_listing_a_file_returns_its_own_entry(settings, patched_sdk, uri, recursive):
+    """Regression (ISSUE-07): the store refuses to ``ls`` or ``tree`` a file
+    ("not a directory"), which surfaced as a 502 for addresses ``ls -r`` had
+    just returned. A file lists as itself, in the listing's own shape."""
+    from openviking_sdk.errors import InvalidArgumentError
+
+    refused = InvalidArgumentError(f"not a directory: {uri}")
+    patched_sdk.ls = AsyncMock(side_effect=refused)
+    patched_sdk.tree = AsyncMock(side_effect=refused)
+    patched_sdk.stat = AsyncMock(return_value={**_STAT, "uri": uri})
+    client = await OpenVikingClient.create("user-key")
+
+    listed = await client.list_files(uri, recursive=recursive)
+    assert listed == [{k: v for k, v in _STAT.items() if k not in ("isLocked", "id")} | {"uri": uri}]
+    patched_sdk.stat.assert_awaited_once_with(uri)
+
+    assert await client.list_files(uri, recursive=recursive, simple=True) == [uri]
+
+
+async def test_a_directory_the_store_refuses_keeps_its_error(settings, patched_sdk):
+    """The fallback is for files: a directory refused for any other reason is
+    still an error, not a listing of itself."""
+    from openviking_sdk.errors import InvalidArgumentError
+
+    patched_sdk.ls = AsyncMock(side_effect=InvalidArgumentError("bad uri"))
+    patched_sdk.stat = AsyncMock(return_value={**_STAT, "isDir": True})
+    client = await OpenVikingClient.create("user-key")
+
+    with pytest.raises(InvalidArgumentError, match="bad uri"):
+        await client.list_files("viking://x")
+
+
 async def test_list_files_omits_an_unset_node_limit(settings, patched_sdk):
     """An unset node_limit leaves the backend's own default in place."""
     client = await OpenVikingClient.create("user-key")
@@ -282,7 +327,9 @@ async def test_query_forwards_all_query_fields(settings, patched_sdk):
         "alpha",
         limit=5,
         target_uri="viking://resources/users/0000-1/alpha",
-        options={"score_threshold": 0.5},
+        # The node budget is wider than the limit: nodes collapse into fewer
+        # results, so a budget of exactly ``limit`` comes back short.
+        options={"score_threshold": 0.5, "node_limit": 10},
     )
 
 
@@ -353,12 +400,13 @@ async def test_query_omits_unset_options(settings, patched_sdk):
     """An unset option is absent, not None.
 
     Sending ``None`` would override the backend's own default with a value the
-    caller never chose.
+    caller never chose. The node budget is the exception: it is always set,
+    from ``limit``.
     """
     manager = OpenVikingManager(settings, "user-key")
     await manager.query(ContextQuery(query="alpha"), target_uri=CORPUS)
 
-    assert patched_sdk.find.await_args.kwargs["options"] is None
+    assert patched_sdk.find.await_args.kwargs["options"] == {"node_limit": 20}
 
 
 async def test_query_omits_read_content_when_false(settings, patched_sdk):
@@ -368,7 +416,7 @@ async def test_query_omits_read_content_when_false(settings, patched_sdk):
         ContextQuery(query="alpha", read_content=False), target_uri=CORPUS
     )
 
-    assert patched_sdk.find.await_args.kwargs["options"] is None
+    assert "read_content" not in patched_sdk.find.await_args.kwargs["options"]
 
 
 async def test_query_maps_match_reason_and_content(settings, patched_sdk):
@@ -410,6 +458,57 @@ async def test_query_reports_backend_total_over_row_count(settings, patched_sdk)
 
     assert out.total == 97
     assert len(out.results) == 1
+
+
+def _find_payload(n: int) -> dict:
+    """A find payload of ``n`` resources, best first, as the backend reports
+    it: ``total`` is the number returned."""
+    return {
+        "resources": [
+            {"uri": f"viking://x/{i}.md", "context_type": "d",
+             "score": 1.0 - i / 1000, "abstract": str(i)}
+            for i in range(n)
+        ],
+        "total": n,
+    }
+
+
+async def test_query_returns_at_most_limit_results(settings, patched_sdk):
+    """Regression (ISSUE-06): with a node budget the backend ignores ``limit``
+    and returns whatever the budget reached (1,566 rows for ``limit=10``
+    locally). ``limit`` is the caller's cap, so the best ``limit`` are kept."""
+    patched_sdk.find.return_value = _find_payload(25)
+    manager = OpenVikingManager(settings, "user-key")
+    out = await manager.query(
+        ContextQuery(query="alpha", limit=10, node_limit=500), target_uri=CORPUS
+    )
+
+    assert [r.uri for r in out.results] == [f"viking://x/{i}.md" for i in range(10)]
+    # How far the search reached, so a caller can tell more results exist.
+    assert out.total == 25
+
+
+async def test_query_asks_for_more_nodes_than_results(settings, patched_sdk):
+    """Regression (ISSUE-06): nodes collapse into fewer results (200 nodes
+    gave 166), so a budget of ``limit`` nodes falls short of ``limit``. An
+    explicit node_limit is the caller's and is sent as given."""
+    manager = OpenVikingManager(settings, "user-key")
+
+    await manager.query(ContextQuery(query="alpha", limit=200), target_uri=CORPUS)
+    assert patched_sdk.find.await_args.kwargs["options"]["node_limit"] == 400
+
+    await manager.query(ContextQuery(query="alpha", limit=200, node_limit=50), target_uri=CORPUS)
+    assert patched_sdk.find.await_args.kwargs["options"]["node_limit"] == 50
+
+
+async def test_query_total_equals_the_rows_when_nothing_lies_past_the_limit(
+    settings, patched_sdk
+):
+    patched_sdk.find.return_value = _find_payload(7)
+    manager = OpenVikingManager(settings, "user-key")
+    out = await manager.query(ContextQuery(query="alpha", limit=10), target_uri=CORPUS)
+
+    assert len(out.results) == out.total == 7
 
 
 async def test_query_falls_back_to_row_count_without_a_total(settings, patched_sdk):
