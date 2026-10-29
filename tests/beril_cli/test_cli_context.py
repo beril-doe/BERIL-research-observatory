@@ -197,14 +197,33 @@ def test_contradictory_scopes_are_refused_before_any_request(logged_in, beril, c
 
 def test_find_prints_count_then_address_score_abstract(logged_in, beril, capsys):
     beril.on("POST", "/api/context/find", {
-        "query": "q", "total": 7,
+        "query": "q", "total": 1,
         "results": [_hit("beril/docs/pitfalls/a.md", 0.8123, "About A.")],
     })
     main(["context", "find", "q"])
 
-    assert capsys.readouterr().out.splitlines() == [
-        "7 result(s)", "", "beril/docs/pitfalls/a.md", "score: 0.812", "About A.",
+    captured = capsys.readouterr()
+    assert captured.out.splitlines() == [
+        "1 result(s)", "", "beril/docs/pitfalls/a.md", "score: 0.812", "About A.",
     ]
+    assert captured.err == ""
+
+
+@pytest.mark.parametrize("argv", [[], ["--json"]])
+def test_find_notes_when_more_results_lie_past_the_limit(logged_in, beril, capsys, argv):
+    """Regression (ISSUE-06): a full page of ranked hits read as the whole
+    answer. The count is what is shown; the note says more exist."""
+    beril.on("POST", "/api/context/find", {
+        "query": "q", "total": 17,
+        "results": [_hit(f"0009-1/alpha/f{i}.md") for i in range(10)],
+    })
+    main(["context", "find", "q", *argv])
+
+    captured = capsys.readouterr()
+    assert "showing the top 10; more ranked results lie past the limit" in captured.err
+    assert "note" not in captured.out
+    if not argv:
+        assert captured.out.splitlines()[0] == "10 result(s)"
 
 
 def test_find_read_content_prints_the_full_text(logged_in, beril, capsys):

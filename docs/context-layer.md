@@ -41,6 +41,9 @@ argument) to look there. Otherwise, scope a search with these flags:
 - `--docs` — the central docs.
 
 **Limits worth knowing.**
+- `find` returns the best `--limit` results (10 by default, 200 at most). It
+  notes on stderr when more ranked results lie past that, so an absence from
+  `find` isn't an absence from the context layer; use `grep` to check.
 - `grep` returns at most `--node-limit` matches (256 by default). It warns
   when it reaches that cap.
 - When BERIL is unreachable, `beril context` fails and says so. There is no

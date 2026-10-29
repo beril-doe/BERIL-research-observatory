@@ -86,7 +86,7 @@ A first query is a starting point, not the answer. Read the result, then move:
 - **Too many or vague hits:** tighten the terms, add `--score-threshold 0.5`, or scope with `--project <id> --all-owners` / `--docs`.
 - **Too few or zero hits:** broaden the terms, drop the threshold, widen the scope, or switch from `find` to `grep` on a single defining token.
 - **A promising hit:** read its source file (see § Addresses). To find related work, `find` on the theme the hit turned out to be about.
-- **Stop** when you can name the source files that answer the question, or when two refinements surface nothing new. Don't keep querying past sufficiency.
+- **Stop** when you can name the source files that answer the question, or when two refinements surface nothing new. Don't keep querying past sufficiency. Before concluding that **nothing exists**, confirm it with `grep` on a defining term: `find` shows only its top results (see the `find` reference), so an absence there is not an absence from the corpus.
 
 Once a hit looks right, **read the underlying file** before editing or citing it.
 
@@ -138,6 +138,8 @@ beril context find "query terms" --read-content                   # full text, n
 ```
 
 Output is `N result(s)`, then for each hit: its address, `score: 0.xxx`, and its abstract (plus `--- content ---` with `--read-content`).
+
+**Results are the top of a ranking, not every match.** `find` ranks everything in scope and returns the best `--limit` hits: 10 by default, 200 at most. When more ranked results lie past the limit, `beril context find` prints a `note: showing the top N` on stderr (with `--json`, `total` exceeds the number of `results`). That is normal for a ranked search, but **don't conclude from a `find` that something is absent**: raise `--limit`, narrow the scope, or `grep` a defining term, which returns every literal match up to its cap.
 
 ### `grep`: exact-pattern search
 

@@ -31,6 +31,11 @@ from beril_cli.context_client import ContextClient, ContextError, Scope
 # the house account.
 _DOCS = Scope(owner="beril", project="docs")
 
+# find's result count when --limit is omitted, and the most it may ask for.
+# find is ranked, so a full page means "these are the best", not "these are
+# all"; the server reports in ``total`` whether more lie past the limit.
+_DEFAULT_FIND_LIMIT = 10
+_MAX_FIND_LIMIT = 200
 # The server's grep budget when --node-limit is omitted. grep returns at most
 # this many matches and reports only how many it returned, so reaching it is
 # the only sign that matches were cut off.
@@ -52,7 +57,10 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
     find = actions.add_parser("find", help="Semantic search")
     find.add_argument("query", help="What to search for")
     _add_scope(find)
-    find.add_argument("--limit", type=int, help="Maximum results (default 10)")
+    find.add_argument(
+        "--limit", type=int,
+        help=f"Maximum results, best first (default {_DEFAULT_FIND_LIMIT}, up to {_MAX_FIND_LIMIT})",
+    )
     find.add_argument("--score-threshold", type=float, help="Minimum score")
     find.add_argument("--since", help="Lower time bound (ISO date, or 7d / 2w)")
     find.add_argument("--until", help="Upper time bound (ISO date, or 7d / 2w)")
@@ -216,6 +224,16 @@ def _find(client: ContextClient, args: argparse.Namespace) -> None:
         read_content=args.read_content,
     )
     print(_dump(result) if args.json else format_find(result))
+    # On stderr, so the output — text or JSON — stays parseable. A ranked page
+    # that reads as the whole answer leads to "nobody has done this".
+    shown = len(result.get("results") or [])
+    if (result.get("total") or 0) > shown:
+        print(
+            f"note: showing the top {shown}; more ranked results lie past the limit. "
+            f"Raise --limit (up to {_MAX_FIND_LIMIT}), narrow the scope, or use grep "
+            "to find every literal match.",
+            file=sys.stderr,
+        )
 
 
 def _ls(client: ContextClient, args: argparse.Namespace) -> None:
@@ -356,10 +374,10 @@ def _run_doctor(args: argparse.Namespace) -> int:
 
 def format_find(result: dict) -> str:
     """``N result(s)``, then per hit: address, score, abstract — the shape the
-    skills already read — plus the full text when it was asked for."""
+    skills already read — plus the full text when it was asked for. ``N`` is
+    the hits shown; ``total`` can be larger (see ``_find``)."""
     hits = result.get("results") or []
-    total = result.get("total")
-    lines = [f"{total if total is not None else len(hits)} result(s)"]
+    lines = [f"{len(hits)} result(s)"]
     for hit in hits:
         lines += [
             "",
