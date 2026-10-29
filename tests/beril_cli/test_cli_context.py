@@ -285,7 +285,7 @@ def test_grep_prints_address_line_text_and_a_count(logged_in, beril, capsys):
     }
     assert capsys.readouterr().out.splitlines() == [
         "beril/docs/performance/p.md:11: ## PySpark-First",
-        "1 match(es) in 4 file(s) scanned",
+        "1 match(es) in 1 file(s)",  # files that matched; not the store's files_scanned
     ]
 
 
@@ -504,3 +504,73 @@ def test_start_still_forwards_unknown_arguments_to_the_agent(monkeypatch):
 
     assert main(["start", "--skip-onboard", "--permission-mode", "plan"]) == 0
     assert seen["extra_args"] == ["--permission-mode", "plan"]
+
+
+# ---------------------------------------------------------------------------
+# BERDL hub testing: ls depth (ISSUE-02), grep counts (ISSUE-03), HTML (ISSUE-04)
+# ---------------------------------------------------------------------------
+
+
+def test_ls_depth_is_sent_and_needs_recursive(logged_in, beril, capsys):
+    beril.on("GET", "/api/context/ls", [])
+    assert main(["context", "ls", "beril/docs", "-r", "--depth", "6"]) == 0
+    assert beril.last_params()["depth"] == "6"
+
+    assert main(["context", "ls", "beril/docs", "--depth", "6"]) == 2
+    assert "add -r" in capsys.readouterr().err
+
+
+def test_ls_warns_when_directories_at_the_depth_limit_were_not_expanded(logged_in, beril, capsys):
+    beril.on("GET", "/api/context/ls", [
+        {"address": "beril/docs/pitfalls", "isDir": True, "rel_path": "pitfalls"},
+        {"address": "beril/docs/pitfalls/pitfalls", "isDir": True, "rel_path": "pitfalls/pitfalls"},
+    ])
+    main(["context", "ls", "beril/docs", "-r", "--depth", "2"])
+
+    assert "depth 2 were not expanded" in capsys.readouterr().err
+
+
+def test_ls_warns_when_the_listing_hits_its_entry_limit(logged_in, beril, capsys):
+    beril.on("GET", "/api/context/ls", [{"address": f"o/p/f{i}", "isDir": False} for i in range(5)])
+    main(["context", "ls", "o/p", "-r", "--node-limit", "5"])
+
+    assert "stopped at the 5-entry limit" in capsys.readouterr().err
+
+
+def test_a_complete_listing_does_not_warn(logged_in, beril, capsys):
+    beril.on("GET", "/api/context/ls", [{"address": "o/p/f", "isDir": False, "rel_path": "f"}])
+    main(["context", "ls", "o/p", "-r", "--depth", "3"])
+
+    assert capsys.readouterr().err == ""
+
+
+def test_grep_counts_the_files_that_matched_itself(logged_in, beril, capsys):
+    """Regression (ISSUE-03): ``files_scanned`` is the store's number, and
+    sometimes counts matched files, not scanned ones."""
+    beril.on("GET", "/api/context/grep", {
+        "matches": [{"address": "a", "line": 1, "content": "x"},
+                    {"address": "a", "line": 2, "content": "x"},
+                    {"address": "b", "line": 1, "content": "x"}],
+        "count": 3, "files_scanned": 99,
+    })
+    main(["context", "grep", "x", "--docs"])
+
+    assert capsys.readouterr().out.splitlines()[-1] == "3 match(es) in 2 file(s)"
+
+
+def test_a_grep_with_no_matches_does_not_claim_nothing_was_searched(logged_in, beril, capsys):
+    beril.on("GET", "/api/context/grep", {"matches": [], "count": 0, "files_scanned": 0})
+    main(["context", "grep", "zzz", "--docs"])
+
+    assert capsys.readouterr().out.strip() == "0 match(es)"
+
+
+def test_a_gateway_error_page_is_summarized_not_printed(logged_in, beril, capsys):
+    """Regression (ISSUE-04): a Cloudflare HTML page was dumped verbatim."""
+    beril.routes[("POST", "/api/context/find")] = httpx.Response(
+        502, text="<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\"no-js\"> <![endif]-->"
+    )
+
+    assert main(["context", "find", "x"]) == 1
+    err = capsys.readouterr().err
+    assert "<" not in err and "gateway returned an error page" in err and "HTTP 502" in err

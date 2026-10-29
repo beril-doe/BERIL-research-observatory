@@ -25,7 +25,7 @@ Documents are indexed in fragments, so a hit's address usually continues past th
 |---|---|
 | `0009-…/alpha/REPORT.md/REPORT.md` | `projects/alpha/REPORT.md` |
 | `0009-…/alpha/memories/pitfalls.md/pitfalls.md` | `projects/alpha/memories/pitfalls.md` |
-| `beril/docs/pitfalls/pitfalls/Foreign_Key_Gotchas.md` | `docs/pitfalls.md` |
+| `beril/docs/pitfalls/pitfalls/BERDL_Database_Common_Pitfalls_Gotchas/Foreign_Key_Gotchas.md` | `docs/pitfalls.md` |
 
 `PROJECT_METADATA.md` (and `CLAIMS_CONTEXT.md`) are generated when the project is submitted, so they have no file in the checkout.
 
@@ -122,7 +122,7 @@ In every failure case, tell the user, and fall back to reading this checkout's o
 
 ## Command reference
 
-Every command takes `--json` to print the raw response (addresses included), for filtering with `jq`.
+Every command takes `--json` to print the raw response (addresses included), for filtering with `python3 -c` (always present where `beril` runs; `jq` may not be, as on the BERDL hub).
 
 ### `find`: semantic search
 
@@ -184,14 +184,26 @@ beril context ls beril/docs                       # the central docs
 
 Directories end in `/`. With `--json`, each entry carries `name`, `isDir`, `size` and `modTime`.
 
+`-r` lists every level below the address (`--depth N` to stop sooner). A listing is capped at 1000 entries by default (`--node-limit`, up to 10000). When a listing stops short, either at that cap or at `--depth`, a warning goes to stderr. Treat such a listing as incomplete: don't conclude a document is absent from it.
+
 ## Common workflows
 
-**"Find all projects by an author":** `grep` matches **all** file content, not just author rows, so expect false positives from incidental mentions. Use a generous `--node-limit` (e.g. 2000) and check for the truncation warning. For an authoritative list, keep only matches in the generated metadata file:
+**"What has this person worked on?":** two questions, two commands.
 
-```bash
-beril context grep "Ada Lovelace" --all-owners --node-limit 2000 --json \
-  | jq -r '[.matches[] | select(.address | contains("/PROJECT_METADATA.md")) | .address | split("/")[1]] | unique | .[]'
-```
+- **Projects they own** (they are the first author, so the project lives under their ORCiD). Complete:
+
+  ```bash
+  beril context ls <their ORCiD> --simple
+  ```
+
+- **Every project that lists them as an author**, owner or not. Every project's generated `PROJECT_METADATA.md` has an Authors table (from `beril.yaml`, or else the README / research plan's Authors section), so keep only matches there. Matching the whole file instead would also catch incidental mentions in reports and references:
+
+  ```bash
+  beril context grep "<their name or ORCiD>" --all-owners --node-limit 2000 --json \
+    | python3 -c 'import sys,json; print(*sorted({m["address"].split("/")[1] for m in json.load(sys.stdin)["matches"] if "/PROJECT_METADATA.md" in m["address"]}), sep="\n")'
+  ```
+
+  Check stderr for the truncation warning. A project indexed before its metadata named authors (re-indexed by the next import or `/submit`) won't appear here. A project with no author ORCiD anywhere has none to match.
 
 **"What changed in the last week?":** `find` needs a non-empty query, so use a topic word or a broad term:
 

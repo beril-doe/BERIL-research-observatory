@@ -190,13 +190,36 @@ async def test_list_files_passes_the_uri_through(settings, patched_sdk):
 
 async def test_list_files_forwards_listing_options(settings, patched_sdk):
     client = await OpenVikingClient.create("user-key")
-    await client.list_files(
-        "viking://x", recursive=True, simple=True, node_limit=25
-    )
+    await client.list_files("viking://x", simple=True, node_limit=25)
 
     patched_sdk.ls.assert_awaited_once_with(
-        "viking://x", recursive=True, simple=True, node_limit=25
+        "viking://x", recursive=False, simple=True, node_limit=25
     )
+
+
+async def test_a_recursive_listing_goes_through_tree_with_a_depth(settings, patched_sdk):
+    """Regression (ISSUE-02): the store's recursive ``ls`` stops 3 levels
+    down (``level_limit=3``, hard-coded), dropping the fragments documents are
+    indexed as. ``tree`` takes the depth and returns the same entry shape."""
+    from app.context_manager.base import MAX_LS_DEPTH
+
+    entries = [
+        {"name": "a", "isDir": True, "rel_path": "a", "uri": "viking://x/a"},
+        {"name": "f.md", "isDir": False, "rel_path": "a/b/c/d/f.md", "uri": "viking://x/a/b/c/d/f.md"},
+    ]
+    patched_sdk.tree = AsyncMock(return_value=entries)
+    client = await OpenVikingClient.create("user-key")
+
+    listed = await client.list_files("viking://x", recursive=True, node_limit=25)
+    assert listed == entries
+    patched_sdk.ls.assert_not_awaited()
+    patched_sdk.tree.assert_awaited_once_with(
+        "viking://x", output="original", level_limit=MAX_LS_DEPTH, node_limit=25
+    )
+
+    simple = await client.list_files("viking://x", recursive=True, simple=True, depth=5)
+    assert simple == ["viking://x/a", "viking://x/a/b/c/d/f.md"]
+    assert patched_sdk.tree.await_args.kwargs["level_limit"] == 5
 
 
 async def test_list_files_omits_an_unset_node_limit(settings, patched_sdk):
@@ -1665,7 +1688,7 @@ async def test_add_resource_retries_transient_error(settings, patched_sdk):
     client = await OpenVikingClient.create("user-key")
 
     with patch("app.clients.openviking.asyncio.sleep", AsyncMock()) as sleep:
-        result = await client.add_resource("/tmp/f.md", "viking://x/f.md", reason="r")
+        result = await client.add_resource("/tmp/f.md", "viking://x/f.md")
 
     assert result == {"ok": True}
     assert patched_sdk.add_resource.await_count == 2
@@ -1678,9 +1701,21 @@ async def test_add_resource_gives_up_after_retry_cap(settings, patched_sdk):
 
     with patch("app.clients.openviking.asyncio.sleep", AsyncMock()):
         with pytest.raises(UnavailableError):
-            await client.add_resource("/tmp/f.md", "viking://x/f.md", reason="r")
+            await client.add_resource("/tmp/f.md", "viking://x/f.md")
 
     assert patched_sdk.add_resource.await_count == ADD_RESOURCE_RETRIES
+
+
+async def test_add_resource_sends_no_reason(settings, patched_sdk):
+    """A reason makes the store extract memories per file on one strictly
+    ordered session — a large ingest spun its queue for nothing BERIL reads."""
+    patched_sdk.add_resource = AsyncMock(return_value={"ok": True})
+    client = await OpenVikingClient.create("user-key")
+
+    await client.add_resource("/tmp/f.md", "viking://x/f.md")
+
+    kwargs = patched_sdk.add_resource.await_args.kwargs
+    assert "reason" not in kwargs and "reason" not in (kwargs.get("options") or {})
 
 
 async def test_add_resource_does_not_retry_other_errors(settings, patched_sdk):
@@ -1689,7 +1724,7 @@ async def test_add_resource_does_not_retry_other_errors(settings, patched_sdk):
     client = await OpenVikingClient.create("user-key")
 
     with pytest.raises(SdkOpenVikingError):
-        await client.add_resource("/tmp/f.md", "viking://x/f.md", reason="r")
+        await client.add_resource("/tmp/f.md", "viking://x/f.md")
 
     assert patched_sdk.add_resource.await_count == 1
 

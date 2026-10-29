@@ -3672,3 +3672,815 @@ async def test_health_reports_the_store_without_naming_it(
 
     assert resp.status_code == 200
     assert resp.json() == {"status": status}
+
+
+# ---------------------------------------------------------------------------
+# Admin import — repo projects indexed under their owners
+# ---------------------------------------------------------------------------
+
+_OWNER_ORCID = "0000-0003-1111-2222"
+
+
+@pytest.fixture
+def admin_store():
+    """The store connection, and the class that built it (to see its key)."""
+    inst = MagicMock()
+    inst.insert_files = AsyncMock(return_value=_queued_with_tasks([("REPORT.md", "t1")]))
+    inst.task_statuses = AsyncMock(return_value={})
+    inst.remove_files = AsyncMock(side_effect=_removed_all)
+    with patch("app.routes.context.OpenVikingManager", return_value=inst) as cls:
+        yield inst, cls
+
+
+async def _repo_project(db_session, slug="alpha_proj", *, owner_orcid=_OWNER_ORCID):
+    """A project the repo importer created, owned per its rule."""
+    from app.db.models import UserProject
+
+    owner = BerilUser(orcid_id=owner_orcid, display_name="Owner")
+    db_session.add(owner)
+    await db_session.commit()
+    project = UserProject(
+        owner_id=owner.id, slug=slug, title=slug, origin="repo",
+        repo_path=f"projects/{slug}", is_public=True,
+    )
+    db_session.add(project)
+    await db_session.commit()
+    return owner, project
+
+
+async def _make_admin(db_session, user):
+    db_session.add(UserRole(user_id=user.id, role="admin"))
+    await db_session.commit()
+
+
+def _import(client, *, project="alpha_proj", members=None, dry_run=None, archive=True):
+    members = {"REPORT.md": b"# Report\n", "README.md": b"# Readme\n"} if members is None else members
+    data = {"project": project}
+    if dry_run is not None:
+        data["dry_run"] = str(dry_run).lower()
+    files = {
+        "archive": ("upload.zip", _zip_bytes(members), "application/zip"),
+        "manifest": ("manifest.txt", "\n".join(members).encode(), "text/plain"),
+    } if archive else None
+    return client.post("/api/admin/context/import_files", data=data, files=files)
+
+
+@pytest.mark.gated
+async def test_import_requires_an_admin(client, credentialed_user, db_session, admin_store):
+    await _repo_project(db_session)
+    _login(client)
+
+    assert _import(client).status_code == 403
+    admin_store[0].insert_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_import_lands_in_the_owners_namespace_on_the_admin_key(
+    client, credentialed_user, db_session, admin_store
+):
+    """No beril.yaml or approval is needed — these never went through
+    /submit — and the files land under the *owner*, recorded on the owner's
+    project and batch rows, written with BERIL's admin key."""
+    from app.db.models import ContextIngestBatch
+
+    inst, cls = admin_store
+    owner, project = await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = _import(client)
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert (body["project"], body["owner_orcid"], body["queued"]) == ("alpha_proj", _OWNER_ORCID, 1)
+    assert inst.insert_files.await_args.kwargs["target_root"] == (
+        f"viking://resources/users/{_OWNER_ORCID}/alpha_proj"
+    )
+    assert cls.call_args.args[1] == "admin-key"
+    batch = await db_session.get(ContextIngestBatch, body["batch_id"])
+    assert (batch.user_id, batch.project_id) == (owner.id, project.id)
+    assert "viking" not in resp.text
+
+
+@pytest.mark.gated
+async def test_import_keeps_the_allowlist(client, credentialed_user, db_session, admin_store):
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = _import(client, members={"REPORT.md": b"r", "data/raw.csv": b"x"})
+
+    assert resp.status_code == 422
+    assert "data/raw.csv" in resp.json()["detail"]
+    admin_store[0].insert_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_import_refuses_a_project_the_importer_has_not_seen(
+    client, credentialed_user, db_session, admin_store
+):
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = _import(client, project="never_imported")
+
+    assert resp.status_code == 404
+    assert "repo import" in resp.json()["detail"]
+
+
+@pytest.mark.gated
+async def test_import_refuses_a_flagged_project(client, credentialed_user, db_session, admin_store):
+    """No author ORCiD → the importer gave it to the sentinel; it is not
+    indexed under anyone."""
+    from app.importer import SENTINEL_ORCID
+
+    await _repo_project(db_session, "orphan", owner_orcid=SENTINEL_ORCID)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = _import(client, project="orphan")
+
+    assert resp.status_code == 409
+    assert "flagged" in resp.json()["detail"]
+    admin_store[0].insert_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_import_dry_run_reports_the_owner_and_touches_nothing(
+    client, credentialed_user, db_session, admin_store
+):
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = _import(client, dry_run=True, archive=False)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["owner_orcid"], body["dry_run"], body["batch_id"]) == (_OWNER_ORCID, True, None)
+    admin_store[1].assert_not_called()
+
+
+@pytest.mark.gated
+async def test_import_refuses_a_bad_directory_name(client, credentialed_user, db_session, admin_store):
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    assert _import(client, project="../etc").status_code == 422
+
+
+@pytest.mark.gated
+async def test_an_owners_own_submit_skips_what_the_import_landed(
+    client, credentialed_user, db_session, admin_store
+):
+    """The import records under the owner, so their later /submit of the
+    same, unchanged project sends nothing."""
+    from sqlalchemy import update
+
+    from app.db.models import ContextIngestFileRecord, UserProject
+
+    inst, _cls = admin_store
+    owner_project = UserProject(
+        owner_id=credentialed_user.id, slug="mine", title="mine",
+        origin="repo", repo_path="projects/mine", is_public=True,
+    )
+    db_session.add(owner_project)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    members = _approved(project_id="mine")
+    inst.insert_files.return_value = _queued_with_tasks(
+        [(path, f"t{i}") for i, path in enumerate(members)]
+    )
+    resp = _import(client, project="mine", members=members)
+    assert resp.status_code == 200, resp.text
+    await db_session.execute(update(ContextIngestFileRecord).values(status="completed"))
+    await db_session.commit()
+    inst.insert_files.reset_mock()
+
+    again = _ingest(client, project="mine", members=members)
+
+    assert again.status_code == 200, again.text
+    assert again.json()["skipped"] == len(members)
+    inst.insert_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_import_status_polls_any_batch_with_the_admin_key(
+    client, credentialed_user, db_session, admin_store
+):
+    inst, cls = admin_store
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    batch_id = _import(client).json()["batch_id"]
+    cls.reset_mock()
+    inst.task_statuses = AsyncMock(return_value={"t1": ("completed", None)})
+
+    resp = client.get(f"/api/admin/context/import_status/{batch_id}")
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "completed"
+    assert cls.call_args.args[1] == "admin-key"
+    # The importer is not the owner, so the user route still hides it.
+    assert client.get(f"/api/context/ingest_status/{batch_id}").status_code == 404
+
+
+async def test_import_status_requires_an_admin(client, credentialed_user):
+    _login(client)
+    assert client.get("/api/admin/context/import_status/whatever").status_code == 403
+
+
+async def _imported_then_reowned(client, db_session, inst, members):
+    """Import a repo project, settle it, then re-own it as the importer does."""
+    from sqlalchemy import update
+
+    from app.db.models import ContextIngestFileRecord
+
+    old_owner, project = await _repo_project(db_session)
+    inst.insert_files.return_value = _queued_with_tasks(
+        [(p, f"t{i}") for i, p in enumerate(members)]
+    )
+    assert _import(client, members=members).status_code == 200
+    await db_session.execute(update(ContextIngestFileRecord).values(status="completed"))
+    new_owner = BerilUser(orcid_id="0000-0004-5555-6666", display_name="New")
+    db_session.add(new_owner)
+    await db_session.commit()
+    project.owner_id = new_owner.id  # what the repo importer does on re-owning
+    await db_session.commit()
+    inst.insert_files.reset_mock()
+    return old_owner, new_owner, project
+
+
+_MEMBERS = {"REPORT.md": b"# Report\n", "README.md": b"# Readme\n"}
+
+
+async def _land_everything(db_session):
+    """Let every submitted file finish indexing."""
+    from sqlalchemy import update
+
+    from app.db.models import ContextIngestFileRecord
+
+    await db_session.execute(
+        update(ContextIngestFileRecord)
+        .where(ContextIngestFileRecord.status == "queued")
+        .values(status="completed")
+    )
+    await db_session.commit()
+
+
+@pytest.mark.gated
+async def test_a_reowned_project_is_written_to_the_new_owner_and_its_old_copy_planned_for_removal(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex review): the importer re-owns a project in place, so
+    its earlier completed records keep its id. The new owner's import must
+    still send every file, and the old namespace's files are marked
+    removal-pending and handed back — not deleted inside the request."""
+    from sqlalchemy import select
+
+    from app.db.models import ContextIngestFileRecord
+
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    old_owner, _new, _project = await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+
+    body = _import(client, members=_MEMBERS).json()
+
+    assert body["owner_orcid"] == "0000-0004-5555-6666" and body["skipped"] == 0
+    sent = inst.insert_files.await_args
+    assert {f.relative_path for f in sent.args[0]} == set(_MEMBERS)
+    assert sent.kwargs["target_root"].endswith("/0000-0004-5555-6666/alpha_proj")
+    inst.remove_files.assert_not_awaited()  # planned, not done here
+    assert len(body["retire_records"]) == 2
+    markers = (await db_session.execute(
+        select(ContextIngestFileRecord).where(ContextIngestFileRecord.id.in_(body["retire_records"]))
+    )).scalars().all()
+    assert {m.status for m in markers} == {"unknown"}
+
+
+@pytest.mark.gated
+async def test_retire_file_removes_one_file_and_is_safe_to_repeat(
+    client, credentialed_user, db_session, admin_store
+):
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    old_owner, _new, _project = await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+    await _land_everything(db_session)
+
+    first = client.post(f"/api/admin/context/retire_file/{records[0]}")
+    again = client.post(f"/api/admin/context/retire_file/{records[0]}")
+
+    assert first.status_code == 200 and first.json()["status"] == "removed"
+    assert again.json()["status"] == "removed"
+    inst.remove_files.assert_awaited_once()
+    assert inst.remove_files.await_args.kwargs["target_root"] == (
+        f"viking://resources/users/{old_owner.orcid_id}/alpha_proj"
+    )
+    assert "viking" not in first.text
+
+    for record in records[1:]:
+        client.post(f"/api/admin/context/retire_file/{record}")
+    inst.insert_files.reset_mock()
+    settled = _import(client, members=_MEMBERS).json()
+    assert settled["retire_records"] == []
+
+
+@pytest.mark.gated
+async def test_an_interrupted_retirement_never_hides_missing_files(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (found live): retirement was cut off part-way, recorded
+    nothing, and when the owner moved back the import trusted the old
+    completed records and skipped files that had been deleted. Pending
+    markers are written *before* any delete, and they do not count as
+    landed — so moving the owner back re-sends everything."""
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    old_owner, _new, project = await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    assert len(_import(client, members=_MEMBERS).json()["retire_records"]) == 2
+    # The retirement never ran (or ran part-way). The owner moves back:
+    project.owner_id = old_owner.id
+    await db_session.commit()
+    inst.insert_files.reset_mock()
+
+    back = _import(client, members=_MEMBERS).json()
+
+    assert back["skipped"] == 0
+    assert {f.relative_path for f in inst.insert_files.await_args.args[0]} == set(_MEMBERS)
+
+
+@pytest.mark.gated
+async def test_retire_waits_for_the_new_owners_copy_to_land(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex stop-gate): retiring while the new owner's import is
+    still indexing — or after it failed — could leave no copy at all."""
+    from sqlalchemy import update
+
+    from app.db.models import ContextIngestFileRecord
+
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+
+    early = client.post(f"/api/admin/context/retire_file/{records[0]}")
+    assert early.status_code == 409 and "has not landed" in early.json()["detail"]
+
+    await db_session.execute(
+        update(ContextIngestFileRecord)
+        .where(ContextIngestFileRecord.status == "queued")
+        .values(status="failed")
+    )
+    await db_session.commit()
+    assert client.post(f"/api/admin/context/retire_file/{records[0]}").status_code == 409
+    inst.remove_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_a_failed_retirement_is_planned_again(
+    client, credentialed_user, db_session, admin_store
+):
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+    await _land_everything(db_session)
+
+    async def refuse(paths, *, target_root):
+        return [IngestResult(relative_path=p, status="failed", reason="busy") for p in paths]
+
+    inst.remove_files.side_effect = refuse
+    assert client.post(f"/api/admin/context/retire_file/{records[0]}").json()["status"] == "failed"
+
+    replanned = _import(client, members=_MEMBERS).json()["retire_records"]
+    assert len(replanned) == 2  # the failed one is still held, as is the untried one
+
+
+@pytest.mark.gated
+async def test_retire_file_refuses_the_current_namespace_and_non_admins(
+    client, credentialed_user, db_session, admin_store
+):
+    from sqlalchemy import select
+
+    from app.db.models import ContextIngestFileRecord
+
+    inst, _cls = admin_store
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    assert _import(client).status_code == 200
+    current = (await db_session.execute(select(ContextIngestFileRecord))).scalars().first()
+
+    assert client.post(f"/api/admin/context/retire_file/{current.id}").status_code == 409
+    inst.remove_files.assert_not_awaited()
+    assert client.post("/api/admin/context/retire_file/nope").status_code == 404
+
+
+async def test_retire_file_requires_an_admin(client, credentialed_user):
+    _login(client)
+    assert client.post("/api/admin/context/retire_file/whatever").status_code == 403
+
+
+@pytest.mark.gated
+async def test_retire_file_rechecks_ownership_right_before_deleting(
+    client, credentialed_user, db_session, admin_store
+):
+    """Mitigation (Codex adversarial review): the project re-owned back to the
+    old namespace after planning is refused at the last check, not deleted."""
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    old_owner, _new, project = await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+    await _land_everything(db_session)
+    project.owner_id = old_owner.id  # re-owned back before the retirement runs
+    await db_session.commit()
+
+    resp = client.post(f"/api/admin/context/retire_file/{records[0]}")
+
+    assert resp.status_code == 409
+    inst.remove_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_a_file_the_project_no_longer_has_is_retired_without_waiting(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex review on #468): a file deleted from the repo since
+    the old owner's import is never sent to the new owner, so waiting for its
+    new copy refused it forever and left it searchable under the old owner."""
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    with_notes = {**_MEMBERS, "RESEARCH_PLAN.md": b"# Plan\n"}
+    await _imported_then_reowned(client, db_session, inst, with_notes)
+    # The plan was deleted from the repo; the new owner's import lacks it.
+    inst.insert_files.return_value = _queued_with_tasks(
+        [(p, f"n{i}") for i, p in enumerate(_MEMBERS)]
+    )
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+    await _land_everything(db_session)
+    statuses = {}
+    for record in records:
+        resp = client.post(f"/api/admin/context/retire_file/{record}")
+        statuses[resp.json()["relative_path"]] = (resp.status_code, resp.json()["status"])
+
+    assert statuses["RESEARCH_PLAN.md"] == (200, "removed")
+    assert all(v == (200, "removed") for v in statuses.values())
+
+
+@pytest.mark.gated
+async def test_retirement_is_planned_only_after_the_import_recorded_its_files(
+    client, credentialed_user, db_session, admin_store
+):
+    """A file sent in this import but not landed is still waited for — the
+    'no record' exemption above must not apply to it."""
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    await _imported_then_reowned(client, db_session, inst, _MEMBERS)
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+
+    resp = client.post(f"/api/admin/context/retire_file/{records[0]}")
+
+    assert resp.status_code == 409
+    inst.remove_files.assert_not_awaited()
+
+
+@pytest.mark.gated
+async def test_a_file_withdrawn_in_the_new_namespace_is_retired_too(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex stop-gate on #468): an explicit removal in the new
+    owner's import leaves a latest ``removed`` record there. Nothing is
+    coming, so the old copy must not wait for it."""
+    from app.db.crud import create_ingest_batch
+
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    old_owner, new_owner, project = await _imported_then_reowned(
+        client, db_session, inst, _MEMBERS
+    )
+    records = _import(client, members=_MEMBERS).json()["retire_records"]
+    await _land_everything(db_session)
+    # The new owner withdraws README.md in their own namespace.
+    await create_ingest_batch(
+        db_session, user_id=new_owner.id, project_id=project.id,
+        target_root=f"viking://resources/users/{new_owner.orcid_id}/alpha_proj",
+        files=[{"relative_path": "README.md", "uri": None, "ov_task_id": None,
+                "status": "removed", "error": None, "content_sha256": None}],
+    )
+
+    results = {}
+    for record in records:
+        resp = client.post(f"/api/admin/context/retire_file/{record}")
+        results[resp.json().get("relative_path")] = resp.status_code
+    assert results == {"README.md": 200, "REPORT.md": 200}
+
+
+@pytest.mark.gated
+async def test_retiring_an_old_memory_copy_keeps_the_project_owning_its_memory(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex review on #468): the old owner's retired memory
+    records ``removed`` after the new owner's copy completed; read across
+    namespaces, that newer removal made the project look memory-less and
+    let stale central duplicates back into /discoveries."""
+    from app.db.crud import projects_with_memory
+
+    inst, _cls = admin_store
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    members = {**_MEMBERS, "memories/discoveries.md": b"## A finding\n"}
+    await _imported_then_reowned(client, db_session, inst, members)
+    inst.insert_files.return_value = _queued_with_tasks(
+        [(p, f"n{i}") for i, p in enumerate(members)]
+    )
+    records = _import(client, members=members).json()["retire_records"]
+    await _land_everything(db_session)
+    for record in records:
+        assert client.post(f"/api/admin/context/retire_file/{record}").status_code == 200
+
+    assert "alpha_proj" in await projects_with_memory(db_session, "discoveries")
+
+
+# ---------------------------------------------------------------------------
+# Admin diagnostics: the store's queue, and BERIL's unfinished records
+# ---------------------------------------------------------------------------
+
+_QUEUE_TEXT = """+----------------+---------+-------------+-----------+----------+--------+-------+
+|     Queue      | Pending | In Progress | Processed | Requeued | Errors | Total |
++----------------+---------+-------------+-----------+----------+--------+-------+
+|   Embedding    |    0    |      0      |   5092    |    0     |   0    | 5092  |
+|    Semantic    |   42    |      3      |   1377    |    26    |   1    | 1377  |
+|     TOTAL      |   42    |      3      |   11726   |   4471   |   1    | 11726 |
++----------------+---------+-------------+-----------+----------+--------+-------+"""
+
+_MODELS_TEXT = """Account: beril
+Embedding dimension: 3072
+
+VLM Models:
++----------------------------+----------+-------+---------+------------+----------+--------------------------+
+|           Model            | Provider | Calls | Prompt  | Completion |  Total   |       Last Updated       |
++----------------------------+----------+-------+---------+------------+----------+--------------------------+
+| vertex_ai/gemini-2.5-flash | litellm  | 3822  | 8714310 |  6861686   | 15575996 | 2026-10-21T20:26:57.600Z |
++----------------------------+----------+-------+---------+------------+----------+--------------------------+
+
+
+Embedding Models:
++--------------------------------+----------+-------+---------+------------+---------+--------------------------+
+|             Model              | Provider | Calls | Prompt  | Completion |  Total  |       Last Updated       |
++--------------------------------+----------+-------+---------+------------+---------+--------------------------+
+| vertex_ai/gemini-embedding-001 | litellm  | 5499  | 5607778 |     0      | 5607778 | 2026-10-21T20:55:34.962Z |
++--------------------------------+----------+-------+---------+------------+---------+--------------------------+
+"""
+
+
+def test_status_tables_parse_into_rows():
+    """The store's real status text (server 0.4.22), as data."""
+    from app.context_manager.openviking import parse_status_tables
+
+    queues = parse_status_tables(_QUEUE_TEXT)["table"]
+    semantic = next(q for q in queues if q["queue"] == "Semantic")
+    assert (semantic["pending"], semantic["in_progress"], semantic["errors"]) == (42, 3, 1)
+
+    models = parse_status_tables(_MODELS_TEXT)
+    assert set(models) == {"vlm_models", "embedding_models"}
+    vlm = models["vlm_models"][0]
+    assert (vlm["model"], vlm["calls"], vlm["last_updated"]) == (
+        "vertex_ai/gemini-2.5-flash", 3822, "2026-10-21T20:26:57.600Z"
+    )
+
+
+async def test_store_activity_gathers_queues_models_and_tasks():
+    from app.context_manager.openviking import OpenVikingManager
+
+    fake = MagicMock()
+    fake.queue_status = AsyncMock(return_value={"is_healthy": True, "status": _QUEUE_TEXT})
+    fake.models_status = AsyncMock(return_value={"is_healthy": True, "status": _MODELS_TEXT})
+    fake.list_tasks = AsyncMock(side_effect=lambda status, limit: (
+        [{"task_id": "t9", "status": "failed", "error": "quota"}] if status == "failed" else []
+    ))
+    fake.close = AsyncMock()
+    with patch("app.context_manager.openviking.OpenVikingClient.create", AsyncMock(return_value=fake)):
+        activity = await OpenVikingManager(MagicMock(ov_url="http://ov"), "k").store_activity(task_limit=7)
+
+    assert activity["healthy"] is True
+    assert {q["queue"] for q in activity["queues"]} == {"Embedding", "Semantic", "TOTAL"}
+    assert activity["task_counts"] == {"pending": 0, "running": 0, "failed": 1}
+    assert activity["tasks"]["failed"][0]["error"] == "quota"
+    assert {c.kwargs["limit"] for c in fake.list_tasks.await_args_list} == {7}
+    fake.close.assert_awaited_once()
+
+
+async def test_queue_requires_an_admin(client, credentialed_user, admin_store):
+    _login(client)
+    assert client.get("/api/admin/context/queue").status_code == 403
+    admin_store[1].assert_not_called()
+
+
+async def test_queue_reports_the_store_on_the_admin_key(
+    client, credentialed_user, db_session, admin_store
+):
+    inst, cls = admin_store
+    inst.store_activity = AsyncMock(return_value={"healthy": True, "queues": [], "models": {},
+                                                  "task_counts": {}, "tasks": {}})
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = client.get("/api/admin/context/queue", params={"task_limit": 5})
+
+    assert resp.status_code == 200 and resp.json()["healthy"] is True
+    assert cls.call_args.args[1] == "admin-key"
+    assert inst.store_activity.await_args.kwargs == {"task_limit": 5}
+
+
+async def test_queue_reports_an_unreachable_store_as_502(
+    client, credentialed_user, db_session, admin_store
+):
+    from app.context_manager.openviking import QUERY_FAILURES
+
+    inst, _cls = admin_store
+    inst.store_activity = AsyncMock(side_effect=QUERY_FAILURES[0]("down"))
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+
+    resp = client.get("/api/admin/context/queue")
+
+    assert resp.status_code == 502
+    assert "down" not in resp.text
+
+
+async def test_unfinished_requires_an_admin(client, credentialed_user):
+    _login(client)
+    assert client.get("/api/admin/context/unfinished").status_code == 403
+
+
+@pytest.mark.gated
+async def test_unfinished_lists_unsettled_records_oldest_first(
+    client, credentialed_user, db_session, admin_store
+):
+    from sqlalchemy import update
+
+    from app.db.models import ContextIngestFileRecord
+
+    inst, _cls = admin_store
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    inst.insert_files.return_value = _queued_with_tasks([("REPORT.md", "t1"), ("README.md", "t2")])
+    assert _import(client).status_code == 200
+    await db_session.execute(
+        update(ContextIngestFileRecord)
+        .where(ContextIngestFileRecord.relative_path == "README.md")
+        .values(status="completed")
+    )
+    await db_session.commit()
+
+    body = client.get("/api/admin/context/unfinished").json()
+
+    assert body["counts"] == {"queued": 1} and body["truncated"] is False
+    [only] = body["files"]
+    assert (only["project"], only["owner_orcid"], only["status"]) == (
+        "alpha_proj", _OWNER_ORCID, "queued"
+    )
+    assert only["address"] == f"{_OWNER_ORCID}/alpha_proj/REPORT.md"
+    assert client.get(
+        "/api/admin/context/unfinished", params={"project": "elsewhere"}
+    ).json()["files"] == []
+
+
+@pytest.mark.gated
+async def test_unfinished_reports_truncation_only_when_rows_were_left_out(
+    client, credentialed_user, db_session, admin_store
+):
+    """Regression (Codex stop-gate): exactly ``limit`` rows read as truncated."""
+    inst, _cls = admin_store
+    await _repo_project(db_session)
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    inst.insert_files.return_value = _queued_with_tasks([("REPORT.md", "t1"), ("README.md", "t2")])
+    assert _import(client).status_code == 200
+
+    exact = client.get("/api/admin/context/unfinished", params={"limit": 2}).json()
+    short = client.get("/api/admin/context/unfinished", params={"limit": 1}).json()
+
+    assert (len(exact["files"]), exact["truncated"]) == (2, False)
+    assert (len(short["files"]), short["truncated"]) == (1, True)
+
+
+# ---------------------------------------------------------------------------
+# ISSUE-02: recursive listing depth
+# ---------------------------------------------------------------------------
+
+
+async def test_ls_forwards_a_depth_for_recursive_listings(client, credentialed_user, manager):
+    _login(client)
+    resp = client.get("/api/context/ls", params={"project": "alpha", "recursive": True, "depth": 8})
+
+    assert resp.status_code == 200
+    assert manager.list_files.await_args.kwargs["depth"] == 8
+
+
+async def test_ls_depth_needs_recursive_and_is_bounded(client, credentialed_user, manager):
+    from app.context_manager.base import MAX_LS_DEPTH
+
+    _login(client)
+    assert client.get("/api/context/ls", params={"depth": 3}).status_code == 422
+    assert client.get(
+        "/api/context/ls", params={"recursive": True, "depth": MAX_LS_DEPTH + 1}
+    ).status_code == 422
+    manager.list_files.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# ISSUE-04: time bounds validated, not left to the store
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bound", ["1y", "2y", "garbage", "6mo", "7D", "-7d", "7.5d", "2026-02-30"])
+async def test_find_refuses_a_bound_the_store_cannot_read(client, credentialed_user, manager, bound):
+    """Regression (ISSUE-04): the store's rejection surfaced as a 502 (and,
+    behind Cloudflare, an HTML page). Each value here is one the store's own
+    parser rejects (checked against openviking 0.4.22)."""
+    _login(client)
+    resp = client.post("/api/context/find", json={"query": "q", "since": bound})
+
+    assert resp.status_code == 422
+    assert "since" in resp.text and "time bound" in resp.text
+    manager.query.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "bound",
+    ["7d", "2w", "30m", "12h", "45s", "2026-01-31", "2026-01-31T12:00:00Z",
+     "2026-01-31T12:00:00+02:00", "2026-01-31 12:00", "20260131", " 7d"],
+)
+async def test_find_accepts_every_bound_the_store_reads(client, credentialed_user, manager, bound):
+    _login(client)
+    resp = client.post("/api/context/find", json={"query": "q", "until": bound})
+
+    assert resp.status_code == 200
+    assert manager.query.await_args.args[0].until == bound.strip()
+
+
+# ---------------------------------------------------------------------------
+# ISSUE-01 guard: the store's version
+# ---------------------------------------------------------------------------
+
+
+def test_expected_store_version_matches_the_pinned_server():
+    """The expected version is the server the SDK is pinned against."""
+    import re
+    from pathlib import Path
+
+    from app.clients.openviking import EXPECTED_STORE_VERSION
+
+    pyproject = (Path(__file__).resolve().parents[2] / "pyproject.toml").read_text()
+    pinned = re.search(r'"openviking==([\d.]+)"', pyproject).group(1)
+    assert EXPECTED_STORE_VERSION == pinned
+
+
+@pytest.mark.parametrize(
+    ("version", "ok"),
+    [("0.4.22", True), ("0.4.23", True), ("0.5.0", True), ("0.4.15", False),
+     ("0.4.9", False), (None, False), ("", False)],
+)
+def test_store_version_ok(version, ok):
+    from app.clients.openviking import store_version_ok
+
+    assert store_version_ok(version) is ok
+
+
+async def test_queue_reports_the_store_version(client, credentialed_user, db_session, admin_store):
+    inst, _cls = admin_store
+    inst.store_activity = AsyncMock(return_value={"healthy": True, "queues": [], "models": {},
+                                                  "task_counts": {}, "tasks": {}})
+    await _make_admin(db_session, credentialed_user)
+    _login(client)
+    with patch("app.clients.openviking.ov_health", AsyncMock(return_value={"version": "0.4.15"})):
+        body = client.get("/api/admin/context/queue").json()
+
+    assert (body["store_version"], body["store_version_ok"]) == ("0.4.15", False)
+    assert body["expected_store_version"]
+
+
+async def test_startup_logs_an_old_store_loudly(caplog):
+    from app.main import _check_store_version
+
+    with patch("app.clients.openviking.ov_health", AsyncMock(return_value={"version": "0.4.15"})):
+        await _check_store_version()
+    assert any(r.levelname == "ERROR" and "0.4.15" in r.getMessage() for r in caplog.records)
+
+    caplog.clear()
+    with patch("app.clients.openviking.ov_health", AsyncMock(return_value={"version": "0.4.22"})):
+        await _check_store_version()
+    assert not any(r.levelname == "ERROR" for r in caplog.records)

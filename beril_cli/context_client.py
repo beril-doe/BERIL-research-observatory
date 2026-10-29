@@ -100,7 +100,8 @@ class ContextClient:
         return self._call("POST", "/api/context/find", "search", json=body)
 
     def ls(self, scope: Scope = Scope(), **options: Any) -> list:
-        """List a scope. ``options``: ``recursive``, ``simple``, ``node_limit``."""
+        """List a scope. ``options``: ``recursive``, ``simple``, ``node_limit``,
+        ``depth`` (with ``recursive``)."""
         params = {**scope.params(), **_present(options)}
         return self._call("GET", "/api/context/ls", "list", params=params)
 
@@ -182,7 +183,17 @@ def _detail(response: httpx.Response) -> str:
     try:
         body = response.json()
     except ValueError:
-        return response.text.strip()[:200] or "no detail"
+        text = response.text.strip()
+        if text[:20].lower().startswith(("<!doctype html", "<html")):
+            # A gateway's error page (Cloudflare, ingress), not BERIL's answer:
+            # its markup tells the user nothing, and it can stand in for an
+            # error BERIL did report.
+            return (
+                "the gateway returned an error page instead of BERIL's response "
+                f"(HTTP {response.status_code}); if it persists, run "
+                "`beril context doctor` or tell a BERIL admin"
+            )
+        return text[:200] or "no detail"
     detail = body.get("detail") if isinstance(body, dict) else None
     if isinstance(detail, list):
         parts = []

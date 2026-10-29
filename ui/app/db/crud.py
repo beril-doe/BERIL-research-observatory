@@ -7,9 +7,15 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
-from app.context_manager.base import INGEST_COMPLETED, INGEST_REMOVED
+from app.context_manager.base import (
+    INGEST_COMPLETED,
+    INGEST_PROCESSING,
+    INGEST_QUEUED,
+    INGEST_REMOVED,
+    INGEST_UNKNOWN,
+)
 from app.db.models import (
     BerilUser,
     ContextIngestBatch,
@@ -493,9 +499,13 @@ async def create_ingest_batch(
 
 
 async def completed_file_hashes(
-    db: AsyncSession, project_id: str
+    db: AsyncSession, project_id: str, *, target_root: str | None = None
 ) -> dict[str, str]:
     """Return ``{relative_path: content_sha256}`` for this project's landed files.
+
+    ``target_root`` limits this to what landed *there*. A project re-owned by
+    the repo importer keeps its id but writes to a new namespace, and content
+    that landed under the previous owner has not landed under the new one.
 
     Only rows whose *latest* record is ``completed`` are returned, so a file
     that later failed or was re-queued is absent and will re-ingest. Rows with a
@@ -525,7 +535,10 @@ async def completed_file_hashes(
             ContextIngestBatch,
             ContextIngestFileRecord.batch_id == ContextIngestBatch.id,
         )
-        .where(ContextIngestBatch.project_id == project_id)
+        .where(
+            ContextIngestBatch.project_id == project_id,
+            *_at_root(target_root),
+        )
         .subquery()
     )
 
@@ -540,7 +553,11 @@ async def completed_file_hashes(
 
 
 async def latest_file_statuses(
-    db: AsyncSession, project_id: str, *, ignoring: tuple[str, ...] = ()
+    db: AsyncSession,
+    project_id: str,
+    *,
+    ignoring: tuple[str, ...] = (),
+    target_root: str | None = None,
 ) -> dict[str, str]:
     """``{relative_path: status}`` of each path's newest record in this project.
 
@@ -570,6 +587,7 @@ async def latest_file_statuses(
         .where(
             ContextIngestBatch.project_id == project_id,
             ContextIngestFileRecord.status.not_in(ignoring),
+            *_at_root(target_root),
         )
         .subquery()
     )
@@ -577,6 +595,60 @@ async def latest_file_statuses(
         select(latest.c.relative_path, latest.c.status).where(latest.c.rn == 1)
     )
     return {row.relative_path: row.status for row in result}
+
+
+async def unfinished_ingest_files(
+    db: AsyncSession, *, project: str | None = None, limit: int = 500
+) -> list:
+    """Ingest records not yet settled — queued, processing, or unknown —
+    oldest first, at most ``limit``; optionally for one project slug.
+
+    BERIL's view, as last *seen*: a record moves only when something polls
+    its batch, so a file may have finished in the store since.
+    """
+    owner = aliased(BerilUser)
+    query = (
+        select(
+            UserProject.slug,
+            owner.orcid_id,
+            ContextIngestBatch.id.label("batch_id"),
+            ContextIngestBatch.target_root,
+            ContextIngestFileRecord.relative_path,
+            ContextIngestFileRecord.status,
+            ContextIngestFileRecord.error,
+            ContextIngestFileRecord.created_at,
+        )
+        .join(ContextIngestBatch, ContextIngestFileRecord.batch_id == ContextIngestBatch.id)
+        .join(UserProject, ContextIngestBatch.project_id == UserProject.id)
+        .join(owner, ContextIngestBatch.user_id == owner.id)
+        .where(ContextIngestFileRecord.status.in_(
+            (INGEST_QUEUED, INGEST_PROCESSING, INGEST_UNKNOWN)
+        ))
+        .order_by(ContextIngestFileRecord.created_at, ContextIngestFileRecord.id)
+        .limit(limit)
+    )
+    if project is not None:
+        query = query.where(UserProject.slug == project)
+    return (await db.execute(query)).all()
+
+
+def _at_root(target_root: str | None) -> tuple:
+    """A filter to one ingest namespace, or none."""
+    return () if target_root is None else (ContextIngestBatch.target_root == target_root,)
+
+
+async def project_target_roots(db: AsyncSession, project_id: str) -> list[str]:
+    """Every namespace this project's batches have written to, oldest first.
+
+    More than one only after the repo importer re-owned the project.
+    """
+    result = await db.execute(
+        select(ContextIngestBatch.target_root, func.min(ContextIngestBatch.created_at))
+        .where(ContextIngestBatch.project_id == project_id)
+        .group_by(ContextIngestBatch.target_root)
+        .order_by(func.min(ContextIngestBatch.created_at))
+    )
+    return [row[0] for row in result]
 
 
 async def projects_with_memory(db: AsyncSession, memory: str) -> set[str]:
@@ -605,6 +677,12 @@ async def projects_with_memory(db: AsyncSession, memory: str) -> set[str]:
     Re-ingest is add-only, so a file merely absent from a later manifest is
     untouched and still owned; only an explicit ``!remove`` withdraws it.
 
+    Each **namespace** has its own timeline, and the project owns the memory
+    if any of them settles ``completed``. A project re-owned by the repo
+    importer keeps its id but writes under its new owner; retiring the old
+    owner's copy records ``removed`` *there*, which must not override the new
+    owner's ``completed`` copy just because it is newer.
+
     Slugs, not ids: the tags in the central archive are project slugs.
     """
     relative_path = f"memories/{memory}.md"
@@ -614,7 +692,7 @@ async def projects_with_memory(db: AsyncSession, memory: str) -> set[str]:
             ContextIngestFileRecord.status.label("status"),
             func.row_number()
             .over(
-                partition_by=ContextIngestBatch.project_id,
+                partition_by=(ContextIngestBatch.project_id, ContextIngestBatch.target_root),
                 order_by=(
                     ContextIngestFileRecord.created_at.desc(),
                     ContextIngestFileRecord.id.desc(),
