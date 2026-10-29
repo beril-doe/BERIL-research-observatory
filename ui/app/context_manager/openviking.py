@@ -45,6 +45,7 @@ from .base import (
     INGEST_QUEUED,
     INGEST_REMOVED,
     INGEST_UNKNOWN,
+    MAX_FIND_NODE_LIMIT,
     MAX_MEMORY_DOCUMENTS,
     ContextFile,
     ContextIngestFile,
@@ -101,6 +102,11 @@ _OV_STATUS_MAP = {
 # Bounded so a broad query cannot walk the corpus; the backend's find has no
 # offset, so this is also the furthest a search can see.
 FIND_CANDIDATE_WINDOW = 100
+# How much wider than ``limit`` a semantic search's node budget is. Nodes
+# collapse into fewer results (200 nodes came back as 166 locally), so a
+# budget of exactly ``limit`` would fall short of it; the extra also shows
+# whether more results lie past ``limit``.
+FIND_NODE_OVERFETCH = 2
 
 _EMPTY_GREP: dict = {"matches": [], "count": 0, "match_count": 0, "files_scanned": 0}
 
@@ -1135,6 +1141,14 @@ class OpenVikingManager(ContextManager):
         """
         if not isinstance(target_uri, str) and not target_uri:
             return ContextQueryResults(query=query.query, results=[], total=0)
+        # ``limit`` is how many results come back. The backend's own budget
+        # counts nodes, several of which can collapse into one result, so a
+        # budget of ``limit`` comes back short — and an explicit node_limit
+        # replaces ``limit`` there entirely. So the budget is set here, wider
+        # than ``limit``, and the results are trimmed to ``limit`` below.
+        node_limit = query.node_limit or min(
+            query.limit * FIND_NODE_OVERFETCH, MAX_FIND_NODE_LIMIT
+        )
         ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
         try:
             results = await ov_client.find(
@@ -1145,7 +1159,7 @@ class OpenVikingManager(ContextManager):
                 since=query.since,
                 until=query.until,
                 time_field=query.time_field,
-                node_limit=query.node_limit,
+                node_limit=node_limit,
                 read_content=query.read_content,
             )
         finally:
@@ -1167,12 +1181,12 @@ class OpenVikingManager(ContextManager):
                     match_reason=r.get("match_reason"),
                     content=r.get("content"),
                 )
-                for r in resources
+                for r in resources[: query.limit]
             ],
-            # The backend's own count when it reports one — it can exceed the
-            # number of rows returned under a limit.
-            total=results.get("total") if results.get("total") is not None
-            else len(resources),
+            # How many results the search reached, before the trim to
+            # ``limit`` — more than were returned means more ranked results
+            # exist. (The backend's ``total`` counts what it returned.)
+            total=max(results.get("total") or 0, len(resources)),
         )
 
 async def get_user_ov_api_key(db: AsyncSession, user: BerilUser) -> str:
