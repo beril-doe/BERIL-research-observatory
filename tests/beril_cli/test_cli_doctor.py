@@ -151,6 +151,21 @@ class TestCheckContextLayer:
         assert status == "FAIL"
         assert "timed out" in detail
 
+    def test_says_when_the_login_is_for_another_server(self, monkeypatch):
+        """The token belongs to the login's server, so that is the one checked;
+        the webapp line above used the configured one, so a mismatch is said."""
+        monkeypatch.setattr(auth_store, "load", _record)
+        with patch.object(doctor.httpx, "get", return_value=_response({"status": "ok"})) as mock_get:
+            status, detail = doctor._check_context_layer("https://other.example.test")
+        assert status == "PASS"
+        assert mock_get.call_args.args[0] == f"{BASE_URL}/api/context/health"
+        assert "not the configured https://other.example.test" in detail
+        assert "beril login" in detail
+
+    def test_no_note_when_the_login_matches_the_configured_server(self, monkeypatch):
+        (_, detail), _ = self._check(monkeypatch, return_value=_response({"status": "ok"}))
+        assert "configured" not in detail
+
     def test_not_logged_in_is_not_checked(self, monkeypatch):
         monkeypatch.setattr(auth_store, "load", lambda: None)
         with patch.object(doctor.httpx, "get") as mock_get:

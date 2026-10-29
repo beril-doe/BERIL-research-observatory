@@ -122,8 +122,13 @@ def _markdown_authors(text: str) -> list[dict[str, str]]:
     repo — so their ``PROJECT_METADATA.md`` names who wrote them. Reads the
     formats the repo's READMEs actually use: ``Name (https://orcid.org/…),
     Affiliation``; ``**Name** | ORCID: … | Role``; ``Name (ORCID: [id](url)) —
-    Affiliation``; ``Name (Affiliation) — ORCID …``; and an author split over
-    bullets (``**Name**`` then ``ORCID: …`` then ``Affiliation: …``).
+    Affiliation``; ``Name (Affiliation) — ORCID …``; an author split over
+    bullets (``**Name**`` then ``ORCID: …`` then ``Affiliation: …``); and a
+    bare line with no bullet at all (``Name`` or ``Name (LBL), ORCID …``).
+
+    A plain line is an author only when it looks like one: it carries an
+    ORCiD, or it is short and not a sentence. That keeps a paragraph under
+    the heading ("The following people contributed:") from becoming a name.
     """
     lines = text.splitlines()
     start = next((i for i, row in enumerate(lines) if _AUTHORS_HEADING.match(row.strip())), None)
@@ -134,7 +139,9 @@ def _markdown_authors(text: str) -> list[dict[str, str]]:
         line = raw.strip()
         if _ANY_HEADING.match(line):
             break
-        if not line.startswith(("-", "*")):
+        if not line:
+            continue
+        if not line.startswith(("-", "*")) and not _plain_author_line(line):
             continue
         item = line.lstrip("-* ").strip()
         if not item:
@@ -151,6 +158,18 @@ def _markdown_authors(text: str) -> list[dict[str, str]]:
             continue
         authors.append(_author_from_line(item))
     return [a for a in authors if a["name"] or a["orcid"]]
+
+
+_MAX_PLAIN_AUTHOR_LINE = 120
+
+
+def _plain_author_line(line: str) -> bool:
+    """Whether an unbulleted line under the heading names an author."""
+    if line.startswith(("|", ">", "`", "<", "!")):
+        return False
+    if _ORCID.search(line):
+        return True
+    return len(line) <= _MAX_PLAIN_AUTHOR_LINE and not line.endswith((".", ":", "?", "!"))
 
 
 def _author_from_line(item: str) -> dict[str, str]:

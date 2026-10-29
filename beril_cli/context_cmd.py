@@ -343,6 +343,15 @@ def _run_doctor(args: argparse.Namespace) -> int:
                     verdict="auth_failed", detail="BERIL rejected the stored token.",
                     remedy="Run `beril login` to log in again.",
                 )
+            elif report["user"]:
+                # BERIL answered whoami, so the network and the server are
+                # fine; it is the context route that failed (a gateway error
+                # page, a timeout). That is the service, not the user's setup.
+                report.update(
+                    verdict="unavailable",
+                    detail=f"BERIL is up, but its context layer did not answer: {e}",
+                    remedy="Try again shortly; if it persists, tell a BERIL admin.",
+                )
             else:
                 report.update(
                     verdict="unreachable", detail=str(e),

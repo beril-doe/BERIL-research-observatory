@@ -59,7 +59,12 @@ class Scope:
         )
 
     def params(self, prefix: str = "") -> dict[str, Any]:
-        """Query parameters for this scope; ``prefix`` names an exclusion."""
+        """Query parameters for this scope; ``prefix`` names an exclusion.
+
+        An exclusion is one place, so it cannot be ``all_owners`` — the route
+        has no such field, and dropping it quietly would exclude nothing."""
+        if prefix and self.all_owners:
+            raise ValueError("an exclusion names one owner's project, not every owner's")
         out: dict[str, Any] = {}
         if self.project is not None:
             out[f"{prefix}project"] = self.project

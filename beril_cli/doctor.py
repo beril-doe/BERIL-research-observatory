@@ -129,11 +129,24 @@ def _check_context_layer(base_url: str) -> tuple[str, str]:
     """Return (status, detail) for the context layer via /api/context/health.
 
     Needs the stored login: the route is authenticated, so without one there
-    is nothing to check, and a rejected token is the user's to fix.
+    is nothing to check, and a rejected token is the user's to fix. The token
+    belongs to the login's server, so that is the one checked — when it is
+    not ``base_url`` (the configured one, which the webapp check used), the
+    detail says so rather than letting two servers share adjacent lines.
     """
     record = auth_store.load()
     if record is None:
         return "WARN", "not checked — run `beril login`"
+    status, detail = _check_context_layer_at(record)
+    if record.base_url.rstrip("/") != base_url.rstrip("/"):
+        detail += (
+            f"; note: this is your login's server, not the configured {base_url}"
+            " — run `beril login` to switch"
+        )
+    return status, detail
+
+
+def _check_context_layer_at(record: auth_store.AuthRecord) -> tuple[str, str]:
     url = record.base_url.rstrip("/") + _CONTEXT_HEALTH_PATH
     try:
         resp = httpx.get(

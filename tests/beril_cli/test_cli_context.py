@@ -459,6 +459,29 @@ def test_doctor_with_the_store_down(logged_in, beril, capsys):
     assert "UNAVAILABLE" in capsys.readouterr().out
 
 
+def test_doctor_calls_a_failing_context_route_unavailable_once_whoami_answered(
+    logged_in, beril, capsys
+):
+    """BERIL answered whoami, so "unreachable — check your network" would be
+    wrong: a gateway error page on the context route is the service's fault."""
+    beril.on("GET", "/api/user/whoami", {"orcid_id": ME, "display_name": "Alice"})
+    beril.routes[("GET", "/api/context/health")] = httpx.Response(
+        502, content=b"<!DOCTYPE html><html>cloudflare</html>",
+        headers={"content-type": "text/html"},
+    )
+
+    assert main(["context", "doctor", "--json"]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["verdict"] == "unavailable"
+    assert report["user"] == ME
+    assert "did not answer" in report["detail"] and "BERIL admin" in report["remedy"]
+
+
+def test_scope_refuses_an_exclusion_over_every_owner():
+    with pytest.raises(ValueError, match="one owner"):
+        Scope(project="alpha", all_owners=True).params("exclude_")
+
+
 def test_doctor_reports_the_servers_identity_not_the_cached_one(logged_in, beril, capsys):
     """Reads default to the token's own projects, so the identity that matters
     is BERIL's — a stale cached ORCiD is flagged, not reported."""

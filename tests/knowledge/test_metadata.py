@@ -98,6 +98,39 @@ def test_author_lines_in_the_formats_the_repo_uses(line, expected) -> None:
     assert (author["name"], author["affiliation"], author["orcid"]) == expected
 
 
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("Heather MacGregor", ("Heather MacGregor", "", "")),
+        ("Mark Andrew Miller (LBL), ORCID [0000-0001-9076-6066](https://orcid.org/0000-0001-9076-6066)",
+         ("Mark Andrew Miller", "LBL", "0000-0001-9076-6066")),
+        ("David Lyon (ORCID: [0000-0002-1927-3565](https://orcid.org/0000-0002-1927-3565)) — KBase",
+         ("David Lyon", "KBase", "0000-0002-1927-3565")),
+    ],
+)
+def test_a_plain_author_line_with_no_bullet(line, expected) -> None:
+    """Regression (Codex adversarial review of #458): five READMEs name their
+    author on a bare line under ``## Authors``, which the bullet-only parser
+    skipped — so a by-name search found none of that person's projects."""
+    [author] = _markdown_authors(f"# P\n\n## Authors\n\n{line}\n\n## Next\nnot an author\n")
+    assert (author["name"], author["affiliation"], author["orcid"]) == expected
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "The following people contributed to this project:",
+        "This project was carried out by the BERDL team at LBNL during the 2026 pilot, "
+        "with analysis support from several collaborators across the lab.",
+        "| Name | ORCID |",
+        "> a quote",
+    ],
+)
+def test_prose_under_the_heading_is_not_an_author(line) -> None:
+    text = f"## Authors\n{line}\n- Ada Lovelace (https://orcid.org/0000-0001-2345-6789), LBNL\n"
+    assert [a["name"] for a in _markdown_authors(text)] == ["Ada Lovelace"]
+
+
 def test_an_author_split_over_bullets() -> None:
     text = "## Authors\n- **Adam Arkin**\n- ORCID: 0000-0002-4999-2931\n- Affiliation: UC Berkeley\n"
     assert _markdown_authors(text) == [

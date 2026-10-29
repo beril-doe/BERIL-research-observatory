@@ -30,8 +30,7 @@ from pathlib import Path
 
 import httpx
 
-# The context routes are slower than the credential exchange in
-# `beril_cli.ov_client` — an ingest upload carries a whole project archive.
+# Longer than a read's: an ingest upload carries a whole project archive.
 UPLOAD_TIMEOUT_SECONDS = 120.0
 POLL_TIMEOUT_SECONDS = 30.0
 
