@@ -228,10 +228,16 @@ def _find(client: ContextClient, args: argparse.Namespace) -> None:
     # that reads as the whole answer leads to "nobody has done this".
     shown = len(result.get("results") or [])
     if (result.get("total") or 0) > shown:
+        # At the cap there is no limit left to raise, so don't suggest it.
+        at_cap = (args.limit or _DEFAULT_FIND_LIMIT) >= _MAX_FIND_LIMIT
+        advice = (
+            "narrow the scope, or use grep to find every literal match." if at_cap
+            else f"Raise --limit (up to {_MAX_FIND_LIMIT}), narrow the scope, or use "
+            "grep to find every literal match."
+        )
         print(
             f"note: showing the top {shown}; more ranked results lie past the limit. "
-            f"Raise --limit (up to {_MAX_FIND_LIMIT}), narrow the scope, or use grep "
-            "to find every literal match.",
+            + advice[0].upper() + advice[1:],
             file=sys.stderr,
         )
 
@@ -239,11 +245,21 @@ def _find(client: ContextClient, args: argparse.Namespace) -> None:
 def _ls(client: ContextClient, args: argparse.Namespace) -> None:
     if args.depth is not None and not args.recursive:
         raise ValueError("--depth applies to a recursive listing; add -r")
+    # The depth warning needs each entry's rel_path and isDir, which a simple
+    # listing lacks — so with --depth, the full listing is fetched and the
+    # addresses taken from it. --simple is how an agent collects addresses,
+    # so that is exactly where a quietly truncated listing must not pass as
+    # complete.
+    simple_from_full = args.simple and args.depth is not None
     listed = client.ls(
-        _scope(args), recursive=args.recursive, simple=args.simple,
+        _scope(args), recursive=args.recursive, simple=args.simple and not simple_from_full,
         node_limit=args.node_limit, depth=args.depth,
     )
-    print(_dump(listed) if args.json else format_ls(listed))
+    shown = (
+        [e.get("address") or e.get("name") or "" for e in listed if isinstance(e, dict)]
+        if simple_from_full else listed
+    )
+    print(_dump(shown) if args.json else format_ls(shown))
     # On stderr, so the output — text or JSON — stays parseable. A listing that
     # looks complete but is not leads to "no such document" conclusions.
     limit = args.node_limit or _DEFAULT_LS_LIMIT

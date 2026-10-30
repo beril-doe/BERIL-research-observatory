@@ -572,6 +572,41 @@ def test_ls_warns_when_directories_at_the_depth_limit_were_not_expanded(logged_i
     assert "depth 2 were not expanded" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("argv", [[], ["--json"]])
+def test_a_simple_listing_still_warns_at_the_depth_limit(logged_in, beril, capsys, argv):
+    """Regression (hub testing): --simple entries have no rel_path, so the
+    depth warning went quiet exactly where an agent collects addresses. With
+    --depth the full listing is fetched and the addresses taken from it."""
+    beril.on("GET", "/api/context/ls", [
+        {"address": "beril/docs/pitfalls", "isDir": True, "rel_path": "pitfalls"},
+        {"address": "beril/docs/README.md", "isDir": False, "rel_path": "README.md"},
+    ])
+    assert main(["context", "ls", "beril/docs", "-r", "--depth", "1", "--simple", *argv]) == 0
+
+    captured = capsys.readouterr()
+    assert "simple" not in beril.last_params()
+    assert "depth 1 were not expanded" in captured.err
+    expected = ["beril/docs/pitfalls", "beril/docs/README.md"]
+    assert (json.loads(captured.out) if argv else captured.out.splitlines()) == expected
+
+
+def test_a_simple_listing_without_a_depth_is_asked_for_as_such(logged_in, beril):
+    beril.on("GET", "/api/context/ls", ["beril/docs/pitfalls"])
+    main(["context", "ls", "beril/docs", "-r", "--simple"])
+    assert beril.last_params()["simple"] == "true"
+
+
+def test_the_find_note_does_not_suggest_raising_a_limit_at_its_cap(logged_in, beril, capsys):
+    beril.on("POST", "/api/context/find", {
+        "query": "q", "total": 301, "results": [_hit(f"0009-1/a/f{i}.md") for i in range(200)],
+    })
+    main(["context", "find", "q", "--limit", "200"])
+
+    err = capsys.readouterr().err
+    assert "showing the top 200" in err and "grep" in err
+    assert "Raise --limit" not in err
+
+
 def test_ls_warns_when_the_listing_hits_its_entry_limit(logged_in, beril, capsys):
     beril.on("GET", "/api/context/ls", [{"address": f"o/p/f{i}", "isDir": False} for i in range(5)])
     main(["context", "ls", "o/p", "-r", "--node-limit", "5"])
