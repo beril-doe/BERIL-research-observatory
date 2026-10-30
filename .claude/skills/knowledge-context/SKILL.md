@@ -186,7 +186,7 @@ beril context ls beril/docs                       # the central docs
 
 Directories end in `/`. With `--json`, each entry carries `name`, `isDir`, `size` and `modTime`.
 
-`-r` lists every level below the address (`--depth N` to stop sooner). A listing is capped at 1000 entries by default (`--node-limit`, up to 10000). When a listing stops short, either at that cap or at `--depth`, a warning goes to stderr. Treat such a listing as incomplete: don't conclude a document is absent from it.
+`-r` lists every level below the address (`--depth N` to stop sooner). A listing is capped at 1000 entries by default (`--node-limit`, up to 10000). When a listing stops short, either at that cap or at `--depth`, a warning goes to stderr (with `--simple` too). Treat such a listing as incomplete: don't conclude a document is absent from it.
 
 ## Common workflows
 
