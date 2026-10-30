@@ -68,3 +68,79 @@ def test_remove_requires_json_mode():
     )
     assert proc.returncode != 0
     assert "--remove can only be used with --json" in proc.stderr
+
+
+# --- the mirror's preflight ---------------------------------------------------
+
+
+import httpx  # noqa: E402
+import pytest  # noqa: E402
+
+from beril_cli import auth_store, context_client  # noqa: E402
+
+
+@pytest.fixture
+def mirror(tmp_path, monkeypatch):
+    """The script module, a stored login, and a fake BERIL answering health."""
+    monkeypatch.setattr(auth_store, "AUTH_DIR", tmp_path / ".beril")
+    monkeypatch.setattr(auth_store, "AUTH_PATH", tmp_path / ".beril" / "auth.json")
+    auth_store.save(token="beril_abc", base_url="https://srv.test", orcid_id="0009-1",
+                    display_name=None)
+    calls: list[httpx.Request] = []
+    answer = {"response": httpx.Response(200, json={"status": "ok"})}
+
+    def serve(request):
+        calls.append(request)
+        reply = answer["response"]
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    real_client = httpx.Client
+    monkeypatch.setattr(
+        context_client.httpx, "Client",
+        lambda *a, **kw: real_client(*a, **{**kw, "transport": httpx.MockTransport(serve)}),
+    )
+    module = _load_script()
+    return module, answer, calls
+
+
+def test_preflight_checks_context_health_through_beril(mirror):
+    """The mirror never touches the store's own routes: the user-facing
+    `/api/ov/*` surface is going admin-only, so the gate is BERIL's own
+    authenticated `/api/context/health`."""
+    module, _answer, calls = mirror
+
+    record, reason = module._preflight()
+
+    assert record is not None and reason == "context service available"
+    assert [c.url.path for c in calls] == ["/api/context/health"]
+    assert calls[0].headers["Authorization"] == "Bearer beril_abc"
+
+
+@pytest.mark.parametrize(
+    ("reply", "expected"),
+    [
+        (httpx.Response(200, json={"status": "unavailable"}), "context service is unavailable"),
+        (httpx.Response(401, json={"detail": "no"}), "health check failed"),
+        (httpx.ConnectError("refused"), "health check failed"),
+    ],
+)
+def test_preflight_skips_when_the_context_layer_cannot_take_an_upload(mirror, reply, expected):
+    module, answer, _calls = mirror
+    answer["response"] = reply
+
+    record, reason = module._preflight()
+
+    assert record is None
+    assert expected in reason
+
+
+def test_preflight_without_a_login(mirror):
+    module, _answer, calls = mirror
+    auth_store.clear()
+
+    record, reason = module._preflight()
+
+    assert record is None and "beril login" in reason
+    assert calls == []

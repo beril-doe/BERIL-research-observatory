@@ -54,11 +54,10 @@ data/               # Shared data extracts reusable across projects
 ### Existing Projects
 
 **Look projects up through the knowledge layer, not by hand** — the availability check
-and commands are in **Phase 1.8**. When OpenViking is up, list and search projects with
-`knowledge_query.py ls viking://resources/projects/ --simple` and
-`knowledge_query.py find "<user's topic>"` (these fall back to local search over the
-same corpus when the server is down). Present what you find so the user sees what's
-been done.
+and commands are in **Phase 1.8**. Search projects with
+`beril context find "<user's topic>"`, and list them with the per-owner loop in the
+`knowledge-context` skill (§ Common workflows). Present what you find so the user sees
+what's been done.
 
 Use a bare `ls projects/` only as a quick directory sanity-check or when the knowledge
 layer is `UNREACHABLE` — not as the default way to survey prior work. Reading every
@@ -190,42 +189,35 @@ This is a non-blocking reminder. Move on to Phase 2 regardless.
 
 ## Phase 1.8: Knowledge Layer Check (how to look up projects & prior work)
 
-**By default, look up projects and cross-project knowledge through OpenViking (the
-knowledge layer) — not by reading `projects/` directly.** Confirm it's available once:
+**By default, look up projects and cross-project knowledge through the knowledge layer
+— not by reading `projects/` directly.** It is reached through BERIL with the user's
+`beril login`. Confirm it's available once:
 
 ```bash
-uv run --env-file .env knowledge/scripts/knowledge_query.py doctor
+beril context doctor
 ```
 
-- **OK** → the remote knowledge server is up. Use the `knowledge-context` skill for
-  **all** cross-project lookups — listing/finding projects, "what's known about X",
-  "has this been done", "related work":
-  - list projects: `knowledge_query.py ls viking://resources/projects/ --simple`
-  - by topic: `knowledge_query.py find "<topic>"`
-  - exact term / author / db: `knowledge_query.py grep "<term>" --uri viking://resources/`
+- **OK** → use the `knowledge-context` skill for **all** cross-project lookups —
+  finding projects, "what's known about X", "has this been done", "related work":
+  - by topic: `beril context find "<topic>"`
+  - exact term / author / db: `beril context grep "<term>" --all-owners`
+  - known gotchas: `beril context pitfalls "<error or table>"`
+  - list projects: the per-owner `ls` loop in `knowledge-context` § Common workflows
 
   **Do not enumerate `projects/` or read `projects/*/README.md` / REPORTs by hand for
-  context** — the server has them indexed and ranked, and hand-scanning misses the
-  cross-project connections it surfaces.
-- **NO API KEY / AUTH FAILED** → server is up but you have no valid key. OpenViking is
-  the default knowledge layer, so surface these steps to the user, then continue
-  (non-blocking — don't wait on them):
-
-  > **Set up OpenViking (~2 min, one-time):**
-  > 1. Open `https://beril-dev.kbase.us` and log in with your ORCiD.
-  > 2. Copy the `beril_session` cookie (DevTools → Application/Storage → Cookies).
-  > 3. In **your own terminal** (never paste the cookie into chat):
-  >    `uv run knowledge/scripts/setup_remote_ov.py --cookie '<paste beril_session value>'`
-  > 4. Verify: `uv run --env-file .env knowledge/scripts/knowledge_query.py doctor` → `OpenViking: OK`.
-  > Full walkthrough & troubleshooting: `docs/remote-openviking-setup.md`.
-
-  Until the key is set, knowledge-layer queries won't return results — the server is
-  reachable, so there's no local fallback (that only applies to `UNREACHABLE`). Setting
-  up the key is what unblocks `find` / `grep` / `read` / `overview`.
-- **UNREACHABLE** → no server; `find` / `grep` / `read` / `overview` still work via
-  local fallback, so keep using them instead of hand-scanning. Only
-  `glob` / `ls` / `tree` / `stat` need the server — for those, a plain
-  `ls projects/` is the enumeration fallback.
+  context** — the knowledge layer indexes and ranks submitted projects, including ones
+  not in this checkout, and hand-scanning misses the cross-project connections it
+  surfaces. One exception: indexing is best-effort (a submitted project's mirror can be
+  skipped or fail — see `knowledge-context` § How content gets in), so **before
+  concluding that no prior work exists**, also check `ls projects/` in this checkout.
+- **NOT_LOGGED_IN / AUTH_FAILED** → tell the user to run `beril login` in their own
+  terminal (it asks for a personal access token created at `<BERIL URL>/account/tokens`), then
+  continue — non-blocking, don't wait on it.
+- **UNREACHABLE / UNAVAILABLE** → BERIL or its context layer is down. There is no
+  offline mode: tell the user, and until it's back fall back to this checkout's own
+  files (`ls projects/`, `docs/{pitfalls,discoveries,performance}.md`) with your normal
+  tools — say plainly that recall is partial (no semantic search, nothing submitted
+  from elsewhere).
 
 Non-blocking (like the session-naming reminder) — proceed to Phase 2 regardless.
 **Reserve hand-reading `projects/<id>/` files for the one project you're actively
@@ -424,7 +416,7 @@ These are project-agnostic helpers — invoke them from inside any project at th
 8. **Drive the process forward between checkpoints** — checkpoints are explicit pause-points (Plan Review, Results Review). Outside of those, keep moving — don't stop after every individual step asking permission.
 9. **Document as you go** — pitfalls live-captured to `projects/<id>/memories/pitfalls.md` via `/pitfall-capture`; discoveries and performance notes drafted in REPORT.md `## Discoveries` / `## Performance Notes` sections (extracted by `/submit` to per-project memories at approval). The central `docs/{pitfalls,discoveries,performance}.md` files are frozen historical archives — don't write to them.
 10. **Use Spark patterns from PROJECT.md** — `get_spark_session()`, PySpark-first, `.toPandas()` only for final small results.
-11. **Look up projects and prior work through the knowledge layer, not `projects/`** — when the OV server is up (Phase 1.8), use `knowledge-context` (`knowledge_query.py ls/find/grep`) for "what exists / what's known / related work". It falls back to local search when the server is down, so this is always safe. Hand-read `projects/<id>/` only for the project you're actively working in.
+11. **Look up projects and prior work through the knowledge layer, not `projects/`** — use `knowledge-context` (`beril context find/grep/pitfalls/discoveries/ls`) for "what exists / what's known / related work" (Phase 1.8). If it's unavailable, say so and fall back to this checkout's files, noting recall is partial. Hand-read `projects/<id>/` only for the project you're actively working in.
 
 ---
 

@@ -34,7 +34,8 @@ def test_diagnose_no_key(monkeypatch):
     )
     diag = oc.diagnose(_cfg(key=None))
     assert diag.verdict == "no_key"
-    assert "setup_remote_ov" in diag.remedy
+    assert "OPENVIKING_API_KEY" in diag.remedy
+    assert "beril context" in diag.remedy
 
 
 def test_diagnose_ok_when_no_auth_required(monkeypatch):
@@ -61,7 +62,8 @@ def test_diagnose_auth_failed(monkeypatch):
     monkeypatch.setattr(oc, "_probe_auth", lambda config, timeout: ("auth_failed", "401"))
     diag = oc.diagnose(_cfg(key="bad"))
     assert diag.verdict == "auth_failed"
-    assert "--regenerate" in diag.remedy
+    assert "OPENVIKING_API_KEY" in diag.remedy
+    assert "regenerate" not in diag.remedy  # no user-side minting any more
 
 
 def test_diagnose_probe_error(monkeypatch):

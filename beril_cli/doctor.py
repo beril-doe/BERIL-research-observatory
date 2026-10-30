@@ -13,11 +13,11 @@ import httpx
 
 from beril_cli import auth_store, config
 
-# Public, unauthenticated health endpoints. `/health` is the BERIL webapp's own
-# check; `/ov/health` is the nginx proxy path that forwards to OpenViking's
-# `/health` (the "context manager" users interact with).
+# `/health` is the BERIL webapp's own public check. The context layer's is
+# authenticated: `/api/context/health` answers only with a valid login, and
+# reports the store behind it without naming it.
 _HEALTH_PATH = "/health"
-_OV_HEALTH_PATH = "/ov/health"
+_CONTEXT_HEALTH_PATH = "/api/context/health"
 _HTTP_TIMEOUT_SECONDS = 10.0
 
 
@@ -125,17 +125,50 @@ def _check_beril_webapp(base_url: str) -> tuple[str, str]:
     return "PASS", f"reachable ({base_url})"
 
 
-def _check_context_manager(base_url: str) -> tuple[str, str]:
-    """Return (status, detail) for OpenViking (the "context manager") via /ov/health."""
-    code, body, error = _get_health(base_url + _OV_HEALTH_PATH)
-    if code is None:
-        return "FAIL", f"unreachable ({error})"
-    if code != 200:
-        return "FAIL", f"HTTP {code} from {base_url}{_OV_HEALTH_PATH}"
-    status = (body or {}).get("status")
-    if status in ("ok", "healthy", None):
-        return "PASS", f"reachable ({base_url}{_OV_HEALTH_PATH})"
-    return "WARN", f"{status} ({base_url}{_OV_HEALTH_PATH})"
+def _check_context_layer(base_url: str) -> tuple[str, str]:
+    """Return (status, detail) for the context layer via /api/context/health.
+
+    Needs the stored login: the route is authenticated, so without one there
+    is nothing to check, and a rejected token is the user's to fix. The token
+    belongs to the login's server, so that is the one checked — when it is
+    not ``base_url`` (the configured one, which the webapp check used), the
+    detail says so rather than letting two servers share adjacent lines.
+    """
+    record = auth_store.load()
+    if record is None:
+        return "WARN", "not checked — run `beril login`"
+    status, detail = _check_context_layer_at(record)
+    if record.base_url.rstrip("/") != base_url.rstrip("/"):
+        detail += (
+            f"; note: this is your login's server, not the configured {base_url}"
+            " — run `beril login` to switch"
+        )
+    return status, detail
+
+
+def _check_context_layer_at(record: auth_store.AuthRecord) -> tuple[str, str]:
+    url = record.base_url.rstrip("/") + _CONTEXT_HEALTH_PATH
+    try:
+        resp = httpx.get(
+            url,
+            headers={"Authorization": f"Bearer {record.token}"},
+            timeout=_HTTP_TIMEOUT_SECONDS,
+        )
+    except httpx.TimeoutException:
+        return "FAIL", "unreachable (timed out)"
+    except httpx.HTTPError as exc:
+        return "FAIL", f"unreachable ({str(exc) or exc.__class__.__name__})"
+    if resp.status_code == 401:
+        return "FAIL", "token rejected — run `beril login`"
+    if resp.status_code != 200:
+        return "FAIL", f"HTTP {resp.status_code} from {url}"
+    try:
+        status = resp.json().get("status")
+    except (ValueError, AttributeError):
+        status = None
+    if status == "ok":
+        return "PASS", f"ok ({record.base_url})"
+    return "WARN", f"unavailable — BERIL is up but its context layer is not answering ({record.base_url})"
 
 
 def run_doctor() -> int:
@@ -220,8 +253,8 @@ def run_doctor() -> int:
     status, detail = _check_beril_webapp(base_url)
     checks.append(("BERIL webapp", status, detail))
 
-    status, detail = _check_context_manager(base_url)
-    checks.append(("Context manager", status, detail))
+    status, detail = _check_context_layer(base_url)
+    checks.append(("Context layer", status, detail))
 
     # 8. BERDL environment
     if repo_root:

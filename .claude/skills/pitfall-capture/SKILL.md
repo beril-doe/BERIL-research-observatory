@@ -10,7 +10,7 @@ This skill is not user-invocable. It is referenced by BERDL skills (berdl, berdl
 
 ## Where pitfalls live
 
-Pitfalls discovered during a specific project's work go in **`projects/<id>/memories/pitfalls.md`** — that project's own memory file, append-only. The central `docs/pitfalls.md` is a frozen historical archive of pre-redirect content; it's still useful for grep/reference when checking for known gotchas, but new pitfalls are NOT written there. The future plan is for OpenViking to ingest `projects/*/memories/pitfalls.md` files for cross-project semantic retrieval; until then, agents can grep both locations.
+Pitfalls discovered during a specific project's work go in **`projects/<id>/memories/pitfalls.md`** — that project's own memory file, append-only. The central `docs/pitfalls.md` is a frozen historical archive of pre-redirect content; it's still useful for grep/reference when checking for known gotchas, but new pitfalls are NOT written there. Submitted projects' `memories/pitfalls.md` files are searchable across every project, together with the central archive, through `beril context pitfalls` (see `knowledge-context`); within this checkout, agents can also grep both locations directly.
 
 If a pitfall genuinely doesn't belong to any specific project (e.g., a global BERDL gotcha encountered during free exploration with no current project), prefer to either (a) attach it to the most-relevant active project's memory file, or (b) ask the user where it should live. Don't write to `docs/pitfalls.md`.
 
@@ -33,7 +33,7 @@ Check both locations, in order:
 
 1. **Project-local first**: read `projects/<id>/memories/pitfalls.md` (if it exists) and look for a matching entry. Iteration on the same project commonly hits the same gotcha twice — checking the project's own memory first catches that.
 2. **Central archive second**: grep `docs/pitfalls.md` for the same issue — many gotchas were captured there pre-redirect.
-3. **Cross-project check**: to catch the same gotcha documented under *another* project, query the knowledge layer instead of grepping every memory file — see `knowledge-context`. Seed: `uv run --env-file .env knowledge/scripts/knowledge_query.py grep "<exact error or table>" --uri viking://resources/ -i` (exact tokens beat semantic here), then `read` any hit. (Falls back to local search if OpenViking is down.)
+3. **Cross-project check**: to catch the same gotcha documented under *another* project, query the knowledge layer instead of grepping every memory file — see `knowledge-context`. Seed: `beril context pitfalls "<exact error or table>" --exact` (exact tokens beat semantic here; it searches every project's memories and the central archive), then read any hit's source file. If `beril context` is unavailable, say so and grep this checkout's other projects instead (`grep -ril "<exact error or table>" projects/*/memories/pitfalls.md`), on top of steps 1–2; say the check covered only this checkout.
 
 - **If already documented (in either location):** Tell the user: "This is a known pitfall — see {path}, '[Section Name]' section." Quote or summarize the relevant guidance so the user can apply it immediately. **Stop here** — do not proceed to Step 2.
 - **If the user already has a related entry that's slightly off** (e.g., the original entry's framing has been refined by later understanding, or a fix has been improved): proceed to Step 2 but draft a **follow-up/correction entry** rather than a new pitfall (see Step 3 below).
@@ -120,7 +120,7 @@ Then **resume the original task** — pitfall capture should not derail the user
 
 ## Important Notes
 
-- **Knowledge Context Integration.** Pitfalls land in `projects/<id>/memories/pitfalls.md` (the durable per-project location); running `knowledge/scripts/ingest_context.py --project <id>` afterward keeps OpenViking's context layer current for cross-project semantic retrieval.
+- **Knowledge Context Integration.** Pitfalls land in `projects/<id>/memories/pitfalls.md` (the durable per-project location). They reach the context layer — and other projects' `beril context pitfalls` searches — when `/submit` approves and archives the project and its best-effort mirror lands (see `knowledge-context` § How content gets in for checking and retrying it).
 - **Don't interrupt flow unnecessarily.** If the issue is minor and you already know the fix, apply the fix first, then ask about documenting it. The user's primary task always comes first.
 - **One pitfall at a time.** If multiple issues arise, handle each separately to avoid overwhelming the user.
 - **Be specific.** Vague entries like "queries can be slow" are not useful. Include the exact table, the exact error, the exact fix.

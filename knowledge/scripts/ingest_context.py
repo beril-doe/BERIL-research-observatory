@@ -64,7 +64,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from beril_cli import auth_store
-from beril_cli.ov_client import OvLinkError, ov_health
+from beril_cli.context_client import ContextClient, ContextError
 from observatory_context.beril_ingest import (
     BerilIngestError,
     ingest_project_files,
@@ -130,11 +130,13 @@ def _emit(status: str, reason: str) -> int:
 
 
 def _preflight() -> tuple[auth_store.AuthRecord | None, str]:
-    """Check the two gates. Return (record, reason); record is None on failure.
+    """Check the gates. Return (record, reason); record is None on failure.
 
-    One authenticated health call proves both gates at once: a 200 means the
-    BERIL webapp is up and the stored token still authenticates. No
-    context-backend credential is checked — the route brokers that itself.
+    One authenticated call to ``/api/context/health`` proves all three: an
+    answer means the BERIL webapp is up and the stored token still
+    authenticates, and its status says whether the context layer behind it
+    can take the upload. No context-backend credential is involved — BERIL
+    brokers that itself.
     """
     record = auth_store.load()
     if record is None:
@@ -143,9 +145,12 @@ def _preflight() -> tuple[auth_store.AuthRecord | None, str]:
             "run `beril login` to enable the context-service submission"
         )
     try:
-        ov_health(record.base_url, record.token)
-    except OvLinkError as exc:
+        with ContextClient(record.base_url, record.token, timeout=15.0) as client:
+            status = client.health().get("status")
+    except ContextError as exc:
         return None, f"BERIL context service health check failed: {exc}"
+    if status != "ok":
+        return None, "BERIL is up, but its context service is unavailable"
     return record, "context service available"
 
 

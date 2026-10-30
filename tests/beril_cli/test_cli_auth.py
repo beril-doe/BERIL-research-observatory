@@ -12,7 +12,6 @@ import pytest
 
 from beril_cli import auth_cmd, auth_store, config
 from beril_cli.auth_cmd import run_login, run_logout
-from beril_cli.ov_client import OvLinkError
 
 
 # ---------------------------------------------------------------------------
@@ -41,20 +40,6 @@ def tmp_config(tmp_path, monkeypatch):
     # Also clear any base-url env var so tests start from a known baseline.
     monkeypatch.delenv("BERIL_BASE_URL", raising=False)
     return cfg_path
-
-
-@pytest.fixture
-def stub_ov(monkeypatch):
-    """Stub OpenViking linking during login so the tests that only care about
-    BERIL auth don't reach the (real) OV endpoints. Returns a fixed credential.
-
-    auth_cmd imports ``fetch_ov_credential`` by name, so we patch it there.
-    """
-    def _fake(base_url, token, *, regenerate=False):
-        return ("https://srv.example.test/ov", "ov_key_1234")
-
-    monkeypatch.setattr(auth_cmd, "fetch_ov_credential", _fake)
-    return _fake
 
 
 def _httpx_response(body: dict | str, status: int = 200) -> httpx.Response:
@@ -132,61 +117,38 @@ class TestAuthStore:
         assert record is not None
         assert record.display_name is None
 
-    def test_save_then_load_round_trips_ov_fields(self, tmp_auth):
-        auth_store.save(
-            token="t",
-            base_url="u",
-            orcid_id="0",
-            display_name=None,
-            ov_url="https://srv/ov",
-            ov_user_key="ovk",
-        )
-        record = auth_store.load()
-        assert record.ov_url == "https://srv/ov"
-        assert record.ov_user_key == "ovk"
-
-    def test_ov_fields_default_to_none(self, tmp_auth):
-        auth_store.save(token="t", base_url="u", orcid_id="0", display_name=None)
-        record = auth_store.load()
-        assert record.ov_url is None
-        assert record.ov_user_key is None
-
-    def test_old_file_without_ov_fields_still_loads(self, tmp_auth):
-        # Pre-OV auth.json — must remain readable (logged-in, OV unlinked).
+    def _write_legacy(self, tmp_auth, **extra):
+        """An auth.json from an older login, which cached a store credential."""
         tmp_auth.parent.mkdir(parents=True)
-        tmp_auth.write_text(
-            json.dumps(
-                {
-                    "token": "t",
-                    "base_url": "u",
-                    "orcid_id": "0",
-                    "display_name": "Alice",
-                }
-            )
-        )
+        tmp_auth.write_text(json.dumps({
+            "token": "t", "base_url": "u", "orcid_id": "0", "display_name": "Alice",
+            "ov_url": "https://srv/ov", "ov_user_key": "legacy_ovk", **extra,
+        }))
+
+    def test_a_legacy_file_with_a_store_credential_still_loads(self, tmp_auth):
+        self._write_legacy(tmp_auth)
         record = auth_store.load()
         assert record is not None
         assert record.token == "t"
-        assert record.ov_url is None
-        assert record.ov_user_key is None
+        assert not hasattr(record, "ov_user_key")
 
-    def test_load_ov_returns_pair_when_present(self, tmp_auth):
-        auth_store.save(
-            token="t",
-            base_url="u",
-            orcid_id="0",
-            display_name=None,
-            ov_url="https://srv/ov",
-            ov_user_key="ovk",
-        )
-        assert auth_store.load_ov() == ("https://srv/ov", "ovk")
+    def test_saving_drops_a_legacy_store_credential(self, tmp_auth):
+        self._write_legacy(tmp_auth)
+        auth_store.save(token="t2", base_url="u", orcid_id="0", display_name=None)
+        on_disk = json.loads(tmp_auth.read_text())
+        assert set(on_disk) == {"token", "base_url", "orcid_id", "display_name"}
 
-    def test_load_ov_returns_none_when_not_logged_in(self, tmp_auth):
-        assert auth_store.load_ov() is None
+    def test_stored_secrets_include_a_legacy_store_credential(self, tmp_auth):
+        """Masking must cover a key an older login left on disk."""
+        self._write_legacy(tmp_auth)
+        assert set(auth_store.stored_secrets()) == {"t", "legacy_ovk"}
 
-    def test_load_ov_returns_none_when_ov_unlinked(self, tmp_auth):
+    def test_stored_secrets_are_the_token_alone_for_a_current_login(self, tmp_auth):
         auth_store.save(token="t", base_url="u", orcid_id="0", display_name=None)
-        assert auth_store.load_ov() is None
+        assert auth_store.stored_secrets() == ("t",)
+
+    def test_stored_secrets_are_empty_when_logged_out(self, tmp_auth):
+        assert auth_store.stored_secrets() == ()
 
     def test_clear_is_idempotent_when_missing(self, tmp_auth):
         # Should not raise
@@ -248,7 +210,7 @@ class TestBaseUrlResolution:
 
 class TestAuthLogin:
     def test_login_with_token_flag_saves_record(
-        self, tmp_auth, tmp_config, stub_ov, capsys
+        self, tmp_auth, tmp_config, capsys
     ):
         response = _httpx_response(
             {"orcid_id": "0000-0001-2345-6789", "display_name": "Alice"}
@@ -269,7 +231,7 @@ class TestAuthLogin:
         assert record.base_url == "https://srv.example.test"
         assert record.orcid_id == "0000-0001-2345-6789"
 
-    def test_login_persists_base_url_flag(self, tmp_auth, tmp_config, stub_ov):
+    def test_login_persists_base_url_flag(self, tmp_auth, tmp_config):
         response = _httpx_response(
             {"orcid_id": "0000-0001-2345-6789", "display_name": None}
         )
@@ -282,7 +244,7 @@ class TestAuthLogin:
         assert config.get_base_url() == "https://srv.example.test"
 
     def test_login_hits_correct_whoami_url_with_bearer_header(
-        self, tmp_auth, tmp_config, stub_ov
+        self, tmp_auth, tmp_config
     ):
         response = _httpx_response(
             {"orcid_id": "0000-0001-2345-6789", "display_name": None}
@@ -299,61 +261,26 @@ class TestAuthLogin:
         assert call.args[0] == "https://srv.example.test/api/user/whoami"
         assert call.kwargs["headers"]["Authorization"] == "Bearer beril_abc"
 
-    def test_login_caches_ov_credential(
-        self, tmp_auth, tmp_config, stub_ov, capsys
+    def test_login_asks_only_whoami_and_caches_no_store_credential(
+        self, tmp_auth, tmp_config, capsys
     ):
+        """Login proves the token and records who it belongs to — nothing
+        else. The context layer is reached through BERIL with this token, so
+        there is no store credential to fetch or cache."""
         response = _httpx_response(
             {"orcid_id": "0000-0001-2345-6789", "display_name": "Alice"}
         )
-        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
+        with patch("beril_cli.auth_cmd.httpx.get", return_value=response) as mock_get, \
+                patch("httpx.post") as mock_post:
             rc = run_login(token="beril_abc", base_url="https://srv.example.test")
         assert rc == 0
-        record = auth_store.load()
-        assert record.ov_url == "https://srv.example.test/ov"
-        assert record.ov_user_key == "ov_key_1234"
-        out = capsys.readouterr().out
-        # The full key is never printed — only a masked suffix.
-        assert "ov_key_1234" not in out
-
-    def test_login_when_ov_unreachable_still_succeeds(
-        self, tmp_auth, tmp_config, monkeypatch, capsys
-    ):
-        def _boom(base_url, token, *, regenerate=False):
-            raise OvLinkError("could not reach OpenViking.")
-
-        monkeypatch.setattr(auth_cmd, "fetch_ov_credential", _boom)
-        response = _httpx_response(
-            {"orcid_id": "0000-0001-2345-6789", "display_name": "Alice"}
-        )
-        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
-            rc = run_login(token="beril_abc", base_url="https://srv.example.test")
-        captured = capsys.readouterr()
-        # BERIL login still succeeds and is saved; OV fields are None.
-        assert rc == 0
-        record = auth_store.load()
-        assert record is not None
-        assert record.token == "beril_abc"
-        assert record.ov_url is None
-        assert record.ov_user_key is None
-        assert "OpenViking not linked" in captured.err
-        assert "beril ov setup" in captured.err
-
-    def test_login_409_points_at_regenerate(
-        self, tmp_auth, tmp_config, monkeypatch, capsys
-    ):
-        def _conflict(base_url, token, *, regenerate=False):
-            raise OvLinkError("already exists", needs_regenerate=True)
-
-        monkeypatch.setattr(auth_cmd, "fetch_ov_credential", _conflict)
-        response = _httpx_response(
-            {"orcid_id": "0000-0001-2345-6789", "display_name": "Alice"}
-        )
-        with patch("beril_cli.auth_cmd.httpx.get", return_value=response):
-            rc = run_login(token="beril_abc", base_url="https://srv.example.test")
-        captured = capsys.readouterr()
-        assert rc == 0
-        assert auth_store.load().ov_user_key is None
-        assert "--regenerate" in captured.err
+        assert [c.args[0] for c in mock_get.call_args_list] == [
+            "https://srv.example.test/api/user/whoami"
+        ]
+        mock_post.assert_not_called()
+        on_disk = json.loads(tmp_auth.read_text())
+        assert set(on_disk) == {"token", "base_url", "orcid_id", "display_name"}
+        assert "OpenViking" not in capsys.readouterr().err
 
     def test_login_401_prints_error_and_does_not_save(
         self, tmp_auth, tmp_config, capsys
@@ -449,7 +376,7 @@ class TestAuthLogin:
         assert auth_store.load() is None
 
     def test_login_prompts_for_token_when_not_given(
-        self, tmp_auth, tmp_config, stub_ov, monkeypatch
+        self, tmp_auth, tmp_config, monkeypatch
     ):
         response = _httpx_response(
             {"orcid_id": "0000-0001-2345-6789", "display_name": "Alice"}
@@ -583,7 +510,7 @@ class TestAuthLogout:
 
 
 class TestCliDispatch:
-    def test_beril_login_dispatches(self, tmp_auth, tmp_config, stub_ov):
+    def test_beril_login_dispatches(self, tmp_auth, tmp_config):
         from beril_cli.cli import main
 
         response = _httpx_response(

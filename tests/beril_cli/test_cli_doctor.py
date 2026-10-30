@@ -1,7 +1,7 @@
 """Tests for the BERIL webapp health checks added to `beril doctor`.
 
 Covers the three helpers that hit the network — login validation, webapp
-availability, and OpenViking ("context manager") availability — by building
+availability, and context-layer availability (``/api/context/health``) — by building
 real ``httpx.Response`` objects and stubbing ``httpx.get``. The higher-level
 ``run_doctor`` orchestration and the pre-existing local checks are exercised by
 running the command in the other suites; here we pin the new logic.
@@ -101,31 +101,81 @@ class TestCheckWebapp:
 
 
 # ---------------------------------------------------------------------------
-# _check_context_manager
+# _check_context_layer
 # ---------------------------------------------------------------------------
 
 
-class TestCheckContextManager:
-    def test_ok(self):
-        with patch.object(doctor.httpx, "get", return_value=_response({"status": "ok"})):
-            status, detail = doctor._check_context_manager(BASE_URL)
-        assert status == "PASS"
-        assert "/ov/health" in detail
+class TestCheckContextLayer:
+    """Authenticated: the store's own public `/ov/health` is going admin-only,
+    so doctor asks BERIL, with the stored login."""
 
-    def test_reachable_without_status_field(self):
-        # OpenViking's own /health may not use a "status" key; a 200 is enough.
-        with patch.object(doctor.httpx, "get", return_value=_response({"uptime": 1})):
-            status, _ = doctor._check_context_manager(BASE_URL)
-        assert status == "PASS"
+    def _check(self, monkeypatch, **get):
+        monkeypatch.setattr(auth_store, "load", _record)
+        with patch.object(doctor.httpx, "get", **get) as mock_get:
+            result = doctor._check_context_layer(BASE_URL)
+        return result, mock_get
 
-    def test_non_200_fails(self):
-        with patch.object(doctor.httpx, "get", return_value=_response("down", status=503)):
-            status, detail = doctor._check_context_manager(BASE_URL)
+    def test_ok(self, monkeypatch):
+        (status, detail), mock_get = self._check(
+            monkeypatch, return_value=_response({"status": "ok"})
+        )
+        assert status == "PASS"
+        assert mock_get.call_args.args[0] == f"{BASE_URL}/api/context/health"
+        assert mock_get.call_args.kwargs["headers"]["Authorization"] == "Bearer beril_tok"
+
+    def test_unavailable_warns(self, monkeypatch):
+        (status, detail), _ = self._check(
+            monkeypatch, return_value=_response({"status": "unavailable"})
+        )
+        assert status == "WARN"
+        assert "unavailable" in detail
+
+    def test_rejected_token_points_at_login(self, monkeypatch):
+        (status, detail), _ = self._check(
+            monkeypatch, return_value=_response({"detail": "no"}, status=401)
+        )
+        assert status == "FAIL"
+        assert "beril login" in detail
+
+    def test_non_200_fails(self, monkeypatch):
+        (status, detail), _ = self._check(
+            monkeypatch, return_value=_response("down", status=503)
+        )
         assert status == "FAIL"
         assert "503" in detail
 
-    def test_timeout_fails(self):
-        with patch.object(doctor.httpx, "get", side_effect=httpx.TimeoutException("slow")):
-            status, detail = doctor._check_context_manager(BASE_URL)
+    def test_timeout_fails(self, monkeypatch):
+        (status, detail), _ = self._check(
+            monkeypatch, side_effect=httpx.TimeoutException("slow")
+        )
         assert status == "FAIL"
         assert "timed out" in detail
+
+    def test_says_when_the_login_is_for_another_server(self, monkeypatch):
+        """The token belongs to the login's server, so that is the one checked;
+        the webapp line above used the configured one, so a mismatch is said."""
+        monkeypatch.setattr(auth_store, "load", _record)
+        with patch.object(doctor.httpx, "get", return_value=_response({"status": "ok"})) as mock_get:
+            status, detail = doctor._check_context_layer("https://other.example.test")
+        assert status == "PASS"
+        assert mock_get.call_args.args[0] == f"{BASE_URL}/api/context/health"
+        assert "not the configured https://other.example.test" in detail
+        assert "beril login" in detail
+
+    def test_no_note_when_the_login_matches_the_configured_server(self, monkeypatch):
+        (_, detail), _ = self._check(monkeypatch, return_value=_response({"status": "ok"}))
+        assert "configured" not in detail
+
+    def test_not_logged_in_is_not_checked(self, monkeypatch):
+        monkeypatch.setattr(auth_store, "load", lambda: None)
+        with patch.object(doctor.httpx, "get") as mock_get:
+            status, detail = doctor._check_context_layer(BASE_URL)
+        assert status == "WARN"
+        assert "beril login" in detail
+        mock_get.assert_not_called()
+
+    def test_never_names_the_backend(self, monkeypatch):
+        (_, detail), _ = self._check(
+            monkeypatch, return_value=_response({"status": "unavailable"})
+        )
+        assert "viking" not in detail.lower() and "/ov" not in detail
