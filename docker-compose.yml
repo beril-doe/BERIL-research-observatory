@@ -1,9 +1,9 @@
 services:
   proxy:
     image: nginx:alpine
-    # Owns host port 8000 and path-routes: /ov -> openviking, everything else
-    # -> ui. Mirrors the SPIN NGINX ingress so http://localhost:8000/ov works
-    # locally the same way it does on SPIN.
+    # Owns host port 8000 and path-routes: /ov -> openviking, /wiki -> wiki,
+    # everything else -> ui. Mirrors the SPIN NGINX ingress so
+    # http://localhost:8000/ov works locally the same way it does on SPIN.
     ports:
       - "8000:8000"
     volumes:
@@ -49,6 +49,18 @@ services:
         - action: rebuild
           path: ./.env
 
+
+  # The BERIL wiki, a static site from beril-doe/beril-wiki, served at /wiki as
+  # on SPIN. Opt-in: `docker compose --profile wiki up -d`. The published
+  # :develop image is built for beril-dev.kbase.us/wiki, so only its absolute
+  # links (footer About, sitemap) point there; to use a local build set
+  # BERIL_WIKI_IMAGE (see the beril-wiki README, "The SPIN image").
+  wiki:
+    image: ${BERIL_WIKI_IMAGE:-ghcr.io/beril-doe/beril-wiki:develop}
+    profiles: ["wiki"]
+    expose:
+      - "8080"
+    restart: unless-stopped
 
   openviking:
     build:
