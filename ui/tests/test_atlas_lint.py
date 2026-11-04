@@ -134,10 +134,13 @@ def test_legacy_wiki_links_are_rejected(tmp_path):
 
 
 def test_public_atlas_surface_has_no_wiki_naming_leaks():
+    """The Atlas was once called a wiki; nothing on its surface may still say
+    so. Scoped to the Atlas's own pages and templates: the site-wide chrome
+    (base.html) links to the real BERIL wiki, a separate site under /wiki."""
     repo = Path(__file__).resolve().parents[2]
     scanned_files = [
         *sorted((repo / "atlas").rglob("*.md")),
-        *sorted((repo / "ui" / "app" / "templates").rglob("*.html")),
+        *sorted((repo / "ui" / "app" / "templates" / "atlas").rglob("*.html")),
     ]
     leaks = [
         path.relative_to(repo).as_posix()
