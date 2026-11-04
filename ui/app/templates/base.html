@@ -52,6 +52,20 @@
                         <li><a href="/knowledge/ideas">Research Ideas</a></li>
                     </ul>
                 </li>
+                {# The wiki is a separate site served under /wiki on the same host, so
+                   no request path of this app is ever "within" it: no active state. #}
+                <li class="nav-dropdown">
+                    <a href="/wiki/">Wiki</a>
+                    <ul class="dropdown-menu">
+                        <li><a href="/wiki/topics/">Topics</a></li>
+                        <li><a href="/wiki/concepts/">Concepts</a></li>
+                        <li><a href="/wiki/entities/">Entities</a></li>
+                        <li><a href="/wiki/conflicts/">Conflicts</a></li>
+                        <li><a href="/wiki/summaries/">Reports</a></li>
+                        <li><a href="/wiki/authors/">Authors</a></li>
+                        <li><a href="/wiki/about">About</a></li>
+                    </ul>
+                </li>
                 <li><a href="/about" class="{% if request.url.path == '/about' %}active{% endif %}">About</a></li>
             </ul>
 

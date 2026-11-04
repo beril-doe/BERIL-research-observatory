@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import os
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -51,6 +52,42 @@ class TestHealthEndpoint:
         assert response.status_code == 200
         print(response.json())
         assert response.json().get("status") == "healthy"
+
+
+class TestWikiMenu:
+    """The Wiki menu points at the wiki's own section pages. The wiki is a
+    separate site under /wiki on the same host (docs/wiki-deployment.md), so
+    the hrefs are the forms it serves directly: folders with a trailing
+    slash, single pages without."""
+
+    WIKI_LINKS = {
+        "Topics": "/wiki/topics/",
+        "Concepts": "/wiki/concepts/",
+        "Entities": "/wiki/entities/",
+        "Conflicts": "/wiki/conflicts/",
+        "Reports": "/wiki/summaries/",
+        "Authors": "/wiki/authors/",
+        "About": "/wiki/about",
+    }
+
+    def test_every_page_has_the_wiki_menu(self, client):
+        for path in ("/", "/about", "/atlas"):
+            html = client.get(path).text
+            assert '<a href="/wiki/">Wiki</a>' in html, path
+            for label, href in self.WIKI_LINKS.items():
+                assert f'<a href="{href}">{label}</a>' in html, (path, label)
+
+    def test_dropdown_menus_open_on_keyboard_focus(self):
+        """Regression (Codex stop-gate): the dropdowns opened only on hover,
+        so their items could not be reached by Tab."""
+        css = (Path(__file__).resolve().parents[1] / "app" / "static" / "css" / "main.css").read_text()
+        assert ".nav-dropdown:focus-within .dropdown-menu" in css
+        assert ".dropdown-menu li a:focus-visible" in css
+
+    def test_the_wiki_menu_lists_its_sections_in_order(self, client):
+        html = client.get("/").text
+        positions = [html.index(f'<a href="{href}">') for href in self.WIKI_LINKS.values()]
+        assert positions == sorted(positions)
 
 
 class TestHomeRoute:
