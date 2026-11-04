@@ -266,7 +266,10 @@ a:hover {
   box-shadow: var(--shadow-lg);
 }
 
-.nav-dropdown:hover .dropdown-menu {
+/* Open on hover, and on keyboard focus of the trigger or any item: a menu
+   that only hover opens can't be reached by Tab. */
+.nav-dropdown:hover .dropdown-menu,
+.nav-dropdown:focus-within .dropdown-menu {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
@@ -279,7 +282,8 @@ a:hover {
   border-bottom: none;
 }
 
-.dropdown-menu li a:hover {
+.dropdown-menu li a:hover,
+.dropdown-menu li a:focus-visible {
   background: var(--surface-raised);
   color: var(--text-primary);
 }

@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import os
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -75,6 +76,13 @@ class TestWikiMenu:
             assert '<a href="/wiki/">Wiki</a>' in html, path
             for label, href in self.WIKI_LINKS.items():
                 assert f'<a href="{href}">{label}</a>' in html, (path, label)
+
+    def test_dropdown_menus_open_on_keyboard_focus(self):
+        """Regression (Codex stop-gate): the dropdowns opened only on hover,
+        so their items could not be reached by Tab."""
+        css = (Path(__file__).resolve().parents[1] / "app" / "static" / "css" / "main.css").read_text()
+        assert ".nav-dropdown:focus-within .dropdown-menu" in css
+        assert ".dropdown-menu li a:focus-visible" in css
 
     def test_the_wiki_menu_lists_its_sections_in_order(self, client):
         html = client.get("/").text
