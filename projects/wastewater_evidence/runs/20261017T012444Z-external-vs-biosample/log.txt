@@ -1,0 +1,38 @@
+[    26s] GOLD: 245123 biosamples, 5998 in ww groups; 252 Engineered paths
+[    27s] GOLD ww biosamples with NCBI accession: 5391 -> 5584 accessions
+[    27s] MGnify: 4352 samples
+[    39s] NMDC: 27352 biosamples, 201 ww by path/ENVO/keyword, 201 INSDC accessions
+Traceback (most recent call last):
+  File "/home/mamillerpa/.beril-v2/projects/wastewater_evidence/src/03_external_vs_biosample.py", line 174, in <module>
+    spark.createDataFrame([tuple(r) for r in ext.itertuples(index=False)],
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                          schema=list(ext.columns)).createOrReplaceTempView("ext")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/spark/python/pyspark/sql/connect/session.py", line 782, in createDataFrame
+    plan = self._cache_local_relation(
+        local_relation,
+    ...<2 lines>...
+        max_batch_of_chunks_size_bytes,
+    )
+  File "/usr/local/spark/python/pyspark/sql/connect/session.py", line 1113, in _cache_local_relation
+    hashes += self._client.cache_artifacts(current_batch)
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/usr/local/spark/python/pyspark/sql/connect/client/core.py", line 2109, in cache_artifacts
+    return self._artifact_manager.cache_artifacts(blobs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/usr/local/spark/python/pyspark/sql/connect/client/artifact.py", line 504, in cache_artifacts
+    response: proto.AddArtifactsResponse = self._retrieve_responses(requests)
+                                           ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/local/spark/python/pyspark/sql/connect/client/artifact.py", line 295, in _retrieve_responses
+    return self._stub.AddArtifacts(requests, metadata=self._metadata)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.13/site-packages/grpc/_channel.py", line 1513, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/opt/conda/lib/python3.13/site-packages/grpc/_channel.py", line 999, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)  # pytype: disable=not-instantiable
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.UNKNOWN
+	details = "Received http2 header with status: 413"
+	debug_error_string = "UNKNOWN:Received http2 header with status: 413"
+>

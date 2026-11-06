@@ -1,0 +1,243 @@
+field,value,ext_subtype,n_total,bg_count,lift,purity,built_from
+env_broad_scale,temperate stream,industrial_ww,192,396,2670.404787033182,1.0,GOLD+MGnify+NMDC
+env_broad_scale,wastewater/sludge,water_and_sludge,179,379,2601.266668371538,1.0,GOLD+MGnify+NMDC
+env_broad_scale,pig manure,water_and_sludge,150,167,4947.044796337669,1.0,GOLD+MGnify+NMDC
+env_broad_scale,water trough,agricultural_ww,150,150,5507.709873255938,1.0,GOLD+MGnify+NMDC
+env_broad_scale,anaerobic digester microbiome,digester,123,3805,178.04160694099352,0.9512195121951219,GOLD+MGnify+NMDC
+env_broad_scale,water line,agricultural_ww,117,117,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_broad_scale,acid mine drainage,industrial_ww,79,287,1516.0595121505892,1.0,GOLD+MGnify+NMDC
+env_broad_scale,duck cecum,agricultural_ww,70,70,5507.709873255938,1.0,GOLD+MGnify+NMDC
+env_broad_scale,waste water microbiome,activated_sludge,54,54,5507.709873255938,1.0,GOLD+MGnify+NMDC
+env_broad_scale,freshwater biome [envo_00000873],industrial_ww,54,3306,89.96259321107702,1.0,GOLD+MGnify+NMDC
+env_broad_scale,freshwater biome [envo:00000873],water_and_sludge,38,4154,50.38347982275533,1.0,GOLD+MGnify+NMDC
+env_broad_scale,small river,industrial_ww,36,130,1525.2119649016443,1.0,GOLD+MGnify+NMDC
+env_broad_scale,ebpr sludge,wastewater_other,35,116,1661.8090134823951,0.9428571428571428,GOLD+MGnify+NMDC
+env_broad_scale,anthropogenic environmental material,activated_sludge,29,1496,106.76710315803624,0.896551724137931,GOLD+MGnify+NMDC
+env_broad_scale,freshwater biome[envo_00000873],sewage,28,63,2447.8710547804167,1.0,GOLD+MGnify+NMDC
+env_broad_scale,jiangsu,wastewater_other,28,30,5140.529215038875,1.0,GOLD+MGnify+NMDC
+env_broad_scale,reclaimed water facility,wastewater_other,26,74,1935.1413068196537,1.0,GOLD+MGnify+NMDC
+env_broad_scale,industrial wastewate treatment plant,wastewater_other,14,22,3504.906282981051,1.0,GOLD+MGnify+NMDC
+env_broad_scale,activated sludge,activated_sludge,13,1201,59.61717598028908,1.0,GOLD+MGnify+NMDC
+env_broad_scale,anaerobic reactor,industrial_ww,13,97,738.1466840446102,0.7692307692307693,GOLD+MGnify+NMDC
+env_broad_scale,waste water [envo:00002001],wastewater_other,12,33,2002.8035902748863,1.0,GOLD+MGnify+NMDC
+env_broad_scale,waste treatment plant,wastewater_other,10,92,598.6641166582542,1.0,GOLD+MGnify+NMDC
+env_broad_scale,bisphenol a culture medium,activated_sludge,10,10,5507.709873255938,1.0,GOLD+MGnify+NMDC
+env_broad_scale,environmental system,digester,9,658,75.33341771930614,1.0,GOLD+MGnify+NMDC
+env_broad_scale,constructed feature,wastewater_other,8,113,389.926362708385,1.0,GOLD+MGnify+NMDC
+env_broad_scale,oil well,industrial_ww,7,21,1835.9032910853125,0.8571428571428571,GOLD+MGnify+NMDC
+env_broad_scale,biological reactor,wastewater_other,6,22,1502.1026927061648,1.0,GOLD+MGnify+NMDC
+env_broad_scale,mine tailing pool,industrial_ww,5,8,3442.3186707849613,1.0,GOLD+MGnify+NMDC
+env_broad_scale,tailling pond,wastewater_other,5,8,3442.3186707849613,1.0,GOLD+MGnify+NMDC
+env_broad_scale,wwtp,wastewater_other,4,340,64.79658674418751,1.0,GOLD+MGnify+NMDC
+env_broad_scale,anaerobic membrane reactor,bioreactor_anaerobic_sludge,4,115,191.57251733064132,1.0,GOLD+MGnify+NMDC
+env_broad_scale,suspended biomass from biological reactor treating wastewater,water_and_sludge,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_broad_scale,oligotrophic freshwater,industrial_ww,4,81,271.9856727533797,1.0,GOLD+MGnify+NMDC
+env_broad_scale,wastewater treatment reactors,activated_sludge,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_broad_scale,not spplicable,water_and_sludge,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_broad_scale,aeration tank,sewage,3,73,226.34424136668238,1.0,GOLD+MGnify+NMDC
+env_broad_scale,wast sludge,digester,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_broad_scale,inland,sewage,3,49,337.20672693403696,1.0,GOLD+MGnify+NMDC
+env_broad_scale,domestic wastewater sediments,activated_sludge,3,8,2065.391202470976,1.0,GOLD+MGnify+NMDC
+env_local_scale,barn,agricultural_ww,198,275,3965.5511087442756,1.0,GOLD+MGnify+NMDC
+env_local_scale,lotic environments,industrial_ww,192,396,2670.404787033182,1.0,GOLD+MGnify+NMDC
+env_local_scale,sewage,activated_sludge,186,931,1100.3587931531733,0.9139784946236559,GOLD+MGnify+NMDC
+env_local_scale,wastewater/sludge,water_and_sludge,179,180,5477.111485071183,1.0,GOLD+MGnify+NMDC
+env_local_scale,anearobic bioreactor,water_and_sludge,150,173,4775.470988372201,1.0,GOLD+MGnify+NMDC
+env_local_scale,anaerobic,nutrient_removal_bioreactor,148,2886,282.4466601669712,1.0,GOLD+MGnify+NMDC
+env_local_scale,aviary,agricultural_ww,140,140,5507.709873255938,1.0,GOLD+MGnify+NMDC
+env_local_scale,anaerobic sludge digester,digester,110,126,4808.318143318676,1.0,GOLD+MGnify+NMDC
+env_local_scale,field-scale pilot,industrial_ww,78,78,5507.709873255938,1.0,GOLD+MGnify+NMDC
+env_local_scale,waste water [envo:00002001],activated_sludge,69,5942,63.95691370829009,1.0,GOLD+MGnify+NMDC
+env_local_scale,lagoon [envo_00000038],industrial_ww,54,114,2608.915203121234,1.0,GOLD+MGnify+NMDC
+env_local_scale,water,wastewater_other,50,3922,70.21557717052445,1.0,GOLD+MGnify+NMDC
+env_local_scale,anaerobic reactor,activated_sludge,38,200,1046.4648759186282,1.0,GOLD+MGnify+NMDC
+env_local_scale,wastewater treatment plant [envo:00002043],water_and_sludge,38,674,310.52370205300537,1.0,GOLD+MGnify+NMDC
+env_local_scale,ebpr bioreactor,wastewater_other,35,55,3504.9062829810514,0.9428571428571428,GOLD+MGnify+NMDC
+env_local_scale,mbr,water_and_sludge,30,168,983.5196202242746,1.0,GOLD+MGnify+NMDC
+env_local_scale,facility,wastewater_other,26,168,852.383670861038,1.0,GOLD+MGnify+NMDC
+env_local_scale,effluent,water_and_sludge,19,220,475.66585269028553,0.8421052631578947,GOLD+MGnify+NMDC
+env_local_scale,artificial channel,industrial_ww,16,16,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_local_scale,wwtp,wastewater_other,16,247,356.77472863196357,1.0,GOLD+MGnify+NMDC
+env_local_scale,uasb,wastewater_other,16,82,1074.6750972206708,1.0,GOLD+MGnify+NMDC
+env_local_scale,animal house,industrial_ww,15,978,84.47407781067389,1.0,GOLD+MGnify+NMDC
+env_local_scale,reactor,bioreactor_anaerobic_sludge,15,866,95.39913175385573,1.0,GOLD+MGnify+NMDC
+env_local_scale,mine tailing,industrial_ww,14,150,514.0529215038874,1.0,GOLD+MGnify+NMDC
+env_local_scale,street-access sewage,sewage,14,19,4058.3125381885857,1.0,GOLD+MGnify+NMDC
+env_local_scale,wastewater treatment plant influent,wastewater_other,13,195,367.1806582170625,1.0,GOLD+MGnify+NMDC
+env_local_scale,anthropogenic environmental material,activated_sludge,12,1069,61.82649062588518,1.0,GOLD+MGnify+NMDC
+env_local_scale,suspended sediment [envo:01000113]|ice [envo:01001125],wastewater_other,10,10,5507.709873255938,1.0,GOLD+MGnify+NMDC
+env_local_scale,waste treatment plant,wastewater_other,10,144,382.47985230944016,1.0,GOLD+MGnify+NMDC
+env_local_scale,anaerobic sludge,digester,8,654,67.37259783799311,1.0,GOLD+MGnify+NMDC
+env_local_scale,constructed feature,agricultural_ww,8,216,203.98925456503474,1.0,GOLD+MGnify+NMDC
+env_local_scale,mesophilic,activated_sludge,8,11,4005.6071805497727,1.0,GOLD+MGnify+NMDC
+env_local_scale,sewage sludge,activated_sludge,8,34,1295.93173488375,0.75,GOLD+MGnify+NMDC
+env_local_scale,wastewater treatment plant effluent,wastewater_other,7,18,2141.8871729328644,1.0,GOLD+MGnify+NMDC
+env_local_scale,oil well,industrial_ww,7,36,1070.9435864664322,0.8571428571428571,GOLD+MGnify+NMDC
+env_local_scale,wastewater sludge,industrial_ww,6,14,2360.447088538259,1.0,GOLD+MGnify+NMDC
+env_local_scale,anthropised terrestrial environmental zone,industrial_ww,6,57,579.7589340269408,1.0,GOLD+MGnify+NMDC
+env_local_scale,thermophilic anaerobic methanogenic reactor,nutrient_removal_bioreactor,6,32,1032.695601235488,1.0,GOLD+MGnify+NMDC
+env_local_scale,anaerobic conditions,wastewater_other,6,18,1835.9032910853123,1.0,GOLD+MGnify+NMDC
+env_local_scale,mine tailing pool,industrial_ww,5,8,3442.3186707849613,1.0,GOLD+MGnify+NMDC
+env_local_scale,suspended biomass from biological reactor treating wastewater,water_and_sludge,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_local_scale,tailings pond,wastewater_other,4,124,177.6680604276109,1.0,GOLD+MGnify+NMDC
+env_local_scale,combined sewer,industrial_ww,4,5,4406.16789860475,1.0,GOLD+MGnify+NMDC
+env_local_scale,wastewater treatment plant [envo_00002043],activated_sludge,4,21,1049.087594905893,1.0,GOLD+MGnify+NMDC
+env_local_scale,envo:00002126,industrial_ww,4,159,138.55873894983492,1.0,GOLD+MGnify+NMDC
+env_local_scale,full-scale wastewater treatment plant,activated_sludge,4,6,3671.806582170625,1.0,GOLD+MGnify+NMDC
+env_local_scale,reactors,activated_sludge,4,11,2002.8035902748863,1.0,GOLD+MGnify+NMDC
+env_local_scale,secondary cooling water system of nuclear reactor,industrial_ww,4,81,271.9856727533797,1.0,GOLD+MGnify+NMDC
+env_local_scale,not spplicable,water_and_sludge,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_local_scale,fo-anmbr,bioreactor_anaerobic_sludge,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_local_scale,environmental feature,water_and_sludge,4,165,133.5202393516591,1.0,GOLD+MGnify+NMDC
+env_local_scale,chlorinated_effluent,water_and_sludge,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_local_scale,suspended sediment [envo:01000113],wastewater_other,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_local_scale,brewery (envo:00003885); anaerobic sludge (envo:00002129),digester,3,7,2360.447088538259,1.0,GOLD+MGnify+NMDC
+env_local_scale,domestic wastewater sediments,activated_sludge,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_local_scale,chemical enhanced primary treatment sludge,digester,3,6,2753.8549366279685,1.0,GOLD+MGnify+NMDC
+env_local_scale,mesophilic anaerobic reactor,nutrient_removal_bioreactor,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_local_scale,sewer_1,industrial_ww,3,4,4130.782404941952,1.0,GOLD+MGnify+NMDC
+env_local_scale,sewer_2,industrial_ww,3,5,3304.6259239535625,1.0,GOLD+MGnify+NMDC
+env_local_scale,sewage treatment plant,sewage,3,109,151.58834513548453,1.0,GOLD+MGnify+NMDC
+env_medium,activated sludge,activated_sludge,1027,8200,689.807078028518,0.9444985394352483,GOLD+MGnify+NMDC
+env_medium,wastewater activated sludge,nutrient_removal_bioreactor,419,461,5005.922856603553,0.9880668257756563,GOLD+MGnify+NMDC
+env_medium,stream water,industrial_ww,192,1276,828.7463132171944,1.0,GOLD+MGnify+NMDC
+env_medium,wastewater/sludge,water_and_sludge,179,179,5507.709873255939,1.0,GOLD+MGnify+NMDC
+env_medium,pig manure,water_and_sludge,150,444,1860.7127950188979,1.0,GOLD+MGnify+NMDC
+env_medium,anaerobic digester biomass,digester,123,137,4944.878207375768,0.9512195121951219,GOLD+MGnify+NMDC
+env_medium,cecal contents,agricultural_ww,69,1967,193.20385422199274,1.0,GOLD+MGnify+NMDC
+env_medium,activated sludge [envo:00002046],activated_sludge,69,4313,88.11314195563638,1.0,GOLD+MGnify+NMDC
+env_medium,bioprecipitate,industrial_ww,61,61,5507.709873255938,1.0,GOLD+MGnify+NMDC
+env_medium,synthetic carrier material,activated_sludge,54,54,5507.709873255938,1.0,GOLD+MGnify+NMDC
+env_medium,sediment [envo_00002007],industrial_ww,54,145,2051.147125212556,1.0,GOLD+MGnify+NMDC
+env_medium,anaerobic digester sludge [envo:00003965],water_and_sludge,38,1486,140.84318653009802,1.0,GOLD+MGnify+NMDC
+env_medium,wastewater treatment plant[envo:00002043],sewage,28,46,3352.519053286223,1.0,GOLD+MGnify+NMDC
+env_medium,waste material,activated_sludge,27,1499,99.20491432815899,0.9629629629629629,GOLD+MGnify+NMDC
+env_medium,reclaimed water,wastewater_other,26,75,1909.339422728725,1.0,GOLD+MGnify+NMDC
+env_medium,wastewater treatment plant,activated_sludge,26,74,1935.1413068196537,0.7692307692307693,GOLD+MGnify+NMDC
+env_medium,0.22µm filtered reactor supernatant,wastewater_other,22,24,5048.734050484609,1.0,GOLD+MGnify+NMDC
+env_medium,aerobic biomass,water_and_sludge,16,16,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_medium,water of meat washing,industrial_ww,15,15,5507.709873255938,1.0,GOLD+MGnify+NMDC
+env_medium,anaerobic biomass,water_and_sludge,14,140,550.7709873255938,1.0,GOLD+MGnify+NMDC
+env_medium,sewage [envo:00002018],wastewater_other,14,434,177.66806042761087,1.0,GOLD+MGnify+NMDC
+env_medium,effluent,water_and_sludge,12,256,258.173900308872,1.0,GOLD+MGnify+NMDC
+env_medium,sludge-water,activated_sludge,10,10,5507.709873255938,1.0,GOLD+MGnify+NMDC
+env_medium,sludge rna,activated_sludge,7,7,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_medium,wastewater sludge,industrial_ww,6,131,252.26152091248568,1.0,GOLD+MGnify+NMDC
+env_medium,wastewater influent,wastewater_other,5,95,289.87946701347045,1.0,GOLD+MGnify+NMDC
+env_medium,envo:00002126,industrial_ww,4,7,3147.262784717678,1.0,GOLD+MGnify+NMDC
+env_medium,suspended biomass from biological reactor treating wastewater,water_and_sludge,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_medium,sludge [envo_00002044],activated_sludge,4,7,3147.262784717678,1.0,GOLD+MGnify+NMDC
+env_medium,not spplicable,water_and_sludge,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_medium,waste sludge,digester,3,24,688.4637341569921,1.0,GOLD+MGnify+NMDC
+env_medium,anaerobic digester foam,digester,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+env_medium,domestic wastewater soil sediments and water,activated_sludge,3,8,2065.391202470976,1.0,GOLD+MGnify+NMDC
+env_medium,anaerobic sludge digester,bioreactor_anaerobic_sludge,3,5,3304.6259239535625,1.0,GOLD+MGnify+NMDC
+env_medium,active sludge,sewage,3,198,83.45014959478694,1.0,GOLD+MGnify+NMDC
+env_medium,flocular biomat,wastewater_other,3,62,266.5020906414163,1.0,GOLD+MGnify+NMDC
+env_medium,wash,wastewater_other,3,8,2065.391202470976,1.0,GOLD+MGnify+NMDC
+env_medium,retentate,wastewater_other,3,6,2753.8549366279685,1.0,GOLD+MGnify+NMDC
+isolation_source,anaerobic bioreactor sludge,bioreactor_anaerobic_sludge,376,376,5507.709873255938,1.0,GOLD+MGnify+NMDC
+isolation_source,biomass from anaerobic digester,bioreactor_anaerobic_sludge,313,313,5507.709873255938,1.0,GOLD+MGnify+NMDC
+isolation_source,activated sludge,activated_sludge,225,10165,121.91192537949689,0.8622222222222222,GOLD+MGnify+NMDC
+isolation_source,anaerobic bioreactor,bioreactor_anaerobic_sludge,208,692,1655.4966093023627,1.0,GOLD+MGnify+NMDC
+isolation_source,anaerobic digester,bioreactor_anaerobic_sludge,147,4707,172.00623568485722,0.8299319727891157,GOLD+MGnify+NMDC
+isolation_source,full-scale wastewater treatment plant aeration tank,wastewater_other,129,129,5507.709873255939,1.0,GOLD+MGnify+NMDC
+isolation_source,anaerobic bioreactor biomass,bioreactor_anaerobic_sludge,116,116,5507.709873255938,1.0,GOLD+MGnify+NMDC
+isolation_source,activated sludge sample,activated_sludge,102,479,1172.8317475409306,1.0,GOLD+MGnify+NMDC
+isolation_source,aerobic reactor mixed liquor,activated_sludge,94,96,5392.965917563106,1.0,GOLD+MGnify+NMDC
+isolation_source,waste water treatment plant aeration tank,wastewater_other,88,88,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,rice wash waste,industrial_ww,86,86,5507.709873255938,1.0,GOLD+MGnify+NMDC
+isolation_source,full-scale biogas plant,bioreactor_anaerobic_sludge,61,116,2896.295709212174,0.9672131147540983,GOLD+MGnify+NMDC
+isolation_source,enriched biomass from anaerobic dhs bioreactor,bioreactor_anaerobic_sludge,59,59,5507.709873255939,1.0,GOLD+MGnify+NMDC
+isolation_source,fermentation bioreactor biomass,bioreactor_anaerobic_sludge,57,57,5507.709873255938,1.0,GOLD+MGnify+NMDC
+isolation_source,wastewater/sludge,activated_sludge,51,51,5507.709873255939,1.0,GOLD+MGnify+NMDC
+isolation_source,municipal mesophilic sewage sludge of the wastewater treatment plant in the city of morocco: marrakech.,sewage,33,44,4130.782404941953,1.0,GOLD+MGnify+NMDC
+isolation_source,swine feedlot wastewater,wastewater_other,30,30,5507.709873255938,1.0,GOLD+MGnify+NMDC
+isolation_source,wastewater sample,industrial_ww,30,188,878.8898733919049,1.0,GOLD+MGnify+NMDC
+isolation_source,anaerobic digester sludge,bioreactor_anaerobic_sludge,30,666,248.09503933585304,1.0,GOLD+MGnify+NMDC
+isolation_source,activated sludge tank,activated_sludge,30,704,234.70354573533825,1.0,GOLD+MGnify+NMDC
+isolation_source,mesophilic biogas digester,bioreactor_anaerobic_sludge,30,30,5507.709873255938,1.0,GOLD+MGnify+NMDC
+isolation_source,activated sludge from wastewater treatment plant,activated_sludge,27,2331,63.79586725779079,1.0,GOLD+MGnify+NMDC
+isolation_source,sand,agricultural_ww,26,1166,122.81342770553547,1.0,GOLD+MGnify+NMDC
+isolation_source,water from urban biogas,nmdc_ww,26,491,291.6506246530639,1.0,GOLD+MGnify+NMDC
+isolation_source,wastewater treatment plant of a petroleum refinery complex,activated_sludge,24,266,496.9362291659492,1.0,GOLD+MGnify+NMDC
+isolation_source,anaerobic digestion sludge,digester,24,764,173.01706408133836,1.0,GOLD+MGnify+NMDC
+isolation_source,sewage,sewage,22,2367,51.19121977677678,1.0,GOLD+MGnify+NMDC
+isolation_source,wastewater communities,effluent,21,29,3988.341632357748,1.0,GOLD+MGnify+NMDC
+isolation_source,raw wastewater from wastewater treatment plants,wastewater_other,18,18,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,switchgrass digestor,bioreactor_anaerobic_sludge,16,16,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,wastewater activated sludge,activated_sludge,16,22,4005.6071805497727,1.0,GOLD+MGnify+NMDC
+isolation_source,biomass from acid-phase anaerobic digester,activated_sludge,15,15,5507.709873255938,1.0,GOLD+MGnify+NMDC
+isolation_source,hospital wastewater,industrial_ww,14,866,89.03918963693202,1.0,GOLD+MGnify+NMDC
+isolation_source,"madison, wisconsin, usa",bioreactor_anaerobic_sludge,14,97,794.9271982018879,1.0,GOLD+MGnify+NMDC
+isolation_source,"madison, wi, usa",bioreactor_anaerobic_sludge,14,24,3212.8307593992968,0.8571428571428571,GOLD+MGnify+NMDC
+isolation_source,feedlot catch-basin water,industrial_ww,13,13,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,ecological wastewater treatment plant,industrial_ww,12,123,537.3375486103353,1.0,GOLD+MGnify+NMDC
+isolation_source,sha tin sewage treatment works as,sewage,12,12,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,wastewaters,wastewater_other,12,34,1943.897602325625,1.0,GOLD+MGnify+NMDC
+isolation_source,mesophilic anaerobic digestion sludge,digester,12,12,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,thermophilic anaerobic digestion sludge,digester,12,12,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,sludge collected from a pilot-scale biological nutrient removal reactor,activated_sludge,10,25,2203.083949302375,1.0,GOLD+MGnify+NMDC
+isolation_source,"national university of singapore, singapore",wastewater_other,9,9,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,anaerobic digestion,digester,9,937,52.9022293055533,1.0,GOLD+MGnify+NMDC
+isolation_source,enrichment reactor seeded with activated sludge,digester,9,13,3813.0299122541105,1.0,GOLD+MGnify+NMDC
+isolation_source,effluent of wwtp using conventional activated sludge technology,effluent,9,9,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,"waste water treatment plant, activated sludge",activated_sludge,9,9,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,organic dairy farm,industrial_ww,8,89,495.07504478705056,1.0,GOLD+MGnify+NMDC
+isolation_source,"bielefeld, north rhine-westphalia, germany",bioreactor_anaerobic_sludge,8,8,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,conventional feedlot,industrial_ww,8,71,620.5870279725,1.0,GOLD+MGnify+NMDC
+isolation_source,natural feedlot,industrial_ww,8,216,203.98925456503474,1.0,GOLD+MGnify+NMDC
+isolation_source,conventional dairy farm,industrial_ww,8,75,587.4890531473,1.0,GOLD+MGnify+NMDC
+isolation_source,paper sludge,digester,7,17,2267.8805360465626,1.0,GOLD+MGnify+NMDC
+isolation_source,abattoir waste,industrial_ww,6,6,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,biomass from anaerobic dhs bioreactor,bioreactor_anaerobic_sludge,6,6,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,swh,digester,6,27,1223.9355273902083,1.0,GOLD+MGnify+NMDC
+isolation_source,urban wastewater,sewage,5,41,671.6719357629194,1.0,GOLD+MGnify+NMDC
+isolation_source,shenyang,wastewater_other,5,111,248.09503933585307,1.0,GOLD+MGnify+NMDC
+isolation_source,"activated sludge, waste water treatment plant",activated_sludge,5,8,3442.3186707849613,1.0,GOLD+MGnify+NMDC
+isolation_source,activated sludge in at,activated_sludge,5,7,3934.0784808970984,1.0,GOLD+MGnify+NMDC
+isolation_source,gz,digester,5,92,299.3320583291271,1.0,GOLD+MGnify+NMDC
+isolation_source,sewage treatment plant,activated_sludge,4,190,115.95178680538817,1.0,GOLD+MGnify+NMDC
+isolation_source,sheboygan final clarifier water,wastewater_other,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,effluent of sewage treatment plant in hong hong,wastewater_other,4,2,11015.419746511874,1.0,GOLD+MGnify+NMDC
+isolation_source,manitowoc influent,wastewater_other,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,fermentation bioreactor inoculum,wastewater_other,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,"iron mountain mine, redding, ca, usa",industrial_ww,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,sheboygan influent,wastewater_other,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,sewage system,wastewater_other,4,5,4406.16789860475,1.0,GOLD+MGnify+NMDC
+isolation_source,untreated sewages,influent,4,4,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,digestate from anaerobic digester,bioreactor_anaerobic_sludge,4,7,3147.262784717678,1.0,GOLD+MGnify+NMDC
+isolation_source,influent of sewage treatment plant in hong hong,wastewater_other,4,2,11015.419746511874,1.0,GOLD+MGnify+NMDC
+isolation_source,biogas slurry,industrial_ww,3,255,64.79658674418751,1.0,GOLD+MGnify+NMDC
+isolation_source,sheboygan activated sludge,wastewater_other,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,sole carbon source enrichment culture originating from the aqueous effluent of an ecological wastewater treatment plant,industrial_ww,3,25,660.9251847907125,1.0,GOLD+MGnify+NMDC
+isolation_source,manitowoc primary clarifier sludge,wastewater_other,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,mbr feed; tds- 60 g/l,industrial_ww,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,manitowoc final clarifier sludge,wastewater_other,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,mbr feed; tds- 80 g/l,industrial_ww,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,mbr feed; tds- 100 g/l,industrial_ww,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,wastewater treatment plant effluent,effluent,3,54,305.9838818475521,1.0,GOLD+MGnify+NMDC
+isolation_source,wastewater bioreactor,wastewater_other,3,170,97.19488011628125,1.0,GOLD+MGnify+NMDC
+isolation_source,wwtps effluent,wastewater_other,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,wwtps activated sludge,wastewater_other,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,activated sludge in ht,activated_sludge,3,5,3304.6259239535625,1.0,GOLD+MGnify+NMDC
+isolation_source,anaerobic sludge+20% fruit and vegetable waste,digester,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,anaerobic sludge +40% fruit and vegetable waste,digester,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,wwtps influent,wastewater_other,3,4,4130.782404941952,1.0,GOLD+MGnify+NMDC
+isolation_source,wastewater treatment plant influent,influent,3,95,173.92768020808225,1.0,GOLD+MGnify+NMDC
+isolation_source,pig farm wastewater,industrial_ww,3,4,4130.782404941952,1.0,GOLD+MGnify+NMDC
+isolation_source,activated sludge in ot,activated_sludge,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,incubations of mixture of vsg and powdermill amd under room temperature,industrial_ww,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,lab-scale anaerobic food waste fermentation sbr,bioreactor_anaerobic_sludge,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,lab-scale anaerobic food waste fermentation sfr,bioreactor_anaerobic_sludge,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+isolation_source,stanley sewage treatment works as,sewage,3,3,5507.709873255937,1.0,GOLD+MGnify+NMDC
+taxonomy_name,bioreactor metagenome,bioreactor_anaerobic_sludge,1103,36588,166.03815431839126,0.8359020852221215,GOLD+MGnify+NMDC
+taxonomy_name,anas platyrhynchos,agricultural_ww,338,16920,110.02399155794959,1.0,GOLD+MGnify+NMDC
+taxonomy_name,riverine metagenome,industrial_ww,192,11376,92.95712866254746,1.0,GOLD+MGnify+NMDC
+taxonomy_name,mixed culture,nutrient_removal_bioreactor,58,1566,203.98925456503474,1.0,GOLD+MGnify+NMDC
+taxonomy_name,biofilter metagenome,nutrient_removal_bioreactor,48,4241,62.336730468352975,1.0,GOLD+MGnify+NMDC
+taxonomy_name,mine drainage metagenome,industrial_ww,24,1917,68.95411421916667,1.0,GOLD+MGnify+NMDC
+taxonomy_name,industrial waste metagenome,industrial_ww,10,970,56.78051415727771,1.0,GOLD+MGnify+NMDC
+taxonomy_name,nitrifying bacterium enrichment culture,industrial_ww,7,8,4819.246139098945,0.8571428571428571,GOLD+MGnify+NMDC
+taxonomy_name,electrolysis cell metagenome,activated_sludge,5,135,203.98925456503477,1.0,GOLD+MGnify+NMDC
+taxonomy_name,clostridium beijerinckii ncimb 8052,digester,3,154,107.29304947901177,1.0,GOLD+MGnify+NMDC

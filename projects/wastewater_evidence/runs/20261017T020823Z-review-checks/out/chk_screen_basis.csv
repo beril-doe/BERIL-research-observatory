@@ -1,0 +1,12 @@
+basis,is_env_field,n_terms,n_records
+pkg+envo+proj,True,54,32106
+envo,True,21,2588
+pkg+proj,True,11,506
+pkg+envo,False,5,13200
+envo,False,5,1759
+pkg+envo,True,5,5443
+pkg,False,3,37589
+pkg,True,2,4080
+pkg+envo+proj,False,1,95
+proj,False,1,479
+proj,True,1,113

@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "id": "20261023T142719Z-v22-checks",
+  "name": "v22-checks",
+  "command": [
+    "/opt/conda/bin/python",
+    "src/08_v22_checks.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792765639.8638868,
+  "ended_at": 1792765659.1002798,
+  "exit_code": 0,
+  "scripts": {
+    "src/08_v22_checks.py": "d05e2c7a397301f740531bd57c1337bb2990f6d1d7def7c0bb3f34985d78bc4a"
+  },
+  "inputs": [
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/labelled_samples.parquet",
+      "sha256": "12ec54e752594cb27a2613771c0befddaa686349f3cadff0db141fd3d6cd1246"
+    },
+    {
+      "path": "runs/20261017T014428Z-term-screen/out/term_screen.csv",
+      "sha256": "2b6889daff9eeb4e0970bcb9a87556f35db33311b51c672ac5a9319c26ebf912"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261023T142719Z-v22-checks/out/v22_amplification.csv",
+      "sha256": "2a230f8878f5cbe512a2a59c260d0b9971d0ef7f15e1a7bf1a148f54601fa370"
+    },
+    {
+      "path": "runs/20261023T142719Z-v22-checks/out/v22_duck_fields.csv",
+      "sha256": "42d7cf401e06def8e774d0048238467e239881ade5d4f811d4eb7aacd3cb616d"
+    },
+    {
+      "path": "runs/20261023T142719Z-v22-checks/out/v22_finding8_terms.csv",
+      "sha256": "a912944a2942702e3aa25bd41ac792604e23483dfec3b85a60f2103ce91d6e9a"
+    },
+    {
+      "path": "runs/20261023T142719Z-v22-checks/out/v22_industrial_share.csv",
+      "sha256": "759583611e095565caf60a45c668943acda1480c1e3dad8e9693864da753f543"
+    }
+  ],
+  "changed": []
+}

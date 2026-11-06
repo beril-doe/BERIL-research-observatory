@@ -1,0 +1,203 @@
+field,value,ext_subtype,n_total,bg_count,lift,purity,built_from
+env_broad_scale,anaerobic digester microbiome,digester,117,3805,284.8091691904018,1.0,GOLD
+env_broad_scale,waste water microbiome,activated_sludge,54,54,9262.3836646964,1.0,GOLD
+env_broad_scale,ebpr sludge,wastewater_other,35,116,2794.684726417017,0.9428571428571428,GOLD
+env_broad_scale,anthropogenic environmental material,activated_sludge,29,1496,179.55155499745695,0.896551724137931,GOLD
+env_broad_scale,jiangsu,wastewater_other,28,30,8644.891420383306,1.0,GOLD
+env_broad_scale,freshwater biome[envo_00000873],sewage,28,63,4116.614962087288,1.0,GOLD
+env_broad_scale,reclaimed water facility,wastewater_other,26,74,3254.3510173257623,1.0,GOLD
+env_broad_scale,activated sludge,activated_sludge,13,1201,100.25894058372457,1.0,GOLD
+env_broad_scale,waste water [envo:00002001],wastewater_other,12,33,3368.1395144350545,1.0,GOLD
+env_broad_scale,waste treatment plant,wastewater_other,10,92,1006.780833119174,1.0,GOLD
+env_broad_scale,environmental system,digester,9,658,126.68913827092341,1.0,GOLD
+env_broad_scale,biological reactor,wastewater_other,6,22,2526.104635826291,1.0,GOLD
+env_broad_scale,mine tailing pool,industrial_ww,5,8,5788.989790435249,1.0,GOLD
+env_broad_scale,tailling pond,wastewater_other,5,8,5788.989790435249,1.0,GOLD
+env_broad_scale,anaerobic membrane reactor,bioreactor_anaerobic_sludge,4,115,322.1698665981356,1.0,GOLD
+env_broad_scale,oligotrophic freshwater,industrial_ww,4,81,457.4016624541432,1.0,GOLD
+env_broad_scale,wastewater treatment reactors,activated_sludge,4,4,9262.3836646964,1.0,GOLD
+env_broad_scale,wwtp,wastewater_other,4,340,108.96921958466352,1.0,GOLD
+env_broad_scale,constructed feature,wastewater_other,4,113,327.87198813084603,1.0,GOLD
+env_broad_scale,wast sludge,digester,3,3,9262.383664696401,1.0,GOLD
+env_broad_scale,aeration tank,sewage,3,73,380.6459040286192,1.0,GOLD
+env_broad_scale,inland,sewage,3,49,567.0847141650858,1.0,GOLD
+env_broad_scale,domestic wastewater sediments,activated_sludge,3,8,3473.39387426115,1.0,GOLD
+env_local_scale,wastewater treatment plant,wastewater_other,203,9365,200.77564163730585,0.7980295566502463,GOLD
+env_local_scale,anaerobic sludge digester,digester,110,126,8086.207961242888,1.0,GOLD
+env_local_scale,sewage plant,industrial_ww,70,110,5894.244150261346,0.8285714285714286,GOLD
+env_local_scale,waste water [envo:00002001],activated_sludge,69,5942,107.55713107776027,1.0,GOLD
+env_local_scale,bioreactor,activated_sludge,67,5633,110.16859675743987,0.8656716417910447,GOLD
+env_local_scale,anaerobic reactor,activated_sludge,38,200,1759.8528962923158,1.0,GOLD
+env_local_scale,ebpr bioreactor,wastewater_other,35,55,5894.244150261346,0.9428571428571428,GOLD
+env_local_scale,facility,wastewater_other,26,168,1433.4641385839668,1.0,GOLD
+env_local_scale,wwtp,wastewater_other,16,247,599.9924641098883,1.0,GOLD
+env_local_scale,uasb,wastewater_other,16,82,1807.2943735992974,1.0,GOLD
+env_local_scale,sewage,sewage,16,931,159.181674151603,0.75,GOLD
+env_local_scale,animal house,industrial_ww,15,978,142.06109915178527,1.0,GOLD
+env_local_scale,reactor,bioreactor_anaerobic_sludge,15,866,160.4338971945104,1.0,GOLD
+env_local_scale,mine tailing,industrial_ww,14,150,864.4891420383306,1.0,GOLD
+env_local_scale,street-access sewage,sewage,14,19,6824.914279249979,1.0,GOLD
+env_local_scale,wastewater treatment plant influent,wastewater_other,13,195,617.4922443130934,1.0,GOLD
+env_local_scale,anthropogenic environmental material,activated_sludge,12,1069,103.97437228845352,1.0,GOLD
+env_local_scale,waste treatment plant,wastewater_other,10,144,643.2210878261388,1.0,GOLD
+env_local_scale,suspended sediment [envo:01000113]|ice [envo:01001125],wastewater_other,10,10,9262.3836646964,1.0,GOLD
+env_local_scale,influent,wastewater_other,9,252,330.7994165963,1.0,GOLD
+env_local_scale,anaerobic bioreactor,bioreactor_anaerobic_sludge,9,1498,55.64849998816261,1.0,GOLD
+env_local_scale,mesophilic,activated_sludge,8,11,6736.279028870109,1.0,GOLD
+env_local_scale,anaerobic sludge,digester,8,654,113.30132923176023,1.0,GOLD
+env_local_scale,mesophilic sludge digester,digester,7,10,6483.668565287479,1.0,GOLD
+env_local_scale,wastewater treatment plant effluent,wastewater_other,7,18,3602.0380918263772,1.0,GOLD
+env_local_scale,anthropised terrestrial environmental zone,industrial_ww,6,57,974.9877541785685,1.0,GOLD
+env_local_scale,anaerobic conditions,wastewater_other,6,18,3087.4612215654665,1.0,GOLD
+env_local_scale,mine tailing pool,industrial_ww,5,8,5788.989790435249,1.0,GOLD
+env_local_scale,combined sewer,industrial_ww,4,5,7409.906931757119,1.0,GOLD
+env_local_scale,secondary cooling water system of nuclear reactor,industrial_ww,4,81,457.4016624541432,1.0,GOLD
+env_local_scale,suspended sediment [envo:01000113],wastewater_other,4,4,9262.3836646964,1.0,GOLD
+env_local_scale,tailings pond,wastewater_other,4,124,298.78656982891613,1.0,GOLD
+env_local_scale,full-scale wastewater treatment plant,activated_sludge,4,6,6174.922443130933,1.0,GOLD
+env_local_scale,wastewater treatment plant [envo_00002043],activated_sludge,4,21,1764.2635551802666,1.0,GOLD
+env_local_scale,fo-anmbr,bioreactor_anaerobic_sludge,4,4,9262.3836646964,1.0,GOLD
+env_local_scale,sewage sludge,activated_sludge,4,34,1089.6921958466353,1.0,GOLD
+env_local_scale,reactors,activated_sludge,4,11,3368.1395144350545,1.0,GOLD
+env_local_scale,effluent,wastewater_other,3,220,126.30523179131455,1.0,GOLD
+env_local_scale,sewer_1,industrial_ww,3,4,6946.7877485223,1.0,GOLD
+env_local_scale,sewer_2,industrial_ww,3,5,5557.43019881784,1.0,GOLD
+env_local_scale,brewery (envo:00003885); anaerobic sludge (envo:00002129),digester,3,7,3969.5929991556,1.0,GOLD
+env_local_scale,sewage treatment plant,sewage,3,109,254.92799077146057,1.0,GOLD
+env_local_scale,chemical enhanced primary treatment sludge,digester,3,6,4631.1918323482005,1.0,GOLD
+env_local_scale,domestic wastewater sediments,activated_sludge,3,3,9262.383664696401,1.0,GOLD
+env_medium,anaerobic digester biomass,digester,117,137,7910.210866930503,1.0,GOLD
+env_medium,activated sludge,activated_sludge,76,8200,85.84648274596664,0.881578947368421,GOLD
+env_medium,activated sludge [envo:00002046],activated_sludge,69,4313,148.1809582341877,1.0,GOLD
+env_medium,waste water,wastewater_other,66,4845,126.17488583487355,0.7878787878787878,GOLD
+env_medium,synthetic carrier material,activated_sludge,54,54,9262.3836646964,1.0,GOLD
+env_medium,anaerobic sludge,activated_sludge,47,2285,190.5173007618078,0.8085106382978723,GOLD
+env_medium,wastewater treatment plant[envo:00002043],sewage,28,46,5637.972665467373,1.0,GOLD
+env_medium,waste material,activated_sludge,27,1499,166.8341287170132,0.9629629629629629,GOLD
+env_medium,reclaimed water,wastewater_other,26,75,3210.9596704280852,1.0,GOLD
+env_medium,wastewater treatment plant,activated_sludge,26,74,3254.3510173257623,0.7692307692307693,GOLD
+env_medium,0.22µm filtered reactor supernatant,wastewater_other,22,24,8490.518359305033,1.0,GOLD
+env_medium,biosolids,industrial_ww,16,102,1452.9229277955137,1.0,GOLD
+env_medium,water of meat washing,industrial_ww,15,15,9262.3836646964,1.0,GOLD
+env_medium,sewage [envo:00002018],wastewater_other,14,434,298.7865698289161,1.0,GOLD
+env_medium,environmental material,activated_sludge,12,1790,62.09419216556246,1.0,GOLD
+env_medium,raw primary sludge,industrial_ww,8,26,2849.964204521969,1.0,GOLD
+env_medium,sludge rna,activated_sludge,7,7,9262.3836646964,1.0,GOLD
+env_medium,industrial wastewater,industrial_ww,6,853,65.1515849802795,1.0,GOLD
+env_medium,granular sludge,wastewater_other,6,237,234.49072568851645,1.0,GOLD
+env_medium,wastewater influent,wastewater_other,5,95,487.49387708928424,1.0,GOLD
+env_medium,wastewater activated sludge,wastewater_other,5,461,100.45969267566593,1.0,GOLD
+env_medium,sludge [envo_00002044],activated_sludge,4,7,5292.7906655408,1.0,GOLD
+env_medium,active sludge,sewage,3,198,140.33914643479395,1.0,GOLD
+env_medium,anaerobic digester foam,digester,3,3,9262.383664696401,1.0,GOLD
+env_medium,anaerobic sludge digester,bioreactor_anaerobic_sludge,3,5,5557.43019881784,1.0,GOLD
+env_medium,waste sludge,digester,3,24,1157.7979580870501,1.0,GOLD
+env_medium,waste water (envo:00002001),digester,3,359,77.40153480247689,1.0,GOLD
+env_medium,wash,wastewater_other,3,8,3473.39387426115,1.0,GOLD
+env_medium,retentate,wastewater_other,3,6,4631.1918323482005,1.0,GOLD
+env_medium,flocular biomat,wastewater_other,3,62,448.1798547433742,1.0,GOLD
+env_medium,domestic wastewater soil sediments and water,activated_sludge,3,8,3473.39387426115,1.0,GOLD
+isolation_source,anaerobic bioreactor sludge,bioreactor_anaerobic_sludge,376,376,9262.383664696401,1.0,GOLD
+isolation_source,biomass from anaerobic digester,bioreactor_anaerobic_sludge,313,313,9262.383664696401,1.0,GOLD
+isolation_source,activated sludge,activated_sludge,222,10165,202.28717890433848,0.8603603603603603,GOLD
+isolation_source,anaerobic bioreactor,bioreactor_anaerobic_sludge,208,692,2784.0690784058547,1.0,GOLD
+isolation_source,water from urban wastewater,wastewater_other,149,771,1790.006700440679,1.0,GOLD
+isolation_source,full-scale wastewater treatment plant aeration tank,wastewater_other,129,129,9262.383664696401,1.0,GOLD
+isolation_source,anaerobic digester,bioreactor_anaerobic_sludge,122,4707,240.0702798157979,1.0,GOLD
+isolation_source,anaerobic bioreactor biomass,bioreactor_anaerobic_sludge,116,116,9262.3836646964,1.0,GOLD
+isolation_source,activated sludge sample,activated_sludge,102,479,1972.3656237975636,1.0,GOLD
+isolation_source,aerobic reactor mixed liquor,activated_sludge,94,96,9069.41733834856,1.0,GOLD
+isolation_source,rice wash waste,industrial_ww,86,86,9262.3836646964,1.0,GOLD
+isolation_source,wastewater treatment plant,activated_sludge,79,3915,186.9037827614344,0.8607594936708861,GOLD
+isolation_source,full-scale biogas plant,bioreactor_anaerobic_sludge,61,116,4870.736237469658,0.9672131147540983,GOLD
+isolation_source,enriched biomass from anaerobic dhs bioreactor,bioreactor_anaerobic_sludge,59,59,9262.383664696401,1.0,GOLD
+isolation_source,fermentation bioreactor biomass,bioreactor_anaerobic_sludge,57,57,9262.3836646964,1.0,GOLD
+isolation_source,wastewater/sludge,activated_sludge,51,51,9262.383664696401,1.0,GOLD
+isolation_source,municipal mesophilic sewage sludge of the wastewater treatment plant in the city of morocco: marrakech.,sewage,33,44,6946.7877485223,1.0,GOLD
+isolation_source,wastewater sample,industrial_ww,30,188,1478.0399464941063,1.0,GOLD
+isolation_source,anaerobic digester sludge,bioreactor_anaerobic_sludge,30,666,417.2244894007387,1.0,GOLD
+isolation_source,mesophilic biogas digester,bioreactor_anaerobic_sludge,30,30,9262.3836646964,1.0,GOLD
+isolation_source,activated sludge tank,activated_sludge,30,704,394.7038493478579,1.0,GOLD
+isolation_source,swine feedlot wastewater,wastewater_other,30,30,9262.3836646964,1.0,GOLD
+isolation_source,activated sludge from wastewater treatment plant,activated_sludge,27,2331,107.28629727447566,1.0,GOLD
+isolation_source,anaerobic digestion sludge,digester,24,764,290.9649318752796,1.0,GOLD
+isolation_source,sewage,sewage,22,2367,86.0889060512551,1.0,GOLD
+isolation_source,wastewater communities,effluent,21,29,6707.243343400842,1.0,GOLD
+isolation_source,effluent,effluent,20,715,259.0876549565426,0.7,GOLD
+isolation_source,anaerobic digester from wastewater treatment plant,bioreactor_anaerobic_sludge,19,2195,80.17553058279344,1.0,GOLD
+isolation_source,raw wastewater from wastewater treatment plants,wastewater_other,18,18,9262.3836646964,1.0,GOLD
+isolation_source,wastewater activated sludge,activated_sludge,16,22,6736.279028870109,1.0,GOLD
+isolation_source,switchgrass digestor,bioreactor_anaerobic_sludge,16,16,9262.3836646964,1.0,GOLD
+isolation_source,biomass from acid-phase anaerobic digester,activated_sludge,15,15,9262.3836646964,1.0,GOLD
+isolation_source,"madison, wisconsin, usa",bioreactor_anaerobic_sludge,14,97,1336.8388794407174,1.0,GOLD
+isolation_source,hospital wastewater,industrial_ww,14,866,149.7383040482097,1.0,GOLD
+isolation_source,"madison, wi, usa",bioreactor_anaerobic_sludge,14,24,5403.057137739566,0.8571428571428571,GOLD
+isolation_source,feedlot catch-basin water,industrial_ww,13,13,9262.383664696401,1.0,GOLD
+isolation_source,mesophilic anaerobic digestion sludge,digester,12,12,9262.383664696401,1.0,GOLD
+isolation_source,sha tin sewage treatment works as,sewage,12,12,9262.383664696401,1.0,GOLD
+isolation_source,wastewater treatment plant of a petroleum refinery complex,activated_sludge,12,266,417.8518946479579,1.0,GOLD
+isolation_source,thermophilic anaerobic digestion sludge,digester,12,12,9262.383664696401,1.0,GOLD
+isolation_source,ecological wastewater treatment plant,industrial_ww,12,123,903.6471867996487,1.0,GOLD
+isolation_source,wastewaters,wastewater_other,12,34,3269.076587539906,1.0,GOLD
+isolation_source,sludge collected from a pilot-scale biological nutrient removal reactor,activated_sludge,10,25,3704.9534658785597,1.0,GOLD
+isolation_source,"waste water treatment plant, activated sludge",activated_sludge,9,9,9262.3836646964,1.0,GOLD
+isolation_source,enrichment reactor seeded with activated sludge,digester,9,13,6412.41946017443,1.0,GOLD
+isolation_source,effluent of wwtp using conventional activated sludge technology,effluent,9,9,9262.3836646964,1.0,GOLD
+isolation_source,"national university of singapore, singapore",wastewater_other,9,9,9262.3836646964,1.0,GOLD
+isolation_source,anaerobic digestion,digester,9,937,88.96633189142753,1.0,GOLD
+isolation_source,"bielefeld, north rhine-westphalia, germany",bioreactor_anaerobic_sludge,8,8,9262.3836646964,1.0,GOLD
+isolation_source,natural feedlot,industrial_ww,8,216,343.0512468406074,1.0,GOLD
+isolation_source,organic dairy farm,industrial_ww,8,89,832.5738125569796,1.0,GOLD
+isolation_source,conventional dairy farm,industrial_ww,8,75,987.9875909009493,1.0,GOLD
+isolation_source,conventional feedlot,industrial_ww,8,71,1043.6488636277634,1.0,GOLD
+isolation_source,paper sludge,digester,7,17,3813.9226854632234,1.0,GOLD
+isolation_source,abattoir waste,industrial_ww,6,6,9262.383664696401,1.0,GOLD
+isolation_source,mixed culture bioreactor,bioreactor_anaerobic_sludge,6,12,4631.1918323482005,1.0,GOLD
+isolation_source,biomass from anaerobic dhs bioreactor,bioreactor_anaerobic_sludge,6,6,9262.383664696401,1.0,GOLD
+isolation_source,active sludge of municipal wastewater-treating anaerobic digesters,bioreactor_anaerobic_sludge,6,968,57.411468996052065,1.0,GOLD
+isolation_source,swh,digester,6,27,2058.3074810436447,1.0,GOLD
+isolation_source,shenyang,wastewater_other,5,111,417.2244894007387,1.0,GOLD
+isolation_source,gz,digester,5,92,503.390416559587,1.0,GOLD
+isolation_source,activated sludge in at,activated_sludge,5,7,6615.988331926,1.0,GOLD
+isolation_source,"activated sludge, waste water treatment plant",activated_sludge,5,8,5788.989790435249,1.0,GOLD
+isolation_source,urban wastewater,sewage,5,41,1129.558983499561,1.0,GOLD
+isolation_source,raw sewage,sewage,5,477,97.08997552092663,0.8,GOLD
+isolation_source,digestate from anaerobic digester,bioreactor_anaerobic_sludge,4,7,5292.7906655408,1.0,GOLD
+isolation_source,sheboygan final clarifier water,wastewater_other,4,4,9262.3836646964,1.0,GOLD
+isolation_source,sheboygan influent,wastewater_other,4,4,9262.3836646964,1.0,GOLD
+isolation_source,untreated sewages,influent,4,4,9262.3836646964,1.0,GOLD
+isolation_source,manitowoc influent,wastewater_other,4,4,9262.3836646964,1.0,GOLD
+isolation_source,"iron mountain mine, redding, ca, usa",industrial_ww,4,4,9262.3836646964,1.0,GOLD
+isolation_source,fermentation bioreactor inoculum,wastewater_other,4,4,9262.3836646964,1.0,GOLD
+isolation_source,stanley sewage treatment works as,sewage,3,3,9262.383664696401,1.0,GOLD
+isolation_source,wastewater treatment plant effluent,effluent,3,54,514.5768702609112,1.0,GOLD
+isolation_source,wastewater influent,wastewater_other,3,452,61.47599777453364,1.0,GOLD
+isolation_source,wwtps activated sludge,wastewater_other,3,3,9262.383664696401,1.0,GOLD
+isolation_source,wastewater treatment plant influent,influent,3,95,292.49632625357054,1.0,GOLD
+isolation_source,influent,wastewater_other,3,547,50.79917914824352,1.0,GOLD
+isolation_source,incubations of mixture of vsg and powdermill amd under room temperature,industrial_ww,3,3,9262.383664696401,1.0,GOLD
+isolation_source,lab-scale anaerobic food waste fermentation sfr,bioreactor_anaerobic_sludge,3,3,9262.383664696401,1.0,GOLD
+isolation_source,lab-scale anaerobic food waste fermentation sbr,bioreactor_anaerobic_sludge,3,3,9262.383664696401,1.0,GOLD
+isolation_source,manitowoc final clarifier sludge,wastewater_other,3,3,9262.383664696401,1.0,GOLD
+isolation_source,manitowoc primary clarifier sludge,wastewater_other,3,3,9262.383664696401,1.0,GOLD
+isolation_source,mbr feed; tds- 60 g/l,industrial_ww,3,3,9262.383664696401,1.0,GOLD
+isolation_source,mbr feed; tds- 100 g/l,industrial_ww,3,3,9262.383664696401,1.0,GOLD
+isolation_source,mbr feed; tds- 80 g/l,industrial_ww,3,3,9262.383664696401,1.0,GOLD
+isolation_source,pig farm wastewater,industrial_ww,3,4,6946.7877485223,1.0,GOLD
+isolation_source,sole carbon source enrichment culture originating from the aqueous effluent of an ecological wastewater treatment plant,industrial_ww,3,25,1111.486039763568,1.0,GOLD
+isolation_source,sheboygan activated sludge,wastewater_other,3,3,9262.383664696401,1.0,GOLD
+isolation_source,wwtps influent,wastewater_other,3,4,6946.7877485223,1.0,GOLD
+isolation_source,wwtps effluent,wastewater_other,3,3,9262.383664696401,1.0,GOLD
+isolation_source,activated sludge in ot,activated_sludge,3,3,9262.383664696401,1.0,GOLD
+isolation_source,biogas slurry,industrial_ww,3,255,108.96921958466353,1.0,GOLD
+isolation_source,anaerobic sludge+20% fruit and vegetable waste,digester,3,3,9262.383664696401,1.0,GOLD
+isolation_source,anaerobic sludge +40% fruit and vegetable waste,digester,3,3,9262.383664696401,1.0,GOLD
+isolation_source,activated sludge in ht,activated_sludge,3,5,5557.43019881784,1.0,GOLD
+taxonomy_name,bioreactor metagenome,bioreactor_anaerobic_sludge,1078,36588,272.8995733722182,0.8552875695732839,GOLD
+taxonomy_name,activated sludge metagenome,activated_sludge,732,25755,263.2523720659198,0.7418032786885246,GOLD
+taxonomy_name,anaerobic digester metagenome,bioreactor_anaerobic_sludge,468,19535,221.8989278258467,0.7008547008547008,GOLD
+taxonomy_name,food production metagenome,industrial_ww,86,14132,56.36604834162825,1.0,GOLD
+taxonomy_name,mine drainage metagenome,industrial_ww,24,1917,115.96098484752928,1.0,GOLD
+taxonomy_name,industrial waste metagenome,industrial_ww,10,970,95.48849138862268,1.0,GOLD
+taxonomy_name,electrolysis cell metagenome,activated_sludge,5,135,343.0512468406074,1.0,GOLD
+taxonomy_name,clostridium beijerinckii ncimb 8052,digester,3,154,180.43604541616364,1.0,GOLD

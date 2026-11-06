@@ -1,0 +1,16 @@
+channel,bin,n_projects,samples_in_projects,flagged_samples
+keyword,0.0,576,303334,7106
+keyword,0.2,340,27070,6852
+keyword,0.4,254,13400,6698
+keyword,0.6,166,5984,4159
+keyword,0.8,4720,404750,403668
+package,0.0,49,51532,1818
+package,0.2,18,681,176
+package,0.4,18,2896,1236
+package,0.6,14,1742,1331
+package,0.8,1249,244003,243578
+term_table,0.0,356,138310,3196
+term_table,0.2,174,12697,3499
+term_table,0.4,148,12215,6142
+term_table,0.6,101,4861,3445
+term_table,0.8,2027,95690,95032

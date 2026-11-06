@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "id": "20261017T013332Z-external-vs-biosample",
+  "name": "external-vs-biosample",
+  "command": [
+    "/opt/conda/bin/python",
+    "src/03_external_vs_biosample.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792200812.5954654,
+  "ended_at": 1792200864.9064317,
+  "exit_code": 0,
+  "scripts": {
+    "src/03_external_vs_biosample.py": "df5a8d65d356ecc75f17447f76d9055f34e91db78763f35b9716868314fe2700"
+  },
+  "inputs": [
+    {
+      "path": "runs/20261017T011423Z-gold-parse/out/gold_biosample.parquet",
+      "sha256": "1f47a9ef721b9b94e833510a5c3a74d9f8b1d5b76e08cb08ff7709d9b61c5c28"
+    },
+    {
+      "path": "runs/20261017T011423Z-gold-parse/out/gold_sequencing_project.parquet",
+      "sha256": "51501c7af88d531a0187e163135d71a90e97882fb7116ba8d180d44a25739344"
+    },
+    {
+      "path": "runs/20261017T011424Z-mgnify-fetch/out/mgnify_ww_samples.parquet",
+      "sha256": "caf31154aae383f96b4192a09cebfb218866c17115d8a63ce5cb813d3ac638fb"
+    },
+    {
+      "name": "table:nmdc.metadata.biosample_set"
+    },
+    {
+      "name": "table:nmdc.ncbi_biosamples.biosamples_flattened"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/external_label_summary.csv",
+      "sha256": "45f6f0554573f6ce6ca4c883b9da8e34e003975ea4d9c7b62ddb414193234ae3"
+    },
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/external_nosignal.csv",
+      "sha256": "41d6adbbd42e30fc93ec8accd1eebdbf961ef063b4a9be137d6d653be5d42e73"
+    },
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/external_signal_by_subtype.csv",
+      "sha256": "6f7a41d8d50f6858f203010b220d9a1671744874ec020e242084003f25eaf8b8"
+    },
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/external_vocab.csv",
+      "sha256": "528ff83d05eff84f8c886ff62066b0cf66381aa93b6df5cc972fdc1b9020ab45"
+    },
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/gold_bridge_stats.csv",
+      "sha256": "2f09fe4dfab3333cdc613aa48f4973a35d96a8ee4205b8fd8eed88387f6cce9d"
+    },
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/gold_path_counts.csv",
+      "sha256": "5aecd89fc07e9249ce5499b2db63f23ac19c7256157a81dc3a9240c27e1c0f06"
+    },
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/labelled_samples.parquet",
+      "sha256": "12ec54e752594cb27a2613771c0befddaa686349f3cadff0db141fd3d6cd1246"
+    },
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/nmdc_bridge_stats.csv",
+      "sha256": "dd03a403c14ac4cc9c10ae9bb2eb8092f73c847e61461434bebaee42dc31f40f"
+    },
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/nmdc_ecosystem_counts.csv",
+      "sha256": "704d53d94f7b474f035129c95797294a335cad798e2037a3a716a8f8d8d45f45"
+    },
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/nmdc_ww_samples.csv",
+      "sha256": "df364161dc019fa4789598eb13d3a1947f9464805cf7d4cc6e62542cfc4c99e5"
+    }
+  ],
+  "changed": []
+}

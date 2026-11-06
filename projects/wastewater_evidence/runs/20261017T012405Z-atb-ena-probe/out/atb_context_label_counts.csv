@@ -1,0 +1,17 @@
+context_label,kw,n
+,0,1493804
+human:clinical,0,600811
+human:gut,0,248569
+human:respiratory,0,143537
+food:poultry,0,84632
+livestock,0,67692
+food,0,31345
+environmental:water,0,29160
+food:dairy,0,18615
+environmental,0,12279
+food:meat,0,11969
+environmental:soil,0,9024
+laboratory,0,6049
+environmental:plant,0,5796
+,1,13
+livestock,1,2

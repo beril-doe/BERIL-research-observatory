@@ -1,0 +1,243 @@
+field,value,ext_subtype,n_records,support_pkg,support_envo,support_proj,rate_tax,rate_kw,independent_support,verdict
+taxonomy_name,bioreactor metagenome,bioreactor_anaerobic_sludge,36588,0.10607302940854925,0.0459986880944572,0.10497977478954848,0.0,0.2516945446594512,0.10607302940854925,accept
+isolation_source,activated sludge,activated_sludge,10165,0.3422528283325135,0.32001967535661585,0.010427939006394491,0.4838170191834727,1.0,0.3422528283325135,accept
+env_medium,activated sludge,activated_sludge,8199,0.7775338455909258,1.0,0.3171118429076717,0.482253933406513,1.0,1.0,accept
+env_local_scale,waste water [envo:00002001],activated_sludge,5942,0.8056210030292831,1.0,0.584988219454729,0.7662403231235274,1.0,1.0,accept
+env_medium,activated sludge [envo:00002046],activated_sludge,4313,0.8446556920936703,1.0,0.5680500811500115,0.6102480871782981,1.0,1.0,accept
+env_local_scale,water,wastewater_other,3921,0.1826064779393012,0.01810762560571283,0.00408059168579444,0.050242285131344044,0.2336138740117317,0.1826064779393012,accept
+env_broad_scale,anaerobic digester microbiome,digester,3805,0.9555847568988174,0.9978975032851511,0.005256241787122208,0.05729303547963206,1.0,0.9978975032851511,accept
+env_local_scale,anaerobic,nutrient_removal_bioreactor,2886,0.2872487872487873,0.32432432432432434,0.28586278586278585,0.28482328482328484,0.3367983367983368,0.32432432432432434,accept
+isolation_source,activated sludge from wastewater treatment plant,activated_sludge,2331,0.4804804804804805,0.48305448305448306,0.014586014586014585,0.5263835263835264,1.0,0.48305448305448306,accept
+env_medium,waste material,activated_sludge,1499,0.7011340893929286,0.7131420947298199,0.49966644429619744,0.4743162108072048,0.7284856571047365,0.7131420947298199,accept
+env_broad_scale,anthropogenic environmental material,activated_sludge,1496,0.8375668449197861,0.8903743315508021,0.5521390374331551,0.5614973262032086,0.9084224598930482,0.8903743315508021,accept
+env_medium,anaerobic digester sludge [envo:00003965],water_and_sludge,1486,0.1500672947510094,1.0,0.05383580080753701,0.8997308209959624,1.0,1.0,accept
+env_broad_scale,activated sludge,activated_sludge,1201,0.8426311407160699,1.0,0.7144046627810158,0.79766860949209,1.0,1.0,accept
+env_local_scale,sewage,activated_sludge,931,0.08807733619763695,1.0,0.05477980665950591,0.3458646616541353,1.0,1.0,accept
+isolation_source,hospital wastewater,industrial_ww,866,0.21478060046189376,0.0011547344110854503,0.0011547344110854503,0.05658198614318707,1.0,0.21478060046189376,accept
+env_local_scale,reactor,bioreactor_anaerobic_sludge,866,0.2690531177829099,0.8868360277136259,0.26212471131639725,0.2921478060046189,0.9203233256351039,0.8868360277136259,accept
+isolation_source,anaerobic digestion sludge,digester,764,0.0,0.9083769633507853,0.0,0.9829842931937173,1.0,0.9083769633507853,accept
+isolation_source,anaerobic bioreactor,bioreactor_anaerobic_sludge,692,0.0,0.15606936416184972,0.0,0.2875722543352601,0.523121387283237,0.15606936416184972,accept
+env_local_scale,wastewater treatment plant [envo:00002043],water_and_sludge,674,0.7581602373887241,1.0,0.7091988130563798,0.6735905044510386,1.0,1.0,accept
+isolation_source,anaerobic digester sludge,bioreactor_anaerobic_sludge,666,0.2927927927927928,0.6846846846846847,0.0,0.6951951951951952,1.0,0.6846846846846847,accept
+env_local_scale,anaerobic sludge,digester,654,0.6483180428134556,1.0,0.6314984709480123,0.6253822629969419,1.0,1.0,accept
+isolation_source,activated sludge sample,activated_sludge,479,0.0,0.0,0.21294363256784968,0.964509394572025,1.0,0.21294363256784968,accept
+env_medium,wastewater activated sludge,nutrient_removal_bioreactor,461,0.1019522776572668,1.0,0.1019522776572668,1.0,1.0,1.0,accept
+env_medium,sewage [envo:00002018],wastewater_other,434,0.9838709677419355,1.0,0.9377880184331797,0.9354838709677419,1.0,1.0,accept
+env_broad_scale,wastewater/sludge,water_and_sludge,379,0.002638522427440633,1.0,0.002638522427440633,0.0,1.0,1.0,accept
+env_broad_scale,wwtp,wastewater_other,340,0.20294117647058824,0.24411764705882352,0.20294117647058824,0.18823529411764706,1.0,0.24411764705882352,accept
+env_broad_scale,acid mine drainage,industrial_ww,287,0.26480836236933797,0.0,0.25435540069686413,0.1254355400696864,0.14634146341463414,0.26480836236933797,accept
+isolation_source,wastewater treatment plant of a petroleum refinery complex,activated_sludge,266,0.0,1.0,0.0,0.045112781954887216,1.0,1.0,accept
+env_medium,effluent,water_and_sludge,256,0.32421875,0.265625,0.3046875,0.23828125,1.0,0.32421875,accept
+env_local_scale,wwtp,wastewater_other,247,0.7408906882591093,0.6842105263157895,0.708502024291498,0.7368421052631579,1.0,0.7408906882591093,accept
+env_local_scale,effluent,water_and_sludge,220,0.8545454545454545,0.4590909090909091,0.8318181818181818,0.6954545454545454,1.0,0.8545454545454545,accept
+env_local_scale,anaerobic reactor,activated_sludge,200,0.715,0.52,0.64,0.825,0.53,0.715,accept
+env_medium,active sludge,sewage,198,0.9949494949494949,1.0,0.9747474747474747,0.9797979797979798,1.0,1.0,accept
+env_local_scale,wastewater treatment plant influent,wastewater_other,195,0.9897435897435898,1.0,0.9846153846153847,0.9897435897435898,1.0,1.0,accept
+env_local_scale,wastewater/sludge,water_and_sludge,180,0.005555555555555556,1.0,0.005555555555555556,0.005555555555555556,1.0,1.0,accept
+env_medium,wastewater/sludge,water_and_sludge,179,0.0,1.0,0.0,0.0,1.0,1.0,accept
+env_local_scale,facility,wastewater_other,168,0.32142857142857145,0.32142857142857145,0.32142857142857145,0.0,0.36904761904761907,0.32142857142857145,accept
+env_local_scale,mbr,water_and_sludge,168,0.25,0.8809523809523809,0.23809523809523808,0.23809523809523808,1.0,0.8809523809523809,accept
+env_local_scale,envo:00002126,industrial_ww,159,0.46540880503144655,0.0,0.012578616352201259,0.03773584905660377,0.46540880503144655,0.46540880503144655,accept
+env_local_scale,mine tailing,industrial_ww,150,0.10666666666666667,0.2,0.10666666666666667,0.0,0.2,0.2,accept
+env_local_scale,waste treatment plant,wastewater_other,144,0.6041666666666666,0.8333333333333334,0.5972222222222222,0.6180555555555556,0.9513888888888888,0.8333333333333334,accept
+env_medium,anaerobic biomass,water_and_sludge,140,0.0,0.9214285714285714,0.0,0.0,0.9214285714285714,0.9214285714285714,accept
+env_medium,anaerobic digester biomass,digester,137,0.0,0.9927007299270073,0.0,0.9708029197080292,1.0,0.9927007299270073,accept
+taxonomy_name,electrolysis cell metagenome,activated_sludge,135,0.14074074074074075,0.007407407407407408,0.13333333333333333,0.0,0.2074074074074074,0.14074074074074075,accept
+env_medium,wastewater sludge,industrial_ww,131,0.183206106870229,1.0,0.061068702290076333,0.10687022900763359,1.0,1.0,accept
+env_broad_scale,small river,industrial_ww,130,0.27692307692307694,0.0,0.27692307692307694,0.27692307692307694,0.0,0.27692307692307694,accept
+env_local_scale,anaerobic sludge digester,digester,126,0.0,1.0,0.0,1.0,1.0,1.0,accept
+env_broad_scale,ebpr sludge,wastewater_other,116,0.47413793103448276,1.0,0.28448275862068967,0.46551724137931033,1.0,1.0,accept
+env_broad_scale,anaerobic membrane reactor,bioreactor_anaerobic_sludge,115,0.034782608695652174,1.0,0.034782608695652174,0.034782608695652174,1.0,1.0,accept
+env_broad_scale,constructed feature,wastewater_other,113,0.035398230088495575,0.04424778761061947,0.1592920353982301,0.035398230088495575,0.26548672566371684,0.1592920353982301,accept
+env_local_scale,sewage treatment plant,sewage,109,0.7247706422018348,1.0,0.8073394495412844,0.6605504587155964,1.0,1.0,accept
+env_broad_scale,anaerobic reactor,industrial_ww,97,0.4639175257731959,0.5154639175257731,0.4639175257731959,0.4845360824742268,0.845360824742268,0.5154639175257731,accept
+isolation_source,wastewater treatment plant influent,influent,95,0.18947368421052632,0.18947368421052632,0.18947368421052632,0.9894736842105263,1.0,0.18947368421052632,accept
+env_medium,wastewater influent,wastewater_other,95,0.49473684210526314,0.49473684210526314,0.49473684210526314,0.8315789473684211,1.0,0.49473684210526314,accept
+env_broad_scale,waste treatment plant,wastewater_other,92,0.1956521739130435,0.7717391304347826,0.18478260869565216,0.8804347826086957,0.9021739130434783,0.7717391304347826,accept
+env_local_scale,uasb,wastewater_other,82,0.9390243902439024,0.8780487804878049,0.3902439024390244,0.8170731707317073,0.926829268292683,0.9390243902439024,accept
+env_medium,wastewater treatment plant,activated_sludge,74,0.14864864864864866,1.0,0.13513513513513514,0.9324324324324325,1.0,1.0,accept
+env_broad_scale,aeration tank,sewage,73,0.4657534246575342,1.0,0.4520547945205479,0.4657534246575342,1.0,1.0,accept
+env_broad_scale,freshwater biome[envo_00000873],sewage,63,0.0,0.4444444444444444,0.0,0.4444444444444444,0.4444444444444444,0.4444444444444444,accept
+env_medium,flocular biomat,wastewater_other,62,0.04838709677419355,1.0,0.04838709677419355,0.04838709677419355,1.0,1.0,accept
+env_local_scale,anthropised terrestrial environmental zone,industrial_ww,57,0.10526315789473684,0.10526315789473684,0.10526315789473684,0.10526315789473684,0.10526315789473684,0.10526315789473684,accept
+env_local_scale,ebpr bioreactor,wastewater_other,55,1.0,1.0,0.6,0.9818181818181818,1.0,1.0,accept
+env_medium,synthetic carrier material,activated_sludge,54,0.0,1.0,0.0,1.0,1.0,1.0,accept
+env_broad_scale,waste water microbiome,activated_sludge,54,0.0,1.0,0.0,1.0,1.0,1.0,accept
+env_broad_scale,inland,sewage,49,0.0,0.14285714285714285,0.0,0.0,0.14285714285714285,0.14285714285714285,accept
+env_medium,wastewater treatment plant[envo:00002043],sewage,46,0.3695652173913043,1.0,0.3695652173913043,1.0,1.0,1.0,accept
+env_local_scale,oil well,industrial_ww,36,0.5833333333333334,0.0,0.5833333333333334,0.0,0.0,0.5833333333333334,accept
+env_local_scale,sewage sludge,activated_sludge,34,0.7058823529411765,1.0,0.7058823529411765,0.5,1.0,1.0,accept
+env_broad_scale,waste water [envo:00002001],wastewater_other,33,0.9393939393939394,1.0,0.9090909090909091,0.36363636363636365,1.0,1.0,accept
+env_local_scale,thermophilic anaerobic methanogenic reactor,nutrient_removal_bioreactor,32,0.0,0.625,0.0,0.8125,0.8125,0.625,accept
+env_broad_scale,jiangsu,wastewater_other,30,0.9666666666666667,0.9666666666666667,0.9333333333333333,0.9666666666666667,0.9666666666666667,0.9666666666666667,accept
+isolation_source,wastewater communities,effluent,29,0.0,0.10344827586206896,0.0,0.7241379310344828,1.0,0.10344827586206896,accept
+isolation_source,sludge collected from a pilot-scale biological nutrient removal reactor,activated_sludge,25,0.6,0.6,0.0,0.4,1.0,0.6,accept
+env_medium,waste sludge,digester,24,0.75,1.0,0.75,0.75,1.0,1.0,accept
+env_medium,0.22µm filtered reactor supernatant,wastewater_other,24,0.9166666666666666,1.0,0.9166666666666666,0.9166666666666666,1.0,1.0,accept
+env_broad_scale,industrial wastewate treatment plant,wastewater_other,22,0.045454545454545456,1.0,0.0,0.9545454545454546,0.045454545454545456,1.0,accept
+env_broad_scale,biological reactor,wastewater_other,22,0.0,0.5454545454545454,0.0,0.0,0.8636363636363636,0.5454545454545454,accept
+env_local_scale,wastewater treatment plant [envo_00002043],activated_sludge,21,0.19047619047619047,1.0,0.19047619047619047,0.19047619047619047,1.0,1.0,accept
+env_local_scale,street-access sewage,sewage,19,0.8421052631578947,1.0,0.8421052631578947,0.8421052631578947,1.0,1.0,accept
+env_local_scale,wastewater treatment plant effluent,wastewater_other,18,1.0,1.0,0.9444444444444444,1.0,1.0,1.0,accept
+env_local_scale,anaerobic conditions,wastewater_other,18,0.6111111111111112,0.3333333333333333,0.0,0.0,0.9444444444444444,0.6111111111111112,accept
+env_medium,aerobic biomass,water_and_sludge,16,0.0,1.0,0.0,0.0,1.0,1.0,accept
+env_local_scale,artificial channel,industrial_ww,16,1.0,1.0,1.0,1.0,1.0,1.0,accept
+env_local_scale,wastewater sludge,industrial_ww,14,0.35714285714285715,1.0,0.2857142857142857,0.35714285714285715,1.0,1.0,accept
+isolation_source,enrichment reactor seeded with activated sludge,digester,13,0.6923076923076923,0.6923076923076923,0.0,0.6923076923076923,1.0,0.6923076923076923,accept
+env_local_scale,mesophilic,activated_sludge,11,0.09090909090909091,1.0,0.0,0.36363636363636365,1.0,1.0,accept
+env_local_scale,reactors,activated_sludge,11,1.0,1.0,1.0,0.9090909090909091,1.0,1.0,accept
+env_local_scale,suspended sediment [envo:01000113]|ice [envo:01001125],wastewater_other,10,1.0,1.0,1.0,1.0,1.0,1.0,accept
+env_medium,sludge-water,activated_sludge,10,1.0,0.0,1.0,1.0,1.0,1.0,accept
+env_broad_scale,bisphenol a culture medium,activated_sludge,10,1.0,0.0,1.0,1.0,1.0,1.0,accept
+env_broad_scale,tailling pond,wastewater_other,8,0.625,1.0,0.875,0.0,1.0,1.0,accept
+env_broad_scale,domestic wastewater sediments,activated_sludge,8,0.375,0.0,0.25,0.375,1.0,0.375,accept
+isolation_source,"activated sludge, waste water treatment plant",activated_sludge,8,0.0,0.375,0.0,0.625,1.0,0.375,accept
+env_medium,domestic wastewater soil sediments and water,activated_sludge,8,0.375,0.0,0.25,0.375,1.0,0.375,accept
+env_medium,sludge [envo_00002044],activated_sludge,7,0.5714285714285714,1.0,0.5714285714285714,0.5714285714285714,1.0,1.0,accept
+env_medium,sludge rna,activated_sludge,7,1.0,1.0,1.0,1.0,1.0,1.0,accept
+env_local_scale,brewery (envo:00003885); anaerobic sludge (envo:00002129),digester,7,0.0,1.0,0.0,0.0,1.0,1.0,accept
+env_local_scale,full-scale wastewater treatment plant,activated_sludge,6,0.6666666666666666,1.0,0.6666666666666666,0.6666666666666666,1.0,1.0,accept
+env_local_scale,chemical enhanced primary treatment sludge,digester,6,0.0,1.0,0.0,0.0,1.0,1.0,accept
+env_local_scale,sewer_2,industrial_ww,5,0.6,0.0,0.6,0.6,1.0,0.6,accept
+env_medium,anaerobic sludge digester,bioreactor_anaerobic_sludge,5,1.0,1.0,1.0,1.0,1.0,1.0,accept
+env_local_scale,combined sewer,industrial_ww,5,0.8,0.0,0.8,0.8,1.0,0.8,accept
+env_local_scale,fo-anmbr,bioreactor_anaerobic_sludge,4,1.0,1.0,1.0,1.0,1.0,1.0,accept
+env_broad_scale,wastewater treatment reactors,activated_sludge,4,1.0,1.0,1.0,1.0,1.0,1.0,accept
+env_local_scale,suspended sediment [envo:01000113],wastewater_other,4,1.0,1.0,1.0,1.0,1.0,1.0,accept
+env_local_scale,sewer_1,industrial_ww,4,0.75,0.0,0.75,0.75,1.0,0.75,accept
+env_broad_scale,wast sludge,digester,3,0.0,1.0,0.0,0.0,1.0,1.0,accept
+env_medium,anaerobic digester foam,digester,3,1.0,1.0,0.0,1.0,1.0,1.0,accept
+env_local_scale,domestic wastewater sediments,activated_sludge,3,1.0,0.0,0.6666666666666666,1.0,1.0,1.0,accept
+taxonomy_name,anas platyrhynchos,agricultural_ww,16920,0.0,0.0,0.0,0.0,0.0,0.0,reject
+taxonomy_name,riverine metagenome,industrial_ww,11376,0.0010548523206751054,0.0015822784810126582,0.0010548523206751054,0.0,0.08975035161744023,0.0015822784810126582,reject
+isolation_source,anaerobic digester,bioreactor_anaerobic_sludge,4707,0.05608667941363926,0.025281495644784362,0.02464414701508392,0.43339706819630336,1.0,0.05608667941363926,reject
+taxonomy_name,biofilter metagenome,nutrient_removal_bioreactor,4241,0.009667531242631455,0.0014147606696533837,0.009667531242631455,0.0,0.008488564017920301,0.009667531242631455,reject
+env_broad_scale,freshwater biome [envo:00000873],water_and_sludge,4154,0.007462686567164179,0.05440539239287434,0.007462686567164179,0.038998555609051515,0.05609051516610496,0.05440539239287434,reject
+env_broad_scale,freshwater biome [envo_00000873],industrial_ww,3306,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,sewage,sewage,2367,0.05999155048584706,0.0025348542458808617,0.022813688212927757,0.12843261512463033,1.0,0.05999155048584706,reject
+env_medium,cecal contents,agricultural_ww,1967,0.0,0.0,0.0,0.0,0.0,0.0,reject
+taxonomy_name,mine drainage metagenome,industrial_ww,1917,0.059989567031820554,0.0,0.056338028169014086,0.0,0.01773604590505999,0.059989567031820554,reject
+taxonomy_name,mixed culture,nutrient_removal_bioreactor,1566,0.0561941251596424,0.04086845466155811,0.0561941251596424,0.0,0.15389527458492977,0.0561941251596424,reject
+env_medium,stream water,industrial_ww,1276,0.0,0.0,0.0,0.0,0.03761755485893417,0.0,reject
+isolation_source,sand,agricultural_ww,1166,0.0,0.0,0.0,0.014579759862778732,0.014579759862778732,0.0,reject
+env_local_scale,anthropogenic environmental material,activated_sludge,1069,0.011225444340505144,0.011225444340505144,0.011225444340505144,0.011225444340505144,0.011225444340505144,0.011225444340505144,reject
+env_local_scale,animal house,industrial_ww,978,0.0,0.0,0.0,0.0,0.0,0.0,reject
+taxonomy_name,industrial waste metagenome,industrial_ww,970,0.01134020618556701,0.0,0.01134020618556701,0.0,0.03711340206185567,0.01134020618556701,reject
+isolation_source,anaerobic digestion,digester,937,0.0,0.0,0.0,0.27641408751334046,1.0,0.0,reject
+isolation_source,activated sludge tank,activated_sludge,704,0.0,0.0,0.0,0.056818181818181816,1.0,0.0,reject
+env_broad_scale,environmental system,digester,658,0.022796352583586626,0.022796352583586626,0.00911854103343465,0.013677811550151976,0.0243161094224924,0.022796352583586626,reject
+isolation_source,water from urban biogas,nmdc_ww,491,0.0,0.0,0.0,0.07739307535641547,0.0,0.0,reject
+env_medium,pig manure,water_and_sludge,444,0.015765765765765764,0.0,0.015765765765765764,0.3536036036036036,0.0,0.015765765765765764,reject
+env_local_scale,lotic environments,industrial_ww,396,0.0,0.0,0.0,0.0,0.12121212121212122,0.0,reject
+env_broad_scale,temperate stream,industrial_ww,396,0.0,0.0,0.0,0.0,0.12121212121212122,0.0,reject
+isolation_source,anaerobic bioreactor sludge,bioreactor_anaerobic_sludge,376,0.0,0.0,0.0,0.0,1.0,0.0,reject
+isolation_source,biomass from anaerobic digester,bioreactor_anaerobic_sludge,313,0.0,0.0,0.0,1.0,1.0,0.0,reject
+env_local_scale,barn,agricultural_ww,275,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,biogas slurry,industrial_ww,255,0.0,0.0,0.0,0.9019607843137255,0.011764705882352941,0.0,reject
+isolation_source,natural feedlot,industrial_ww,216,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_local_scale,constructed feature,agricultural_ww,216,0.05092592592592592,0.0,0.05092592592592592,0.05092592592592592,0.05092592592592592,0.05092592592592592,reject
+isolation_source,sewage treatment plant,activated_sludge,190,0.010526315789473684,0.010526315789473684,0.0,0.5263157894736842,1.0,0.010526315789473684,reject
+isolation_source,wastewater sample,industrial_ww,188,0.0,0.0,0.0,0.5106382978723404,1.0,0.0,reject
+env_local_scale,anearobic bioreactor,water_and_sludge,173,0.0,0.0,0.0,0.9075144508670521,0.0,0.0,reject
+isolation_source,wastewater bioreactor,wastewater_other,170,0.0,0.0,0.0,0.11764705882352941,1.0,0.0,reject
+env_broad_scale,pig manure,water_and_sludge,167,0.0,0.0,0.0,0.9401197604790419,0.0,0.0,reject
+env_local_scale,environmental feature,water_and_sludge,165,0.0,0.024242424242424242,0.0,0.0,0.6121212121212121,0.024242424242424242,reject
+taxonomy_name,clostridium beijerinckii ncimb 8052,digester,154,0.0,0.03896103896103896,0.0,0.0,0.03896103896103896,0.03896103896103896,reject
+env_broad_scale,water trough,agricultural_ww,150,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_medium,sediment [envo_00002007],industrial_ww,145,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_local_scale,aviary,agricultural_ww,140,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,full-scale wastewater treatment plant aeration tank,wastewater_other,129,0.0,0.0,0.0,1.0,1.0,0.0,reject
+env_local_scale,tailings pond,wastewater_other,124,0.04032258064516129,0.03225806451612903,0.03225806451612903,0.0,0.03225806451612903,0.04032258064516129,reject
+isolation_source,ecological wastewater treatment plant,industrial_ww,123,0.0,0.0,0.0,0.0,1.0,0.0,reject
+env_broad_scale,water line,agricultural_ww,117,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,anaerobic bioreactor biomass,bioreactor_anaerobic_sludge,116,0.0,0.0,0.0,0.0,1.0,0.0,reject
+isolation_source,full-scale biogas plant,bioreactor_anaerobic_sludge,116,0.0,0.0,0.0,0.0,1.0,0.0,reject
+env_local_scale,lagoon [envo_00000038],industrial_ww,114,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,shenyang,wastewater_other,111,0.0,0.0,0.0,0.04504504504504504,0.04504504504504504,0.0,reject
+isolation_source,"madison, wisconsin, usa",bioreactor_anaerobic_sludge,97,0.0,0.0,0.0,0.14432989690721648,1.0,0.0,reject
+isolation_source,aerobic reactor mixed liquor,activated_sludge,96,0.0,0.0,0.0,0.0,1.0,0.0,reject
+isolation_source,gz,digester,92,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,organic dairy farm,industrial_ww,89,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,waste water treatment plant aeration tank,wastewater_other,88,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,rice wash waste,industrial_ww,86,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_broad_scale,oligotrophic freshwater,industrial_ww,81,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_local_scale,secondary cooling water system of nuclear reactor,industrial_ww,81,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_local_scale,field-scale pilot,industrial_ww,78,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,conventional dairy farm,industrial_ww,75,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_medium,reclaimed water,wastewater_other,75,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_broad_scale,reclaimed water facility,wastewater_other,74,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,conventional feedlot,industrial_ww,71,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_broad_scale,duck cecum,agricultural_ww,70,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_medium,bioprecipitate,industrial_ww,61,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,enriched biomass from anaerobic dhs bioreactor,bioreactor_anaerobic_sludge,59,0.0,0.0,0.0,0.0,0.1864406779661017,0.0,reject
+isolation_source,fermentation bioreactor biomass,bioreactor_anaerobic_sludge,57,0.0,0.0,0.0,0.0,1.0,0.0,reject
+isolation_source,wastewater treatment plant effluent,effluent,54,0.0,0.0,0.0,0.9444444444444444,1.0,0.0,reject
+isolation_source,wastewater/sludge,activated_sludge,51,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,municipal mesophilic sewage sludge of the wastewater treatment plant in the city of morocco: marrakech.,sewage,44,0.0,0.0,0.0,0.75,1.0,0.0,reject
+isolation_source,urban wastewater,sewage,41,0.0,0.0,0.0,0.6341463414634146,1.0,0.0,reject
+isolation_source,wastewaters,wastewater_other,34,0.0,0.0,0.0,0.7647058823529411,1.0,0.0,reject
+isolation_source,swine feedlot wastewater,wastewater_other,30,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,mesophilic biogas digester,bioreactor_anaerobic_sludge,30,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,swh,digester,27,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,sole carbon source enrichment culture originating from the aqueous effluent of an ecological wastewater treatment plant,industrial_ww,25,0.0,0.0,0.0,0.12,1.0,0.0,reject
+isolation_source,"madison, wi, usa",bioreactor_anaerobic_sludge,24,0.0,0.0,0.0,0.5833333333333334,1.0,0.0,reject
+isolation_source,wastewater activated sludge,activated_sludge,22,0.0,0.0,0.0,0.9545454545454546,1.0,0.0,reject
+env_broad_scale,oil well,industrial_ww,21,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,raw wastewater from wastewater treatment plants,wastewater_other,18,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,paper sludge,digester,17,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,switchgrass digestor,bioreactor_anaerobic_sludge,16,0.0,0.0,0.0,0.0,1.0,0.0,reject
+env_medium,water of meat washing,industrial_ww,15,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,biomass from acid-phase anaerobic digester,activated_sludge,15,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,feedlot catch-basin water,industrial_ww,13,0.0,0.0,0.0,1.0,0.0,0.0,reject
+isolation_source,thermophilic anaerobic digestion sludge,digester,12,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,sha tin sewage treatment works as,sewage,12,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,mesophilic anaerobic digestion sludge,digester,12,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,effluent of wwtp using conventional activated sludge technology,effluent,9,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,"national university of singapore, singapore",wastewater_other,9,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,"waste water treatment plant, activated sludge",activated_sludge,9,0.0,0.0,0.0,1.0,1.0,0.0,reject
+env_medium,wash,wastewater_other,8,0.0,0.0,0.0,0.0,0.75,0.0,reject
+taxonomy_name,nitrifying bacterium enrichment culture,industrial_ww,8,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_local_scale,mine tailing pool,industrial_ww,8,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_broad_scale,mine tailing pool,industrial_ww,8,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,"bielefeld, north rhine-westphalia, germany",bioreactor_anaerobic_sludge,8,0.0,0.0,0.0,1.0,0.0,0.0,reject
+isolation_source,digestate from anaerobic digester,bioreactor_anaerobic_sludge,7,0.0,0.0,0.0,0.42857142857142855,1.0,0.0,reject
+isolation_source,activated sludge in at,activated_sludge,7,0.0,0.0,0.0,1.0,1.0,0.0,reject
+env_medium,envo:00002126,industrial_ww,7,0.0,0.0,0.0,0.5714285714285714,0.0,0.0,reject
+isolation_source,abattoir waste,industrial_ww,6,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,biomass from anaerobic dhs bioreactor,bioreactor_anaerobic_sludge,6,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_medium,retentate,wastewater_other,6,0.0,0.0,0.0,0.0,1.0,0.0,reject
+isolation_source,activated sludge in ht,activated_sludge,5,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,sewage system,wastewater_other,5,0.0,0.0,0.0,0.0,1.0,0.0,reject
+env_medium,suspended biomass from biological reactor treating wastewater,water_and_sludge,4,0.0,0.0,0.0,1.0,1.0,0.0,reject
+env_local_scale,suspended biomass from biological reactor treating wastewater,water_and_sludge,4,0.0,0.0,0.0,1.0,1.0,0.0,reject
+env_local_scale,chlorinated_effluent,water_and_sludge,4,0.0,0.0,0.0,0.0,1.0,0.0,reject
+isolation_source,manitowoc influent,wastewater_other,4,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,sheboygan influent,wastewater_other,4,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,pig farm wastewater,industrial_ww,4,0.0,0.0,0.0,0.75,1.0,0.0,reject
+isolation_source,fermentation bioreactor inoculum,wastewater_other,4,0.0,0.0,0.0,0.0,1.0,0.0,reject
+isolation_source,untreated sewages,influent,4,0.0,0.0,0.0,1.0,1.0,0.0,reject
+env_broad_scale,not spplicable,water_and_sludge,4,0.0,0.0,0.0,0.0,1.0,0.0,reject
+isolation_source,sheboygan final clarifier water,wastewater_other,4,0.0,0.0,0.0,1.0,0.0,0.0,reject
+isolation_source,wwtps influent,wastewater_other,4,0.0,0.0,0.0,1.0,1.0,0.0,reject
+env_broad_scale,suspended biomass from biological reactor treating wastewater,water_and_sludge,4,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,"iron mountain mine, redding, ca, usa",industrial_ww,4,0.0,0.0,0.0,0.0,0.0,0.0,reject
+env_medium,not spplicable,water_and_sludge,4,0.0,0.0,0.0,0.0,1.0,0.0,reject
+env_local_scale,not spplicable,water_and_sludge,4,0.0,0.0,0.0,0.0,1.0,0.0,reject
+isolation_source,lab-scale anaerobic food waste fermentation sbr,bioreactor_anaerobic_sludge,3,0.0,0.0,0.0,1.0,0.0,0.0,reject
+isolation_source,wwtps activated sludge,wastewater_other,3,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,mbr feed; tds- 60 g/l,industrial_ww,3,0.0,0.0,0.0,1.0,0.0,0.0,reject
+isolation_source,sheboygan activated sludge,wastewater_other,3,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,lab-scale anaerobic food waste fermentation sfr,bioreactor_anaerobic_sludge,3,0.0,0.0,0.0,1.0,0.0,0.0,reject
+isolation_source,anaerobic sludge +40% fruit and vegetable waste,digester,3,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,manitowoc final clarifier sludge,wastewater_other,3,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,manitowoc primary clarifier sludge,wastewater_other,3,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,anaerobic sludge+20% fruit and vegetable waste,digester,3,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,wwtps effluent,wastewater_other,3,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,mbr feed; tds- 100 g/l,industrial_ww,3,0.0,0.0,0.0,1.0,0.0,0.0,reject
+isolation_source,activated sludge in ot,activated_sludge,3,0.0,0.0,0.0,1.0,1.0,0.0,reject
+env_local_scale,mesophilic anaerobic reactor,nutrient_removal_bioreactor,3,0.0,0.0,0.0,0.0,1.0,0.0,reject
+isolation_source,incubations of mixture of vsg and powdermill amd under room temperature,industrial_ww,3,0.0,0.0,0.0,0.0,0.0,0.0,reject
+isolation_source,stanley sewage treatment works as,sewage,3,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,mbr feed; tds- 80 g/l,industrial_ww,3,0.0,0.0,0.0,1.0,0.0,0.0,reject
+isolation_source,effluent of sewage treatment plant in hong hong,wastewater_other,2,0.0,0.0,0.0,1.0,1.0,0.0,reject
+isolation_source,influent of sewage treatment plant in hong hong,wastewater_other,2,0.0,0.0,0.0,1.0,1.0,0.0,reject

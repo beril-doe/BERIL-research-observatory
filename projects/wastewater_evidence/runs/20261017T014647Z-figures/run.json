@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "id": "20261017T014647Z-figures",
+  "name": "figures",
+  "command": [
+    "/opt/conda/bin/python",
+    "src/06_figures.py",
+    "runs/20261017T012956Z-biosample-evidence/out",
+    "runs/20261017T013332Z-external-vs-biosample/out",
+    "runs/20261017T014428Z-term-screen/out"
+  ],
+  "cwd": ".",
+  "started_at": 1792201607.4604628,
+  "ended_at": 1792201609.5824616,
+  "exit_code": 0,
+  "scripts": {
+    "src/06_figures.py": "d19cf8d7eec297c5c6e5763505ca669adef117340de8afad73c02b81aee42bfd"
+  },
+  "inputs": [
+    {
+      "path": "runs/20261017T012956Z-biosample-evidence/out/evidence_crosstab.csv",
+      "sha256": "861425c41a5e14923faec3460fd4683ece63e4b006c32a31cad4c4239a914256"
+    },
+    {
+      "path": "runs/20261017T014428Z-term-screen/out/term_screen.csv",
+      "sha256": "2b6889daff9eeb4e0970bcb9a87556f35db33311b51c672ac5a9319c26ebf912"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261017T014647Z-figures/out/fig_biosample_evidence_combos.png",
+      "sha256": "122bd92a452906697b55b418c5f18d874c796ada8c5dc99f9f248b542a6efda0"
+    },
+    {
+      "path": "runs/20261017T014647Z-figures/out/fig_external_signal.png",
+      "sha256": "ff21ee9948d02d77e14f906b782d36bf725233763ab9938d42a0d5689f158664"
+    },
+    {
+      "path": "runs/20261017T014647Z-figures/out/fig_keyword_by_field.png",
+      "sha256": "1db8c5c9a2c23afa0c929108afdc212b7725240d51f493708d4baccba57a319b"
+    },
+    {
+      "path": "runs/20261017T014647Z-figures/out/fig_transfer_screen.png",
+      "sha256": "666afaf3c8bee4c00cf82c16e21611c4e1d14bbb09328d5281f4cd4f579f5b88"
+    }
+  ],
+  "changed": []
+}

@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "id": "20261017T012956Z-biosample-evidence",
+  "name": "biosample-evidence",
+  "command": [
+    "/opt/conda/bin/python",
+    "src/02a_biosample_evidence.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792200596.4646525,
+  "ended_at": 1792200802.3599749,
+  "exit_code": 0,
+  "scripts": {
+    "src/02a_biosample_evidence.py": "4181a92d9c097cbef7516a7b235fb93665fc698ebf677c2ae5dc0a3f15bca58a"
+  },
+  "inputs": [
+    {
+      "name": "table:nmdc.ncbi_biosamples.biosamples_flattened"
+    },
+    {
+      "name": "table:nmdc.ncbi_biosamples.env_triads_flattened"
+    },
+    {
+      "name": "table:kbase.ontology_source.statements"
+    },
+    {
+      "name": "table:kbase.ontology_source.entailed_edge"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261017T012956Z-biosample-evidence/out/envo_evidence_by_term.csv",
+      "sha256": "ebe50dc5b4888b212c518fe1f5af1ae9db67732fe56ba6bf8b47493206c00bce"
+    },
+    {
+      "path": "runs/20261017T012956Z-biosample-evidence/out/envo_terms.csv",
+      "sha256": "36b6dc3b01d279cb046ecf0483e092fdcd26307cecaef08ca7fe59e4e7312975"
+    },
+    {
+      "path": "runs/20261017T012956Z-biosample-evidence/out/evidence_crosstab.csv",
+      "sha256": "861425c41a5e14923faec3460fd4683ece63e4b006c32a31cad4c4239a914256"
+    },
+    {
+      "path": "runs/20261017T012956Z-biosample-evidence/out/keyword_by_field.csv",
+      "sha256": "d71c29380c7945b530d1429a4a1ce54d995370b017e5502306cc6acb4f17a5f3"
+    },
+    {
+      "path": "runs/20261017T012956Z-biosample-evidence/out/kw_only_examples.csv",
+      "sha256": "5cbf798c9b13bbc0ecb1a760e3866fd5b50f4b473738eada9c0af0933000f75c"
+    },
+    {
+      "path": "runs/20261017T012956Z-biosample-evidence/out/package_counts.csv",
+      "sha256": "d2f799388915853868950bb2adf8f47a128c492f49f3c4d27d753be8c650dad3"
+    },
+    {
+      "path": "runs/20261017T012956Z-biosample-evidence/out/structured_only_examples.csv",
+      "sha256": "4d474f9da4d11017e809f8ccaf97e3565c18b79189f2f5206faa334db9358eeb"
+    },
+    {
+      "path": "runs/20261017T012956Z-biosample-evidence/out/subtype_by_field.csv",
+      "sha256": "0d631b41188c585c94c98266b94e83bcc3e995cd294c97c7e5af2fbde33195d9"
+    },
+    {
+      "path": "runs/20261017T012956Z-biosample-evidence/out/taxonomy_counts.csv",
+      "sha256": "e4dfbc4e199912be1d534eae7fcc175e56e14837c7c9458fb6850beb39b9908e"
+    }
+  ],
+  "changed": []
+}

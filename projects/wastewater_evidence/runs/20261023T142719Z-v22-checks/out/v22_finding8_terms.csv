@@ -1,0 +1,10 @@
+field_quoted,value,found_in_field,n_records,independent_support,support_pkg,support_envo,support_proj,verdict,match
+taxonomy_name,anas platyrhynchos,taxonomy_name,16920,0.0,0.0,0.0,0.0,reject,ok
+taxonomy_name,riverine metagenome,taxonomy_name,11376,0.0016,0.0011,0.0016,0.0011,reject,ok
+env_medium,cecal contents,env_medium,1967,0.0,0.0,0.0,0.0,reject,ok
+env_medium,stream water,env_medium,1276,0.0,0.0,0.0,0.0,reject,ok
+env_local_scale,animal house,env_local_scale,978,0.0,0.0,0.0,0.0,reject,ok
+isolation_source,sewage,isolation_source,2367,0.06,0.06,0.0025,0.0228,reject,ok
+isolation_source,anaerobic digester,isolation_source,4707,0.0561,0.0561,0.0253,0.0246,reject,ok
+taxonomy_name,bioreactor metagenome,taxonomy_name,36588,0.1061,0.1061,0.046,0.105,accept,ok
+env_local_scale,water,env_local_scale,3921,0.1826,0.1826,0.0181,0.0041,accept,ok

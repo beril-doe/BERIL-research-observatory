@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "id": "20261017T012405Z-atb-ena-probe",
+  "name": "atb-ena-probe",
+  "command": [
+    "/opt/conda/bin/python",
+    "src/05_atb_ena_probe.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792200245.9879768,
+  "ended_at": 1792200267.2333584,
+  "exit_code": 0,
+  "scripts": {
+    "src/05_atb_ena_probe.py": "7c944d1c84303ddcbe487fe1208f8bb1a5f978bc7d3edc9a5531091182fc0ce7"
+  },
+  "inputs": [
+    {
+      "name": "table:refdata.all_the_bacteria.biosample_environment"
+    },
+    {
+      "name": "table:refdata.all_the_bacteria.ena_metadata"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261017T012405Z-atb-ena-probe/out/atb_context_label_counts.csv",
+      "sha256": "79b37b6ae08ebc0f6a4c027eb82550267cd029f96dc6f117cfe71b3dca910ae5"
+    },
+    {
+      "path": "runs/20261017T012405Z-atb-ena-probe/out/atb_totals.csv",
+      "sha256": "3e166dcd52896daea7ef4d5633c44481a28e2912a3862e49feb4a654027161a8"
+    },
+    {
+      "path": "runs/20261017T012405Z-atb-ena-probe/out/atb_ww_field_values.csv",
+      "sha256": "b4543894688ad9f7d1bc6884deb22f43f6628cdcfbec1345fcf96a1957cdced9"
+    },
+    {
+      "path": "runs/20261017T012405Z-atb-ena-probe/out/ena_checklist_counts.csv",
+      "sha256": "691fffc212f4a1ea992e060bc7a01b537dba2a92e2c662a199ac5e13615e4b10"
+    },
+    {
+      "path": "runs/20261017T012405Z-atb-ena-probe/out/ena_ww_field_hits.csv",
+      "sha256": "efb084c58f9fec716ad217d6e323d7ca6c80132371d176e14160d5f8345e30f4"
+    }
+  ],
+  "changed": []
+}
