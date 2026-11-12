@@ -1,0 +1,7 @@
+[     0s] terms to screen: 242
+[    60s] screened 242 terms over BioSample
+[    60s] term_screen.csv: 242 rows
+[    60s] accepted 109 / rejected 133 terms
+[    80s] screen_effect.csv: 6 rows
+[    93s] screen_examples.csv: 80 rows
+done

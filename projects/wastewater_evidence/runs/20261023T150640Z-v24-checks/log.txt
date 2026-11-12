@@ -1,0 +1,32 @@
+  doubly-labelled (GOLD and MGnify): 589
+[   16s] v24_overlap_residual.csv: 5 rows
+                                                                measure   n
+                   MGnify, as first reported (includes doubly-labelled) 840
+                     GOLD, as first reported (includes doubly-labelled) 835
+ MGnify test accessions sharing a BioProject with a GOLD-only accession  31
+GOLD test accessions sharing a BioProject with an MGnify-only accession   1
+                    doubly-labelled accessions with any BioProject link 589
+[   78s] v24_gallus_carrier.csv: 1 rows
+     term_field term_value  n_gallus_records
+env_local_scale  anaerobic              1283
+[   78s] v24_mgnify_composition.csv: 6 rows
+                ext_subtype    n  pct_of_mgnify_cohort
+           activated_sludge 1260                  29.0
+           water_and_sludge  859                  19.7
+nutrient_removal_bioreactor  748                  17.2
+           wastewater_other  615                  14.1
+              industrial_ww  497                  11.4
+            agricultural_ww  373                   8.6
+[   80s] v24_gain_classes.csv: 4 rows
+[   81s] v24_gain_class_totals.csv: 4 rows
+                           term_class verdict  n_records
+1: idiom from a disputed MGnify group  reject      35029
+             3: term the screen keeps  accept      31953
+     2: other term the screen rejects  reject      16859
+1: idiom from a disputed MGnify group  accept        411
+                       class_resolved  n_records
+1: idiom from a disputed MGnify group      35288
+             3: term the screen keeps      31789
+     2: other term the screen rejects      16668
+                     multiple classes        210
+done

@@ -1,0 +1,4 @@
+field,value,ext_subtype,n_rows,n_acc,bg_count,unresolved_background,lift_as_built,lift_corrected,purity,pass_as_built,pass_corrected
+isolation_source,effluent of sewage treatment plant in hong hong,wastewater_other,4,2,2,False,11015.419746511874,5507.709873255937,1.0,True,False
+isolation_source,influent of sewage treatment plant in hong hong,wastewater_other,4,2,2,False,11015.419746511874,5507.709873255937,1.0,True,False
+isolation_source,sewage treatment plant,activated_sludge,4,2,190,False,115.95178680538817,57.97589340269408,1.0,True,False

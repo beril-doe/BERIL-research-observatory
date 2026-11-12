@@ -1,0 +1,23 @@
+[    27s] GOLD: 245123 biosamples, 5998 in ww groups; 252 Engineered paths
+[    27s] GOLD ww biosamples with NCBI accession: 5391 -> 5584 accessions
+[    27s] MGnify: 4352 samples
+[    39s] NMDC: 27352 biosamples, 201 ww by path/ENVO/keyword, 201 INSDC accessions
+Traceback (most recent call last):
+  File "/home/mamillerpa/.beril-v2/projects/wastewater_evidence/src/03_external_vs_biosample.py", line 171, in <module>
+    spark.createDataFrame(ext).createOrReplaceTempView("ext")
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/usr/local/spark/python/pyspark/sql/connect/session.py", line 635, in createDataFrame
+    ser._create_batch(
+    ~~~~~~~~~~~~~~~~~^
+        [
+        ^
+    ...<2 lines>...
+        ]
+        ^
+    )
+    ^
+  File "/usr/local/spark/python/pyspark/sql/pandas/serializers.py", line 540, in _create_batch
+    return pa.RecordBatch.from_arrays(arrs, ["_%d" % i for i in range(len(arrs))])
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "pyarrow/table.pxi", line 3535, in pyarrow.lib.RecordBatch.from_arrays
+TypeError: Cannot convert pyarrow.lib.ChunkedArray to pyarrow.lib.Array

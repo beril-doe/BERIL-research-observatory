@@ -1,0 +1,253 @@
+path,ww_group,n_biosamples
+Engineered > Lab culture > Culture media > Unclassified > Unclassified,,5013
+Engineered > Built environment > Hospital > Hospital bedroom > Room surface,,1660
+Engineered > Bioreactor > Anaerobic > Unclassified > Unclassified,,1313
+Engineered > Wastewater > Sewage > Unclassified > Unclassified,sewage,1139
+Engineered > Built environment > City > Subway > Metal surface,,1022
+Engineered > WWTP > Wastewater > Unclassified > Unclassified,wastewater_other,1001
+Engineered > Artificial ecosystem > Soil microcosm > Unclassified > Unclassified,,868
+Engineered > Bioreactor > Anaerobic > Sludge > Unclassified,bioreactor_anaerobic_sludge,816
+Engineered > Modeled > Simulated communities (microbial mixture) > Unclassified > Unclassified,,797
+Engineered > Food production > Dairy products > Unclassified > Unclassified,,551
+Engineered > Wastewater > Activated Sludge > Unclassified > Unclassified,activated_sludge,485
+Engineered > Food production > Meat products > Unclassified > Unclassified,,438
+Engineered > Bioreactor > Anaerobic > Digestate > Unclassified,bioreactor_anaerobic_sludge,411
+Engineered > Food production > Fermented beverages > Unclassified > Unclassified,,392
+Engineered > Artificial ecosystem > Nutrient-rich > R2A agar > Unclassified,,334
+Engineered > Wastewater > Industrial wastewater > Unclassified > Unclassified,industrial_ww,330
+Engineered > Built environment > City > Subway > Wooden surface,,323
+Engineered > Industrial production > Chemical products > Lab-grade water > Unclassified,,285
+Engineered > WWTP > Activated sludge > Unclassified > Unclassified,activated_sludge,270
+Engineered > Built environment > Hospital > Unclassified > Unclassified,,235
+Engineered > Wastewater > Anaerobic digestor > Unclassified > Unclassified,digester,231
+Engineered > Built environment > Water treatment plant > Unclassified > Unclassified,,229
+Engineered > Food production > Fermented vegetables > Unclassified > Unclassified,,217
+Engineered > WWTP > Aerobic digester > Activated sludge > Unclassified,activated_sludge,197
+Engineered > Artificial ecosystem > Nutrient-poor > Pine litter on sand > Unclassified,,173
+Engineered > Industrial production > Engineered product > Unclassified > Unclassified,,170
+Engineered > Artificial ecosystem > Mesocosm > Lake water > Unclassified,,153
+Engineered > Artificial ecosystem > Mesocosm > Soil > Unclassified,,148
+Engineered > Industrial production > Chemical products > Reagent blank > Unclassified,,141
+Engineered > Lab enrichment > Defined media > Unclassified > Unclassified,,137
+Engineered > Bioreactor > Aerobic > Unclassified > Unclassified,,133
+Engineered > Solid waste > Animal waste > Manure > Unclassified,,129
+Engineered > Food production > Beverages > Unclassified > Unclassified,,128
+Engineered > Industrial production > Chemical products > Unclassified > Unclassified,,126
+Engineered > Food production > Plant products > Unclassified > Unclassified,,123
+Engineered > Lab culture > Culture media > Bacteria > Unclassified,,121
+Engineered > Food production > Sweets > Unclassified > Unclassified,,114
+Engineered > Food production > Fermented food > Unclassified > Unclassified,,109
+Engineered > WWTP > Mixed liquor > Unclassified > Unclassified,activated_sludge,101
+Engineered > Artificial ecosystem > Microcosm > Freshwater > Unclassified,,94
+Engineered > Bioreactor > SSF (Solid state fermentation) > Aerobic > Biomass,,88
+Engineered > Artificial ecosystem > Mesocosm > Lake water > Sieved,,88
+Engineered > Wastewater > Industrial wastewater > Petrochemical > Unclassified,industrial_ww,88
+Engineered > Artificial ecosystem > Plant growth chamber > Soil > Unclassified,,88
+Engineered > Artificial ecosystem > Microcosm > Soil > Unclassified,,84
+Engineered > Food production > Bread production > Unclassified > Unclassified,,82
+Engineered > Built environment > House > Doormat > Unclassified,,77
+Engineered > WWTP > Anaerobic digester > Unclassified > Unclassified,activated_sludge,76
+Engineered > Solid waste > Landfill > Unclassified > Unclassified,,76
+Engineered > Built environment > Building > Unclassified > Unclassified,,75
+Engineered > Artificial ecosystem > Aquaculture > Fish pond > Unclassified,,72
+Engineered > Artificial ecosystem > Aquaculture > Fish pond > Sediment,,72
+Engineered > Food production > Grains/Grain products > Unclassified > Unclassified,,71
+Engineered > Wastewater > Industrial wastewater > Hospital wastewater > Unclassified,industrial_ww,70
+Engineered > Wastewater > Industrial wastewater > Mine water > Unclassified,industrial_ww,70
+Engineered > Built environment > Canal > Irrigation canal > Sediment,,66
+Engineered > Bioreactor > MBR (Membrane bioreactor) > Unclassified > Sludge,,66
+Engineered > Lab enrichment > Defined media > Anaerobic media > Unclassified,,66
+Engineered > Wastewater > Nutrient removal > Biological phosphorus removal > Bioreactor,wastewater_other,65
+Engineered > Bioreactor > DHS reactor > Anaerobic > Sludge,bioreactor_anaerobic_sludge,65
+Engineered > Food production > Dairy products > Fermented dairy products > Cheese,,65
+Engineered > Modeled > Simulated communities (DNA mixture) > Unclassified > Unclassified,,64
+Engineered > Built environment > City > Subway > Unclassified,,61
+Engineered > Artificial ecosystem > Aquaculture > Marine fish farm > Sediment,,60
+Engineered > Artificial ecosystem > Mesocosm > Unclassified > Unclassified,,60
+Engineered > Bioreactor > SBR-EBPR > Anaerobic-Aerobic > Activated sludge,bioreactor_anaerobic_sludge,59
+Engineered > Bioreactor > Anaerobic > Biogas > Unclassified,,50
+Engineered > Solid waste > Zoo waste > Composting > Unclassified,,48
+Engineered > Built environment > Drinking water treatment plant > Drinking water filter > Unclassified,,47
+Engineered > Industrial production > Chemical products > Distilled water > Unclassified,,45
+Engineered > Bioreactor > MBR (Membrane bioreactor) > Anaerobic > Sludge,bioreactor_anaerobic_sludge,44
+Engineered > Artificial ecosystem > Mesocosm > Seawater > Unclassified,,43
+Engineered > Artificial ecosystem > Mud microcosm > Unclassified > Unclassified,,42
+Engineered > Wastewater > Nutrient removal > Biological phosphorus removal > Activated sludge,activated_sludge,42
+Engineered > Food production > Food sample > Unclassified > Unclassified,,41
+Engineered > Built environment > House > Unclassified > Unclassified,,41
+Engineered > Food production > Seafood product > Frozen seafood > Frozen shrimp,,40
+Engineered > Food production > Silage fermentation > Unclassified > Unclassified,,40
+Engineered > Built environment > City > Subway > Plastic surface,,37
+Engineered > Built environment > Animal cage > Reptile cage > Unclassified,,36
+Engineered > Artificial ecosystem > Water channel system > Indoor > Biofilm,,35
+Engineered > Wastewater > Reclaimed/Recycled wastewater > Unclassified > Unclassified,wastewater_other,34
+Engineered > Built environment > Spacecraft Assembly Cleanrooms > Gowning room > Floor,,33
+Engineered > Solid waste > Mixed feedstock > Composting > Commercial compost,,32
+Engineered > Bioreactor > Aerobic > Activated sludge > Unclassified,,32
+Engineered > WWTP > Anaerobic digester > Sludge > Unclassified,activated_sludge,31
+Engineered > Food production > Baby formula > Unclassified > Unclassified,,31
+Engineered > Bioreactor > EBPR > Anaerobic-Aerobic > Sludge,bioreactor_anaerobic_sludge,30
+Engineered > Food production > Dairy products > Processed milk > Unclassified,,29
+Engineered > Sewage treatment plant > Wastewater > Unclassified > Unclassified,sewage,29
+Engineered > Lab culture > Culture media > Bacteria > Contaminated,,28
+Engineered > Food production > Fermentation cellar > Pit mud > Unclassified,,28
+Engineered > Bioreactor > Continuous culture > Unclassified > Unclassified,,28
+Engineered > WWTP > Effluent > Unclassified > Unclassified,effluent,27
+Engineered > Wastewater > Nutrient removal > Biological phosphorus removal > Unclassified,wastewater_other,27
+Engineered > Wastewater > Industrial wastewater > Mine water > Produced water,industrial_ww,27
+Engineered > Wastewater > Nutrient removal > Dissolved organics (aerobic) > Unclassified,wastewater_other,27
+Engineered > Food production > Beans > Unclassified > Unclassified,,26
+Engineered > Bioreactor > Denitrification > Woodchip Bioreactor (WBR) > Woodchip biofilm,,26
+Engineered > Solid waste > Grass > Composting > Bioreactor,,25
+Engineered > Modeled > Simulated communities (microbial mixture) > Plant nodule > Unclassified,,25
+Engineered > Industrial production > Chemical products > Sheath fluid > Unclassified,,25
+Engineered > Artificial ecosystem > Seawater microcosm > Unclassified > Unclassified,,24
+Engineered > Bioreactor > Continuous culture > Marine sediment inoculum > Unclassified,,24
+Engineered > Artificial ecosystem > Soil microcosm > Surface biofilm > Unclassified,,24
+Engineered > Solid waste > Brown waste > Rice straw > Unclassified,,24
+Engineered > Artificial ecosystem > Sand microcosm > Unclassified > Unclassified,,24
+Engineered > Bioremediation > Thiocyanate > Unclassified > Unclassified,,23
+Engineered > Industrial production > Engineered product > Bioanode > Unclassified,,22
+Engineered > Bioreactor > Anaerobic > Inoculum > Unclassified,,22
+Engineered > Lab culture > Culture media > Fungi > Unclassified,,22
+Engineered > Food production > Spices > Unclassified > Unclassified,,21
+Engineered > Built environment > International Space Station > Unclassified > Unclassified,,21
+Engineered > Food production > Pastry > Unclassified > Unclassified,,20
+Engineered > Food production > Egg products > Unclassified > Unclassified,,20
+Engineered > Paper > Currency notes > Unclassified > Unclassified,,18
+Engineered > Food production > Meat products > Raw meat > Beef chop,,17
+Engineered > Food production > Nuts > Unclassified > Unclassified,,17
+Engineered > Built environment > Canal > Unclassified > Unclassified,,16
+Engineered > Food production > Dairy products > Fermented dairy products > Unclassified,,16
+Engineered > Solid waste > Latrine chamber > Composting > Unclassified,,16
+Engineered > Bioreactor > Semi-continuous > Anaerobic > Digestate,bioreactor_anaerobic_sludge,16
+Engineered > WWTP > Effluent > Algae cultivation tank > Unclassified,effluent,16
+Engineered > Artificial ecosystem > Plant growth chamber > Unclassified > Unclassified,,16
+Engineered > Wastewater > Industrial wastewater > Meat/Poultry processing plant > Poultry processing wastewater,industrial_ww,15
+Engineered > Wastewater > Nutrient removal > Dissolved organics (aerobic) > Activated sludge,activated_sludge,15
+Engineered > Artificial ecosystem > Water microcosm > Unclassified > Unclassified,,14
+Engineered > Solid waste > Animal waste > Unclassified > Unclassified,,13
+Engineered > Artificial ecosystem > Microcosm > Unclassified > Unclassified,,13
+Engineered > Wastewater > Nutrient removal > Dissolved organics (anaerobic) > Unclassified,wastewater_other,13
+Engineered > Bioremediation > Hydrocarbon > Benzene > Bioreactor,,13
+Engineered > Built environment > Swimming pool > Sand filter > Unclassified,,12
+Engineered > Bioremediation > Tetrachloroethylene and derivatives > Chloroethene > Bioreactor,,12
+Engineered > Bioreactor > Anaerobic > Biomass > Unclassified,,12
+Engineered > Solid waste > Composting > Unclassified > Unclassified,,12
+Engineered > Modeled > Simulated communities (sequence read mixture) > Sanger > Unclassified,,12
+Engineered > Food production > Seafood > Unclassified > Unclassified,,12
+Engineered > Bioreactor > Thiocyanate-remediating > Anaerobic-Aerobic > Unclassified,,12
+Engineered > Built environment > Spacecraft Assembly Cleanrooms > Unclassified > Unclassified,,11
+Engineered > Wastewater > Urban wastewater > Slums/Informal settlements > Unclassified,wastewater_other,11
+Engineered > Lab culture > Culture media > Algae > Contaminated,,10
+Engineered > Industrial production > Chemical products > Buffer > Unclassified,,10
+Engineered > Food production > Fish products > Unclassified > Unclassified,,10
+Engineered > Solid waste > Green waste > Composting > Unclassified,,10
+Engineered > Wastewater > Nutrient removal > Dissolved organics (anaerobic) > Activated sludge,activated_sludge,10
+Engineered > Artificial ecosystem > Sediment microcosm > Wetland sediment > Unclassified,,9
+Engineered > Wastewater > Industrial wastewater > Acid mine drainage > Unclassified,industrial_ww,9
+Engineered > Solid waste > Grass > Composting > Unclassified,,9
+Engineered > Bioremediation > Hydrocarbon > Unclassified > Unclassified,,9
+Engineered > Bioreactor > DHS reactor > Aerobic > Sludge,,8
+Engineered > Bioreactor > Denitrification > Unclassified > Unclassified,,8
+Engineered > Bioreactor > Denitrification > Woodchip Bioreactor (WBR) > Unclassified,,8
+Engineered > Bioreactor > Continuous culture > Marine sediment inoculum > ,,8
+Engineered > Solid waste > Wood > Composting > Bioreactor,,8
+Engineered > Wastewater > Industrial wastewater > Dairy farm > Unclassified,industrial_ww,8
+Engineered > Solid waste > Organic waste > Biochar > Unclassified,,8
+Engineered > Built environment > City > Park > Unclassified,,8
+Engineered > Built environment > City > Subway > Concrete surface,,8
+Engineered > Built environment > Tailings pond > Wastewater > Unclassified,wastewater_other,8
+Engineered > Bioremediation > Terephthalate > Wastewater > Bioreactor,wastewater_other,8
+Engineered > Bioreactor > Sulphur Autotrophic Denitrification > Unclassified > Unclassified,,8
+Engineered > Industrial production > Chemical products > PCR blank control > Unclassified,,7
+Engineered > Built environment > Tailings pond > Unclassified > Unclassified,,7
+Engineered > Bioreactor > Anaerobic > Effluent > Unclassified,,7
+Engineered > Industrial production > Engineered product > Biocathode > Unclassified,,7
+Engineered > Modeled > Simulated communities (sequence read mixture) > Unclassified > Unclassified,,7
+Engineered > Artificial ecosystem > Aquaculture > Crustaceans pond > Sediment,,6
+Engineered > Wastewater > Nutrient removal > Nitrogen removal > Unclassified,wastewater_other,6
+Engineered > Solid waste > Feedstock > Composting > Unclassified,,6
+Engineered > Built environment > Oil refinery > Unclassified > Unclassified,,6
+Engineered > Artificial ecosystem > Aquaculture > Crustaceans pond > Unclassified,,6
+Engineered > Built environment > Drinking water treatment plant > Drinking water > Unclassified,,6
+Engineered > Solid waste > Animal waste > Poultry litter > Unclassified,,6
+Engineered > Solid waste > Bio- and green waste (BGW) > Composting > Unclassified,,5
+Engineered > Sewage treatment plant > Sludge > Unclassified > Unclassified,sewage,5
+Engineered > Sewage treatment plant > Wastewater > Activated sludge > Unclassified,activated_sludge,5
+Engineered > Wastewater > Industrial wastewater > Tailings pond > Sediment,industrial_ww,5
+Engineered > Solid waste > Bagasse > Composting > Unclassified,,5
+Engineered > Lab enrichment > Defined media > Marine media > Unclassified,,5
+Engineered > Lab enrichment > Defined media > Aerobic media > Unclassified,,5
+Engineered > Built environment > City > Unclassified > Unclassified,,5
+Engineered > Wastewater > Industrial wastewater > Mine water > Sediment,industrial_ww,5
+Engineered > Built environment > Solar panel > Unclassified > Unclassified,,5
+Engineered > Drugs production > Tobacco production > Snuff > Unclassified,,5
+Engineered > Bioreactor > Wastewater > Unclassified > Unclassified,wastewater_other,4
+Engineered > Bioremediation > Terephthalate > Wastewater > Activated sludge,activated_sludge,4
+Engineered > Built environment > Nuclear test reactor > Cooling water > Unclassified,,4
+Engineered > Artificial ecosystem > Aquaculture > Algae raceway pond > Unclassified,,4
+Engineered > Lab culture > Culture media > Archaea > Unclassified,,4
+Engineered > Industrial production > Engineered product > Bioanode > Biofilm,,4
+Engineered > WWTP > Influent > Raw wastewater > Municipal and sewage,influent,4
+Engineered > Biotransformation > Mixed alcohol bioreactor > Unclassified > Unclassified,,4
+Engineered > Bioreactor > DHS reactor > Sludge > Unclassified,,4
+Engineered > Built environment > Dairy processing facility > Unclassified > Unclassified,,4
+Engineered > Wastewater > Nutrient removal > Unclassified > Unclassified,wastewater_other,4
+Engineered > Wastewater > Industrial wastewater > Aquaculture farm > Unclassified,industrial_ww,4
+Engineered > WWTP > Influent > Raw wastewater > Unclassified,influent,4
+Engineered > Bioreactor > Anaerobic > Biofilm > Unclassified,,3
+Engineered > Bioreactor > Anaerobic > Leachate > Unclassified,,3
+Engineered > Bioreactor > MBR (Membrane bioreactor) > Mixed liquor > Unclassified,,3
+Engineered > Wastewater > Industrial wastewater > Acid mine drainage > Sediment,industrial_ww,3
+Engineered > Solid waste > Animal waste > Manure slurry > Liquid manure,,3
+Engineered > Wastewater > Industrial wastewater > Agricultural wastewater > Unclassified,industrial_ww,3
+Engineered > WWTP > Wastewater > Wastewater effluent > Unclassified,effluent,3
+Engineered > Built environment > Monument > Unclassified > Unclassified,,3
+Engineered > Biotransformation > Microbial solubilization of coal > Unclassified > Unclassified,,3
+Engineered > Bioreactor > DHS reactor > Wastewater > Unclassified,wastewater_other,3
+Engineered > Bioreactor > Wastewater > Sludge > Unclassified,sludge_generic,3
+Engineered > Built environment > Pipeline > Unclassified > Unclassified,,3
+Engineered > Built environment > Tailings pond > Petrochemical > Wastewater,wastewater_other,3
+Engineered > Solid waste > Food waste > Unclassified > Unclassified,,2
+Engineered > Wastewater > Nutrient removal > Nitrogen removal > Anammox,wastewater_other,2
+Engineered > Bioreactor > Anaerobic > Settled granule > Unclassified,,2
+Engineered > Artificial ecosystem > Soil microcosm > Contaminated soil > Hydrocarbon,,2
+Engineered > Solid waste > Agricultural waste > Composting > Sugarcane filter cake,,2
+Engineered > Bioreactor > Microbial fuel cells/MFC > Cathode > Unclassified,,2
+Engineered > Bioreactor > Sulphur Autotrophic Denitrification > Interstitial water > Unclassified,,2
+Engineered > Bioremediation > Tetrachloroethylene and derivatives > Tetrachloroethylene > Bioreactor,,2
+Engineered > Bioremediation > Terephthalate > Wastewater > Unclassified,wastewater_other,2
+Engineered > Built environment > Drinking water treatment plant > Unclassified > Unclassified,,2
+Engineered > Solid waste > Household waste > Composting > Unclassified,,2
+Engineered > Solid waste > Household waste > Unclassified > Unclassified,,2
+Engineered > Food production > Sourdough > Unclassified > Unclassified,,2
+Engineered > Solid waste > Agricultural waste > Composting > Unclassified,,2
+Engineered > Industrial production > Engineered product > Biocathode > Biofilm,,2
+Engineered > Lab culture > Culture media > Contaminated > Unclassified,,2
+Engineered > Industrial production > Chemical products > Input fracking water > Unclassified,,2
+Engineered > Built environment > Oil refinery > Petroleum sludge > Unclassified,,1
+Engineered > Built environment > Tailings pond > Petrochemical > Unclassified,,1
+Engineered > Built environment > Pipeline > Drinking water pipeline > Biofilm,,1
+Engineered > Bioremediation > Hydrocarbon > Methane > Unclassified,,1
+Engineered > Bioreactor > Wastewater > Cyanide/thiocyanate > Unclassified,wastewater_other,1
+Engineered > Biotransformation > Microbial enhanced oil recovery > Unclassified > Unclassified,,1
+Engineered > Built environment > City > Subway > Bench surface,,1
+Engineered > Built environment > Cement wall > Unclassified > Unclassified,,1
+Engineered > Bioreactor > Photobioreactor (PBR) > Biofilm > Unclassified,,1
+Engineered > Bioreactor > High-salinity/high-pH > Unclassified > Unclassified,,1
+Engineered > Bioreactor > Microbial fuel cells/MFC > Anode > Biofilm,,1
+Engineered > Bioreactor > Photobioreactor (PBR) > Unclassified > Unclassified,,1
+Engineered > Built environment > Hospital > ICU > Floor,,1
+Engineered > Built environment > City > Subway > Stone surface,,1
+Engineered > Built environment > Building > Sink > Unclassified,,1
+Engineered > Bioreactor > Wastewater > Activated sludge > Unclassified,activated_sludge,1
+Engineered > Bioreactor > SSF (Solid state fermentation) > Unclassified > Biomass,,1
+Engineered > Bioremediation > Persistent organic pollutants (POP) > Polycyclic aromatic hydrocarbons > Unclassified,,1
+Engineered > Bioremediation > Persistent organic pollutants (POP) > Unclassified > Unclassified,,1
+Engineered > Solid waste > Animal waste > Composting > Unclassified,,1
+Engineered > Modeled > Simulated communities (contig mixture) > Unclassified > Unclassified,,1
+Engineered > WWTP > Aerobic digester > Unclassified > Unclassified,activated_sludge,1
+Engineered > Solid waste > Vegetable > Unclassified > Unclassified,,1
+Engineered > Wastewater > Municipal landfill > Leachate > Unclassified,wastewater_other,1
+Engineered > Wastewater > Sludge > Unclassified > Unclassified,sludge_generic,1

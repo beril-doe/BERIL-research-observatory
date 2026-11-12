@@ -1,0 +1,3 @@
+trained_on,tested_on,n_test,n_terms,pct_recovered,pct_recovered_among_no_native_signal,n_no_native_signal
+GOLD,MGnify,4352,202,49.8,2.1,729
+MGnify,GOLD,5583,94,17.9,2.3,388

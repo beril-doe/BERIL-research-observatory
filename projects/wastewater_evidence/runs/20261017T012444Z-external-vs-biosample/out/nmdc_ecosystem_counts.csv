@@ -1,0 +1,112 @@
+path,path_ww,n,n_envo_ww,n_kw_ww
+ >  >  >  > ,False,13640,175,0
+Environmental > Terrestrial > Soil > Agricultural land > Bulk soil,False,3376,0,0
+Environmental > Terrestrial > Soil > Unclassified > Unclassified,False,2344,0,0
+Environmental > Terrestrial > Soil > Forest > Unclassified,False,1385,0,0
+Environmental > Aquatic > Freshwater > River > Sediment,False,568,0,0
+Environmental > Terrestrial > Soil > Temperate forest > Bulk soil,False,530,0,0
+Environmental > Aquatic > Freshwater > Lake > Epilimnion,False,379,0,0
+Host-associated > Plants > Roots > Rhizosphere > Soil,False,309,0,0
+Environmental > Terrestrial > Soil > Temperate forest > Unclassified,False,297,0,0
+Environmental > Terrestrial > Soil > Watershed > Unclassified,False,250,0,0
+Environmental > Aquatic > Freshwater > River > Unclassified,False,246,0,0
+Host-associated > Mammals > Digestive system > Large intestine > Fecal,False,244,0,0
+Environmental > Terrestrial > Soil > Wetlands > Unclassified,False,223,0,0
+Environmental > Terrestrial > Soil > Grasslands > Unclassified,False,222,0,0
+Environmental > Aquatic > Freshwater > Lake > Unclassified,False,211,0,0
+Environmental > Terrestrial > Plant-associated > Leaf > Phyllosphere,False,192,0,0
+Engineered > Industrial production > Chemical products > Lab-grade water > Unclassified,False,178,0,0
+Environmental > Aquatic > Marine > Sea ice > Sea ice,False,159,0,0
+Host-associated > Plants > Roots > Endosphere > Unclassified,False,143,0,0
+Host-associated > Plants > Roots > Rhizosphere > Unclassified,False,143,0,0
+Environmental > Terrestrial > Soil > Agricultural land > Unclassified,False,117,0,0
+Environmental > Aquatic > Marine > Marine > Seawater,False,115,0,0
+Environmental > Terrestrial > Soil > Botanical garden > Bulk soil,False,109,0,0
+Environmental > Terrestrial > Soil > Unclassified > Forest Soil,False,105,0,0
+Environmental > Terrestrial > Soil > Peat > Unclassified,False,100,0,0
+Host-associated > Plants > Endosphere > Endosphere > Leaves,False,98,0,0
+Environmental > Terrestrial > Soil > Boreal forest/Taiga > Unclassified,False,97,0,0
+Environmental > Aquatic > Freshwater > Creek > Unclassified,False,95,0,0
+Environmental > Terrestrial > Soil > Grasslands > Pasture,False,92,0,0
+Environmental > Terrestrial > Soil >  > ,False,90,0,0
+Environmental > Aquatic > Freshwater > Creek > Biofilm,False,72,0,0
+Environmental > Terrestrial > Soil > Mineral horizon > Forest Soil,False,68,0,0
+Environmental > Terrestrial > Soil > Shrubland > Unclassified,False,64,0,0
+Host-associated > Porifera > Sponge > Tissue > Unclassified,False,57,0,0
+Environmental > Terrestrial > Soil > Meadow > Bulk soil,False,54,0,0
+Environmental > Terrestrial > Soil > Sand > Desert,False,49,0,0
+Environmental > Aquatic > Marine > Oceanic > Sediment,False,47,0,0
+Host-associated > Algae > Brown Algae > Unclassified > Unclassified,False,42,0,0
+Environmental > Aquatic > Marine > Intertidal zone > Salt marsh,False,40,0,0
+Engineered > Artificial ecosystem > Plant growth chamber > Hydroponic media > Unclassified,False,35,0,0
+Environmental > Terrestrial > Soil > Sand > Unclassified,False,34,0,0
+Environmental > Terrestrial > Soil > Boreal forest/Taiga > Bulk soil,False,33,0,0
+Environmental > Aquatic > Freshwater > Lake > Cyanobacterial bloom,False,31,0,0
+Environmental > Aquatic > Marine > Oceanic > Unclassified,False,29,0,0
+Environmental > Terrestrial > Soil > Temperate forest > O horizon/Organic,False,28,0,0
+Environmental > Terrestrial > Soil > Tundra > Unclassified,False,27,0,0
+Environmental > Aquatic > Freshwater > Lake > Sediment,False,27,0,0
+Environmental > Terrestrial > Soil > Wetlands > Peat,False,24,0,0
+Environmental > Aquatic > Freshwater > River > River biofilm,False,24,0,0
+Environmental > Terrestrial > Soil > Unclassified > Agricultural land,False,22,0,0
+Environmental > Terrestrial > Soil > Tropical forest > Unclassified,False,21,0,0
+Host-associated > Invertebrates > Cnidaria > Coral > Tissue,False,21,0,0
+Environmental > Terrestrial > Soil > Desert > Unclassified,False,21,0,0
+Environmental > Terrestrial > Volcanic > Unclassified > Unclassified,False,21,0,0
+Host-associated > Birds > Digestive system > Large intestine > Fecal,False,19,0,0
+Environmental > Aquatic > Freshwater > Lake > Epilimnion/Euphotic zone,False,18,0,0
+Environmental > Terrestrial > Soil > Unclassified > Desert,False,18,0,0
+Environmental > Terrestrial > Deep subsurface > Shale gas reservoir > Flow back/Produced fluids,False,17,0,0
+Engineered > Artificial ecosystem > Sand microcosm > Unclassified > Unclassified,False,17,0,0
+Engineered > Bioreactor > Aerobic > Activated sludge > Unclassified,True,17,17,17
+Environmental > Aquatic > Marine > Sediment Trap > Sediment,False,17,0,0
+Environmental > Terrestrial > Soil > Unclassified > Grasslands,False,16,0,0
+Host-associated > Fish > Digestive system > Intestine > Unclassified,False,15,0,0
+Host-associated > Plants > Pitcher > Phytotelma > Unclassified,False,15,0,0
+Environmental > Terrestrial > Soil > Temperate forest > Mineral soil,False,14,0,0
+Environmental > Terrestrial > Deep subsurface > Oil well > Unclassified,False,14,0,0
+Environmental > Terrestrial > Nest > Insects nest > Fungus garden/Fungus gallery,False,12,0,0
+Host-associated > Fungi > Lichen > Unclassified > Unclassified,False,12,0,0
+Host-associated > Reptilia > Digestive system > Large intestine > Fecal,False,11,0,0
+Environmental > Terrestrial > Soil > Drainage basin > Bulk soil,False,10,0,0
+Environmental > Terrestrial > Deep subsurface > Rock > Unclassified,False,10,0,0
+Environmental > Terrestrial > Soil > Peat > Bog,False,10,0,0
+Engineered > Bioreactor > Anaerobic > Sludge > Unclassified,False,9,9,9
+Engineered > Modeled > Simulated communities (microbial mixture) > Unclassified > Unclassified,False,9,0,0
+Environmental > Aquatic > Marine > Strait > Unclassified,False,9,0,0
+Environmental > Terrestrial > Soil > Glacier > Unclassified,False,8,0,0
+Environmental > Terrestrial > Nest > Insects nest > Nest dump,False,7,0,0
+Host-associated > Mollusca > Digestive system > Gut > Unclassified,False,7,0,0
+Environmental > Aquatic > Freshwater > Glacier > Meltwater,False,6,0,0
+Environmental > Aquatic > Freshwater > Groundwater > Coalbed water,False,6,0,0
+Environmental > Aquatic > Freshwater > Creek > Sediment,False,6,0,0
+Host-associated > Plants > Roots > Unclassified > Unclassified,False,5,0,0
+Environmental > Aquatic > Freshwater > Lake > Hypolimnion/Profundal zone,False,4,0,0
+Engineered > Lab culture > Culture media > Bacteria > Unclassified,False,4,0,0
+Host-associated > Amphibia > Digestive system > Intestine > Fecal,False,4,0,0
+Host-associated > Mollusca > Tissue > Unclassified > Unclassified,False,4,0,0
+Environmental > Terrestrial > Nest > Insects nest > Beehive: Honey,False,3,0,0
+Host-associated > Mammals > Integumentary system > Skin > Unclassified,False,3,0,0
+Environmental > Terrestrial > Soil > Unclassified > Shrubland,False,3,0,0
+Host-associated > Algae > Green algae > Unclassified > Unclassified,False,3,0,0
+Environmental > Terrestrial > Soil > Tundra > Permafrost,False,3,0,0
+Environmental > Terrestrial > Nest > Insects nest > Beehive: Brood combs,False,3,0,0
+Environmental > Aquatic > Marine > Strait > Sediment,False,3,0,0
+Environmental > Terrestrial > Nest > Insects nest > Beehive: Cerumen,False,3,0,0
+Environmental > Terrestrial > Soil > Pasture > Bulk soil,False,3,0,0
+Environmental > Terrestrial > Soil > Shrubland > Bulk soil,False,3,0,0
+Environmental > Terrestrial > Soil > Forest > Bulk soil,False,3,0,0
+Environmental > Terrestrial > Soil > Tropical forest > Bulk soil,False,2,0,0
+Engineered > Industrial production > Chemical products > Input fracking water > Unclassified,False,2,0,0
+Host-associated > Mollusca > Respiratory system > Gills > Unclassified,False,2,0,0
+Host-associated > Mollusca > Bivalves > Unclassified > Unclassified,False,2,0,0
+Environmental > Terrestrial > Soil > Grasslands > Bulk soil,False,2,0,0
+Environmental > Terrestrial > Soil > Pasture > Unclassified,False,2,0,0
+Host-associated > Algae > Red algae > Unclassified > Unclassified,False,2,0,0
+Environmental > Aquatic > Non-marine Saline and Alkaline > Saline > Microbial mats,False,1,0,0
+Environmental > Aquatic > Freshwater > Lake > Microbial mats,False,1,0,0
+Environmental > Aquatic > Freshwater > Water tank > Unclassified,False,1,0,0
+Environmental > Terrestrial > Soil > Unclassified > ,False,1,0,0
+Environmental > Terrestrial > Soil > Tundra > Bulk soil,False,1,0,0
+Host-associated > Algae > Mixed algae turf > Unclassified > Unclassified,False,1,0,0
+Host-associated > Microbial > Bacteria > Unclassified > Unclassified,False,1,0,0

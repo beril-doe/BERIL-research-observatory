@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "id": "20261017T014428Z-term-screen",
+  "name": "term-screen",
+  "command": [
+    "/opt/conda/bin/python",
+    "src/04b_term_screen.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792201468.276681,
+  "ended_at": 1792201561.6764004,
+  "exit_code": 0,
+  "scripts": {
+    "src/04b_term_screen.py": "93b65213bea1c513377f85a0444f0a5ab0311f84d43f656540c442874f4074a3"
+  },
+  "inputs": [
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/term_table.csv",
+      "sha256": "4588d1a345e8a1810ecb76034dd238a102f6532fab32f4822ea1bf5b0b79ed19"
+    },
+    {
+      "name": "table:nmdc.ncbi_biosamples.sra_biosamples_bioprojects"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261017T014428Z-term-screen/out/screen_effect.csv",
+      "sha256": "9b42e8a6aea29f32530b7838cb4de441d2c8dcefca80d397ba6faa5419ae94e6"
+    },
+    {
+      "path": "runs/20261017T014428Z-term-screen/out/screen_examples.csv",
+      "sha256": "8197d01b620c183ff0df252df11699343b55436e402d67811b5cff335ed51bd9"
+    },
+    {
+      "path": "runs/20261017T014428Z-term-screen/out/term_screen.csv",
+      "sha256": "2b6889daff9eeb4e0970bcb9a87556f35db33311b51c672ac5a9319c26ebf912"
+    }
+  ],
+  "changed": []
+}

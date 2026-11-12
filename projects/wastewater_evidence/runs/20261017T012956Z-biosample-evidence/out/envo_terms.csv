@@ -1,0 +1,25 @@
+id,how,label
+ENVO:00002001,descendant,waste water
+ENVO:00002018,descendant,sewage
+ENVO:00002043,descendant,wastewater treatment plant
+ENVO:00002044,descendant,sludge
+ENVO:00002046,descendant,activated sludge
+ENVO:00002057,descendant,raw primary sludge
+ENVO:00002058,descendant,secondary sludge
+ENVO:00002059,descendant,biosolids
+ENVO:00002060,descendant,oil sludge
+ENVO:00002129,descendant,anaerobic sludge
+ENVO:00002176,descendant,contaminated sludge
+ENVO:00002177,descendant,"1,4-dioxane contaminated sludge"
+ENVO:00002193,descendant,pulp-bleaching waste water
+ENVO:00002212,descendant,thermophilic granular sludge
+ENVO:00002213,descendant,anaerobic sludge blanket reactor
+ENVO:00003043,descendant,sewage plant
+ENVO:00003965,descendant,anaerobic digester sludge
+ENVO:00005796,descendant,marine sludge
+ENVO:01000964,descendant,industrial wastewater
+ENVO:02000158,descendant,biological nutrient removal during wastewater treatment
+ENVO:06105268,descendant,treated wastewater
+ENVO:06105300,descendant,wastewater treatment process
+ENVO:2000002,descendant,industrial wastewate treatment plant
+ENVO:2000003,descendant,agricultural wastewater treatment plant

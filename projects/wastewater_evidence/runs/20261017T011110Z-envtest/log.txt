@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys; print(sys.executable, sys.prefix); import pyspark; print('ok')
+                                                   ^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'pyspark'
+/home/mamillerpa/beril-workbench-v2/core/.venv-berdl/bin/python /home/mamillerpa/beril-workbench-v2/core/.venv-berdl

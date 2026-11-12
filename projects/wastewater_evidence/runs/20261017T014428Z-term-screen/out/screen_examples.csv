@@ -1,0 +1,81 @@
+field,value,n
+isolation_source,,13057
+isolation_source,not applicable,2157
+isolation_source,bioreactor,1343
+isolation_source,missing,1215
+isolation_source,bioreactor sample,839
+isolation_source,reactor sample,582
+isolation_source,stool,542
+isolation_source,culture,523
+isolation_source,enrichment from bioreactor,379
+isolation_source,feces,368
+isolation_source,water,328
+isolation_source,anaerobic bioreactor,278
+isolation_source,biofilm,262
+isolation_source,human_stool,213
+isolation_source,not collected,158
+isolation_source,digestion liquid,153
+isolation_source,human fecal community in bioreactor,149
+isolation_source,in vitro content,121
+isolation_source,anaerobic dehalogenated bacteria community microbial liquid,120
+isolation_source,rumen,118
+env_medium,,19435
+env_medium,water,2448
+env_medium,cecal content,1283
+env_medium,culture medium,1004
+env_medium,food waste,586
+env_medium,waste material,407
+env_medium,basal medium,361
+env_medium,h2-producing bioreactor metagenome,288
+env_medium,missing,257
+env_medium,bioreactor,245
+env_medium,bioreactor_culture,229
+env_medium,anaerobic bioreactor sample,218
+env_medium,envo_00000428,188
+env_medium,fermentor,168
+env_medium,cell culture [envo:02000008]|fecal material [envo:00002003],164
+env_medium,saline water (envo:00002010),155
+env_medium,bioprecipitates,143
+env_medium,outlet water,137
+env_medium,not applicable,117
+env_medium,enrichment culturing unit [envo:01001818],115
+taxonomy_name,bioreactor metagenome,25859
+taxonomy_name,gallus gallus,1283
+taxonomy_name,gut metagenome,819
+taxonomy_name,metagenome,487
+taxonomy_name,uncultured bacterium,346
+taxonomy_name,aquatic metagenome,277
+taxonomy_name,freshwater metagenome,162
+taxonomy_name,zebrafish metagenome,158
+taxonomy_name,uncultured eukaryote,145
+taxonomy_name,marine metagenome,137
+taxonomy_name,groundwater metagenome,134
+taxonomy_name,plastisphere metagenome,128
+taxonomy_name,leaf litter metagenome,108
+taxonomy_name,wetland metagenome,103
+taxonomy_name,electrolysis cell metagenome,101
+taxonomy_name,fermentation metagenome,96
+taxonomy_name,aquaculture metagenome,85
+taxonomy_name,fish metagenome,82
+taxonomy_name,human gut metagenome,75
+taxonomy_name,mixed culture metagenome,74
+package_content,metagenome.environmental.1.0,17327
+package_content,generic.1.0,6987
+package_content,mimarks.survey.miscellaneous.6.0,1827
+package_content,mims.me.miscellaneous.6.0,951
+package_content,mimarks.specimen.human-gut.6.0,564
+package_content,mims.me.water.6.0,562
+package_content,mimarks.survey.water.6.0,515
+package_content,mimarks.survey.human-associated.6.0,448
+package_content,mims.me.host-associated.6.0,416
+package_content,mims.me.sediment.6.0,347
+package_content,mims.me.microbial.6.0,270
+package_content,mimarks.specimen.miscellaneous.6.0,269
+package_content,mimarks.survey.microbial.6.0,255
+package_content,mimarks.survey.human-gut.6.0,231
+package_content,mimarks.survey.host-associated.6.0,204
+package_content,mims.me.human-gut.6.0,164
+package_content,mimarks.survey.sediment.6.0,145
+package_content,migs.ba.water.6.0,105
+package_content,mimag.water.6.0,88
+package_content,mimag.6.0,84

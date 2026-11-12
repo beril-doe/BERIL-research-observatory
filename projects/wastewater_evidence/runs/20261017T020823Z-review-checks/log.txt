@@ -1,0 +1,15 @@
+[    0s] chk_subtype_denominator.csv: 1 rows
+[    0s] chk_gold_industrial.csv: 5 rows
+  GOLD industrial: 494 found, 235 with no signal
+  accessions labelled by both GOLD and MGnify: 589
+[    0s] chk_holdout_overlap.csv: 4 rows
+[    0s] chk_holdout_by_group.csv: 11 rows
+[    0s] chk_screen_basis.csv: 11 rows
+  accepted on package alone: 5; ENVO alone: 26 (env_* fields: 21); project alone: 2
+[    0s] chk_screen_envo_dropped.csv: 2 rows
+  dropping the ENVO leg for env_* terms loses 21 accepts (2588 records)
+[    1s] chk_field_population.csv: 10 rows
+[    2s] chk_aviary_fields.csv: 4 rows
+[    9s] chk_study_clustering.csv: 11 rows
+[    9s] chk_digest_package.csv: 2 rows
+done
