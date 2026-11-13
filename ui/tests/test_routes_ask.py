@@ -1,0 +1,171 @@
+"""The chat routes in wiki mode: session creation, admin key, quota, filter."""
+
+from __future__ import annotations
+
+import os
+from unittest.mock import MagicMock, patch
+
+import pytest
+from sqlalchemy import select
+
+from app.chat.providers.base import TextDelta, ToolCall, ToolResult, TurnComplete
+from app.db.models import AskSpend, ChatMessage, ChatSession
+from tests.test_routes_chat import (  # noqa: F401  (fixtures)
+    USER_TOKEN,
+    _login,
+    _parse_sse,
+    _patched_provider,
+    client,
+    session_row,
+    user,
+)
+
+_ASK_ENV = {
+    "BERIL_WIKI_ASK_API_KEY": "sk-admin-held",
+    "BERIL_WIKI_ASK_PROVIDER": "anthropic",
+    "BERIL_WIKI_ASK_MODEL": "claude-sonnet-4-6",
+    "BERIL_WIKI_ASK_DAILY_TOKENS_PER_USER": "50000",
+    "BERIL_WIKI_ASK_RESERVE_TOKENS_PER_TURN": "20000",
+    "BERIL_WIKI_ASK_MAX_TURNS": "5",
+}
+
+
+@pytest.fixture
+def ask_env():
+    with patch.dict(os.environ, _ASK_ENV):
+        import app.config as cfg
+
+        cfg._settings = None
+        yield
+        cfg._settings = None
+
+
+@pytest.fixture
+def wiki():
+    with patch("app.routes.chat.get_wiki_manager", return_value=MagicMock()):
+        yield
+
+
+def _events(text="Yield rises [1] but see [2]."):
+    return [
+        ToolCall(name="mcp__wiki__find", input={"query": "yield"}, tool_use_id="tu-1"),
+        ToolResult(tool_use_id="tu-1", content="[1] A (wiki/concepts/a)\nAlpha."),
+        TextDelta(text=text),
+        TurnComplete(usage={"input_tokens": 1200, "output_tokens": 300}, cost_usd=0.01),
+    ]
+
+
+async def _wiki_session(client, db_session):
+    resp = client.post("/api/chat", json={"mode": "wiki"})
+    assert resp.status_code == 200, resp.text
+    return resp.json()["session_id"]
+
+
+def _record_retrieval(monkeypatch):
+    """The provider is patched out, so the find tool never runs; stand in
+    for it by numbering one hit when the turn is prepared."""
+    from app.chat import ask as ask_mod
+
+    original = ask_mod.prepare_ask_turn
+
+    async def prepared(*args, **kwargs):
+        ctx, creds = await original(*args, **kwargs)
+        ctx.wiki_turn.number([{"address": "wiki/concepts/a", "title": "A", "heading": None,
+                               "text": "Alpha.", "score": 1.0, "link": "https://w/concepts/a"}])
+        return ctx, creds
+
+    monkeypatch.setattr("app.routes.chat.prepare_ask_turn", prepared)
+
+
+async def test_create_wiki_session_uses_the_configured_provider(client, user, db_session, ask_env):
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+    row = (await db_session.execute(select(ChatSession).where(ChatSession.id == sid))).scalar_one()
+    assert (row.mode, row.provider_id, row.model, row.title) == ("wiki", "anthropic", "claude-sonnet-4-6", "Ask the wiki")
+
+
+async def test_create_wiki_session_is_503_without_a_key(client, user):
+    _login(client)
+    resp = client.post("/api/chat", json={"mode": "wiki"})
+    assert resp.status_code == 503
+    assert "not configured" in resp.json()["error"]
+
+
+async def test_general_session_still_needs_provider_and_model(client, user):
+    _login(client)
+    assert client.post("/api/chat", json={"mode": "general"}).status_code == 400
+
+
+async def test_wiki_turn_runs_on_the_admin_key_filters_citations_and_settles(
+    client, user, db_session, ask_env, wiki, monkeypatch
+):
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+    _record_retrieval(monkeypatch)
+    seen = {}
+
+    async def fake(*, db, session, user_message, credentials, profile=None, **kwargs):
+        seen["key"] = credentials.values["api_key"]
+        seen["profile"] = profile
+        for e in _events():
+            yield e
+
+    with patch("app.chat.service.run_provider_turn", fake):
+        resp = client.post(f"/api/chat/{sid}/turn", json={"message": "yield?"})  # no credentials sent
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["assistant_text"] == "Yield rises [1] but see ."
+    assert body["sources"] == [{"n": 1, "address": "wiki/concepts/a", "title": "A", "heading": None,
+                                "link": "https://w/concepts/a"}]
+    assert seen["key"] == "sk-admin-held"
+    assert seen["profile"].allowed_tools == ["mcp__wiki__find", "mcp__wiki__read"]
+    assert seen["profile"].max_turns == 8
+    assert "NO_ANSWER" in seen["profile"].system_prompt
+    spend = (await db_session.execute(select(AskSpend).where(AskSpend.user_id == user.id))).scalar_one()
+    assert (spend.tokens, spend.reservations, spend.reserved_tokens) == (1500, 0, 0)
+    assert round(spend.usd, 6) == round((1200 * 3.0 + 300 * 15.0) / 1e6, 6)
+    stored = (await db_session.execute(
+        select(ChatMessage).where(ChatMessage.session_id == sid, ChatMessage.role == "assistant")
+    )).scalar_one()
+    assert stored.content["text"] == "Yield rises [1] but see ."
+
+
+async def test_wiki_turn_is_refused_past_the_daily_cap(client, user, db_session, ask_env, wiki):
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+    db_session.add(AskSpend(user_id=user.id, day=__import__("app.chat.quota", fromlist=["_today"])._today(),
+                            tokens=40000))
+    await db_session.commit()
+
+    with patch("app.chat.service.run_provider_turn", _patched_provider(_events())):
+        resp = client.post(f"/api/chat/{sid}/turn", json={"message": "yield?"})
+
+    assert resp.status_code == 429
+    body = resp.json()
+    assert body["cap"] == "daily_tokens" and "resets at" in body["error"] and body["resets_at"]
+    assert (await db_session.execute(select(ChatMessage))).scalars().all() == []
+
+
+async def test_wiki_stream_holds_text_until_filtered(client, user, db_session, ask_env, wiki, monkeypatch):
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+    _record_retrieval(monkeypatch)
+    with patch("app.chat.service.run_provider_turn", _patched_provider(_events())):
+        resp = client.post(f"/api/chat/{sid}/stream", json={"message": "yield?"})
+
+    assert resp.status_code == 200
+    frames = _parse_sse(resp.text)
+    texts = [f["data"]["text"] for f in frames if f["event"] == "text_delta"]
+    assert texts == ["Yield rises [1] but see ."]
+    assert frames[-1]["event"] == "turn_complete"
+
+
+async def test_wiki_turn_is_503_when_the_key_is_unset_later(client, user, db_session, ask_env, wiki):
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+    from app.config import get_settings
+
+    get_settings().wiki_ask_api_key = None
+    resp = client.post(f"/api/chat/{sid}/turn", json={"message": "x"})
+    assert resp.status_code == 503

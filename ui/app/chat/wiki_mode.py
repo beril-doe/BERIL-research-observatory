@@ -84,9 +84,14 @@ def format_find(numbered: list[tuple[int, dict]]) -> str:
 
 
 def build_wiki_tools(manager: WikiManager, turn: WikiTurn, *, find_limit: int = 8):
-    """The in-process MCP server exposing ``find`` and ``read`` over the wiki.
-    Both record into ``turn``; both report wiki outages as tool errors so the
-    agent can say NO_ANSWER rather than the turn failing."""
+    """The in-process MCP server exposing ``find`` and ``read`` over the wiki."""
+    return create_sdk_mcp_server(name="wiki", version="1.0.0", tools=wiki_tools(manager, turn, find_limit=find_limit))
+
+
+def wiki_tools(manager: WikiManager, turn: WikiTurn, *, find_limit: int = 8) -> list:
+    """The two tools as ``SdkMcpTool`` definitions (``.handler`` is callable
+    directly). Both record into ``turn``; both report wiki outages as tool
+    errors so the agent can say NO_ANSWER rather than the turn failing."""
 
     @tool(
         "find",
@@ -118,4 +123,4 @@ def build_wiki_tools(manager: WikiManager, turn: WikiTurn, *, find_limit: int = 
         header = f"# {extra['title']}\n({extra['link']})\n\n"
         return {"content": [{"type": "text", "text": header + file.content}]}
 
-    return create_sdk_mcp_server(name="wiki", version="1.0.0", tools=[find, read])
+    return [find, read]
