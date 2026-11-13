@@ -238,14 +238,15 @@ def test_transport_errors_propagate_to_the_caller():
 
 def _row(project: str, at: str, kind: str = "approved", files: int = 2) -> dict:
     return {
+        "id": f"sub-{project}",
         "project": project,
         "owner_orcid": "0009-0001-2345-6789",
         "address": f"0009-0001-2345-6789/{project}",
+        "revision": "cd" * 32,
         "submitted_at": at,
         "kind": kind,
-        "batch_id": f"batch-{project}",
-        "is_public": True,
-        "files": [{"path": f"f{i}.md", "sha256": "ab" * 32} for i in range(files)],
+        "archive_path": f"s3a://b/t/projects/{project}/",
+        "files": [{"path": f"f{i}.md", "sha256": "ab" * 32, "size": 10} for i in range(files)],
     }
 
 
@@ -267,10 +268,11 @@ def test_submissions_sends_only_the_filters_given_and_parses_the_page():
     assert seen == {"path": SUBMISSIONS_PATH, "params": {}}
     assert [s.project for s in page.submissions] == ["alpha", "beta"]
     first = page.submissions[0]
-    assert (first.owner_orcid, first.kind, first.batch_id, first.is_public) == (
-        "0009-0001-2345-6789", "approved", "batch-alpha", True,
+    assert (first.id, first.owner_orcid, first.kind, first.revision, first.archive_path) == (
+        "sub-alpha", "0009-0001-2345-6789", "approved", "cd" * 32, "s3a://b/t/projects/alpha/",
     )
-    assert len(first.files) == 2 and first.files[0] == {"path": "f0.md", "sha256": "ab" * 32}
+    assert len(first.files) == 2
+    assert first.files[0] == {"path": "f0.md", "sha256": "ab" * 32, "size": 10}
     assert page.submissions[1].files == []
     assert page.next_since == "2026-11-02T00:00:00Z"
     assert page.raw["next_since"] == "2026-11-02T00:00:00Z"
@@ -294,7 +296,7 @@ def test_submissions_pages_with_next_since():
     with _client(handler) as client:
         since = None
         while True:
-            page = list_submissions(client, since=since, kinds=["approved", "seeded"], limit=1)
+            page = list_submissions(client, since=since, kinds=["approved", "seeded", "docs"], limit=1)
             seen += [s.project for s in page.submissions]
             if not page.submissions or page.next_since is None:
                 break
@@ -302,9 +304,9 @@ def test_submissions_pages_with_next_since():
 
     assert seen == ["a", "b"]
     assert asked == [
-        (None, "approved,seeded", "1"),
-        ("2026-11-01T00:00:00Z", "approved,seeded", "1"),
-        ("2026-11-03T00:00:00Z", "approved,seeded", "1"),
+        (None, "approved,seeded,docs", "1"),
+        ("2026-11-01T00:00:00Z", "approved,seeded,docs", "1"),
+        ("2026-11-03T00:00:00Z", "approved,seeded,docs", "1"),
     ]
 
 
@@ -347,3 +349,37 @@ def test_submissions_refuses_a_payload_without_the_list():
 
     with _client(handler) as client, pytest.raises(BerilReadError):
         list_submissions(client)
+
+
+# --- source and revision ----------------------------------------------------
+
+
+def test_read_sends_source_and_revision_only_when_given():
+    seen = []
+
+    def handler(request):
+        seen.append(dict(request.url.params))
+        return httpx.Response(200, json=_envelope(TEXT))
+
+    with _client(handler) as client:
+        read_file(client, ADDRESS)
+        read_file(client, "wiki/concepts/carbon-yield", source="wiki")
+        read_file(client, ADDRESS, revision="cd" * 32, as_bytes=False)
+
+    assert seen == [
+        {"address": ADDRESS},
+        {"address": "wiki/concepts/carbon-yield", "source": "wiki"},
+        {"address": ADDRESS, "revision": "cd" * 32},
+    ]
+
+
+def test_read_refuses_an_unknown_source_before_any_request():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json=_envelope(TEXT))
+
+    with _client(handler) as client, pytest.raises(ValueError, match="unknown source"):
+        read_file(client, ADDRESS, source="github")
+    assert calls == []

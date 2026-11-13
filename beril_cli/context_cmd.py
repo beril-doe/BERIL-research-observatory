@@ -6,8 +6,11 @@
   beril context pitfalls [Q]     known gotchas: project memories + central archive
   beril context discoveries [Q]  findings, with stale duplicates suppressed
   beril context read ADDRESS     one project file, byte-exact (sha256 verified)
-  beril context submissions      approved and seeded projects, by submission time
+  beril context submissions      complete submission records, by submission time
   beril context doctor           check the login, BERIL, and the context layer
+
+``find``, ``read`` and ``ls`` take ``--source wiki`` to look at the wiki
+instead of the context layer; wiki addresses are ``wiki/<collection>/<slug>``.
 
 Every result names a resource by **address**: ``<owner>/<project>/<path>``
 (central docs live under ``beril/docs/``). Pass one back with ``--address`` —
@@ -30,7 +33,7 @@ from typing import Any, Callable
 
 from beril_cli import auth_store
 from beril_cli.context_client import ContextClient, ContextError, Scope
-from observatory_context.beril_read import KINDS, READABLE
+from observatory_context.beril_read import KINDS, READABLE, SOURCES
 
 # Central docs (pitfalls, discoveries, performance, research ideas) live under
 # the house account.
@@ -77,6 +80,7 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
         "--read-content", action="store_true",
         help="Print each hit's full text, not just its abstract",
     )
+    _add_source(find)
     _add_json(find)
 
     ls = actions.add_parser("ls", help="List what is stored at an address")
@@ -95,6 +99,7 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
         "--depth", type=int,
         help="With -r: how many levels below the address to list (default: all)",
     )
+    _add_source(ls)
     _add_json(ls)
 
     grep = actions.add_parser("grep", help="Exact-pattern search")
@@ -141,7 +146,15 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
             + ", ".join(READABLE) + "."
         ),
     )
-    read.add_argument("address", metavar="ADDRESS", help="The file (owner/project/path)")
+    read.add_argument(
+        "address", metavar="ADDRESS",
+        help="The file (owner/project/path; with --source wiki, wiki/<collection>/<slug>)",
+    )
+    read.add_argument(
+        "--revision", metavar="SHA256",
+        help="Read the file as of one submission, named by its revision (the REPORT.md sha256)",
+    )
+    _add_source(read)
     read_out = read.add_mutually_exclusive_group()
     read_out.add_argument(
         "--out", metavar="PATH",
@@ -155,11 +168,12 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
 
     submissions = actions.add_parser(
         "submissions",
-        help="List approved and seeded projects, oldest first",
+        help="List complete submission records, oldest first",
         description=(
-            "The submissions feed: which projects entered the context layer, and "
-            "when. One page per call; the page's next_since is printed on stderr "
-            "(or in the JSON) to pass back as --since for the following page."
+            "The submissions feed: which projects were submitted, at which revision "
+            "(the REPORT.md sha256), and when. One page per call; the page's "
+            "next_since is printed on stderr (or in the JSON) to pass back as "
+            "--since for the following page."
         ),
     )
     submissions.add_argument(
@@ -197,6 +211,14 @@ def _add_scope(parser: argparse.ArgumentParser, *, address_flag: bool = True) ->
 
 def _add_json(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--json", action="store_true", help="Print the raw JSON response")
+
+
+def _add_source(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--source", choices=list(SOURCES), default=None,
+        help="Where to look: the context layer (default) or the wiki "
+        "(addresses wiki/<collection>/<slug>)",
+    )
 
 
 def run_context(args: argparse.Namespace) -> int:
@@ -267,6 +289,7 @@ def _find(client: ContextClient, args: argparse.Namespace) -> None:
         until=args.until,
         time_field=args.time_field,
         read_content=args.read_content,
+        source=args.source,
     )
     print(_dump(result) if args.json else format_find(result))
     # On stderr, so the output — text or JSON — stays parseable. A ranked page
@@ -298,7 +321,7 @@ def _ls(client: ContextClient, args: argparse.Namespace) -> None:
     simple_from_full = args.simple and args.depth is not None
     listed = client.ls(
         _scope(args), recursive=args.recursive, simple=args.simple and not simple_from_full,
-        node_limit=args.node_limit, depth=args.depth,
+        node_limit=args.node_limit, depth=args.depth, source=args.source,
     )
     shown = (
         [e.get("address") or e.get("name") or "" for e in listed if isinstance(e, dict)]
@@ -363,14 +386,14 @@ def _documents(kind: str) -> Callable[[ContextClient, argparse.Namespace], None]
 def _read(client: ContextClient, args: argparse.Namespace) -> None:
     scope = Scope.from_address(args.address)
     if not (scope.owner and scope.project and scope.path):
-        raise ValueError(
-            f"a read names one file as owner/project/path; {args.address!r} does not"
-        )
+        shape = "wiki/<collection>/<slug>" if args.source == "wiki" else "owner/project/path"
+        raise ValueError(f"a read names one file as {shape}; {args.address!r} does not")
+    options = {"source": args.source, "revision": args.revision}
     if args.out:
         # Raw bytes, so a figure or a report lands exactly as ingested. The
         # client has already matched the body against X-Content-SHA256; a
         # mismatch raised before anything here ran, so nothing is written.
-        file = client.read_file(args.address, as_bytes=True)
+        file = client.read_file(args.address, as_bytes=True, **options)
         with open(args.out, "wb") as fh:
             fh.write(file.as_bytes())
         print(
@@ -378,7 +401,7 @@ def _read(client: ContextClient, args: argparse.Namespace) -> None:
             file=sys.stderr,
         )
         return
-    file = client.read_file(args.address)
+    file = client.read_file(args.address, **options)
     if args.json:
         print(_dump(_envelope(file)))
         return
@@ -586,13 +609,15 @@ def format_documents(result: dict, kind: str) -> str:
 
 
 def format_submissions(rows: list) -> str:
-    """One line per submission: project, owner, kind, submitted_at, file count,
-    under a header — columns padded to the widest value in each."""
+    """One line per submission: project, owner, kind, revision (first 12 hex
+    digits), submitted_at, file count, under a header — columns padded to the
+    widest value in each."""
     if not rows:
         return "(no submissions)"
-    header = ("project", "owner", "kind", "submitted_at", "files")
+    header = ("project", "owner", "kind", "revision", "submitted_at", "files")
     table = [header] + [
-        (r.project, r.owner_orcid, r.kind, r.submitted_at, str(len(r.files))) for r in rows
+        (r.project, r.owner_orcid, r.kind, r.revision[:12], r.submitted_at, str(len(r.files)))
+        for r in rows
     ]
     widths = [max(len(row[i]) for row in table) for i in range(len(header))]
     lines = [

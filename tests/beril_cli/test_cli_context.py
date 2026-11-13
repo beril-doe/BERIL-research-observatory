@@ -842,10 +842,10 @@ def test_read_help_lists_the_allowlist(capsys):
 
 def _submission(project: str, at: str, kind: str = "approved", files: int = 2) -> dict:
     return {
-        "project": project, "owner_orcid": ME, "address": f"{ME}/{project}",
-        "submitted_at": at, "kind": kind, "batch_id": f"batch-{project}",
-        "is_public": True,
-        "files": [{"path": f"f{i}.md", "sha256": "ab" * 32} for i in range(files)],
+        "id": f"sub-{project}", "project": project, "owner_orcid": ME,
+        "address": f"{ME}/{project}", "revision": "cd" * 32, "submitted_at": at,
+        "kind": kind, "archive_path": f"s3a://b/t/projects/{project}/",
+        "files": [{"path": f"f{i}.md", "sha256": "ab" * 32, "size": 10} for i in range(files)],
     }
 
 
@@ -862,9 +862,9 @@ def test_submissions_prints_a_table_and_the_cursor_on_stderr(logged_in, beril, c
 
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
-    assert lines[0].split() == ["project", "owner", "kind", "submitted_at", "files"]
-    assert lines[1].split() == ["alpha", ME, "approved", "2026-11-01T00:00:00Z", "2"]
-    assert lines[2].split() == ["beta_long_name", ME, "seeded", "2026-11-02T00:00:00Z", "0"]
+    assert lines[0].split() == ["project", "owner", "kind", "revision", "submitted_at", "files"]
+    assert lines[1].split() == ["alpha", ME, "approved", "cd" * 6, "2026-11-01T00:00:00Z", "2"]
+    assert lines[2].split() == ["beta_long_name", ME, "seeded", "cd" * 6, "2026-11-02T00:00:00Z", "0"]
     assert lines[3] == "2 submission(s)"
     assert "next_since: 2026-11-02T00:00:00Z" in captured.err and "--since" in captured.err
     assert beril.last_params() == {}
@@ -874,10 +874,10 @@ def test_submissions_sends_since_kind_and_limit(logged_in, beril):
     beril.on("GET", "/api/context/submissions", {"submissions": [], "next_since": None})
 
     main(["context", "submissions", "--since", "2026-11-01T00:00:00Z",
-          "--kind", "approved,seeded", "--limit", "5"])
+          "--kind", "approved,seeded,docs", "--limit", "5"])
 
     assert beril.last_params() == {
-        "since": "2026-11-01T00:00:00Z", "kind": "approved,seeded", "limit": "5",
+        "since": "2026-11-01T00:00:00Z", "kind": "approved,seeded,docs", "limit": "5",
     }
 
 
@@ -937,3 +937,56 @@ def test_submissions_server_failure_is_reported(logged_in, beril, capsys):
     assert main(["context", "submissions"]) == 1
     err = capsys.readouterr().err
     assert "HTTP 500" in err and "feed unavailable" in err
+
+
+# ---------------------------------------------------------------------------
+# --source wiki
+# ---------------------------------------------------------------------------
+
+
+def test_find_sends_source_only_when_given(logged_in, beril):
+    beril.on("POST", "/api/context/find", {"query": "x", "results": [], "total": 0})
+    main(["context", "find", "x"])
+    assert "source" not in beril.last_body()
+
+    main(["context", "find", "carbon yield", "--source", "wiki"])
+    assert beril.last_body() == {"query": "carbon yield", "source": "wiki"}
+
+
+def test_find_prints_wiki_addresses_like_any_other(logged_in, beril, capsys):
+    beril.on("POST", "/api/context/find", {
+        "query": "x", "total": 1,
+        "results": [_hit("wiki/concepts/carbon-yield#definition", 0.8, "Carbon yield is...")],
+    })
+    assert main(["context", "find", "x", "--source", "wiki"]) == 0
+    out = capsys.readouterr().out
+    assert "wiki/concepts/carbon-yield#definition" in out and "score: 0.800" in out
+
+
+def test_ls_sends_source(logged_in, beril, capsys):
+    beril.on("GET", "/api/context/ls", [{"address": "wiki/concepts", "isDir": True}])
+    assert main(["context", "ls", "wiki", "--source", "wiki"]) == 0
+    assert beril.last_params() == {"owner": "wiki", "source": "wiki"}
+    assert capsys.readouterr().out.strip() == "wiki/concepts/"
+
+
+def test_read_sends_source_and_revision(logged_in, beril, capsys):
+    _serve_read(beril, text=TEXT)
+    assert main(["context", "read", "wiki/concepts/carbon-yield", "--source", "wiki"]) == 0
+    assert beril.last_params() == {"address": "wiki/concepts/carbon-yield", "source": "wiki"}
+    assert capsys.readouterr().out == TEXT
+
+    assert main(["context", "read", REPORT, "--revision", "cd" * 32, "--json"]) == 0
+    assert beril.last_params() == {"address": REPORT, "revision": "cd" * 32}
+
+
+def test_read_wiki_address_shape_is_named_in_the_error(logged_in, beril, capsys):
+    assert main(["context", "read", "wiki/concepts", "--source", "wiki"]) == 2
+    assert "wiki/<collection>/<slug>" in capsys.readouterr().err
+    assert beril.requests == []
+
+
+def test_an_unknown_source_is_refused_by_the_parser(logged_in, beril):
+    with pytest.raises(SystemExit):
+        main(["context", "find", "x", "--source", "github"])
+    assert beril.requests == []

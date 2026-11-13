@@ -107,13 +107,15 @@ class ContextClient:
     def find(self, query: str, scope: Scope = Scope(), **options: Any) -> dict:
         """Semantic search. ``options`` are the route's other fields
         (``limit``, ``score_threshold``, ``since``, ``until``, ``time_field``,
-        ``node_limit``, ``read_content``); ``None`` values are left out."""
+        ``node_limit``, ``read_content``, ``source``); ``None`` values are
+        left out. ``source="wiki"`` searches the wiki instead of the context
+        layer; results then carry ``wiki/...`` addresses."""
         body = {"query": query, **scope.params(), **_present(options)}
         return self._call("POST", "/api/context/find", "search", json=body)
 
     def ls(self, scope: Scope = Scope(), **options: Any) -> list:
         """List a scope. ``options``: ``recursive``, ``simple``, ``node_limit``,
-        ``depth`` (with ``recursive``)."""
+        ``depth`` (with ``recursive``), ``source``."""
         params = {**scope.params(), **_present(options)}
         return self._call("GET", "/api/context/ls", "list", params=params)
 
@@ -157,12 +159,22 @@ class ContextClient:
         BERIL is reachable and the token is good."""
         return self._call("GET", "/api/context/health", "check context health")
 
-    def read_file(self, address: str, *, as_bytes: bool = False) -> ContextFile:
-        """One project file at ``address`` (``owner/project/path``), sha256
-        verified. ``as_bytes`` fetches the raw bytes instead of the JSON
-        envelope. See :func:`observatory_context.beril_read.read_file`."""
+    def read_file(
+        self,
+        address: str,
+        *,
+        as_bytes: bool = False,
+        source: str | None = None,
+        revision: str | None = None,
+    ) -> ContextFile:
+        """One file at ``address`` (``owner/project/path``, or a ``wiki/...``
+        address with ``source="wiki"``), sha256 verified. ``as_bytes`` fetches
+        the raw bytes instead of the JSON envelope. See
+        :func:`observatory_context.beril_read.read_file`."""
         with self._reporting(beril_read.READ_PATH, f"read {address}"):
-            return beril_read.read_file(self._client, address, as_bytes=as_bytes)
+            return beril_read.read_file(
+                self._client, address, as_bytes=as_bytes, source=source, revision=revision
+            )
 
     def submissions(
         self,

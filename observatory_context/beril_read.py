@@ -7,9 +7,14 @@ token and never with an OpenViking key:
     project file, either as a JSON envelope or, with ``Accept:
     application/octet-stream``, as raw bytes with the file's sha256 in a
     header. Only a fixed allowlist of paths is readable (:data:`READABLE`).
-  * ``GET /api/context/submissions?since=…&kind=…&limit=…`` lists approved
-    and seeded projects in ``submitted_at`` order, with a ``next_since``
-    cursor for the following page.
+  * ``GET /api/context/submissions?since=…&kind=…&limit=…`` lists complete
+    submission records (approved, seeded, and the central docs) in
+    ``submitted_at`` order, each with its ``revision`` (sha256 of REPORT.md)
+    and archived files, with a ``next_since`` cursor for the following page.
+
+``read``, like ``find`` and ``ls``, takes ``source=context|wiki``: the wiki is
+a second backend behind the same API, addressed as
+``wiki/<collection>/<slug>[#section]``.
 
 Both :func:`read_file` and :func:`list_submissions` take an ``httpx.Client``
 that already carries the base URL and ``Authorization`` header, so the CLI
@@ -47,8 +52,13 @@ READABLE = (
 )
 
 # The feed's ``kind`` vocabulary: ``approved`` rows come from ``/submit``,
-# ``seeded`` rows from an admin import.
-KINDS = ("approved", "seeded")
+# ``seeded`` rows from an admin import of existing projects, ``docs`` rows are
+# the central digests (pitfalls, discoveries) imported the same way.
+KINDS = ("approved", "seeded", "docs")
+
+# Where a read, search or listing looks: BERIL's context layer (the default)
+# or the wiki behind the same API.
+SOURCES = ("context", "wiki")
 
 ENCODING_UTF8 = "utf-8"
 ENCODING_BASE64 = "base64"
@@ -100,27 +110,31 @@ class ContextFile:
 
 @dataclass(frozen=True)
 class Submission:
-    """One row of the submissions feed."""
+    """One row of the submissions feed: a complete submission record.
+    ``revision`` is the sha256 of the submitted ``REPORT.md``; ``files`` are
+    ``{path, sha256, size}`` for every archived file."""
 
+    id: str
     project: str
     owner_orcid: str
     address: str
+    revision: str
     submitted_at: str
     kind: str
-    batch_id: str | None
-    is_public: bool
+    archive_path: str | None
     files: list[dict[str, Any]]
 
     @classmethod
     def from_dict(cls, row: dict[str, Any]) -> "Submission":
         return cls(
+            id=str(row.get("id") or ""),
             project=str(row.get("project") or ""),
             owner_orcid=str(row.get("owner_orcid") or ""),
             address=str(row.get("address") or ""),
+            revision=str(row.get("revision") or ""),
             submitted_at=str(row.get("submitted_at") or ""),
             kind=str(row.get("kind") or ""),
-            batch_id=row.get("batch_id"),
-            is_public=bool(row.get("is_public", False)),
+            archive_path=row.get("archive_path"),
             files=list(row.get("files") or []),
         )
 
@@ -135,20 +149,35 @@ class SubmissionsPage:
     raw: dict[str, Any]
 
 
-def read_file(client: httpx.Client, address: str, *, as_bytes: bool = False) -> ContextFile:
-    """Read one project file at ``address`` (``<owner>/<project>/<path>``).
+def read_file(
+    client: httpx.Client,
+    address: str,
+    *,
+    as_bytes: bool = False,
+    source: str | None = None,
+    revision: str | None = None,
+) -> ContextFile:
+    """Read one file at ``address`` (``<owner>/<project>/<path>``, or
+    ``wiki/<collection>/<slug>`` with ``source="wiki"``).
 
     With ``as_bytes`` the octet-stream form is used and the bytes are returned
     untouched; otherwise the JSON envelope is fetched and ``content`` is the
     file's text (or its decoded bytes when the server base64-encoded it).
     Either way the sha256 is verified; a mismatch raises :class:`IntegrityError`.
+    ``revision`` pins a project file to one submission (its REPORT.md sha256);
+    ``source`` is sent only when given, so the server's default applies.
 
     Raises :class:`BerilReadError` with ``status`` 403 for a path outside the
     allowlist and 404 for a file that does not exist. Transport failures
     (``httpx.TransportError``) propagate for the caller to report.
     """
     headers = {"Accept": "application/octet-stream"} if as_bytes else {"Accept": "application/json"}
-    response = client.get(READ_PATH, params={"address": address}, headers=headers)
+    params: dict[str, Any] = {"address": address}
+    if source is not None:
+        params["source"] = check_source(source)
+    if revision is not None:
+        params["revision"] = revision
+    response = client.get(READ_PATH, params=params, headers=headers)
     _guard(response, f"read {address}", address=address)
     return _from_bytes(response, address) if as_bytes else _from_envelope(response, address)
 
@@ -192,6 +221,13 @@ def list_submissions(
         next_since=str(next_since) if next_since else None,
         raw=body,
     )
+
+
+def check_source(source: str) -> str:
+    """``source`` if it is one of :data:`SOURCES`, else ``ValueError``."""
+    if source not in SOURCES:
+        raise ValueError(f"unknown source {source!r}; choose from {', '.join(SOURCES)}")
+    return source
 
 
 def sha256_hex(data: bytes) -> str:
