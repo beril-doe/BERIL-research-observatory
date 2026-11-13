@@ -282,7 +282,8 @@ class OvUserCredential(Base):
 
 
 class ContextIngestBatch(Base):
-    """One ``/api/context/ingest_file`` submission, as the unit users poll.
+    """One ``/api/context/ingest_files`` submission (or admin import), as the
+    unit users poll.
 
     ``user_id`` is the authorization key for the status endpoint: the backing
     context manager's own task records carry no owner, so ownership has to be
@@ -303,6 +304,15 @@ class ContextIngestBatch(Base):
         String(36), ForeignKey("user_project.id", ondelete="CASCADE"), nullable=False, index=True
     )
     target_root: Mapped[str] = mapped_column(Text, nullable=False)
+    # How the batch came to exist — ``approved`` (a ``/submit`` ingest, which
+    # passed the approval gate), ``seeded`` (an admin import of a repo project)
+    # or ``retirement`` (an import's bookkeeping for a re-owned project's old
+    # copies). The submissions feed serves the first two. Vocabulary in
+    # ``INGEST_KIND_*`` in the context_manager package; rows that predate the
+    # column were all approved ingests and are backfilled as such.
+    kind: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="approved", server_default="approved"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
