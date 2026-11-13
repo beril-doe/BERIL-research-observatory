@@ -138,6 +138,9 @@ class Settings(BaseSettings):
     wiki_internal_url: str = "http://wiki:8080"
     wiki_internal_token: SecretStr | None = None
     wiki_internal_timeout_seconds: float = 20.0
+    # Where readers open a wiki page: the base of the ``link`` every
+    # ``source=wiki`` result carries (``<base>/<collection>/<slug>#<anchor>``).
+    wiki_public_url: str = "https://beril.kbase.us/wiki"
 
     # Wiki Ask: the conversational agent over the wiki corpus, run on an
     # admin-held provider key rather than the reader's. Every limit lives here

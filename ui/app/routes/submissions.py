@@ -38,6 +38,7 @@ from app.submissions.service import (
     KIND_APPROVED,
     SUBMISSION_KINDS,
     SubmissionManifest,
+    aware,
     complete_submissions_since,
     content_type_for,
     find_submission,
@@ -124,12 +125,12 @@ def _submission_payload(submission: Submission, *, missing: list[str]) -> dict:
         "owner_orcid": submission.owner_orcid,
         "address": f"{submission.owner_orcid}/{submission.project}",
         "revision": submission.revision,
-        "submitted_at": submission.submitted_at.isoformat(),
+        "submitted_at": aware(submission.submitted_at).isoformat(),
         "kind": submission.kind,
         "status": submission.status,
         "archive_path": submission.archive_path,
         "approval_by": submission.approval_by,
-        "approval_at": submission.approval_at.isoformat() if submission.approval_at else None,
+        "approval_at": aware(submission.approval_at).isoformat() if submission.approval_at else None,
         "files": [
             {"path": f.path, "sha256": f.sha256, "size": f.size, "stored": f.stored}
             for f in submission.files
@@ -145,11 +146,11 @@ def _feed_entry(submission: Submission) -> dict:
         "owner_orcid": submission.owner_orcid,
         "address": f"{submission.owner_orcid}/{submission.project}",
         "revision": submission.revision,
-        "submitted_at": submission.submitted_at.isoformat(),
+        "submitted_at": aware(submission.submitted_at).isoformat(),
         "kind": submission.kind,
         "archive_path": submission.archive_path,
         "approval_by": submission.approval_by,
-        "approval_at": submission.approval_at.isoformat() if submission.approval_at else None,
+        "approval_at": aware(submission.approval_at).isoformat() if submission.approval_at else None,
         "files": [
             {"path": f.path, "sha256": f.sha256, "size": f.size}
             for f in submission.files
@@ -411,5 +412,5 @@ async def list_submissions(
     rows = await complete_submissions_since(db, since=since_at, kinds=kinds, limit=limit)
     return {
         "submissions": [_feed_entry(s) for s in rows],
-        "next_since": rows[-1].submitted_at.isoformat() if rows else since,
+        "next_since": aware(rows[-1].submitted_at).isoformat() if rows else since,
     }

@@ -160,6 +160,14 @@ def missing_paths(submission: Submission, report: str | None) -> list[str]:
     return sorted(required_paths([f.path for f in submission.files], report) - stored)
 
 
+def aware(value: datetime | None) -> datetime | None:
+    """A stored timestamp as UTC-aware. SQLite hands back naive datetimes
+    (they were written as UTC); Postgres hands back aware ones."""
+    if value is None or value.tzinfo is not None:
+        return value
+    return value.replace(tzinfo=timezone.utc)
+
+
 def content_type_for(path: str) -> str | None:
     return mimetypes.guess_type(path)[0]
 
@@ -296,6 +304,6 @@ async def read_submission_file(
         path=path,
         source=FILE_SOURCE_SUBMISSION,
         content_type=record.content_type,
-        modified_at=submission.submitted_at,
+        modified_at=aware(submission.submitted_at),
         revision=submission.revision,
     )

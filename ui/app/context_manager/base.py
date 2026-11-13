@@ -328,6 +328,10 @@ class ContextQuery(BaseModel):
     time_field: Literal["updated_at", "created_at"] | None = None
     node_limit: int | None = Field(default=None, ge=1, le=MAX_FIND_NODE_LIMIT)
     read_content: bool = False
+    # Which backend answers: the context store, or the wiki (then ``path``
+    # is a wiki collection to search within, and the other scoping fields
+    # do not apply).
+    source: Literal["context", "wiki"] = "context"
 
     @field_validator("since", "until")
     @classmethod
