@@ -17,7 +17,6 @@ from pathlib import Path
 
 import pytest
 
-
 TOOL = Path(__file__).parents[1] / "tools" / "lakehouse_upload.py"
 
 

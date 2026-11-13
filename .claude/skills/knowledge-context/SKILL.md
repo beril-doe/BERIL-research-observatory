@@ -65,6 +65,8 @@ This is a toolkit, not a single command. Use it like bash: pick a command, look 
 - With no scope, `find` searches **everything**: every owner's projects and the central docs.
 - `ls` and `grep` with no scope look only at the user's own projects.
 
+`find`, `read` and `ls` also take `--source wiki` to look at the **wiki** instead of the context layer, through the same API and login. Wiki addresses are `wiki/<collection>/<slug>[#section]`; `read wiki/<collection>/<slug> --source wiki` returns the page. Without `--source`, nothing changes. This is the one switch a wiki-facing tool (`kb search`, `kb read`) needs.
+
 To narrow or widen:
 
 - `--project <id>` means **the user's own** project of that name. For a project whoever owns it, add `--all-owners`: `--project <id> --all-owners`.
@@ -187,6 +189,8 @@ The header reports how many stale central duplicates were suppressed in favor of
 beril context read <owner>/<project>/REPORT.md                       # print the text
 beril context read <owner>/<project>/beril.yaml --json               # the envelope: size, sha256, content_type, ...
 beril context read <owner>/<project>/figures/fig1.png --out fig1.png # raw bytes, for figures
+beril context read <owner>/<project>/REPORT.md --revision <sha256>    # as of one submission record
+beril context read wiki/concepts/<slug> --source wiki                 # a wiki page
 ```
 
 `read` verifies the file's sha256 against the digest BERIL reports and fails (exit 1, nothing written) on a mismatch, so what comes back is exactly what was ingested; quote numbers from it, not from a `find` fragment. Text is printed as stored, with no newline added. **Only these project files are readable**: `REPORT.md`, `README.md`, `beril.yaml`, `CORRECTIONS.md`, `REFUTATION_<n>.md` and `figures/**`; any other path is refused with 403 (use `find --address ... --read-content` for those). A figure must be written with `--out`. The address must be a full `owner/project/path`.
@@ -199,7 +203,7 @@ beril context submissions --since 2026-11-01T00:00:00Z      # at or after an ins
 beril context submissions --kind approved --limit 20 --json # only /submit approvals
 ```
 
-One row per project submission: `project`, `owner`, `kind` (`approved` from `/submit`, `seeded` from an admin import), `submitted_at` and the file count; with `--json`, also `address`, `batch_id`, `is_public` and each file's `path` and `sha256`. A page ends with `next_since`, printed on stderr (or in the JSON); pass it back as `--since` until a page comes without one. This is the way to answer "what is new since <date>" exactly, where `find --since` gives a ranked sample.
+One row per complete submission record: `project`, `owner`, `kind` (`approved` from `/submit`, `seeded` from an admin import of existing projects, `docs` for the central digests), `revision` (first 12 hex digits of the submitted `REPORT.md`'s sha256), `submitted_at` and the file count; with `--json`, also `id`, `address`, the full `revision`, `archive_path` and each file's `path`, `sha256` and `size`. Pass a row's `revision` to `read --revision` to read exactly what was submitted. A page ends with `next_since`, printed on stderr (or in the JSON); pass it back as `--since` until a page comes without one. This is the way to answer "what is new since <date>" exactly, where `find --since` gives a ranked sample.
 
 ### `ls`: listing
 

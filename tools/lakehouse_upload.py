@@ -254,6 +254,7 @@ def record_wiki_submission(project_id, base_path, archived_files, archive_path):
         if str(REPO_ROOT) not in sys.path:
             sys.path.insert(0, str(REPO_ROOT))
         import yaml
+
         from beril_cli import auth_store
         from observatory_context import beril_submit
     except ImportError as exc:

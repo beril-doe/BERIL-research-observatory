@@ -26,6 +26,7 @@ beril context grep "kbase_ke_pangenome" --docs    # exact text, in the central d
 beril context ls beril/docs                       # browse
 beril context read <owner>/<project>/REPORT.md    # one project file, byte-exact
 beril context submissions --since 2026-11-01T00:00:00Z   # which projects came in, and when
+beril context find "carbon yield" --source wiki   # the wiki, through the same API
 ```
 
 Every command takes `--json`. `beril context <command> --help` lists the
@@ -42,13 +43,23 @@ project files are readable, and any other path is refused with 403:
 `REPORT.md`, `README.md`, `beril.yaml`, `CORRECTIONS.md`, `REFUTATION_<n>.md`
 and `figures/**`. Any logged-in user may read any public project.
 
-**The submissions feed.** `submissions` lists projects that entered the context
-layer, oldest first: `approved` rows from `/submit`, `seeded` rows from an
-admin import. Each row names the project, owner, `submitted_at`, `batch_id`,
-`is_public` and the files with their sha256. Filter with `--since ISO`,
-`--kind approved,seeded` and `--limit N`. A page ends with `next_since`
-(stderr, or in the `--json` output); pass it back as `--since` for the next
-page. This is the "what changed since" feed the wiki builds from.
+**The submissions feed.** `submissions` lists complete submission records,
+oldest first: `approved` rows from `/submit`, `seeded` rows from an admin
+import of existing projects, `docs` rows for the central digests. Each row
+names the submission `id`, project, owner, `revision` (the sha256 of the
+submitted `REPORT.md`), `submitted_at`, `archive_path` and every archived
+file with its sha256 and size; the table shows the first 12 hex digits of the
+revision. Filter with `--since ISO`, `--kind approved,seeded,docs` and
+`--limit N`. A page ends with `next_since` (stderr, or in the `--json`
+output); pass it back as `--since` for the next page. This is the "what
+changed since" feed the wiki builds from. `read --revision <sha256>` reads a
+file as of one of these records.
+
+**The wiki as a source.** `find`, `read` and `ls` take `--source wiki` to look
+at the wiki instead of the context layer, through the same API and login.
+Wiki addresses are `wiki/<collection>/<slug>[#section]` and print like any
+other; `read wiki/<collection>/<slug> --source wiki` returns the page. Without
+`--source` nothing changes.
 
 **Addresses.** Results name each resource as `<owner>/<project>/<path>`, with
 central docs under `beril/docs/`. Pass one back with `--address` (or as `ls`'s
@@ -78,18 +89,38 @@ argument) to look there. Otherwise, scope a search with these flags:
 ## How projects get in
 
 A project enters the context layer when `/submit` approves it and archives it
-to the lakehouse. After the archive succeeds, `/submit` mirrors the approved
-files into the context layer. That mirror is **best-effort**: it is skipped
-when BERIL is unreachable or you aren't logged in, and it can fail, without
-affecting the archive. `/submit` reports the outcome as `context_submission`
-(`ok`, `skipped` or `failed`). To retry a skipped or failed mirror (as the
-project's approver):
+to the lakehouse. After the archive succeeds, `/submit` does two independent
+things, in this order, neither of which can fail the archive:
+
+1. **The submission record** (`POST /api/context/submissions`). The upload tool
+   posts a manifest of every archived file (path, sha256, size), the approval
+   block, and the archive path, with a bundle of the wiki's text files
+   (`REPORT.md`, `README.md`, `beril.yaml`, `CORRECTIONS.md`,
+   `REFUTATION_*.md`); then it uploads each figure the report embeds, one
+   request each. BERIL verifies every byte against the manifest. The record is
+   what `beril context submissions` lists and what `read` serves byte-exact,
+   so it is the wiki's feed. It is idempotent on (owner, project, revision),
+   where revision is the sha256 of `REPORT.md`. `/submit` reports it as
+   `wiki_submission` (`ok`, `skipped` or `failed`, with the record `id`,
+   `revision` and any `missing` paths) and copies that into the `beril.yaml`
+   `submissions[]` entry.
+2. **The context mirror** (`POST /api/context/ingest_files`), which indexes the
+   curated files for `find`, `grep`, `pitfalls` and `discoveries`. It is
+   skipped when BERIL is unreachable or you aren't logged in, and it can fail,
+   without affecting the archive or the record. `/submit` reports it as
+   `context_submission` (`ok`, `skipped` or `failed`).
+
+A skipped or failed mirror never skips the record, and vice versa. To retry
+either one (as the project's approver):
 
 ```bash
-uv run knowledge/scripts/ingest_context.py --project <project_id> --json
+uv run knowledge/scripts/ingest_context.py --record --project <project_id>   # the record
+uv run knowledge/scripts/ingest_context.py --project <project_id> --json     # the mirror
 ```
 
-This sends files that already landed nothing new, so it is safe to re-run.
+Both are safe to re-run: the record is idempotent, and the mirror sends files
+that already landed nothing new. `--record` points the record at the latest
+successful `submissions[].archive_key` in `beril.yaml` (or `--archive-path`).
 Editing files in your checkout changes nothing in the context layer until the
 project is submitted again.
 
