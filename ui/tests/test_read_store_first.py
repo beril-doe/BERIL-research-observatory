@@ -9,7 +9,6 @@ import zipfile
 
 from tests.submissions_helpers import (
     FIG1,
-    FILES,
     OWNER,
     REPORT,
     REVISION,

@@ -55,44 +55,75 @@ argument) to look there. Otherwise, scope a search with these flags:
 file exactly as it was submitted:
 
 ```
-GET /api/context/read?address=<owner>/<project>/<path>
+GET /api/context/read?address=<owner>/<project>/<path>[&revision=<sha256>]
 ```
 
 `address` is the `<owner>/<project>/<path>` form every other read route
 names a resource by. The response is JSON — `content`, `encoding` (`utf-8`,
 or `base64` for a figure), `sha256`, `size`, `content_type`, `source`,
-`modified_at` — or, with `Accept: application/octet-stream`, the raw bytes
-with `X-Content-SHA256`, `X-Content-Source` and (when known)
-`X-Content-Modified-At` headers. Reads are global for public projects, like
-every other read; a file that does not exist, or a project you may not see,
-is a 404.
+`modified_at`, `revision` — or, with `Accept: application/octet-stream`, the
+raw bytes with `X-Content-SHA256`, `X-Content-Source`, `X-Content-Revision`
+and (when known) `X-Content-Modified-At` headers. Every submission is of an
+approved project, so reads are global; a file that does not exist is a 404.
 
 **Readable files.** Only `REPORT.md`, `README.md`, `beril.yaml`,
 `CORRECTIONS.md`, `REFUTATION_<n>.md` and anything under `figures/` can be
-read whole; anything else is a 403. This is deliberately narrower than what
-is ingested: it is the contract the wiki builds from (the report, its
-metadata and errata, and the figures the report embeds). Reviews, plans and
-memories stay reachable through `find`, `grep` and `ls`.
+read whole (plus the central digests under `beril/docs/`); anything else is
+a 403. This is deliberately narrower than what is ingested: it is the
+contract the wiki builds from. Reviews, plans and memories stay reachable
+through `find`, `grep` and `ls`.
 
 **Byte-exactness.** The bytes are the ones the project submitted, always.
-The context store decomposes each document into fragments and reassembles
-one on read; whether that round-trips byte for byte is not promised, and the
-wiki verifies quotes and offsets against source bytes. So BERIL hashes what
-the store returns against the `content_sha256` it recorded when the file
-completed its ingest, and serves the store's copy (`source: context`) only
-when they match. Otherwise — a differing hash, a file the store never
-ingested (figures never are), a store that has lost the file — it serves the
-lakehouse archive copy `/submit` wrote (`source: archive`,
-`s3://cdm-lake/tenant-general-warehouse/microbialdiscoveryforge/projects/<project>/<path>`,
-`BERIL_ARCHIVE_*` settings). The route's contract is the same either way; a
-client that checks `sha256` can trust the bytes from both. Which source
-answered is logged on the server. If the archive is needed and unreachable
-(no credentials, endpoint down), the read is a 502.
+`source` says where they came from:
+
+- `submission` — the submission store: the bytes `/submit` handed BERIL
+  (below), byte-exact by construction. The newest complete submission
+  answers, or the one `revision` names.
+- `context` — the context store's copy, served only for a legacy project
+  with no submission record, and only when it hashes to the `content_sha256`
+  BERIL recorded at ingest (the store decomposes documents and reassembles
+  them on read; that is not promised to round-trip).
+- `archive` — the lakehouse copy (`BERIL_ARCHIVE_*`), for a legacy project
+  whose store copy differs or was never ingested (figures). 502 if the
+  archive is needed and unreachable.
+
+A client that checks `sha256` can trust the bytes from any source.
+
+## Submission records
+
+`/submit` records every submission with BERIL after the lakehouse upload
+succeeds — independently of the context-store mirror, which is best-effort
+and may never run:
+
+```
+POST /api/context/submissions                       manifest.json + bundle.zip (multipart)
+PUT  /api/context/submissions/{id}/files/{path}     one figure per request (body = bytes)
+GET  /api/context/submissions/{id}                  status, stored flags, what is still missing
+```
+
+`manifest.json` is `{project, owner_orcid, revision, submitted_at,
+archive_path, approval: {by, at, report_hash}, files: [{path, sha256,
+size}]}` and lists **every** archived file, figures and data included.
+`bundle.zip` carries the wiki's text files (`REPORT.md`, `README.md`,
+`beril.yaml`, `CORRECTIONS.md`, `REFUTATION_<n>.md`). BERIL checks each
+bundled file against its manifest sha256, that `revision` and
+`approval.report_hash` are the sha256 of `REPORT.md`, and that `approval.by`
+and `owner_orcid` are the caller (403 otherwise). The post is idempotent on
+`(owner, project, revision)`: re-posting returns the existing record
+(`created: false`) and stores whatever it still lacked. Figures the report
+embeds (`![](figures/…)`, `<img src="figures/…">`) are PUT one per request,
+hash-checked, owner only; the response's `missing` lists what is still
+needed. A submission is `pending` until every readable text file and every
+embedded figure is stored, then `complete`. Proxy body limits: 40 MiB on the
+post, 64 MiB per figure (`nginx.conf`; the SPIN ingress needs the same
+annotations). Bytes live in the submission store: a filesystem volume at
+`BERIL_SUBMISSIONS_DIR` by default, or S3 when `BERIL_SUBMISSIONS_S3_*` is
+set, laid out as `<owner>/<project>/<revision>/<path>`.
 
 ## The submissions feed
 
-What landed, and when — the "changed since" feed a downstream consumer (the
-wiki curator) polls:
+What was submitted, and when — the "changed since" feed the wiki curator
+polls:
 
 ```
 GET /api/context/submissions?since=<iso8601>&kind=approved,seeded&limit=100
@@ -102,40 +133,74 @@ GET /api/context/submissions?since=<iso8601>&kind=approved,seeded&limit=100
 {
   "submissions": [
     {
+      "id": "…",
       "project": "alpha",
       "owner_orcid": "0000-0001-2345-6789",
       "address": "0000-0001-2345-6789/alpha",
-      "submitted_at": "2026-11-01T12:00:00+00:00",
+      "revision": "<sha256 of REPORT.md>",
+      "submitted_at": "2026-11-10T12:00:00+00:00",
       "kind": "approved",
-      "batch_id": "…",
-      "is_public": true,
-      "files": [{"path": "REPORT.md", "sha256": "…"}, {"path": "beril.yaml", "sha256": "…"}],
-      "removed": []
+      "archive_path": "s3a://cdm-lake/…/projects/alpha",
+      "approval_by": "0000-0001-2345-6789",
+      "approval_at": "2026-11-10T11:00:00+00:00",
+      "files": [{"path": "REPORT.md", "sha256": "…", "size": 1234}]
     }
   ],
-  "next_since": "2026-11-01T12:00:00+00:00"
+  "next_since": "2026-11-10T12:00:00+00:00"
 }
 ```
 
-One entry per **completed** ingest batch (every file completed or was
-withdrawn), oldest first, so an entry can be `read` at once; each file's
-`sha256` is the hash `read` serves byte-exact. `since` is exclusive — pass
-back the `next_since` you were given to see only what came after (on an
-empty page it echoes your own cursor). `limit` is 100 by default, 1000 at
-most. Entries are global for public projects; a private project's batches
-are seen only by its owner and admins.
+One entry per **complete** submission, oldest by `submitted_at` first; each
+stored file's `sha256` and `size` are what `read` serves byte-exact. `since`
+is exclusive — pass back the `next_since` you were given (an empty page
+echoes your own cursor). `limit` is 100 by default, 1000 at most.
 
-**`kind`.** `approved` is a `/submit` ingest: it passed the approval gate
-(`beril.yaml` `status: complete`, an approval block naming the submitter,
-report and review hashes matching). `seeded` is an admin import
+**`kind`.** `approved` is a `/submit`: it passed the approval gate and the
+record's own checks. `seeded` is an admin import
 (`POST /api/admin/context/import_files`) of a repo project that predates
-`/submit` — it was never gated, so a consumer that wants only reviewed work
-asks for `kind=approved`. A seeded project's address is under its **repo
-owner**: the import lands in the namespace of the ORCiD the repo importer
-assigned the project (`beril.yaml` or the README's authors), exactly where
-that owner's own later `/submit` writes, so one project never has two
-addresses. Projects the importer found no author for are refused by the
-import and never appear.
+`/submit` — never gated, so a consumer that wants only reviewed work asks
+for `kind=approved`. A seeded project's address is under its **repo
+owner** (the ORCiD the repo importer assigned from `beril.yaml` or the
+README's authors), where that owner's own later `/submit` also writes, so a
+project never has two addresses; imports carry no figures, so a seeded
+submission is complete at once and its figures come from the archive.
+`docs` is the central digests (`discoveries.md`, `pitfalls.md`, …) recorded
+by `POST /api/admin/context/import_docs` under owner `beril`, project `docs`;
+it is off the default `kind` and must be asked for.
+
+## The wiki as a second backend
+
+`find`, `read` and `ls` take `source=context` (default) or `source=wiki`.
+With `wiki`, BERIL answers from the wiki container's internal API (in-cluster
+only, `BERIL_WIKI_INTERNAL_URL` / `_TOKEN`), never from OpenViking:
+
+- `POST /api/context/find` `{"query": …, "source": "wiki", "path": "<collection>"}`
+  → hits with `address` (`wiki/<collection>/<slug>`), `title`, `text`,
+  `match_reason` (the heading) and `link` (the public page URL with the
+  heading's anchor: `BERIL_WIKI_PUBLIC_URL` + `/<collection>/<slug>#<anchor>`),
+  plus the site `artifact` the answer came from.
+- `GET /api/context/read?address=wiki/<collection>/<slug>[#section]&source=wiki`
+  → the page as a `ContextFile` (`source: wiki`) plus `artifact`, `title`,
+  `link`, `sources`.
+- `GET /api/context/ls?source=wiki&path=wiki/<collection>` → the entries.
+
+Collections are `concepts`, `topics`, `conflicts`, `entities`, `summaries`,
+`sources`, `findings`, `directions`, `data`; `authors` is never served. When
+the wiki is unreachable the answer is a 503 with `detail: "wiki unavailable"`.
+
+**Ask (chat wiki mode).** `POST /api/chat {"mode": "wiki"}` opens a session
+on the admin-held `BERIL_WIKI_ASK_*` provider, model and key; turns need no
+credentials. The agent has exactly two tools, `find` and `read` with
+`source=wiki`, and the Ask rules as its system prompt (cite `[n]`, numbers
+verbatim, `NO_ANSWER`, no confidence labels, open questions are untested,
+under 220 words). Any `[n]` the reply cites that the turn never retrieved is
+dropped on the server before the reply is stored or streamed; the retrieved
+`sources` come back with the answer. Before each turn BERIL reserves
+`BERIL_WIKI_ASK_RESERVE_TOKENS_PER_TURN` (and its USD at the model's rates
+in `chat_providers.yaml`) against the per-user daily token and USD caps, the
+global monthly ones, and the per-conversation turn limit; the reservation is
+settled to actual usage afterwards (`ask_spend`). A refused turn is a 429
+whose `error` names the cap and when it resets.
 
 ## How projects get in
 
