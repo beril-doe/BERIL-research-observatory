@@ -13,6 +13,7 @@ from app.db.session import init_db, close_db, check_db
 from app.notebook_processors import PlotlyPreprocessor
 from app.context_manager.openviking import ContextUnavailableError
 from app.routes.context import ROUTER_CONTEXT, context_unavailable_handler
+from app.routes.submissions import ROUTER_SUBMISSIONS
 from app.routes.langfuse import ROUTER_LANGFUSE
 from app.routes.openviking import ROUTER_OV
 import nbformat
@@ -175,6 +176,7 @@ def create_app() -> FastAPI:
     app.include_router(ROUTER_ATLAS)
     app.include_router(ROUTER_OV)
     app.include_router(ROUTER_CONTEXT)
+    app.include_router(ROUTER_SUBMISSIONS)
     app.include_router(ROUTER_LANGFUSE)
 
     # Configure templates

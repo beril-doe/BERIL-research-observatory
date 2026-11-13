@@ -4490,7 +4490,7 @@ async def test_startup_logs_an_old_store_loudly(caplog):
 # GET /api/context/read
 # ---------------------------------------------------------------------------
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from app.context_manager.base import (
     ArchiveUnavailableError,
@@ -4525,11 +4525,11 @@ async def _own_project(db_session, user, slug="alpha", *, public=True):
     return project
 
 
-async def _landed(db_session, user, project, files, *, kind="approved", created_at=None, statuses=None):
+async def _landed(db_session, user, project, files, *, created_at=None, statuses=None):
     """A completed batch of ``{path: bytes}`` for ``project``."""
     root = f"viking://resources/users/{user.orcid_id}/{project.slug}"
     batch = await create_ingest_batch(
-        db_session, user_id=user.id, project_id=project.id, target_root=root, kind=kind,
+        db_session, user_id=user.id, project_id=project.id, target_root=root,
         files=[
             {"relative_path": p, "uri": f"{root}/{p}", "ov_task_id": f"t-{p}",
              "status": (statuses or {}).get(p, "completed"),
@@ -4711,215 +4711,3 @@ async def test_read_maps_a_store_failure_to_502(client, credentialed_user, db_se
     await _own_project(db_session, credentialed_user)
     _login(client)
     assert _read(client, f"{USER_TOKEN['orcid']}/alpha/REPORT.md").status_code == 502
-
-
-# ---------------------------------------------------------------------------
-# GET /api/context/submissions
-# ---------------------------------------------------------------------------
-
-_T0 = datetime(2026, 11, 1, 12, 0, tzinfo=timezone.utc)
-
-
-def _submissions(client, **params):
-    return client.get("/api/context/submissions", params=params)
-
-
-def test_submissions_unauthenticated_returns_401(client):
-    assert _submissions(client).status_code == 401
-
-
-async def test_submissions_lists_completed_batches_oldest_first(
-    client, credentialed_user, db_session, read_manager
-):
-    project = await _own_project(db_session, credentialed_user)
-    later = await _landed(db_session, credentialed_user, project,
-                          {"REPORT.md": b"v2", "beril.yaml": b"y"}, created_at=_T0 + timedelta(days=1))
-    first = await _landed(db_session, credentialed_user, project, {"REPORT.md": b"v1"}, created_at=_T0)
-    _login(client)
-
-    resp = _submissions(client)
-
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert [s["batch_id"] for s in body["submissions"]] == [first.id, later.id]
-    entry = body["submissions"][1]
-    assert entry["project"] == "alpha"
-    assert entry["owner_orcid"] == USER_TOKEN["orcid"]
-    assert entry["address"] == f"{USER_TOKEN['orcid']}/alpha"
-    assert (entry["kind"], entry["is_public"], entry["removed"]) == ("approved", True, [])
-    assert sorted(entry["files"], key=lambda f: f["path"]) == [
-        {"path": "REPORT.md", "sha256": hashlib.sha256(b"v2").hexdigest()},
-        {"path": "beril.yaml", "sha256": hashlib.sha256(b"y").hexdigest()},
-    ]
-    assert body["next_since"] == entry["submitted_at"]
-    assert "viking" not in resp.text
-
-
-async def test_submissions_since_is_exclusive_and_pages_by_next_since(
-    client, credentialed_user, db_session, read_manager
-):
-    project = await _own_project(db_session, credentialed_user)
-    ids = []
-    for day in range(3):
-        b = await _landed(db_session, credentialed_user, project, {"REPORT.md": f"v{day}".encode()},
-                          created_at=_T0 + timedelta(days=day))
-        ids.append(b.id)
-    _login(client)
-
-    page = _submissions(client, limit=2).json()
-    assert [s["batch_id"] for s in page["submissions"]] == ids[:2]
-
-    rest = _submissions(client, since=page["next_since"]).json()
-    assert [s["batch_id"] for s in rest["submissions"]] == ids[2:]
-
-    empty = _submissions(client, since=rest["next_since"]).json()
-    assert empty["submissions"] == []
-    # Nothing newer: the caller's own cursor comes back, so it can poll with it.
-    assert empty["next_since"] == rest["next_since"]
-
-
-async def test_submissions_accepts_a_zulu_and_a_date_since(
-    client, credentialed_user, db_session, read_manager
-):
-    project = await _own_project(db_session, credentialed_user)
-    await _landed(db_session, credentialed_user, project, {"REPORT.md": b"v"}, created_at=_T0)
-    _login(client)
-
-    assert len(_submissions(client, since="2026-11-01T00:00:00Z").json()["submissions"]) == 1
-    assert len(_submissions(client, since="2026-11-02").json()["submissions"]) == 0
-    assert _submissions(client, since="yesterday").status_code == 422
-
-
-async def test_submissions_filters_by_kind(client, credentialed_user, db_session, read_manager):
-    project = await _own_project(db_session, credentialed_user)
-    seeded = await _landed(db_session, credentialed_user, project, {"REPORT.md": b"s"},
-                           kind="seeded", created_at=_T0)
-    approved = await _landed(db_session, credentialed_user, project, {"REPORT.md": b"a"},
-                             created_at=_T0 + timedelta(hours=1))
-    _login(client)
-
-    both = _submissions(client).json()["submissions"]
-    assert [(s["batch_id"], s["kind"]) for s in both] == [(seeded.id, "seeded"), (approved.id, "approved")]
-    assert [s["batch_id"] for s in _submissions(client, kind="seeded").json()["submissions"]] == [seeded.id]
-    assert [s["batch_id"] for s in _submissions(client, kind="approved").json()["submissions"]] == [approved.id]
-    assert _submissions(client, kind="approved, seeded").status_code == 200
-    assert _submissions(client, kind="retirement").status_code == 422
-    assert _submissions(client, kind="").status_code == 422
-
-
-async def test_submissions_omits_unsettled_batches(client, credentialed_user, db_session, read_manager):
-    """A batch with a file still queued (or failed) is not on the feed; one
-    whose files all completed or were removed is."""
-    project = await _own_project(db_session, credentialed_user)
-    await _landed(db_session, credentialed_user, project, {"REPORT.md": b"a", "README.md": b"b"},
-                  statuses={"README.md": "queued"}, created_at=_T0)
-    await _landed(db_session, credentialed_user, project, {"REPORT.md": b"a"},
-                  statuses={"REPORT.md": "failed"}, created_at=_T0 + timedelta(hours=1))
-    settled = await _landed(db_session, credentialed_user, project, {"REPORT.md": b"c", "README.md": b"d"},
-                            statuses={"README.md": "removed"}, created_at=_T0 + timedelta(hours=2))
-    _login(client)
-
-    body = _submissions(client).json()["submissions"]
-
-    assert [s["batch_id"] for s in body] == [settled.id]
-    assert ([f["path"] for f in body[0]["files"]], body[0]["removed"]) == (["REPORT.md"], ["README.md"])
-
-
-async def test_submissions_hides_private_projects_from_others_but_pages_past_them(
-    client, credentialed_user, db_session, read_manager
-):
-    other = BerilUser(orcid_id="0000-0009-9999-9999", display_name="Other")
-    db_session.add(other)
-    await db_session.commit()
-    secret = await _own_project(db_session, other, "secret", public=False)
-    hidden = await _landed(db_session, other, secret, {"REPORT.md": b"s"}, created_at=_T0)
-    theirs_public = await _own_project(db_session, other, "open", public=True)
-    shown = await _landed(db_session, other, theirs_public, {"REPORT.md": b"o"},
-                          created_at=_T0 + timedelta(hours=1))
-    _login(client)
-
-    body = _submissions(client).json()
-    assert [s["batch_id"] for s in body["submissions"]] == [shown.id]
-    assert body["submissions"][0]["owner_orcid"] == "0000-0009-9999-9999"
-
-    # The cursor still advances past the hidden one.
-    page = _submissions(client, limit=1).json()
-    assert page["submissions"] == []
-    assert page["next_since"] == hidden.created_at.isoformat()
-
-    # An admin sees it, flagged as private.
-    await _make_admin(db_session, credentialed_user)
-    body = _submissions(client).json()["submissions"]
-    assert [(s["batch_id"], s["is_public"]) for s in body] == [(hidden.id, False), (shown.id, True)]
-
-
-async def test_an_admin_import_lands_on_the_feed_as_seeded(
-    client, credentialed_user, db_session, admin_store
-):
-    """The import writes a ``seeded`` batch under the project's repo-imported
-    owner; once its files complete it is on the feed as the owner's project."""
-    from app.db.models import ContextIngestBatch
-
-    owner, _project = await _repo_project(db_session)
-    await _make_admin(db_session, credentialed_user)
-    _login(client)
-    body = _import(client, members={"REPORT.md": b"# Report\n"})
-    assert body.status_code == 200, body.text
-    batch = await db_session.get(ContextIngestBatch, body.json()["batch_id"])
-    assert batch.kind == "seeded"
-    await db_session.refresh(batch, ["files"])
-    for f in batch.files:
-        f.status = "completed"
-    await db_session.commit()
-
-    feed = _submissions(client, kind="seeded").json()["submissions"]
-
-    assert [(s["batch_id"], s["kind"], s["owner_orcid"], s["address"]) for s in feed] == [
-        (batch.id, "seeded", _OWNER_ORCID, f"{_OWNER_ORCID}/alpha_proj")
-    ]
-    assert feed[0]["files"] == [
-        {"path": "REPORT.md", "sha256": hashlib.sha256(b"# Report\n").hexdigest()}
-    ]
-
-
-async def test_a_users_own_submit_lands_on_the_feed_as_approved(
-    client, credentialed_user, db_session, ingest_manager
-):
-    from app.db.models import ContextIngestBatch
-
-    _login(client)
-    batch_id = await _land(client, ingest_manager, db_session, {"REPORT.md": b"r"})
-    assert (await db_session.get(ContextIngestBatch, batch_id)).kind == "approved"
-
-    feed = _submissions(client).json()["submissions"]
-    assert [(s["batch_id"], s["kind"]) for s in feed] == [(batch_id, "approved")]
-
-
-async def test_retirement_batches_never_reach_the_feed(
-    client, credentialed_user, db_session, admin_store
-):
-    """A re-owned project's old-namespace bookkeeping is not a submission,
-    even once every file in it is removed."""
-    from sqlalchemy import select
-
-    from app.db.models import ContextIngestBatch, ContextIngestFileRecord
-
-    inst, _cls = admin_store
-    await _make_admin(db_session, credentialed_user)
-    _login(client)
-    await _imported_then_reowned(client, db_session, inst, {"REPORT.md": b"# R\n"})
-    # The next import plans the old namespace's retirement.
-    inst.insert_files.return_value = _queued_with_tasks([("REPORT.md", "t9")])
-    assert _import(client, members={"REPORT.md": b"# R\n"}).status_code == 200
-    retire = (await db_session.execute(
-        select(ContextIngestBatch).where(ContextIngestBatch.kind == "retirement")
-    )).scalars().all()
-    assert len(retire) == 1
-    for f in (await db_session.execute(
-        select(ContextIngestFileRecord).where(ContextIngestFileRecord.batch_id == retire[0].id)
-    )).scalars():
-        f.status = "removed"
-    await db_session.commit()
-
-    feed = _submissions(client).json()["submissions"]
-    assert retire[0].id not in {s["batch_id"] for s in feed}

@@ -25,6 +25,11 @@ services:
     environment:
       # Reach OpenViking over the compose network, not the .env localhost default.
       BERIL_OV_URL: http://openviking:1933
+    volumes:
+      # The submission store (BERIL_SUBMISSIONS_DIR): the bytes /submit hands
+      # BERIL for the wiki. Persistent, like SPIN's volume for the same path;
+      # without it every submission's files vanish with the container.
+      - submissions:/var/lib/beril/submissions
     restart: unless-stopped
     depends_on:
       postgres:
@@ -106,3 +111,4 @@ services:
 volumes:
   pgdata:
   ovworkspace:
+  submissions:

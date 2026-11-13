@@ -116,6 +116,29 @@ class Settings(BaseSettings):
     archive_secret_key: SecretStr | None = None
     archive_timeout_seconds: float = 20.0
 
+    # Submission store (app/submissions/store.py): the bytes /submit hands
+    # BERIL for the wiki — the allowlisted text files and the figures the
+    # report embeds — kept by BERIL itself, since the webapp cannot reach the
+    # lakehouse archive today. Filesystem by default (a persistent volume in
+    # compose and on SPIN); S3 when BERIL_SUBMISSIONS_S3_BUCKET is set.
+    # Layout either way: <owner>/<project>/<revision>/<path>.
+    submissions_dir: Path = Path("/var/lib/beril/submissions")
+    submissions_s3_endpoint_url: str | None = None
+    submissions_s3_bucket: str | None = None
+    submissions_s3_prefix: str = "submissions"
+    submissions_s3_access_key: str | None = None
+    submissions_s3_secret_key: SecretStr | None = None
+    # One figure per PUT; the proxy's body limit on that path must be at
+    # least this (nginx.conf: 64m).
+    submissions_max_file_bytes: int = 64 * 1024 * 1024
+
+    # The wiki container's internal API (app/context_manager/wiki.py): the
+    # second context backend behind ``source=wiki``. In-cluster only, bearer
+    # token shared with the wiki; unset token means the wiki backend is off.
+    wiki_internal_url: str = "http://wiki:8080"
+    wiki_internal_token: SecretStr | None = None
+    wiki_internal_timeout_seconds: float = 20.0
+
     # Wiki Ask: the conversational agent over the wiki corpus, run on an
     # admin-held provider key rather than the reader's. Every limit lives here
     # so it can be tuned per deployment once real usage is known; nothing in
@@ -132,6 +155,13 @@ class Settings(BaseSettings):
     wiki_ask_monthly_tokens: int = 25_000_000
     wiki_ask_max_turns: int = 20
     wiki_ask_max_tool_calls: int = 8
+    # USD caps, computed from the per-model rates in chat_providers.yaml so
+    # every provider's spend counts the same way. Quota is reserved before a
+    # turn at ``reserve_tokens_per_turn`` (and its USD at the model's rates),
+    # then settled to what the turn actually used.
+    wiki_ask_daily_usd_per_user: float = 2.0
+    wiki_ask_monthly_usd: float = 200.0
+    wiki_ask_reserve_tokens_per_turn: int = 20_000
 
     # Derived paths
     @property

@@ -43,9 +43,6 @@ from app.context_manager.base import (
     INGEST_COMPLETED,
     INGEST_EXPIRED,
     INGEST_FAILED,
-    INGEST_KIND_APPROVED,
-    INGEST_KIND_RETIREMENT,
-    INGEST_KIND_SEEDED,
     INGEST_NOT_FOUND,
     INGEST_PROCESSING,
     INGEST_QUEUED,
@@ -60,7 +57,6 @@ from app.context_manager.base import (
     MAX_OWNER_EXPANSION,
     MAX_PITFALL_LIMIT,
     READABLE_FILES,
-    SUBMISSION_KINDS,
     TERMINAL_INGEST_STATUSES,
     ArchiveUnavailableError,
     ContextFile,
@@ -104,7 +100,6 @@ from app.context_manager.openviking import (
 )
 from app.crypto import CredentialEncryptionError
 from app.db.crud import (
-    completed_batches_since,
     completed_file_hashes,
     create_ingest_batch,
     create_user_project,
@@ -120,6 +115,20 @@ from app.db.models import ContextIngestFileRecord, UserProject
 from app.importer import SENTINEL_ORCID
 from app.db.session import get_db
 from app.routes.data import _safe_relative_path
+from app.routes.submissions import STORE_UNAVAILABLE_DETAIL, record_submission
+from app.submissions.service import (
+    DOCS_FILES,
+    DOCS_OWNER,
+    DOCS_PROJECT,
+    KIND_DOCS,
+    KIND_SEEDED,
+    ManifestApproval,
+    ManifestFile,
+    SubmissionManifest,
+    read_submission_file,
+    sha256_hex,
+)
+from app.submissions.store import get_submission_store
 from app.routes.ingest_gate import (
     APPROVAL_FILES,
     check_approval,
@@ -773,9 +782,6 @@ async def get_context_grep(
         "matches": [_addressed(match) for match in payload.get("matches") or []],
     }
 
-# How many submissions one feed page may carry.
-MAX_SUBMISSIONS_LIMIT = 1000
-
 READABLE_FILES_DETAIL = (
     "Only a project's "
     + ", ".join(sorted(READABLE_FILES))
@@ -816,23 +822,31 @@ async def get_context_read(
             "submissions feed name a file by."
         ),
     ),
+    revision: str | None = Query(
+        default=None,
+        description="A submission revision (sha256 of REPORT.md); default is the newest complete one.",
+    ),
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db),
 ):
     """One project file, whole and byte-exact.
 
     Returns the file as JSON (``content`` plus ``encoding``, ``sha256``,
-    ``size``, ``content_type``, ``source``, ``modified_at``), or the raw bytes
-    when the request accepts ``application/octet-stream`` — then ``sha256``,
-    ``source`` and ``modified_at`` travel as the ``X-Content-SHA256``,
-    ``X-Content-Source`` and (when known) ``X-Content-Modified-At`` headers.
+    ``size``, ``content_type``, ``source``, ``modified_at``, ``revision``),
+    or the raw bytes when the request accepts ``application/octet-stream`` —
+    then ``sha256``, ``source`` and ``modified_at`` travel as the
+    ``X-Content-SHA256``, ``X-Content-Source`` and (when known)
+    ``X-Content-Modified-At`` headers.
 
     **Byte-exactness.** The bytes are the ones the project submitted. The
-    context store's copy is served (``source: context``) only when it hashes
-    to what BERIL recorded at ingest; otherwise, and for files the store
-    never ingests (figures), the lakehouse archive ``/submit`` wrote answers
-    (``source: archive``). A client that verifies quotes or offsets against
-    ``sha256`` can trust them either way.
+    submission store answers first (``source: submission``): the bytes
+    ``/submit`` handed BERIL, byte-exact by construction, from the newest
+    complete submission or the ``revision`` named. For legacy projects that
+    never posted a submission, the context store's copy is served
+    (``source: context``) only when it hashes to what BERIL recorded at
+    ingest; otherwise, and for files the store never ingests (figures), the
+    lakehouse archive answers (``source: archive``). A client that verifies
+    quotes or offsets against ``sha256`` can trust them from any source.
 
     Only ``REPORT.md``, ``README.md``, ``beril.yaml``, ``CORRECTIONS.md``,
     ``REFUTATION_<n>.md`` and ``figures/**`` may be read whole (403 for
@@ -847,10 +861,37 @@ async def get_context_read(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="`address` must be `<owner>/<project>/<path>`.",
         ) from exc
-    if not is_readable_path(path):
+    # The central digests are readable too, under the house account.
+    is_docs = owner == DOCS_OWNER and project_slug == DOCS_PROJECT and path in DOCS_FILES
+    if not is_readable_path(path) and not is_docs:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail=READABLE_FILES_DETAIL
         )
+    if revision is not None and not re.fullmatch(r"[0-9a-f]{64}", revision.lower()):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="`revision` must be a sha256 hex digest.",
+        )
+
+    # A submission is of an approved project, so it is readable by anyone
+    # who may call this; no project row is needed — the context-store mirror
+    # (which creates one) may never have run.
+    try:
+        file = await read_submission_file(
+            db, get_submission_store(), owner=owner, project=project_slug, path=path,
+            revision=revision.lower() if revision else None,
+        )
+    except ContextFileNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such file.") from None
+    except ArchiveUnavailableError as exc:
+        logger.warning("Submission store read of %s failed: %s", address, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=STORE_UNAVAILABLE_DETAIL
+        ) from exc
+    if file is not None:
+        logger.info("Read %s from the submission store (revision %s)", address, file.revision[:12])
+        return _file_response(request, file)
+
     db_project = await _visible_project(db, user, owner, project_slug)
     try:
         target_root = user_target_root(owner, project_slug)
@@ -886,117 +927,26 @@ async def get_context_read(
             detail="The context manager could not read that file.",
         ) from exc
 
+    return _file_response(request, file)
+
+
+def _file_response(request: Request, file: ContextFile):
+    """The file as JSON, or as raw bytes when the caller accepts an octet
+    stream — then the envelope's facts travel as headers."""
     if "application/octet-stream" in request.headers.get("accept", ""):
         headers = {"X-Content-SHA256": file.sha256, "X-Content-Source": file.source}
         # Same value as the JSON envelope's ``modified_at``; omitted, not
         # empty, when the source reported none.
         if file.modified_at is not None:
             headers["X-Content-Modified-At"] = file.modified_at.isoformat()
+        if file.revision is not None:
+            headers["X-Content-Revision"] = file.revision
         return Response(
             content=file.to_bytes(),
             media_type=file.content_type or "application/octet-stream",
             headers=headers,
         )
     return file
-
-
-def _parse_since(value: str | None) -> datetime | None:
-    """An ISO 8601 instant as an aware UTC datetime; a bare date or a naive
-    time is read as UTC. Raises 422 for anything else."""
-    if value is None:
-        return None
-    text = value.strip()
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="`since` must be an ISO 8601 date or datetime.",
-        ) from exc
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
-
-
-def _parse_kinds(value: str) -> tuple[str, ...]:
-    kinds = tuple(dict.fromkeys(k.strip() for k in value.split(",") if k.strip()))
-    unknown = [k for k in kinds if k not in SUBMISSION_KINDS]
-    if not kinds or unknown:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="`kind` must name one or more of: " + ", ".join(SUBMISSION_KINDS) + ".",
-        )
-    return kinds
-
-
-@ROUTER_CONTEXT.get("/api/context/submissions")
-async def get_context_submissions(
-    request: Request,
-    since: str | None = Query(
-        default=None,
-        description=(
-            "ISO 8601 instant; only submissions after it. Pass back the "
-            "`next_since` of the previous page."
-        ),
-    ),
-    kind: str = Query(
-        default=",".join(SUBMISSION_KINDS),
-        description="Comma-separated: `approved` (a /submit ingest), `seeded` (an admin import).",
-    ),
-    limit: int = Query(default=100, ge=1, le=MAX_SUBMISSIONS_LIMIT),
-    user: BerilUser = Depends(require_user_api),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    """What landed in the context layer, and when — the "changed since" feed.
-
-    One entry per completed ingest batch, oldest first: the project, its
-    owner, the address its files live under, when it was submitted, its
-    ``kind`` (``approved`` for a ``/submit`` ingest, which passed the approval
-    gate; ``seeded`` for an admin import of a project that predates
-    ``/submit``), and each file that landed with its sha256 — the hash
-    ``/read`` serves byte-exact. ``removed`` names files the batch withdrew.
-
-    Only **completed** batches appear (every file landed or was withdrawn),
-    so a feed entry can be read at once. ``next_since`` is the instant to
-    pass back for the page after this one; ``since`` is exclusive. Entries
-    are global for public projects, like every read: a private project's
-    batches are seen only by its owner and admins.
-    """
-    since_at = _parse_since(since)
-    kinds = _parse_kinds(kind)
-    batches = await completed_batches_since(db, since=since_at, kinds=kinds, limit=limit)
-
-    admin = await _is_admin(db, user) if batches else False
-    submissions = []
-    for batch in batches:
-        project = batch.project
-        if not (project.is_public or project.owner_id == user.id or admin):
-            continue
-        submissions.append(
-            {
-                "project": project.slug,
-                "owner_orcid": batch.user.orcid_id,
-                "address": to_address(batch.target_root),
-                "submitted_at": batch.created_at.isoformat(),
-                "kind": batch.kind,
-                "batch_id": batch.id,
-                "is_public": bool(project.is_public),
-                "files": [
-                    {"path": f.relative_path, "sha256": f.content_sha256}
-                    for f in batch.files
-                    if f.status == INGEST_COMPLETED
-                ],
-                "removed": [
-                    f.relative_path for f in batch.files if f.status == INGEST_REMOVED
-                ],
-            }
-        )
-    # Advanced past every batch *fetched*, hidden ones included, so paging
-    # moves on; empty page, and the caller's own ``since`` comes back.
-    next_since = batches[-1].created_at.isoformat() if batches else since
-    return {"submissions": submissions, "next_since": next_since}
 
 
 async def _is_admin(db: AsyncSession, user: BerilUser) -> bool:
@@ -1328,7 +1278,6 @@ async def _ingest(
     relative_paths: list[str],
     removals: list[str],
     force: bool,
-    kind: str = INGEST_KIND_APPROVED,
 ) -> ContextIngestResults:
     """Ingest validated, extracted files into ``owner``'s copy of a project.
 
@@ -1338,9 +1287,7 @@ async def _ingest(
     whose project and batch rows record them — the caller for
     ``/ingest_files``, the project's owner for an admin import. ``manager`` is
     the store connection to write with. ``root`` holds the extracted manifest
-    members. ``kind`` is recorded on the batch for the submissions feed:
-    ``approved`` for a submission (it passed the gate), ``seeded`` for an
-    import.
+    members.
     """
     target_root = user_target_root(owner.orcid_id, db_project.slug)
 
@@ -1459,7 +1406,6 @@ async def _ingest(
                 }
                 for r in recorded
             ],
-            kind=kind,
         )
         batch_id = batch.id
 
@@ -1667,8 +1613,11 @@ async def post_admin_context_import(
             relative_paths=relative_paths,
             removals=removals,
             force=force,
-            kind=INGEST_KIND_SEEDED,
         )
+        # The feed's record of this project: a ``seeded`` submission under
+        # the repo owner, carrying the wiki's text files from the same
+        # archive. Independent of the ingest above, like /submit's own post.
+        submission_id = await _record_seeded(db, root, relative_paths, owner=owner, slug=db_project.slug)
     # Planned only after this import has recorded its files: retire_file
     # treats a path with *no* record in the current namespace as one the
     # project no longer has, so the records must exist before any retirement
@@ -1679,7 +1628,102 @@ async def post_admin_context_import(
         project=db_project.slug,
         owner_orcid=owner.orcid_id,
         retire_records=retire_records,
+        submission_id=submission_id,
     )
+
+
+async def _record_seeded(
+    db: AsyncSession, root: Path, relative_paths: list[str], *, owner: BerilUser, slug: str
+) -> str | None:
+    """Record the imported project as a ``seeded`` submission.
+
+    Built from the archive's wiki-readable text files; the revision is the
+    sha256 of its REPORT.md, so re-importing the same report is idempotent.
+    An import without a REPORT.md records nothing — there is no report for
+    the wiki to build from. Figures are not in an import archive, so a seeded
+    submission is complete as soon as its text files are stored; a seeded
+    project's figures (if any) come from the lakehouse archive on read.
+    """
+    bundle: dict[str, bytes] = {}
+    for relative_path in relative_paths:
+        if is_readable_path(relative_path):
+            bundle[relative_path] = await asyncio.to_thread((root / relative_path).read_bytes)
+    report = bundle.get("REPORT.md")
+    if report is None:
+        return None
+    settings = get_settings()
+    manifest = SubmissionManifest(
+        project=slug,
+        owner_orcid=owner.orcid_id,
+        revision=sha256_hex(report),
+        submitted_at=datetime.now(timezone.utc),
+        archive_path=f"s3a://{settings.archive_bucket}/{settings.archive_prefix}/{slug}",
+        approval=ManifestApproval(by=owner.orcid_id, report_hash=sha256_hex(report)),
+        files=[
+            ManifestFile(path=p, sha256=sha256_hex(data), size=len(data))
+            for p, data in bundle.items()
+        ],
+    )
+    submission, created = await record_submission(
+        db, get_submission_store(), manifest=manifest, bundle=bundle, owner=owner, kind=KIND_SEEDED
+    )
+    logger.info(
+        "Seeded submission %s for %s/%s (%s)", submission.id, owner.orcid_id, slug,
+        "created" if created else "existing",
+    )
+    return submission.id
+
+
+# The central digests the admin may feed as ``kind: docs``.
+_DOCS_DETAIL = "Only the central digests can be imported as docs: " + ", ".join(sorted(DOCS_FILES)) + "."
+
+
+@ROUTER_CONTEXT.post("/api/admin/context/import_docs")
+async def post_admin_context_import_docs(
+    request: Request,
+    archive: UploadFile = File(...),
+    manifest: UploadFile = File(...),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Record the central digests (``docs/discoveries.md``, ``pitfalls.md``,
+    ...) as a ``kind: docs`` submission under owner ``beril``, project
+    ``docs``, so the wiki's feed carries them until the central docs get a
+    record of their own. Admins only. Same zip + manifest shape as the
+    import; the revision is the sha256 over the files' hashes, so re-posting
+    unchanged digests is a no-op. Not indexed into the context store here —
+    that is the knowledge tools' ``--docs`` job.
+    """
+    await _require_admin(db, user)
+    settings = get_settings()
+    archive_bytes = await read_capped(archive, settings.context_max_archive_bytes, what="archive")
+    relative_paths, removals = _parse_manifest(
+        await read_capped(manifest, settings.context_max_manifest_bytes, what="manifest")
+    )
+    bad = [p for p in relative_paths if p not in DOCS_FILES]
+    if bad or removals:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=_DOCS_DETAIL)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        root = Path(tmp_dir).resolve()
+        await _extract(archive_bytes, root, relative_paths)
+        bundle = {p: await asyncio.to_thread((root / p).read_bytes) for p in relative_paths}
+    hashes = {p: sha256_hex(d) for p, d in bundle.items()}
+    revision = sha256_hex("\n".join(f"{p} {h}" for p, h in sorted(hashes.items())).encode())
+    manifest_model = SubmissionManifest.model_construct(
+        project=DOCS_PROJECT,
+        owner_orcid=DOCS_OWNER,
+        revision=revision,
+        submitted_at=datetime.now(timezone.utc),
+        archive_path=None,
+        approval=ManifestApproval(by=user.orcid_id),
+        files=[ManifestFile(path=p, sha256=hashes[p], size=len(bundle[p])) for p in relative_paths],
+    )
+    submission, created = await record_submission(
+        db, get_submission_store(), manifest=manifest_model, bundle=bundle, owner=None, kind=KIND_DOCS,
+        require_report=False,
+    )
+    return {"id": submission.id, "created": created, "revision": revision, "status": submission.status,
+            "files": sorted(bundle)}
 
 
 # Marks a file in a previous owner's namespace whose removal has been planned
@@ -1725,7 +1769,6 @@ async def _plan_retirement(
                  "status": INGEST_UNKNOWN, "error": RETIRE_PENDING, "content_sha256": None}
                 for p in paths
             ],
-            kind=INGEST_KIND_RETIREMENT,
         )
         logger.info(
             "Planned retirement of %d file(s) of %s from previous namespace %s",

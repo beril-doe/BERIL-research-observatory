@@ -48,6 +48,9 @@ MAX_MEMORY_DOCUMENTS = 256
 # store's copy differs, or the path was never ingested (figures never are).
 FILE_SOURCE_CONTEXT = "context"
 FILE_SOURCE_ARCHIVE = "archive"
+# ``submission`` (the bytes /submit handed BERIL, byte-exact by construction)
+# and ``wiki`` (a wiki page, from the wiki backend) are the other two values
+# ``ContextFile.source`` takes; defined where they are produced.
 
 # What ``GET /api/context/read`` will hand out of a project. Narrower than the
 # ingest allowlist on purpose: this is the wiki's contract (report, metadata,
@@ -94,8 +97,10 @@ class ContextFile(BaseModel):
     sha256: str
     size: int
     content_type: str | None = None
-    source: Literal["context", "archive"]
+    source: Literal["submission", "context", "archive", "wiki"]
     modified_at: datetime | None = None
+    # The submission revision the bytes belong to, when a submission answered.
+    revision: str | None = None
 
     @classmethod
     def from_bytes(
@@ -109,6 +114,7 @@ class ContextFile(BaseModel):
         source: str,
         content_type: str | None = None,
         modified_at: datetime | None = None,
+        revision: str | None = None,
     ) -> "ContextFile":
         """Wrap raw bytes, choosing the encoding the bytes allow.
 
@@ -132,6 +138,7 @@ class ContextFile(BaseModel):
             content_type=content_type or mimetypes.guess_type(path)[0],
             source=source,
             modified_at=modified_at,
+            revision=revision,
         )
 
     def to_bytes(self) -> bytes:
@@ -192,16 +199,6 @@ INGEST_REMOVED = "removed"
 # A ``!remove`` named a path this project never ingested, or already removed.
 # Response-only, like ``skipped``: nothing was done, so no row is written.
 INGEST_NOT_FOUND = "not_found"
-
-# How a batch came to exist, recorded on ``context_ingest_batch.kind`` and
-# served by the submissions feed. ``approved`` is a ``/submit`` ingest — it
-# passed the approval gate; ``seeded`` is an admin import of a repo project
-# that predates ``/submit``; ``retirement`` is the bookkeeping batch an import
-# writes for a re-owned project's old copies, never a submission.
-INGEST_KIND_APPROVED = "approved"
-INGEST_KIND_SEEDED = "seeded"
-INGEST_KIND_RETIREMENT = "retirement"
-SUBMISSION_KINDS = (INGEST_KIND_APPROVED, INGEST_KIND_SEEDED)
 
 TERMINAL_INGEST_STATUSES = frozenset(
     {INGEST_COMPLETED, INGEST_FAILED, INGEST_EXPIRED, INGEST_SKIPPED, INGEST_REMOVED}
@@ -271,6 +268,9 @@ class ContextImportResults(ContextIngestResults):
     # re-owned): each is marked removal-pending and must be retired, one per
     # call, with ``POST /api/admin/context/retire_file/{record_id}``.
     retire_records: list[str] = Field(default_factory=list)
+    # The ``seeded`` submission this import recorded for the feed; None for
+    # a dry run or an archive with no REPORT.md.
+    submission_id: str | None = None
 
 
 class IngestFileStatus(BaseModel):

@@ -11,7 +11,6 @@ from sqlalchemy.orm import aliased, selectinload
 
 from app.context_manager.base import (
     INGEST_COMPLETED,
-    INGEST_KIND_APPROVED,
     INGEST_PROCESSING,
     INGEST_QUEUED,
     INGEST_REMOVED,
@@ -471,17 +470,14 @@ async def create_ingest_batch(
     project_id: str,
     target_root: str,
     files: list[dict],
-    kind: str = INGEST_KIND_APPROVED,
 ) -> ContextIngestBatch:
     """Record one ingest submission and its per-file outcomes.
 
     ``files`` entries carry ``relative_path``, ``status``, and optionally
-    ``uri``, ``ov_task_id``, ``error``, and ``content_sha256``. ``kind`` is
-    how the batch came to exist (``INGEST_KIND_*``); a ``/submit`` ingest is
-    the default.
+    ``uri``, ``ov_task_id``, ``error``, and ``content_sha256``.
     """
     batch = ContextIngestBatch(
-        user_id=user_id, project_id=project_id, target_root=target_root, kind=kind
+        user_id=user_id, project_id=project_id, target_root=target_root
     )
     db.add(batch)
     await db.flush()
@@ -721,51 +717,6 @@ async def projects_with_memory(db: AsyncSession, memory: str) -> set[str]:
         .distinct()
     )
     return {row[0] for row in result}
-
-
-async def completed_batches_since(
-    db: AsyncSession,
-    *,
-    since: datetime | None,
-    kinds: tuple[str, ...],
-    limit: int,
-) -> list[ContextIngestBatch]:
-    """Settled batches of the given kinds created after ``since``, oldest
-    first, at most ``limit``, with files, project and owner loaded.
-
-    "Settled" is every file ``completed`` or ``removed`` — the two statuses
-    that change what the corpus holds. A batch with a file still queued,
-    failed, expired or unknown is not served: the feed promises that what it
-    names is in the store. Statuses advance only when the batch is polled, so
-    a batch nobody polled stays off the feed until someone does (the ingest
-    client polls to completion, so in practice that is a failed run).
-
-    ``since`` is exclusive: a client passes back the ``next_since`` it was
-    given and sees only what came after. Ordered by creation then id so two
-    batches created in the same instant still page deterministically.
-    """
-    unsettled = (
-        select(ContextIngestFileRecord.id)
-        .where(
-            ContextIngestFileRecord.batch_id == ContextIngestBatch.id,
-            ContextIngestFileRecord.status.not_in((INGEST_COMPLETED, INGEST_REMOVED)),
-        )
-        .exists()
-    )
-    query = (
-        select(ContextIngestBatch)
-        .where(ContextIngestBatch.kind.in_(kinds), ~unsettled)
-        .options(
-            selectinload(ContextIngestBatch.files),
-            selectinload(ContextIngestBatch.project),
-            selectinload(ContextIngestBatch.user),
-        )
-        .order_by(ContextIngestBatch.created_at, ContextIngestBatch.id)
-        .limit(limit)
-    )
-    if since is not None:
-        query = query.where(ContextIngestBatch.created_at > since)
-    return list((await db.execute(query)).scalars())
 
 
 async def get_ingest_batch(
