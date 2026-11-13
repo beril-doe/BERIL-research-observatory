@@ -49,6 +49,94 @@ argument) to look there. Otherwise, scope a search with these flags:
 - When BERIL is unreachable, `beril context` fails and says so. There is no
   offline mode.
 
+## Reading a file whole
+
+`find`, `grep` and `ls` return pointers and fragments. To read one project
+file exactly as it was submitted:
+
+```
+GET /api/context/read?address=<owner>/<project>/<path>
+```
+
+`address` is the `<owner>/<project>/<path>` form every other read route
+names a resource by. The response is JSON — `content`, `encoding` (`utf-8`,
+or `base64` for a figure), `sha256`, `size`, `content_type`, `source`,
+`modified_at` — or, with `Accept: application/octet-stream`, the raw bytes
+with `X-Content-SHA256`, `X-Content-Source` and (when known)
+`X-Content-Modified-At` headers. Reads are global for public projects, like
+every other read; a file that does not exist, or a project you may not see,
+is a 404.
+
+**Readable files.** Only `REPORT.md`, `README.md`, `beril.yaml`,
+`CORRECTIONS.md`, `REFUTATION_<n>.md` and anything under `figures/` can be
+read whole; anything else is a 403. This is deliberately narrower than what
+is ingested: it is the contract the wiki builds from (the report, its
+metadata and errata, and the figures the report embeds). Reviews, plans and
+memories stay reachable through `find`, `grep` and `ls`.
+
+**Byte-exactness.** The bytes are the ones the project submitted, always.
+The context store decomposes each document into fragments and reassembles
+one on read; whether that round-trips byte for byte is not promised, and the
+wiki verifies quotes and offsets against source bytes. So BERIL hashes what
+the store returns against the `content_sha256` it recorded when the file
+completed its ingest, and serves the store's copy (`source: context`) only
+when they match. Otherwise — a differing hash, a file the store never
+ingested (figures never are), a store that has lost the file — it serves the
+lakehouse archive copy `/submit` wrote (`source: archive`,
+`s3://cdm-lake/tenant-general-warehouse/microbialdiscoveryforge/projects/<project>/<path>`,
+`BERIL_ARCHIVE_*` settings). The route's contract is the same either way; a
+client that checks `sha256` can trust the bytes from both. Which source
+answered is logged on the server. If the archive is needed and unreachable
+(no credentials, endpoint down), the read is a 502.
+
+## The submissions feed
+
+What landed, and when — the "changed since" feed a downstream consumer (the
+wiki curator) polls:
+
+```
+GET /api/context/submissions?since=<iso8601>&kind=approved,seeded&limit=100
+```
+
+```json
+{
+  "submissions": [
+    {
+      "project": "alpha",
+      "owner_orcid": "0000-0001-2345-6789",
+      "address": "0000-0001-2345-6789/alpha",
+      "submitted_at": "2026-11-01T12:00:00+00:00",
+      "kind": "approved",
+      "batch_id": "…",
+      "is_public": true,
+      "files": [{"path": "REPORT.md", "sha256": "…"}, {"path": "beril.yaml", "sha256": "…"}],
+      "removed": []
+    }
+  ],
+  "next_since": "2026-11-01T12:00:00+00:00"
+}
+```
+
+One entry per **completed** ingest batch (every file completed or was
+withdrawn), oldest first, so an entry can be `read` at once; each file's
+`sha256` is the hash `read` serves byte-exact. `since` is exclusive — pass
+back the `next_since` you were given to see only what came after (on an
+empty page it echoes your own cursor). `limit` is 100 by default, 1000 at
+most. Entries are global for public projects; a private project's batches
+are seen only by its owner and admins.
+
+**`kind`.** `approved` is a `/submit` ingest: it passed the approval gate
+(`beril.yaml` `status: complete`, an approval block naming the submitter,
+report and review hashes matching). `seeded` is an admin import
+(`POST /api/admin/context/import_files`) of a repo project that predates
+`/submit` — it was never gated, so a consumer that wants only reviewed work
+asks for `kind=approved`. A seeded project's address is under its **repo
+owner**: the import lands in the namespace of the ORCiD the repo importer
+assigned the project (`beril.yaml` or the README's authors), exactly where
+that owner's own later `/submit` writes, so one project never has two
+addresses. Projects the importer found no author for are refused by the
+import and never appear.
+
 ## How projects get in
 
 A project enters the context layer when `/submit` approves it and archives it
