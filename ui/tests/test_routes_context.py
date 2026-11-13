@@ -194,6 +194,9 @@ async def test_find_returns_mapped_results(client, credentialed_user, manager):
             # than being omitted — clients can index them unconditionally.
             "match_reason": None,
             "content": None,
+            # Wiki hits only (source=wiki); null for the context store.
+            "title": None,
+            "link": None,
         }
     ]
 

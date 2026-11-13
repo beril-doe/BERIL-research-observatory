@@ -395,6 +395,9 @@ class QueryResult(BaseModel):
     text: str
     match_reason: str | None = None
     content: str | None = None
+    # Wiki hits only: the page title and its public URL with section anchor.
+    title: str | None = None
+    link: str | None = None
 
 
 class PitfallHit(BaseModel):
@@ -503,6 +506,8 @@ class ContextQueryResults(BaseModel):
     query: str
     results: list[QueryResult]
     total: int = 0
+    # Wiki searches only: the site artifact the answer came from.
+    artifact: str | None = None
 
 class ContextManager:
     url: str

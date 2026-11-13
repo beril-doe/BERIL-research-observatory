@@ -71,6 +71,7 @@ from app.context_manager.base import (
     IngestResult,
     PitfallHit,
     PitfallResults,
+    QueryResult,
     is_readable_path,
 )
 from app.clients.openviking import store_version_report
@@ -98,6 +99,7 @@ from app.context_manager.openviking import (
     target_uri,
     user_target_root,
 )
+from app.context_manager.wiki import WikiManager, WikiUnavailableError, is_excluded
 from app.crypto import CredentialEncryptionError
 from app.db.crud import (
     completed_file_hashes,
@@ -200,6 +202,45 @@ async def context_unavailable_handler(
         content={"detail": CONTEXT_UNAVAILABLE_DETAIL},
     )
 
+WIKI_UNAVAILABLE_DETAIL = "wiki unavailable"
+
+
+async def wiki_unavailable_handler(request: Request, exc: WikiUnavailableError) -> JSONResponse:
+    """The wiki container could not be asked: 503, never a 500. App-wide,
+    like the context-store handler."""
+    logger.warning("Wiki backend unavailable for %s: %s", request.url.path, exc)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": WIKI_UNAVAILABLE_DETAIL},
+    )
+
+
+def get_wiki_manager() -> WikiManager:
+    return WikiManager(get_settings())
+
+
+def _wiki_find_payload(found: dict, query: str) -> ContextQueryResults:
+    """Wiki hits in the ``find`` shape, each carrying its public ``link``."""
+    return ContextQueryResults(
+        query=query,
+        results=[
+            QueryResult(
+                uri=hit["address"],
+                context_type="wiki_page",
+                score=hit["score"],
+                text=hit["text"],
+                match_reason=hit.get("heading"),
+                content=None,
+                title=hit.get("title"),
+                link=hit.get("link"),
+            )
+            for hit in found["results"]
+        ],
+        total=len(found["results"]),
+        artifact=found.get("artifact"),
+    )
+
+
 @ROUTER_CONTEXT.post("/api/context/find")
 async def post_context_find(
     query: ContextQuery,
@@ -225,11 +266,15 @@ async def post_context_find(
     so its error text is logged rather than returned.
     """
     logger.info(
-        "Context query %r (limit=%d) for user %s",
+        "Context query %r (limit=%d, source=%s) for user %s",
         query.query,
         query.limit,
+        query.source,
         user.orcid_id,
     )
+    if query.source == "wiki":
+        found = await get_wiki_manager().find(query.query, scope=query.path, limit=query.limit)
+        return _wiki_find_payload(found, query.query)
     unaddressed = query.project is None and query.owner is None
     target = _read_uri(
         user,
@@ -428,10 +473,17 @@ async def get_context_files(
             f"(default {MAX_LS_DEPTH}). Listings are bounded by node_limit too."
         ),
     ),
+    source: str = Query(
+        default="context",
+        pattern="^(context|wiki)$",
+        description="`context` (the store) or `wiki`; with `wiki`, `path` is `wiki/<collection>`.",
+    ),
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db)
 ) -> list:
-    """List ingested content.
+    """List ingested content, or — with ``source=wiki`` — the wiki's
+    collections and pages (``path=wiki/<collection>``; ``authors`` is never
+    listed).
 
     Every submitted project is readable by everyone — owned by one user, like a
     public repository — so a listing is not restricted to the caller. ``owner``
@@ -454,6 +506,8 @@ async def get_context_files(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="`depth` applies to a recursive listing; add `recursive`.",
         )
+    if source == "wiki":
+        return await get_wiki_manager().ls(path)
     target = _read_uri(user, project, path, owner=owner, all_owners=all_owners)
 
     manager = await resolve_context_manager(db, user)
@@ -813,7 +867,7 @@ async def _visible_project(
     return None
 
 
-@ROUTER_CONTEXT.get("/api/context/read", response_model=ContextFile)
+@ROUTER_CONTEXT.get("/api/context/read")
 async def get_context_read(
     request: Request,
     address: str = Query(
@@ -826,10 +880,17 @@ async def get_context_read(
         default=None,
         description="A submission revision (sha256 of REPORT.md); default is the newest complete one.",
     ),
+    source: str = Query(
+        default="context",
+        pattern="^(context|wiki)$",
+        description="`context` (a project file) or `wiki` (a page, `address=wiki/<collection>/<slug>[#section]`).",
+    ),
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db),
 ):
-    """One project file, whole and byte-exact.
+    """One project file, whole and byte-exact — or, with ``source=wiki``, one
+    wiki page (``source: wiki``, plus ``artifact``, ``title``, ``link`` and
+    ``sources``).
 
     Returns the file as JSON (``content`` plus ``encoding``, ``sha256``,
     ``size``, ``content_type``, ``source``, ``modified_at``, ``revision``),
@@ -854,6 +915,21 @@ async def get_context_read(
     ``grep`` and ``ls``. Reads are global for public projects, like the other
     read routes; an unknown file, or a project the caller may not see, is 404.
     """
+    if source == "wiki":
+        if is_excluded(address):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such page.")
+        try:
+            file, extra = await get_wiki_manager().read(address)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="`address` must be `wiki/<collection>/<slug>[#section]`.",
+            ) from exc
+        except ContextFileNotFound:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such page.") from None
+        if "application/octet-stream" in request.headers.get("accept", ""):
+            return _file_response(request, file)
+        return {**file.model_dump(mode="json"), **extra}
     try:
         owner, project_slug, path = parse_address(address)
     except ValueError as exc:
