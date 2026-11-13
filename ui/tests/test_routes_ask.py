@@ -158,7 +158,9 @@ async def test_wiki_stream_holds_text_until_filtered(client, user, db_session, a
     frames = _parse_sse(resp.text)
     texts = [f["data"]["text"] for f in frames if f["event"] == "text_delta"]
     assert texts == ["Yield rises [1] but see ."]
-    assert frames[-1]["event"] == "turn_complete"
+    events = [f["event"] for f in frames]
+    # The filtered text arrives before completion; persistence closes the stream.
+    assert events.index("text_delta") < events.index("turn_complete") < events.index("turn_persisted")
 
 
 async def test_wiki_turn_is_503_when_the_key_is_unset_later(client, user, db_session, ask_env, wiki):
