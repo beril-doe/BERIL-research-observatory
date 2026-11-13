@@ -1,8 +1,11 @@
 """Query BERIL's context layer over HTTP with the stored BERIL login.
 
 Wraps the read routes under ``/api/context/`` — ``find``, ``ls``, ``grep``,
-``pitfalls``, ``discoveries`` and ``health`` — plus ``/api/user/whoami``, with
-the personal access token from ``beril login``. Nothing here knows how BERIL stores the content: results
+``pitfalls``, ``discoveries``, ``read``, ``submissions`` and ``health`` — plus
+``/api/user/whoami``, with the personal access token from ``beril login``.
+``read`` and ``submissions`` are implemented once in
+``observatory_context.beril_read`` and only wrapped here, so other tooling can
+share them. Nothing here knows how BERIL stores the content: results
 name resources by **address** (``<owner>/<project>/<path>``), the same three
 parts every read takes, so any address a result returns can be fed back in.
 
@@ -12,10 +15,14 @@ documented in ``auth_cmd``.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterable, Iterator
 
 import httpx
+
+from observatory_context import beril_read
+from observatory_context.beril_read import ContextFile, SubmissionsPage
 
 _HTTP_TIMEOUT_SECONDS = 60.0
 
@@ -150,20 +157,61 @@ class ContextClient:
         BERIL is reachable and the token is good."""
         return self._call("GET", "/api/context/health", "check context health")
 
-    def _call(self, method: str, path: str, action: str, **kwargs: Any) -> Any:
+    def read_file(self, address: str, *, as_bytes: bool = False) -> ContextFile:
+        """One project file at ``address`` (``owner/project/path``), sha256
+        verified. ``as_bytes`` fetches the raw bytes instead of the JSON
+        envelope. See :func:`observatory_context.beril_read.read_file`."""
+        with self._reporting(beril_read.READ_PATH, f"read {address}"):
+            return beril_read.read_file(self._client, address, as_bytes=as_bytes)
+
+    def submissions(
+        self,
+        *,
+        since: str | None = None,
+        kinds: Iterable[str] | None = None,
+        limit: int | None = None,
+    ) -> SubmissionsPage:
+        """One page of the submissions feed. See
+        :func:`observatory_context.beril_read.list_submissions`."""
+        with self._reporting(beril_read.SUBMISSIONS_PATH, "list submissions"):
+            return beril_read.list_submissions(
+                self._client, since=since, kinds=kinds, limit=limit
+            )
+
+    @contextmanager
+    def _reporting(self, path: str, action: str) -> Iterator[None]:
+        """Turn a shared-module failure into a :class:`ContextError`, worded
+        the way ``_call`` words its own."""
+        try:
+            yield
+        except httpx.TransportError as e:
+            raise self._transport_error(e, path) from e
+        except beril_read.BerilReadError as e:
+            if e.status == 401:
+                raise self._auth_error(action) from e
+            raise ContextError(str(e)) from e
+
+    def _transport_error(self, exc: httpx.TransportError, path: str) -> ContextError:
         url = self.base_url + path
+        if isinstance(exc, httpx.TimeoutException):
+            return ContextError(f"timed out talking to {url}.")
+        return ContextError(f"could not reach {url}: {exc}")
+
+    @staticmethod
+    def _auth_error(action: str) -> ContextError:
+        return ContextError(
+            f"your BERIL token was rejected (401) while trying to {action}. "
+            "Run `beril login` to log in again.",
+            auth_failed=True,
+        )
+
+    def _call(self, method: str, path: str, action: str, **kwargs: Any) -> Any:
         try:
             response = self._client.request(method, path, **kwargs)
-        except httpx.TimeoutException as e:
-            raise ContextError(f"timed out talking to {url}.") from e
         except httpx.TransportError as e:
-            raise ContextError(f"could not reach {url}: {e}") from e
+            raise self._transport_error(e, path) from e
         if response.status_code == 401:
-            raise ContextError(
-                f"your BERIL token was rejected (401) while trying to {action}. "
-                "Run `beril login` to log in again.",
-                auth_failed=True,
-            )
+            raise self._auth_error(action)
         if not response.is_success:
             raise ContextError(
                 f"failed to {action} (HTTP {response.status_code}): {_detail(response)}"

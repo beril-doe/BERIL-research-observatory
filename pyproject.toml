@@ -36,6 +36,12 @@ beril = "beril_cli.cli:main"
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
+# The CLI imports observatory_context (shared HTTP helpers such as beril_read),
+# so the wheel must ship both packages; hatchling's name-based default would
+# pick up beril_cli alone.
+[tool.hatch.build.targets.wheel]
+packages = ["beril_cli", "observatory_context"]
+
 [tool.hatch.version]
 source = "vcs"
 # Only three-component release tags are eligible. Without this, any tag becomes a
