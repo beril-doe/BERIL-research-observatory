@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 
 import httpx
@@ -651,3 +653,287 @@ def test_a_gateway_error_page_is_summarized_not_printed(logged_in, beril, capsys
     assert main(["context", "find", "x"]) == 1
     err = capsys.readouterr().err
     assert "<" not in err and "gateway returned an error page" in err and "HTTP 502" in err
+
+
+# ---------------------------------------------------------------------------
+# read
+# ---------------------------------------------------------------------------
+
+REPORT = f"{ME}/alpha/REPORT.md"
+FIGURE = f"{ME}/alpha/figures/fig1.png"
+TEXT = "# Report\n\nA number: 42.\n"
+PNG = b"\x89PNG\r\n\x1a\n" + bytes(range(16))
+
+
+def _sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _envelope(content: str, *, encoding="utf-8", sha256=None, **extra) -> dict:
+    data = base64.b64decode(content) if encoding == "base64" else content.encode("utf-8")
+    return {
+        "address": REPORT, "path": "REPORT.md", "size": len(data),
+        "sha256": sha256 or _sha(data), "content_type": "text/markdown",
+        "encoding": encoding, "content": content, "source": "context",
+        "modified_at": "2026-11-12T10:00:00Z", **extra,
+    }
+
+
+def _serve_read(beril, *, text=None, data=None, sha256=None, status=200):
+    """Answer /api/context/read in the form the request asks for."""
+    def route(request):
+        if status != 200:
+            return httpx.Response(status, json={"detail": "refused"})
+        if request.headers["Accept"] == "application/octet-stream":
+            return httpx.Response(200, content=data, headers={
+                "Content-Type": "image/png",
+                "X-Content-SHA256": sha256 or _sha(data),
+                "X-Content-Source": "archive",
+            })
+        return httpx.Response(200, json=_envelope(text, sha256=sha256))
+    beril.routes[("GET", "/api/context/read")] = route
+
+
+def test_read_prints_the_text_byte_for_byte(logged_in, beril, capsys):
+    _serve_read(beril, text=TEXT)
+
+    assert main(["context", "read", REPORT]) == 0
+
+    out = capsys.readouterr().out
+    assert out == TEXT  # no trailing newline added
+    assert beril.last_params() == {"address": REPORT}
+    assert beril.last.headers["Accept"] == "application/json"
+    assert beril.last.headers["Authorization"] == "Bearer beril_abc"
+
+
+def test_read_json_prints_the_envelope(logged_in, beril, capsys):
+    _serve_read(beril, text=TEXT)
+
+    assert main(["context", "read", REPORT, "--json"]) == 0
+
+    body = json.loads(capsys.readouterr().out)
+    assert body == _envelope(TEXT)
+    assert set(body) == {
+        "address", "path", "size", "sha256", "content_type", "encoding",
+        "content", "source", "modified_at",
+    }
+
+
+def test_read_out_writes_the_bytes_and_confirms_on_stderr(logged_in, beril, capsys, tmp_path):
+    _serve_read(beril, data=PNG)
+    target = tmp_path / "fig1.png"
+
+    assert main(["context", "read", FIGURE, "--out", str(target)]) == 0
+
+    assert target.read_bytes() == PNG
+    assert beril.last.headers["Accept"] == "application/octet-stream"
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert f"wrote {len(PNG)} byte(s) to {target}" in captured.err
+    assert _sha(PNG) in captured.err and "verified" in captured.err
+
+
+def test_read_out_fails_loudly_on_a_sha256_mismatch_and_writes_nothing(
+    logged_in, beril, capsys, tmp_path,
+):
+    _serve_read(beril, data=PNG, sha256=_sha(b"tampered"))
+    target = tmp_path / "fig1.png"
+
+    assert main(["context", "read", FIGURE, "--out", str(target)]) == 1
+
+    assert not target.exists()
+    err = capsys.readouterr().err
+    assert "sha256 mismatch" in err and _sha(PNG) in err and _sha(b"tampered") in err
+
+
+def test_read_of_text_verifies_the_envelope_sha256_too(logged_in, beril, capsys):
+    _serve_read(beril, text=TEXT, sha256="0" * 64)
+
+    assert main(["context", "read", REPORT]) == 1
+
+    captured = capsys.readouterr()
+    assert captured.out == "" and "sha256 mismatch" in captured.err
+
+
+def test_read_refuses_to_print_a_binary_file_without_out(logged_in, beril, capsys):
+    encoded = base64.b64encode(PNG).decode("ascii")
+    beril.on("GET", "/api/context/read",
+             _envelope(encoded, encoding="base64", content_type="image/png"))
+
+    assert main(["context", "read", FIGURE]) == 2
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "binary" in captured.err and "--out" in captured.err
+
+
+def test_read_json_of_a_binary_file_keeps_it_base64(logged_in, beril, capsys):
+    encoded = base64.b64encode(PNG).decode("ascii")
+    beril.on("GET", "/api/context/read",
+             _envelope(encoded, encoding="base64", content_type="image/png"))
+
+    assert main(["context", "read", FIGURE, "--json"]) == 0
+
+    body = json.loads(capsys.readouterr().out)
+    assert body["encoding"] == "base64" and body["content"] == encoded
+
+
+def test_read_403_names_the_allowlist(logged_in, beril, capsys):
+    _serve_read(beril, status=403)
+
+    assert main(["context", "read", f"{ME}/alpha/RESEARCH_PLAN.md"]) == 1
+
+    err = capsys.readouterr().err
+    assert "not readable" in err and "403" in err
+    for name in ("REPORT.md", "README.md", "beril.yaml", "CORRECTIONS.md",
+                 "REFUTATION_<n>.md", "figures/**"):
+        assert name in err
+
+
+def test_read_404_says_no_such_file(logged_in, beril, capsys):
+    _serve_read(beril, status=404)
+
+    assert main(["context", "read", f"{ME}/alpha/REPORT.md"]) == 1
+
+    err = capsys.readouterr().err
+    assert f"no such file: {ME}/alpha/REPORT.md" in err and "beril context ls" in err
+
+
+def test_read_401_points_at_login(logged_in, beril, capsys):
+    _serve_read(beril, status=401)
+
+    assert main(["context", "read", REPORT]) == 1
+    assert "beril login" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("address", [ME, f"{ME}/alpha", "/"])
+def test_read_needs_a_full_owner_project_path_address(logged_in, beril, capsys, address):
+    assert main(["context", "read", address]) == 2
+    assert beril.requests == []
+    assert "owner" in capsys.readouterr().err
+
+
+def test_read_out_and_json_are_exclusive(logged_in, beril, capsys):
+    with pytest.raises(SystemExit):
+        main(["context", "read", REPORT, "--out", "x", "--json"])
+    assert beril.requests == []
+
+
+def test_read_against_an_unreachable_server_says_so(logged_in, beril, capsys):
+    def down(request):
+        raise httpx.ConnectError("boom")
+    beril.routes[("GET", "/api/context/read")] = down
+
+    assert main(["context", "read", REPORT]) == 1
+    assert "could not reach" in capsys.readouterr().err
+
+
+def test_read_help_lists_the_allowlist(capsys):
+    with pytest.raises(SystemExit):
+        main(["context", "read", "--help"])
+    out = capsys.readouterr().out
+    assert "REPORT.md" in out and "figures/**" in out and "--out" in out
+
+
+# ---------------------------------------------------------------------------
+# submissions
+# ---------------------------------------------------------------------------
+
+
+def _submission(project: str, at: str, kind: str = "approved", files: int = 2) -> dict:
+    return {
+        "project": project, "owner_orcid": ME, "address": f"{ME}/{project}",
+        "submitted_at": at, "kind": kind, "batch_id": f"batch-{project}",
+        "is_public": True,
+        "files": [{"path": f"f{i}.md", "sha256": "ab" * 32} for i in range(files)],
+    }
+
+
+def test_submissions_prints_a_table_and_the_cursor_on_stderr(logged_in, beril, capsys):
+    beril.on("GET", "/api/context/submissions", {
+        "submissions": [
+            _submission("alpha", "2026-11-01T00:00:00Z"),
+            _submission("beta_long_name", "2026-11-02T00:00:00Z", kind="seeded", files=0),
+        ],
+        "next_since": "2026-11-02T00:00:00Z",
+    })
+
+    assert main(["context", "submissions"]) == 0
+
+    captured = capsys.readouterr()
+    lines = captured.out.splitlines()
+    assert lines[0].split() == ["project", "owner", "kind", "submitted_at", "files"]
+    assert lines[1].split() == ["alpha", ME, "approved", "2026-11-01T00:00:00Z", "2"]
+    assert lines[2].split() == ["beta_long_name", ME, "seeded", "2026-11-02T00:00:00Z", "0"]
+    assert lines[3] == "2 submission(s)"
+    assert "next_since: 2026-11-02T00:00:00Z" in captured.err and "--since" in captured.err
+    assert beril.last_params() == {}
+
+
+def test_submissions_sends_since_kind_and_limit(logged_in, beril):
+    beril.on("GET", "/api/context/submissions", {"submissions": [], "next_since": None})
+
+    main(["context", "submissions", "--since", "2026-11-01T00:00:00Z",
+          "--kind", "approved,seeded", "--limit", "5"])
+
+    assert beril.last_params() == {
+        "since": "2026-11-01T00:00:00Z", "kind": "approved,seeded", "limit": "5",
+    }
+
+
+def test_submissions_json_carries_rows_and_next_since(logged_in, beril, capsys):
+    rows = [_submission("alpha", "2026-11-01T00:00:00Z")]
+    beril.on("GET", "/api/context/submissions",
+             {"submissions": rows, "next_since": "2026-11-01T00:00:00Z"})
+
+    assert main(["context", "submissions", "--json"]) == 0
+
+    captured = capsys.readouterr()
+    body = json.loads(captured.out)
+    assert body == {"submissions": rows, "next_since": "2026-11-01T00:00:00Z"}
+    assert "next_since: 2026-11-01T00:00:00Z" in captured.err
+
+
+def test_submissions_pages_by_feeding_next_since_back(logged_in, beril, capsys):
+    pages = {
+        None: ([_submission("a", "2026-11-01T00:00:00Z")], "2026-11-01T00:00:00Z"),
+        "2026-11-01T00:00:00Z": ([_submission("b", "2026-11-03T00:00:00Z")], None),
+    }
+
+    def route(request):
+        rows, nxt = pages[request.url.params.get("since")]
+        return httpx.Response(200, json={"submissions": rows, "next_since": nxt})
+    beril.routes[("GET", "/api/context/submissions")] = route
+
+    assert main(["context", "submissions", "--json"]) == 0
+    first = json.loads(capsys.readouterr().out)
+    assert main(["context", "submissions", "--json", "--since", first["next_since"]]) == 0
+    captured = capsys.readouterr()
+    second = json.loads(captured.out)
+
+    assert [s["project"] for s in first["submissions"]] == ["a"]
+    assert [s["project"] for s in second["submissions"]] == ["b"]
+    assert second["next_since"] is None and "next_since" not in captured.err
+
+
+def test_submissions_with_no_rows_says_so(logged_in, beril, capsys):
+    beril.on("GET", "/api/context/submissions", {"submissions": []})
+
+    assert main(["context", "submissions"]) == 0
+
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "(no submissions)" and captured.err == ""
+
+
+def test_submissions_refuses_an_unknown_kind_before_any_request(logged_in, beril, capsys):
+    assert main(["context", "submissions", "--kind", "approved,rejected"]) == 2
+    assert beril.requests == []
+    assert "rejected" in capsys.readouterr().err
+
+
+def test_submissions_server_failure_is_reported(logged_in, beril, capsys):
+    beril.on("GET", "/api/context/submissions", {"detail": "feed unavailable"}, status=500)
+
+    assert main(["context", "submissions"]) == 1
+    err = capsys.readouterr().err
+    assert "HTTP 500" in err and "feed unavailable" in err
