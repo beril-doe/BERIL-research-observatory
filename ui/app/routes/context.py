@@ -16,6 +16,7 @@ import re
 import tempfile
 from collections import Counter
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from glob import escape as glob_escape
 from pathlib import Path
 from typing import NamedTuple
@@ -31,7 +32,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,6 +43,9 @@ from app.context_manager.base import (
     INGEST_COMPLETED,
     INGEST_EXPIRED,
     INGEST_FAILED,
+    INGEST_KIND_APPROVED,
+    INGEST_KIND_RETIREMENT,
+    INGEST_KIND_SEEDED,
     INGEST_NOT_FOUND,
     INGEST_PROCESSING,
     INGEST_QUEUED,
@@ -55,7 +59,12 @@ from app.context_manager.base import (
     MAX_LS_NODE_LIMIT,
     MAX_OWNER_EXPANSION,
     MAX_PITFALL_LIMIT,
+    READABLE_FILES,
+    SUBMISSION_KINDS,
     TERMINAL_INGEST_STATUSES,
+    ArchiveUnavailableError,
+    ContextFile,
+    ContextFileNotFound,
     ContextImportResults,
     ContextIngestResults,
     ContextQueryResults,
@@ -66,6 +75,7 @@ from app.context_manager.base import (
     IngestResult,
     PitfallHit,
     PitfallResults,
+    is_readable_path,
 )
 from app.clients.openviking import store_version_report
 from app.context_manager.addresses import to_address
@@ -78,6 +88,7 @@ from app.context_manager.openviking import (
     ContextUnavailableError,
     OpenVikingManager,
     OvProvisioningError,
+    ReservedNamespaceError,
     SelfHealingContextManager,
     UnauthenticatedError,
     apply_discovery_precedence,
@@ -86,12 +97,14 @@ from app.context_manager.openviking import (
     corpus_root,
     get_user_ov_api_key,
     listing_uri,
+    parse_address,
     regenerate_user_ov_api_key,
     target_uri,
     user_target_root,
 )
 from app.crypto import CredentialEncryptionError
 from app.db.crud import (
+    completed_batches_since,
     completed_file_hashes,
     create_ingest_batch,
     create_user_project,
@@ -760,6 +773,232 @@ async def get_context_grep(
         "matches": [_addressed(match) for match in payload.get("matches") or []],
     }
 
+# How many submissions one feed page may carry.
+MAX_SUBMISSIONS_LIMIT = 1000
+
+READABLE_FILES_DETAIL = (
+    "Only a project's "
+    + ", ".join(sorted(READABLE_FILES))
+    + ", REFUTATION_<n>.md and figures/** can be read whole."
+)
+ARCHIVE_UNAVAILABLE_DETAIL = "The project archive is currently unavailable."
+
+
+async def _visible_project(
+    db: AsyncSession, user: BerilUser, owner_orcid: str, slug: str
+) -> UserProject | None:
+    """``owner``'s project ``slug`` if the caller may see it, else ``None``.
+
+    Reads are global for public projects, as ``ls`` and ``find`` are. A
+    private project is visible only to its owner and to admins; to anyone
+    else it does not exist, so a probe cannot confirm a private slug.
+    """
+    row = (
+        await db.execute(
+            select(UserProject)
+            .join(BerilUser, UserProject.owner_id == BerilUser.id)
+            .where(BerilUser.orcid_id == owner_orcid, UserProject.slug == slug)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+    if row.is_public or row.owner_id == user.id or await _is_admin(db, user):
+        return row
+    return None
+
+
+@ROUTER_CONTEXT.get("/api/context/read", response_model=ContextFile)
+async def get_context_read(
+    request: Request,
+    address: str = Query(
+        description=(
+            "`<owner>/<project>/<path>` — the address `ls`, `find` and the "
+            "submissions feed name a file by."
+        ),
+    ),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """One project file, whole and byte-exact.
+
+    Returns the file as JSON (``content`` plus ``encoding``, ``sha256``,
+    ``size``, ``content_type``, ``source``, ``modified_at``), or the raw bytes
+    when the request accepts ``application/octet-stream`` — then ``sha256``,
+    ``source`` and ``modified_at`` travel as the ``X-Content-SHA256``,
+    ``X-Content-Source`` and (when known) ``X-Content-Modified-At`` headers.
+
+    **Byte-exactness.** The bytes are the ones the project submitted. The
+    context store's copy is served (``source: context``) only when it hashes
+    to what BERIL recorded at ingest; otherwise, and for files the store
+    never ingests (figures), the lakehouse archive ``/submit`` wrote answers
+    (``source: archive``). A client that verifies quotes or offsets against
+    ``sha256`` can trust them either way.
+
+    Only ``REPORT.md``, ``README.md``, ``beril.yaml``, ``CORRECTIONS.md``,
+    ``REFUTATION_<n>.md`` and ``figures/**`` may be read whole (403 for
+    anything else); the rest of a project is reachable through ``find``,
+    ``grep`` and ``ls``. Reads are global for public projects, like the other
+    read routes; an unknown file, or a project the caller may not see, is 404.
+    """
+    try:
+        owner, project_slug, path = parse_address(address)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="`address` must be `<owner>/<project>/<path>`.",
+        ) from exc
+    if not is_readable_path(path):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=READABLE_FILES_DETAIL
+        )
+    db_project = await _visible_project(db, user, owner, project_slug)
+    try:
+        target_root = user_target_root(owner, project_slug)
+    except ReservedNamespaceError:
+        # The house account has no projects to read this way.
+        db_project = None
+    if db_project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such file.")
+
+    # What this exact path hashed to when it last completed an ingest here —
+    # the store's copy is served only when it still hashes to this. ``None``
+    # (never ingested, or hashed before hashing existed) means the archive.
+    expected = (
+        await completed_file_hashes(db, db_project.id, target_root=target_root)
+    ).get(path)
+
+    manager = await resolve_context_manager(db, user)
+    try:
+        file = await manager.get_file(address, expected_sha256=expected)
+    except ContextFileNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No such file."
+        ) from exc
+    except ArchiveUnavailableError as exc:
+        logger.warning("Archive read of %s failed for user %s: %s", address, user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=ARCHIVE_UNAVAILABLE_DETAIL
+        ) from exc
+    except QUERY_FAILURES as exc:
+        logger.warning("Context read of %s failed for user %s: %s", address, user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not read that file.",
+        ) from exc
+
+    if "application/octet-stream" in request.headers.get("accept", ""):
+        headers = {"X-Content-SHA256": file.sha256, "X-Content-Source": file.source}
+        # Same value as the JSON envelope's ``modified_at``; omitted, not
+        # empty, when the source reported none.
+        if file.modified_at is not None:
+            headers["X-Content-Modified-At"] = file.modified_at.isoformat()
+        return Response(
+            content=file.to_bytes(),
+            media_type=file.content_type or "application/octet-stream",
+            headers=headers,
+        )
+    return file
+
+
+def _parse_since(value: str | None) -> datetime | None:
+    """An ISO 8601 instant as an aware UTC datetime; a bare date or a naive
+    time is read as UTC. Raises 422 for anything else."""
+    if value is None:
+        return None
+    text = value.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="`since` must be an ISO 8601 date or datetime.",
+        ) from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _parse_kinds(value: str) -> tuple[str, ...]:
+    kinds = tuple(dict.fromkeys(k.strip() for k in value.split(",") if k.strip()))
+    unknown = [k for k in kinds if k not in SUBMISSION_KINDS]
+    if not kinds or unknown:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="`kind` must name one or more of: " + ", ".join(SUBMISSION_KINDS) + ".",
+        )
+    return kinds
+
+
+@ROUTER_CONTEXT.get("/api/context/submissions")
+async def get_context_submissions(
+    request: Request,
+    since: str | None = Query(
+        default=None,
+        description=(
+            "ISO 8601 instant; only submissions after it. Pass back the "
+            "`next_since` of the previous page."
+        ),
+    ),
+    kind: str = Query(
+        default=",".join(SUBMISSION_KINDS),
+        description="Comma-separated: `approved` (a /submit ingest), `seeded` (an admin import).",
+    ),
+    limit: int = Query(default=100, ge=1, le=MAX_SUBMISSIONS_LIMIT),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """What landed in the context layer, and when — the "changed since" feed.
+
+    One entry per completed ingest batch, oldest first: the project, its
+    owner, the address its files live under, when it was submitted, its
+    ``kind`` (``approved`` for a ``/submit`` ingest, which passed the approval
+    gate; ``seeded`` for an admin import of a project that predates
+    ``/submit``), and each file that landed with its sha256 — the hash
+    ``/read`` serves byte-exact. ``removed`` names files the batch withdrew.
+
+    Only **completed** batches appear (every file landed or was withdrawn),
+    so a feed entry can be read at once. ``next_since`` is the instant to
+    pass back for the page after this one; ``since`` is exclusive. Entries
+    are global for public projects, like every read: a private project's
+    batches are seen only by its owner and admins.
+    """
+    since_at = _parse_since(since)
+    kinds = _parse_kinds(kind)
+    batches = await completed_batches_since(db, since=since_at, kinds=kinds, limit=limit)
+
+    admin = await _is_admin(db, user) if batches else False
+    submissions = []
+    for batch in batches:
+        project = batch.project
+        if not (project.is_public or project.owner_id == user.id or admin):
+            continue
+        submissions.append(
+            {
+                "project": project.slug,
+                "owner_orcid": batch.user.orcid_id,
+                "address": to_address(batch.target_root),
+                "submitted_at": batch.created_at.isoformat(),
+                "kind": batch.kind,
+                "batch_id": batch.id,
+                "is_public": bool(project.is_public),
+                "files": [
+                    {"path": f.relative_path, "sha256": f.content_sha256}
+                    for f in batch.files
+                    if f.status == INGEST_COMPLETED
+                ],
+                "removed": [
+                    f.relative_path for f in batch.files if f.status == INGEST_REMOVED
+                ],
+            }
+        )
+    # Advanced past every batch *fetched*, hidden ones included, so paging
+    # moves on; empty page, and the caller's own ``since`` comes back.
+    next_since = batches[-1].created_at.isoformat() if batches else since
+    return {"submissions": submissions, "next_since": next_since}
+
+
 async def _is_admin(db: AsyncSession, user: BerilUser) -> bool:
     """Whether ``user`` holds the admin role (the check ``require_admin`` makes)."""
     await db.refresh(user, ["roles"])
@@ -1089,6 +1328,7 @@ async def _ingest(
     relative_paths: list[str],
     removals: list[str],
     force: bool,
+    kind: str = INGEST_KIND_APPROVED,
 ) -> ContextIngestResults:
     """Ingest validated, extracted files into ``owner``'s copy of a project.
 
@@ -1098,7 +1338,9 @@ async def _ingest(
     whose project and batch rows record them — the caller for
     ``/ingest_files``, the project's owner for an admin import. ``manager`` is
     the store connection to write with. ``root`` holds the extracted manifest
-    members.
+    members. ``kind`` is recorded on the batch for the submissions feed:
+    ``approved`` for a submission (it passed the gate), ``seeded`` for an
+    import.
     """
     target_root = user_target_root(owner.orcid_id, db_project.slug)
 
@@ -1217,6 +1459,7 @@ async def _ingest(
                 }
                 for r in recorded
             ],
+            kind=kind,
         )
         batch_id = batch.id
 
@@ -1424,6 +1667,7 @@ async def post_admin_context_import(
             relative_paths=relative_paths,
             removals=removals,
             force=force,
+            kind=INGEST_KIND_SEEDED,
         )
     # Planned only after this import has recorded its files: retire_file
     # treats a path with *no* record in the current namespace as one the
@@ -1481,6 +1725,7 @@ async def _plan_retirement(
                  "status": INGEST_UNKNOWN, "error": RETIRE_PENDING, "content_sha256": None}
                 for p in paths
             ],
+            kind=INGEST_KIND_RETIREMENT,
         )
         logger.info(
             "Planned retirement of %d file(s) of %s from previous namespace %s",

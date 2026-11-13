@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _settings = None
@@ -100,6 +101,37 @@ class Settings(BaseSettings):
     langfuse_public_key: str | None = None
     langfuse_secret_key: str | None = None
     langfuse_base_url: str = "https://us.cloud.langfuse.com"
+
+    # Lakehouse archive (app/clients/archive.py): the copy of every submitted
+    # project that ``/submit`` writes to object storage, read by
+    # ``GET /api/context/read`` when the context store's copy is not
+    # byte-exact or the path was never ingested (figures). S3-compatible;
+    # MinIO today, Ceph RGW later — the endpoint is config, not code. Leave
+    # the keys unset and the archive is simply unavailable (such reads 502).
+    # Objects live at ``s3://<bucket>/<prefix>/<project>/<path>``.
+    archive_endpoint_url: str = "https://minio.berdl.kbase.us"
+    archive_bucket: str = "cdm-lake"
+    archive_prefix: str = "tenant-general-warehouse/microbialdiscoveryforge/projects"
+    archive_access_key: str | None = None
+    archive_secret_key: SecretStr | None = None
+    archive_timeout_seconds: float = 20.0
+
+    # Wiki Ask: the conversational agent over the wiki corpus, run on an
+    # admin-held provider key rather than the reader's. Every limit lives here
+    # so it can be tuned per deployment once real usage is known; nothing in
+    # the chat code may hard-code these. The provider names an entry in
+    # ``chat_providers.yaml``; the model is one of that provider's. Quotas
+    # count tokens (input plus output) per calendar day per user, and per
+    # calendar month across every user; ``max_turns`` bounds one
+    # conversation and ``max_tool_calls`` one turn's calls to the wiki's tool
+    # server. The key unset means Ask is off.
+    wiki_ask_provider: str = "anthropic"
+    wiki_ask_model: str = "claude-sonnet-4-6"
+    wiki_ask_api_key: SecretStr | None = None
+    wiki_ask_daily_tokens_per_user: int = 250_000
+    wiki_ask_monthly_tokens: int = 25_000_000
+    wiki_ask_max_turns: int = 20
+    wiki_ask_max_tool_calls: int = 8
 
     # Derived paths
     @property

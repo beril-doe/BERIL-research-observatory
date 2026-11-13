@@ -224,6 +224,30 @@ class OpenVikingClient:
             options["node_limit"] = node_limit
         return await self._client.glob(pattern, uri=uri, **options)
 
+    async def read(self, uri: str) -> str:
+        """The whole content of the resource at a full ``viking://`` URI.
+
+        The store's ``content/read`` answers with text, not bytes: a document
+        is served as the store holds it. Whether that is the file as it was
+        uploaded is not promised here — the caller hashes the result against
+        what it recorded at ingest and decides (``OpenVikingManager.get_file``).
+        A URI naming a directory, or nothing, raises the SDK's own error.
+
+        The SDK's ``offset``/``limit`` are left at their defaults (everything):
+        a partial read cannot be checked for byte-exactness.
+        """
+        result = await self._client.read(uri)
+        # Verified as a plain string against SDK 0.1.12; tolerate an envelope
+        # that wraps it, rather than hashing a dict's repr.
+        if isinstance(result, dict):
+            result = result.get("content")
+        return result if isinstance(result, str) else ""
+
+    async def stat(self, uri: str) -> dict:
+        """The store's metadata for ``uri``: ``{name, size, mode, modTime,
+        isDir, uri}``, as the listing shows it."""
+        return await self._client.stat(uri)
+
     async def rm(self, uri: str) -> None:
         """Delete ``uri`` and everything beneath it.
 
