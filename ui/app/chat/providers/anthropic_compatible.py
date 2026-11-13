@@ -26,6 +26,7 @@ from claude_agent_sdk import (
 
 from app.chat.config import ProviderConfig
 from app.chat.providers.base import (
+    AgentProfile,
     Credentials,
     ErrorEvent,
     SessionInitialized,
@@ -61,6 +62,7 @@ class AnthropicCompatibleProvider:
         model: str,
         cwd: str,
         sdk_session_id: str | None,
+        profile: AgentProfile | None = None,
     ) -> AsyncIterator[TurnEvent]:
         try:
             api_key = credentials.require(_API_KEY_FIELD)
@@ -81,13 +83,30 @@ class AnthropicCompatibleProvider:
                 turn_env["ANTHROPIC_API_KEY"] = api_key
                 turn_env["ANTHROPIC_AUTH_TOKEN"] = ""
 
-            options = ClaudeAgentOptions(
-                model=model,
-                cwd=cwd,
-                env=turn_env,
-                resume=sdk_session_id,
-                skills="all",
-            )
+            if profile is None:
+                options = ClaudeAgentOptions(
+                    model=model,
+                    cwd=cwd,
+                    env=turn_env,
+                    resume=sdk_session_id,
+                    skills="all",
+                )
+            else:
+                # A shaped agent: its own system prompt, only its tools (the
+                # built-ins are not allowed, so the agent cannot read files or
+                # run commands), no skills, and a hard cap on the loop.
+                options = ClaudeAgentOptions(
+                    model=model,
+                    cwd=cwd,
+                    env=turn_env,
+                    resume=sdk_session_id,
+                    system_prompt=profile.system_prompt,
+                    mcp_servers=profile.mcp_servers,
+                    allowed_tools=list(profile.allowed_tools),
+                    tools=[],
+                    max_turns=profile.max_turns,
+                    permission_mode="bypassPermissions",
+                )
 
             async for event in _stream_turn(user_message, options):
                 yield event
@@ -144,7 +163,13 @@ def _translate(message: Any) -> list[TurnEvent]:
                     message=f"provider reported terminal error: {getattr(message, 'subtype', 'unknown')}"
                 )
             ]
-        return [TurnComplete(result_subtype=getattr(message, "subtype", None))]
+        return [
+            TurnComplete(
+                result_subtype=getattr(message, "subtype", None),
+                usage=getattr(message, "usage", None),
+                cost_usd=getattr(message, "total_cost_usd", None),
+            )
+        ]
 
     # Partial-message events and anything else we don't recognize: ignore.
     return []

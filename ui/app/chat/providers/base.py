@@ -64,10 +64,17 @@ class ToolResult:
 
 @dataclass
 class TurnComplete:
-    """Final event of a successful turn."""
+    """Final event of a successful turn.
+
+    ``usage`` is the provider's token accounting for the turn (``input_tokens``,
+    ``output_tokens``, cache fields) and ``cost_usd`` its own cost figure,
+    when it reports them — what the wiki Ask quota settles against.
+    """
 
     kind: Literal["turn_complete"] = "turn_complete"
     result_subtype: str | None = None
+    usage: dict[str, Any] | None = None
+    cost_usd: float | None = None
 
 
 @dataclass
@@ -105,6 +112,28 @@ class Credentials:
 
 
 # ---------------------------------------------------------------------------
+# Agent profile
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class AgentProfile:
+    """How a turn's agent is shaped, beyond the user's prompt.
+
+    ``None`` (the default profile) is the general chat: the SDK's own system
+    prompt, every built-in tool and skill. A profile replaces the system
+    prompt, restricts the tools to ``allowed_tools`` (built-ins off), mounts
+    the in-process MCP servers in ``mcp_servers`` and bounds the agent loop at
+    ``max_turns`` — one turn per tool call, so this is the tool-call cap.
+    """
+
+    system_prompt: str
+    allowed_tools: list[str] = field(default_factory=list)
+    mcp_servers: dict[str, Any] = field(default_factory=dict)
+    max_turns: int | None = None
+
+
+# ---------------------------------------------------------------------------
 # Provider protocol
 # ---------------------------------------------------------------------------
 
@@ -124,6 +153,7 @@ class ChatProvider(Protocol):
         model: str,
         cwd: str,
         sdk_session_id: str | None,
+        profile: AgentProfile | None = None,
     ) -> AsyncIterator[TurnEvent]:
         """Run a single chat turn and yield events as they happen.
 
