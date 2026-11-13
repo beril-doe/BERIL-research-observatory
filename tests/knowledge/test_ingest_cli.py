@@ -144,3 +144,122 @@ def test_preflight_without_a_login(mirror):
 
     assert record is None and "beril login" in reason
     assert calls == []
+
+
+# --- --record: re-send the submission record --------------------------------
+
+import hashlib
+import json
+
+from observatory_context import beril_submit
+
+
+@pytest.fixture
+def record_env(tmp_path, monkeypatch):
+    """The script module with a login, a project under the repo root, and a
+    fake BERIL answering the submissions routes. Built without ``mirror``:
+    both would patch the one global ``httpx.Client``."""
+    monkeypatch.setattr(auth_store, "AUTH_DIR", tmp_path / ".beril")
+    monkeypatch.setattr(auth_store, "AUTH_PATH", tmp_path / ".beril" / "auth.json")
+    auth_store.save(token="beril_abc", base_url="https://srv.test", orcid_id="0009-1",
+                    display_name=None)
+    module = _load_script()
+    root = tmp_path / "repo" / "projects" / "alpha"
+    (root / "figures").mkdir(parents=True)
+    (root / "REPORT.md").write_text("# R\n\n![f](figures/f.png)\n")
+    (root / "README.md").write_text("# A\n")
+    (root / "figures" / "f.png").write_bytes(b"\x89PNG" + bytes(8))
+    (root / "project_metadata.json").write_text("{}")
+    (root / "beril.yaml").write_text(
+        "project_id: alpha\napproval:\n  by: \"0009-1\"\n  at: \"2026-11-01T00:00:00Z\"\n"
+        "  report_hash: \"sha256:" + "ab" * 32 + "\"\nsubmissions:\n"
+        "  - status: failed\n    archive_key: \"s3a://old/\"\n"
+        "  - status: success\n    archive_key: \"s3a://b/t/projects/alpha/\"\n"
+    )
+    real_from_env = module.ContextConfig.from_env
+    monkeypatch.setattr(
+        module.ContextConfig, "from_env",
+        classmethod(lambda cls, repo_root=None: real_from_env(repo_root=tmp_path / "repo")),
+    )
+    requests: list[httpx.Request] = []
+    state = {"missing": ["figures/f.png"]}
+
+    def serve(request):
+        requests.append(request)
+        if request.method == "POST":
+            status = "complete" if not state["missing"] else "pending"
+            return httpx.Response(200, json={"id": "sub-9", "status": status,
+                                             "missing": state["missing"]})
+        state["missing"] = []
+        return httpx.Response(200, json={"status": "complete", "missing": []})
+
+    real_client = httpx.Client
+    monkeypatch.setattr(
+        beril_submit.httpx, "Client",
+        lambda *a, **kw: real_client(*a, **{**kw, "transport": httpx.MockTransport(serve)}),
+    )
+    return module, requests
+
+
+def _verdict(capsys):
+    return json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+
+
+def test_record_posts_manifest_then_the_missing_figure(record_env, capsys):
+    module, requests = record_env
+
+    assert module.run_record("alpha") == 0
+
+    verdict = _verdict(capsys)
+    assert verdict["status"] == "ok" and verdict["id"] == "sub-9" and verdict["missing"] == []
+    assert [r.method for r in requests] == ["POST", "PUT"]
+    assert requests[0].url.path == "/api/context/submissions"
+    assert requests[0].headers["Authorization"] == "Bearer beril_abc"
+    assert requests[1].url.path == "/api/context/submissions/sub-9/files/figures/f.png"
+
+
+def test_record_defaults_the_archive_to_the_last_successful_submission(record_env, capsys):
+    module, requests = record_env
+    module.run_record("alpha")
+    body = requests[0].read()
+    assert b"s3a://b/t/projects/alpha/" in body and b"s3a://old/" not in body
+    assert b'"owner_orcid": "0009-1"' in body
+    # The archive's generated metadata file is skipped, as the archive walker skips it.
+    assert b"project_metadata.json" not in body
+
+
+def test_record_without_an_archive_fails_and_asks_for_the_path(record_env, tmp_path, capsys):
+    module, requests = record_env
+    yaml_path = tmp_path / "repo" / "projects" / "alpha" / "beril.yaml"
+    yaml_path.write_text(yaml_path.read_text().split("submissions:")[0])
+
+    module.run_record("alpha")
+    verdict = _verdict(capsys)
+    assert verdict["status"] == "failed" and "--archive-path" in verdict["reason"]
+    assert requests == []
+
+    module.run_record("alpha", "s3a://given/")
+    assert _verdict(capsys)["status"] == "ok" and b"s3a://given/" in requests[0].read()
+
+
+def test_record_without_a_login_is_skipped(record_env, capsys):
+    module, requests = record_env
+    auth_store.AUTH_PATH.unlink()
+    module.run_record("alpha")
+    assert _verdict(capsys)["status"] == "skipped" and requests == []
+
+
+def test_record_for_an_unknown_project_is_failed_not_a_crash(record_env, capsys):
+    module, requests = record_env
+    module.run_record("nope")
+    verdict = _verdict(capsys)
+    assert verdict["status"] == "failed" and "nope" in verdict["reason"] and requests == []
+
+
+def test_record_flags_need_project_and_exclude_json():
+    module = _load_script()
+    parser = module.build_parser()
+    args = parser.parse_args(["--record", "--project", "alpha"])
+    assert args.record and args.project == "alpha"
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--record", "--all", "--project", "alpha"])

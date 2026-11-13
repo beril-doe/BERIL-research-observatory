@@ -109,6 +109,7 @@ def load_dotenv(env_path: Path | None = None) -> dict[str, str]:
 # path twice, and `expected_remote_count = len(manifest) + 1` would
 # expect two when only one lands — turning a successful retry into a
 # false partial-upload failure.
+# Mirrored in observatory_context/beril_submit.py ARCHIVE_SKIP; keep in step.
 SKIP_PATTERNS = {
     "__pycache__", ".ipynb_checkpoints", ".DS_Store", "Thumbs.db",
     ".submit.lock", "project_metadata.json",

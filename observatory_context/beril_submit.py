@@ -47,6 +47,13 @@ SUBMISSIONS_PATH = "/api/context/submissions"
 # ``read`` allowlist minus figures, which go up one PUT at a time.
 BUNDLE_FILES = ("REPORT.md", "README.md", "beril.yaml", "CORRECTIONS.md", "REFUTATION_*.md")
 
+# Names the lakehouse archive leaves out (tools/lakehouse_upload.py's
+# SKIP_PATTERNS, mirrored so a retried record lists the same files).
+ARCHIVE_SKIP = frozenset({
+    "__pycache__", ".ipynb_checkpoints", ".DS_Store", "Thumbs.db",
+    ".submit.lock", "project_metadata.json",
+})
+
 # Upload timeout: a figure may be tens of MiB.
 UPLOAD_TIMEOUT_SECONDS = 120.0
 
@@ -136,9 +143,11 @@ def file_entries(root: Path, paths: Iterable[Path]) -> list[dict[str, Any]]:
     return sorted(entries, key=lambda e: e["path"])
 
 
-def project_files(root: Path, skip: Iterable[str] = ()) -> list[Path]:
+def project_files(root: Path, skip: Iterable[str] = ARCHIVE_SKIP) -> list[Path]:
     """Every file under ``root``, leaving out names in ``skip`` (directories or
-    files). The retry path's stand-in for the archive's own file list."""
+    files). The retry path's stand-in for the archive's own file list; the
+    generated ``project_metadata.json`` is archived but not on disk, so a
+    retried record lists one file fewer than the original."""
     skip = set(skip)
     out = []
     for p in sorted(Path(root).rglob("*")):
