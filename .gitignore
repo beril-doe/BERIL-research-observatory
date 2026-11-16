@@ -147,3 +147,5 @@ knowledge/openviking/gcp-key.json
 
 # Codex config is per-user, never tracked (BERIL ships Claude-only wiring)
 .codex/
+# Local file:// artifact store the compose wiki service reloads from.
+.wiki-store/

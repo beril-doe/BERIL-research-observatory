@@ -25,6 +25,12 @@ services:
     environment:
       # Reach OpenViking over the compose network, not the .env localhost default.
       BERIL_OV_URL: http://openviking:1933
+      # The wiki as the context API's second backend (source=wiki); the token
+      # must equal WIKI_INTERNAL_TOKEN on the wiki service. Links point at the
+      # proxy's /wiki.
+      BERIL_WIKI_INTERNAL_URL: http://wiki:8080
+      BERIL_WIKI_INTERNAL_TOKEN: ${BERIL_WIKI_INTERNAL_TOKEN:-dev-wiki-internal-token}
+      BERIL_WIKI_PUBLIC_URL: http://localhost:8000/wiki
     volumes:
       # The submission store (BERIL_SUBMISSIONS_DIR): the bytes /submit hands
       # BERIL for the wiki. Persistent, like SPIN's volume for the same path;
@@ -61,10 +67,34 @@ services:
   # links (footer About, sitemap) point there; to use a local build set
   # BERIL_WIKI_IMAGE (see the beril-wiki README, "The SPIN image").
   wiki:
-    image: ${BERIL_WIKI_IMAGE:-ghcr.io/beril-doe/beril-wiki:develop}
+    # The BERIL wiki, served at /wiki by the proxy. Built from the sibling
+    # beril-wiki checkout (BERIL_WIKI_SRC, default ../beril-wiki), site and all,
+    # so `docker compose --profile wiki up --build` needs no separate render
+    # step; the first build clones Quartz and takes a few minutes. To run a
+    # pulled image instead, set BERIL_WIKI_IMAGE and leave --build off.
+    build:
+      context: ${BERIL_WIKI_SRC:-../beril-wiki}
+      args:
+        SITE_FROM: site
+        WIKI_BASE_URL: ${BERIL_WIKI_BASE_URL:-localhost:8000/wiki}
+    image: ${BERIL_WIKI_IMAGE:-beril-wiki:local}
     profiles: ["wiki"]
     expose:
       - "8080"
+    environment:
+      # The token the webapp's WikiManager presents on /wiki/_api; must equal
+      # BERIL_WIKI_INTERNAL_TOKEN on the ui service.
+      WIKI_INTERNAL_TOKEN: ${BERIL_WIKI_INTERNAL_TOKEN:-dev-wiki-internal-token}
+      # POST /wiki/_admin/reload bearer token.
+      WIKI_RELOAD_TOKEN: ${WIKI_RELOAD_TOKEN:-dev-wiki-reload-token}
+      # A file:// artifact store shared with the host (BERIL_WIKI_STORE), so
+      # `python -m beril_wiki.publish.artifact push` from the wiki checkout
+      # lands where this container reloads from.
+      WIKI_ARTIFACT_ENDPOINT: file:///srv/artifact-store
+      WIKI_ARTIFACT_BUCKET: wiki
+    volumes:
+      - wikiartifacts:/srv/artifacts
+      - ${BERIL_WIKI_STORE:-./.wiki-store}:/srv/artifact-store
     restart: unless-stopped
 
   openviking:
@@ -112,3 +142,4 @@ volumes:
   pgdata:
   ovworkspace:
   submissions:
+  wikiartifacts:
