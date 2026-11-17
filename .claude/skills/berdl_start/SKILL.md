@@ -48,6 +48,7 @@ data/               # Shared data extracts reusable across projects
 | `/synthesize` | Read analysis outputs, compare against literature, and draft findings |
 | `/submit` | Approve a project and upload it to the lakehouse |
 | `/cts` | Run batch compute jobs on the CTS cluster |
+| `/ecosim` | Simulate soil, plant and microbe responses to climate or management with the EcoSIM model (optional install) |
 
 > **Note**: Hypothesis generation, research planning, and notebook creation are handled automatically as part of the **Unified Project Workflow** below. You don't need to invoke them separately.
 

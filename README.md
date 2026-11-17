@@ -157,6 +157,7 @@ Skills are invoked automatically based on context, or explicitly with `/skill-na
 | **Submit Project** | `/submit` | Validate documentation and request a formal AI review |
 | **LinkML Schema** | `/linkml-schema` | Generate LinkML schema from markdown, Excel, or plain text |
 | **Phenix** | `/phenix` | Structural biology workflows — AlphaFold, X-ray, cryo-EM, MolProbity |
+| **EcoSIM** | `/ecosim` | Simulate soil, plant and microbe responses to climate or management with the EcoSIM ecosystem model (optional install) |
 
 BERIL CLI commands (`beril doctor`, `beril setup`, `beril start`) handle environment management outside the agent session. `beril start --agent <name>` launches Claude Code, Codex, Gemini CLI or omp. With `--agent omp`, session transcripts are written under `~/.beril/omp-sessions/<checkout>/` — in `$HOME`, which persists across BERDL pod restarts where the checkout does not — and the path is printed at launch, so a session can be handed to a transcript reader afterwards.
 
