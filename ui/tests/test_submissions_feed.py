@@ -5,11 +5,13 @@ from __future__ import annotations
 from datetime import timedelta
 
 from tests.submissions_helpers import (
+    FIG1,
     FILES,
     OWNER,
     SUBMITTED_AT,
     _login,
     post,
+    put_file,
     sha,
     submit_complete,
 )
@@ -33,7 +35,7 @@ def test_feed_requires_a_login(client):
     assert _feed(client).status_code == 401
 
 
-async def test_feed_lists_complete_submissions_oldest_first(client, user):
+async def test_feed_lists_complete_submissions_in_completion_order(client, user):
     _login(client)
     later = submit_complete(client, report=b"# v2\n", submitted_at=SUBMITTED_AT + timedelta(days=1))
     first = submit_complete(client, report=b"# v1\n", submitted_at=SUBMITTED_AT)
@@ -42,18 +44,21 @@ async def test_feed_lists_complete_submissions_oldest_first(client, user):
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert [s["id"] for s in body["submissions"]] == [first, later]
-    entry = body["submissions"][1]
+    # Completion order, not submitted_at: v2 completed first.
+    assert [s["id"] for s in body["submissions"]] == [later, first]
+    entry = body["submissions"][0]
     assert (entry["project"], entry["owner_orcid"], entry["kind"]) == ("alpha", OWNER, "approved")
     assert entry["address"] == f"{OWNER}/alpha"
     assert entry["revision"] == sha(b"# v2\n")
+    assert entry["submitted_at"] == (SUBMITTED_AT + timedelta(days=1)).isoformat()
     assert entry["archive_path"].startswith("s3a://")
     # Only stored files are listed, each with the hash /read serves byte-exact.
     assert {f["path"] for f in entry["files"]} == {"REPORT.md", "README.md", "beril.yaml"}
     assert {f["path"]: (f["sha256"], f["size"]) for f in entry["files"]}["README.md"] == (
         sha(FILES["README.md"]), len(FILES["README.md"])
     )
-    assert body["next_since"] == entry["submitted_at"]
+    assert isinstance(body["next_after"], int)
+    assert "next_since" not in body
     assert "stored" not in entry["files"][0]
 
 
@@ -65,7 +70,7 @@ async def test_feed_omits_pending_submissions(client, user):
     assert _feed(client).json()["submissions"] == []
 
 
-async def test_feed_since_is_exclusive_and_pages_by_next_since(client, user):
+async def test_feed_after_is_exclusive_and_pages_by_next_after(client, user):
     _login(client)
     ids = [
         submit_complete(client, report=f"# v{d}\n".encode(), submitted_at=SUBMITTED_AT + timedelta(days=d))
@@ -75,11 +80,71 @@ async def test_feed_since_is_exclusive_and_pages_by_next_since(client, user):
     page = _feed(client, limit=2).json()
     assert [s["id"] for s in page["submissions"]] == ids[:2]
 
+    rest = _feed(client, after=page["next_after"]).json()
+    assert [s["id"] for s in rest["submissions"]] == ids[2:]
+
+    empty = _feed(client, after=rest["next_after"]).json()
+    assert (empty["submissions"], empty["next_after"]) == ([], rest["next_after"])
+
+
+async def test_a_submission_completing_after_a_later_one_was_fed_is_not_skipped(client, user):
+    # A is posted first but its figure arrives last; B completes in between
+    # and is fed. A must still come after the cursor B's page handed out.
+    _login(client)
+    a = post(client).json()  # embeds fig1, not yet PUT
+    assert a["status"] == "pending"
+    b = submit_complete(client, report=b"# beta\n", submitted_at=SUBMITTED_AT + timedelta(days=1))
+    page = _feed(client).json()
+    assert [s["id"] for s in page["submissions"]] == [b]
+
+    assert put_file(client, a["id"], "figures/fig1.png", FIG1).json()["status"] == "complete"
+
+    nxt = _feed(client, after=page["next_after"]).json()
+    assert [s["id"] for s in nxt["submissions"]] == [a["id"]]
+
+
+async def test_submissions_sharing_a_timestamp_all_page_through_one_at_a_time(client, user):
+    _login(client)
+    ids = {
+        submit_complete(client, report=f"# same time {n}\n".encode(), submitted_at=SUBMITTED_AT)
+        for n in range(3)
+    }
+
+    seen, after = [], None
+    for _ in range(5):
+        params = {"limit": 1} if after is None else {"limit": 1, "after": after}
+        body = _feed(client, **params).json()
+        if not body["submissions"]:
+            break
+        seen += [s["id"] for s in body["submissions"]]
+        after = body["next_after"]
+
+    assert sorted(seen) == sorted(ids)
+
+
+async def test_feed_since_still_pages_by_next_since(client, user):
+    # The deprecated cursor, kept for clients not yet on `after`.
+    _login(client)
+    ids = [
+        submit_complete(client, report=f"# v{d}\n".encode(), submitted_at=SUBMITTED_AT + timedelta(days=d))
+        for d in range(3)
+    ]
+
+    page = _feed(client, since="2026-01-01T00:00:00Z", limit=2).json()
+    assert [s["id"] for s in page["submissions"]] == ids[:2]
+    assert "next_after" not in page
+
     rest = _feed(client, since=page["next_since"]).json()
     assert [s["id"] for s in rest["submissions"]] == ids[2:]
 
     empty = _feed(client, since=rest["next_since"]).json()
     assert (empty["submissions"], empty["next_since"]) == ([], rest["next_since"])
+
+
+async def test_feed_refuses_both_cursors_and_a_negative_after(client, user):
+    _login(client)
+    assert _feed(client, after=1, since="2026-11-10T00:00:00Z").status_code == 422
+    assert _feed(client, after=-1).status_code == 422
 
 
 async def test_feed_accepts_zulu_and_date_since_and_refuses_junk(client, user):

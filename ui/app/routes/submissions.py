@@ -36,9 +36,11 @@ from app.routes.data import _safe_relative_path
 from app.routes.ingest_gate import archive_entry_count, read_capped
 from app.submissions.service import (
     KIND_APPROVED,
+    SUBMISSION_COMPLETE,
     SUBMISSION_KINDS,
     SubmissionManifest,
     aware,
+    complete_submissions_after,
     complete_submissions_since,
     content_type_for,
     find_submission,
@@ -176,6 +178,7 @@ async def record_submission(
     owner: BerilUser | None,
     kind: str,
     require_report: bool = True,
+    reject_changed_manifest: bool = True,
 ) -> tuple[Submission, bool]:
     """Create the record (or find the existing one for this revision), store
     the bundled files, and settle its status. Returns ``(submission,
@@ -183,7 +186,10 @@ async def record_submission(
 
     Every bundled file is checked against the manifest first — a file the
     manifest does not list, or whose bytes do not hash to the manifest's
-    sha256, refuses the whole post before anything is written.
+    sha256, refuses the whole post before anything is written. A re-post of
+    a recorded revision must carry the recorded manifest (409 otherwise)
+    unless ``reject_changed_manifest`` is off, in which case the recorded
+    files win; either way no byte is stored that the record does not name.
     """
     listed = {f.path: f for f in manifest.files}
     for path, data in bundle.items():
@@ -229,19 +235,36 @@ async def record_submission(
         except IntegrityError:
             # A concurrent post of the same revision won; take theirs.
             await db.rollback()
-            submission = await find_submission(
+            existing = await find_submission(
                 db, owner_orcid=manifest.owner_orcid, project=manifest.project, revision=manifest.revision
             )
             created = False
-    else:
-        submission = existing
+    if not created:
+        # Lock the recorded row and re-read it, as a figure PUT does, so the
+        # two cannot settle status from each other's stale view.
+        submission = await get_submission(db, existing.id, for_update=True)
 
     records = {f.path: f for f in submission.files}
+    if not created and reject_changed_manifest:
+        # The revision names REPORT.md only, so a re-post can carry other
+        # files that changed since the first. Storing those would serve bytes
+        # whose hash the feed does not advertise; refuse the whole re-post.
+        persisted = {p: (r.sha256, r.size) for p, r in records.items()}
+        incoming = {f.path: (f.sha256, f.size) for f in manifest.files}
+        if incoming != persisted:
+            changed = sorted(p for p in persisted.keys() | incoming.keys() if persisted.get(p) != incoming.get(p))
+            raise _reject(
+                f"This revision was already recorded with a different manifest ({', '.join(changed)}). "
+                "Change REPORT.md to submit new files.",
+                status.HTTP_409_CONFLICT,
+            )
     for path, data in bundle.items():
         record = records.get(path)
         if record is not None and not record.stored:
+            if sha256_hex(data) != record.sha256 or len(data) != record.size:
+                raise _reject(f"{path} does not match the recorded sha256/size.", status.HTTP_409_CONFLICT)
             await _store_or_502(store_file(store, submission, record, data))
-    await _store_or_502(refresh_status(store, submission))
+    await _store_or_502(refresh_status(db, store, submission))
     await db.commit()
     await db.refresh(submission, ["files"])
     return submission, created
@@ -329,7 +352,7 @@ async def put_submission_file(
 ) -> dict:
     """Store one manifest file's bytes — the way figures arrive, one per
     request (the body is the file). Owner only; the bytes must hash to the
-    manifest's sha256. Storing a file already stored is a no-op.
+    manifest's sha256. Storing a file already stored stores nothing again.
     """
     submission = await get_submission(db, submission_id)
     # 404 rather than 403 for someone else's: a probe cannot confirm an id.
@@ -347,13 +370,22 @@ async def put_submission_file(
     data = await request.body()
     if len(data) > limit:
         raise _reject("The file is too large.", status.HTTP_413_CONTENT_TOO_LARGE)
+    if not record.stored and (sha256_hex(data) != record.sha256 or len(data) != record.size):
+        raise _reject(f"{record.path} does not match the manifest's sha256/size.")
+    # Concurrent PUTs of a submission's last figures must not each settle
+    # status from a stale view of the others; lock the row, re-read the
+    # files, then store and recompute. Status is recomputed whenever the
+    # submission is still pending, so retrying a stored file also repairs it.
+    store = get_submission_store()
+    submission = await get_submission(db, submission_id, for_update=True)
+    if submission is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Unknown submission.")
+    record = next(f for f in submission.files if f.path == record.path)
     if not record.stored:
-        if sha256_hex(data) != record.sha256 or len(data) != record.size:
-            raise _reject(f"{record.path} does not match the manifest's sha256/size.")
-        store = get_submission_store()
         await _store_or_502(store_file(store, submission, record, data))
-        await _store_or_502(refresh_status(store, submission))
-        await db.commit()
+    if submission.status != SUBMISSION_COMPLETE:
+        await _store_or_502(refresh_status(db, store, submission))
+    await db.commit()
     return {
         "id": submission.id,
         "path": record.path,
@@ -390,7 +422,8 @@ def _parse_kinds(value: str) -> tuple[str, ...]:
 @ROUTER_SUBMISSIONS.get("/api/context/submissions")
 async def list_submissions(
     request: Request,
-    since: str | None = Query(default=None, description="ISO 8601 instant; only submissions after it (exclusive). Pass back the previous page's `next_since`."),
+    after: int | None = Query(default=None, ge=0, description="Feed position; only submissions after it (exclusive). Pass back the previous page's `next_after`; omit to start from the beginning."),
+    since: str | None = Query(default=None, description="Deprecated: ISO 8601 instant, paging by `submitted_at`. Can miss a submission that completes after a later one; use `after`."),
     kind: str = Query(default="approved,seeded", description="Comma-separated: approved, seeded, docs."),
     limit: int = Query(default=100, ge=1, le=MAX_SUBMISSIONS_LIMIT),
     user: BerilUser = Depends(require_user_api),
@@ -398,19 +431,35 @@ async def list_submissions(
 ) -> dict:
     """What was submitted, and when — the "changed since" feed.
 
-    One entry per **complete** submission, oldest by ``submitted_at`` first:
-    its id, project, owner, address, ``revision`` (sha256 of REPORT.md),
-    ``kind`` (``approved`` for a ``/submit``, ``seeded`` for an admin import of
-    a project that predates it, ``docs`` for the central digests), the
-    archive path, and each stored file with its sha256 and size — the bytes
-    ``/read`` serves byte-exact. Every submission is of an approved project,
-    so the feed is global like every read. ``next_since`` is the cursor for
-    the page after this one; an empty page echoes the caller's own.
+    One entry per **complete** submission, in the order they completed: its
+    id, project, owner, address, ``revision`` (sha256 of REPORT.md),
+    ``submitted_at``, ``kind`` (``approved`` for a ``/submit``, ``seeded``
+    for an admin import of a project that predates it, ``docs`` for the
+    central digests), the archive path, and each stored file with its sha256
+    and size — the bytes ``/read`` serves byte-exact. Every submission is of
+    an approved project, so the feed is global like every read.
+
+    ``next_after`` is the cursor for the page after this one; an empty page
+    echoes the caller's own. A submission can complete after a later one
+    (its figures arrived last), so the feed is not ordered by
+    ``submitted_at``, and a project's entries can arrive out of revision
+    order: keep the one with the newest ``submitted_at``.
+
+    ``since``/``next_since`` is the old cursor, kept for clients not yet on
+    ``after``; it pages by ``submitted_at`` and can skip submissions.
     """
-    since_at = _parse_since(since)
     kinds = _parse_kinds(kind)
-    rows = await complete_submissions_since(db, since=since_at, kinds=kinds, limit=limit)
+    if since is not None:
+        if after is not None:
+            raise _reject("Pass `after` or `since`, not both.")
+        since_at = _parse_since(since)
+        rows = await complete_submissions_since(db, since=since_at, kinds=kinds, limit=limit)
+        return {
+            "submissions": [_feed_entry(s) for s in rows],
+            "next_since": aware(rows[-1].submitted_at).isoformat() if rows else since,
+        }
+    rows = await complete_submissions_after(db, after=after, kinds=kinds, limit=limit)
     return {
         "submissions": [_feed_entry(s) for s in rows],
-        "next_since": aware(rows[-1].submitted_at).isoformat() if rows else since,
+        "next_after": rows[-1].feed_seq if rows else after,
     }

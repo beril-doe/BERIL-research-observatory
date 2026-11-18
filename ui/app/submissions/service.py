@@ -13,7 +13,7 @@ import re
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -176,14 +176,20 @@ def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-async def get_submission(db: AsyncSession, submission_id: str) -> Submission | None:
-    return (
-        await db.execute(
-            select(Submission)
-            .where(Submission.id == submission_id)
-            .options(selectinload(Submission.files))
-        )
-    ).scalar_one_or_none()
+async def get_submission(
+    db: AsyncSession, submission_id: str, *, for_update: bool = False
+) -> Submission | None:
+    """The submission with its files. ``for_update`` row-locks it until the
+    transaction ends (Postgres; SQLite serializes writers anyway) and
+    re-reads everything, so the caller sees what the last holder committed."""
+    query = (
+        select(Submission)
+        .where(Submission.id == submission_id)
+        .options(selectinload(Submission.files))
+    )
+    if for_update:
+        query = query.with_for_update(of=Submission).execution_options(populate_existing=True)
+    return (await db.execute(query)).scalar_one_or_none()
 
 
 async def find_submission(
@@ -220,11 +226,34 @@ async def latest_complete_submission(
     return (await db.execute(query)).scalar_one_or_none()
 
 
+async def complete_submissions_after(
+    db: AsyncSession, *, after: int | None, kinds: tuple[str, ...], limit: int
+) -> list[Submission]:
+    """Complete submissions of the given kinds whose ``feed_seq`` is past
+    ``after`` (exclusive), in feed order, at most ``limit``, files loaded."""
+    query = (
+        select(Submission)
+        .where(
+            Submission.status == SUBMISSION_COMPLETE,
+            Submission.feed_seq.is_not(None),
+            Submission.kind.in_(kinds),
+        )
+        .options(selectinload(Submission.files))
+        .order_by(Submission.feed_seq)
+        .limit(limit)
+    )
+    if after is not None:
+        query = query.where(Submission.feed_seq > after)
+    return list((await db.execute(query)).scalars())
+
+
 async def complete_submissions_since(
     db: AsyncSession, *, since: datetime | None, kinds: tuple[str, ...], limit: int
 ) -> list[Submission]:
     """Complete submissions of the given kinds after ``since`` (exclusive),
-    oldest first, at most ``limit``, files loaded."""
+    oldest first, at most ``limit``, files loaded. The feed's deprecated
+    ``since`` mode: a submission completing after a later one was fed is
+    never seen again; page by :func:`complete_submissions_after` instead."""
     query = (
         select(Submission)
         .where(Submission.status == SUBMISSION_COMPLETE, Submission.kind.in_(kinds))
@@ -261,8 +290,31 @@ async def report_text(store: SubmissionStore, submission: Submission) -> str | N
     return data.decode("utf-8", errors="replace")
 
 
-async def refresh_status(store: SubmissionStore, submission: Submission) -> str:
+# Key of the advisory lock that orders feed_seq ("SUBFEED" as a 64-bit int).
+_FEED_LOCK_KEY = 0x0053554246454544
+
+
+async def refresh_status(db: AsyncSession, store: SubmissionStore, submission: Submission) -> str:
+    """Recompute ``status``; on completion, give the submission its place in
+    the feed.
+
+    ``feed_seq`` is the next number under a transaction-scoped lock, so it is
+    handed out in commit order: a reader that sees ``n`` committed can rely
+    on every lower number being committed too, and a cursor never passes a
+    row still to come. The caller commits straight after; nothing slow may
+    run between this and the commit (the lock is held until then).
+
+    Lock order: the caller already holds the submission's row (its own new
+    insert, or ``get_submission(..., for_update=True)``), and only then is
+    the feed lock taken here. Every path takes them in that order, so a
+    holder of the feed lock never waits on a row lock.
+    """
     submission.status = compute_status(submission, await report_text(store, submission))
+    if submission.status == SUBMISSION_COMPLETE and submission.feed_seq is None:
+        if db.get_bind().dialect.name == "postgresql":
+            await db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _FEED_LOCK_KEY})
+        top = (await db.execute(select(func.max(Submission.feed_seq)))).scalar_one()
+        submission.feed_seq = (top or 0) + 1
     return submission.status
 
 

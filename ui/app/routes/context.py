@@ -1741,7 +1741,10 @@ async def _record_seeded(
         ],
     )
     submission, created = await record_submission(
-        db, get_submission_store(), manifest=manifest, bundle=bundle, owner=owner, kind=KIND_SEEDED
+        db, get_submission_store(), manifest=manifest, bundle=bundle, owner=owner, kind=KIND_SEEDED,
+        # A re-import of the same report with other files edited keeps the
+        # first import's files rather than failing the whole import.
+        reject_changed_manifest=False,
     )
     logger.info(
         "Seeded submission %s for %s/%s (%s)", submission.id, owner.orcid_id, slug,

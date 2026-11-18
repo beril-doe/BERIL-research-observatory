@@ -110,7 +110,10 @@ bundled file against its manifest sha256, that `revision` and
 `approval.report_hash` are the sha256 of `REPORT.md`, and that `approval.by`
 and `owner_orcid` are the caller (403 otherwise). The post is idempotent on
 `(owner, project, revision)`: re-posting returns the existing record
-(`created: false`) and stores whatever it still lacked. Figures the report
+(`created: false`) and stores whatever it still lacked. A re-post must carry
+the manifest the revision was first recorded with; one that lists any file
+with a different sha256 or size is refused with 409 (the revision names only
+`REPORT.md`, so change the report to submit new files). Figures the report
 embeds (`![](figures/…)`, `<img src="figures/…">`) are PUT one per request,
 hash-checked, owner only; the response's `missing` lists what is still
 needed. A submission is `pending` until every readable text file and every
@@ -126,7 +129,7 @@ What was submitted, and when — the "changed since" feed the wiki curator
 polls:
 
 ```
-GET /api/context/submissions?since=<iso8601>&kind=approved,seeded&limit=100
+GET /api/context/submissions?after=<next_after>&kind=approved,seeded&limit=100
 ```
 
 ```json
@@ -146,14 +149,26 @@ GET /api/context/submissions?since=<iso8601>&kind=approved,seeded&limit=100
       "files": [{"path": "REPORT.md", "sha256": "…", "size": 1234}]
     }
   ],
-  "next_since": "2026-11-10T12:00:00+00:00"
+  "next_after": 42
 }
 ```
 
-One entry per **complete** submission, oldest by `submitted_at` first; each
-stored file's `sha256` and `size` are what `read` serves byte-exact. `since`
-is exclusive — pass back the `next_since` you were given (an empty page
-echoes your own cursor). `limit` is 100 by default, 1000 at most.
+One entry per **complete** submission, in the order they completed; each
+stored file's `sha256` and `size` are what `read` serves byte-exact. Omit
+`after` to start from the beginning; otherwise it is exclusive — pass back
+the `next_after` you were given (an empty page echoes your own cursor).
+`limit` is 100 by default, 1000 at most.
+
+The cursor is the submission's place in the feed, given when it completes,
+so nothing that completes later can fall behind a cursor already handed out.
+That also means the feed is **not** ordered by `submitted_at`: a submission
+whose figures arrived last completes after a newer one, and a project's
+revisions can arrive out of order. Keep the entry with the newest
+`submitted_at` per project.
+
+`since=<iso8601>` (with `next_since`) is the old cursor, paging by
+`submitted_at`. It still works for clients not yet on `after`, but can skip a
+submission that completes after a later one; pass one cursor or the other.
 
 **`kind`.** `approved` is a `/submit`: it passed the approval gate and the
 record's own checks. `seeded` is an admin import

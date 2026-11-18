@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy import Boolean, Date, DateTime, Enum, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, Enum, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -373,6 +373,8 @@ class Submission(Base):
     predates ``/submit``) or ``docs`` (the central digests, owner ``beril``,
     project ``docs``). ``status`` is ``pending`` until every file the wiki
     needs is stored, then ``complete``; only complete rows are fed.
+    ``feed_seq`` is the row's place in the feed, given when it completes and
+    in commit order, so a feed cursor never passes a row still to come.
     ``owner_user_id`` is null for the house account.
     """
 
@@ -382,6 +384,7 @@ class Submission(Base):
             "owner_orcid", "project", "revision", name="uq_submission_owner_project_revision"
         ),
         Index("ix_submission_status_submitted", "status", "submitted_at"),
+        Index("ix_submission_feed_seq", "feed_seq", unique=True),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
@@ -397,6 +400,7 @@ class Submission(Base):
     approval_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     kind: Mapped[str] = mapped_column(String(16), nullable=False, default="approved")
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    feed_seq: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 

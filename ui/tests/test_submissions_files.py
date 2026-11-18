@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.db.models import BerilUser
+from app.db.models import BerilUser, Submission
 from tests.submissions_helpers import (
     FIG1,
     FIG2,
@@ -32,6 +32,23 @@ async def test_put_stores_a_figure_and_completes_the_submission(client, user, su
         "figures/fig1.png", True, "complete", []
     )
     assert submission_store.get(OWNER, "alpha", REVISION, "figures/fig1.png") == FIG1
+
+
+async def test_retrying_a_stored_figure_completes_a_submission_left_pending(client, user, db_session):
+    # Two PUTs racing for the last figures could each settle "pending" from a
+    # stale view; whatever left it so, a retry of a stored file repairs it.
+    sid = _posted(client)
+    assert put_file(client, sid, "figures/fig1.png", FIG1).json()["status"] == "complete"
+    row = await db_session.get(Submission, sid)
+    row.status = "pending"
+    await db_session.commit()
+
+    resp = put_file(client, sid, "figures/fig1.png", FIG1)
+
+    assert resp.status_code == 200, resp.text
+    assert (resp.json()["status"], resp.json()["missing"]) == ("complete", [])
+    await db_session.refresh(row)
+    assert row.status == "complete"
 
 
 async def test_put_of_an_unembedded_figure_is_stored_but_was_never_required(client, user):

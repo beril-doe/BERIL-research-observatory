@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.context_manager.base import ContextFileNotFound
 from app.db.models import Submission
 from tests.submissions_helpers import (
     FILES,
@@ -54,6 +55,39 @@ async def test_post_is_idempotent_on_owner_project_revision(client, user):
 
     assert again.status_code == 200
     assert (again.json()["id"], again.json()["created"]) == (first["id"], False)
+
+
+async def test_repost_with_a_changed_file_is_refused_and_stores_nothing(client, user, submission_store):
+    # The first post leaves README unstored; a retry under the same REPORT.md
+    # revision carries a different README. Storing it would serve bytes the
+    # feed's hash does not describe.
+    _login(client)
+    first = post(client, bundle={"REPORT.md": REPORT, "beril.yaml": FILES["beril.yaml"]}).json()
+    changed = {**FILES, "README.md": b"# Alpha, edited\n"}
+
+    again = post(
+        client,
+        manifest_body=manifest(files=changed),
+        bundle={p: changed[p] for p in TEXT_FILES},
+    )
+
+    assert again.status_code == 409, again.text
+    assert "README.md" in again.json()["detail"]
+    status = client.get(f"/api/context/submissions/{first['id']}").json()
+    assert {f["path"]: f["stored"] for f in status["files"]}["README.md"] is False
+    with pytest.raises(ContextFileNotFound):
+        submission_store.get(OWNER, "alpha", REVISION, "README.md")
+
+
+async def test_repost_with_the_recorded_manifest_stores_what_was_missing(client, user, submission_store):
+    _login(client)
+    first = post(client, bundle={"REPORT.md": REPORT, "beril.yaml": FILES["beril.yaml"]}).json()
+
+    again = post(client)
+
+    assert again.status_code == 200, again.text
+    assert again.json()["id"] == first["id"]
+    assert submission_store.get(OWNER, "alpha", REVISION, "README.md") == FILES["README.md"]
 
 
 async def test_post_completes_at_once_when_no_figure_is_embedded(client, user):
