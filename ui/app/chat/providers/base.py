@@ -79,10 +79,17 @@ class TurnComplete:
 
 @dataclass
 class ErrorEvent:
-    """Terminal event for a failed turn."""
+    """Terminal event for a failed turn.
+
+    ``usage`` and ``cost_usd`` are as on :class:`TurnComplete`: a turn can
+    fail after billable work (e.g. hitting its agent-loop cap), and the wiki
+    Ask quota must count that work too.
+    """
 
     message: str
     kind: Literal["error"] = "error"
+    usage: dict[str, Any] | None = None
+    cost_usd: float | None = None
 
 
 TurnEvent = (

@@ -131,6 +131,73 @@ async def test_wiki_turn_runs_on_the_admin_key_filters_citations_and_settles(
     assert stored.content["text"] == "Yield rises [1] but see ."
 
 
+async def _reserved(db_session, user_id) -> tuple[int, int]:
+    """(reservations, reserved_tokens) on the user's spend rows; (0, 0) if none."""
+    rows = (await db_session.execute(select(AskSpend).where(AskSpend.user_id == user_id))).scalars().all()
+    for row in rows:
+        await db_session.refresh(row)
+    return sum(r.reservations for r in rows), sum(r.reserved_tokens for r in rows)
+
+
+@pytest.mark.parametrize("route", ["turn", "stream"])
+async def test_wiki_turn_refused_by_the_concurrency_cap_reserves_nothing(
+    client, user, db_session, ask_env, wiki, route
+):
+    from app.chat import concurrency as c
+    from app.chat.concurrency import ChatConcurrencyManager, reset_concurrency_manager
+
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+    c._manager = ChatConcurrencyManager(per_user_cap=1)
+    c._manager._user_active[user.id] = 1  # a turn already in flight elsewhere
+    try:
+        with patch("app.chat.service.run_provider_turn", _patched_provider(_events())):
+            resp = client.post(f"/api/chat/{sid}/{route}", json={"message": "yield?"})
+    finally:
+        reset_concurrency_manager()
+
+    assert resp.status_code == 429
+    assert await _reserved(db_session, user.id) == (0, 0)
+
+
+async def test_wiki_turn_that_fails_before_the_provider_gives_its_reservation_back(
+    client, user, db_session, ask_env, wiki
+):
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+
+    async def broken(*args, **kwargs):
+        raise RuntimeError("database went away")
+
+    with patch("app.chat.service.persist_user_message", broken), pytest.raises(RuntimeError):
+        client.post(f"/api/chat/{sid}/turn", json={"message": "yield?"})
+
+    assert await _reserved(db_session, user.id) == (0, 0)
+
+
+async def test_wiki_turn_that_errors_after_billable_work_is_still_charged(
+    client, user, db_session, ask_env, wiki
+):
+    from app.chat.providers.base import ErrorEvent
+
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+    events = [
+        TextDelta(text="partial"),
+        ErrorEvent(message="provider reported terminal error: error_max_turns",
+                   usage={"input_tokens": 1200, "output_tokens": 300}, cost_usd=0.01),
+    ]
+
+    with patch("app.chat.service.run_provider_turn", _patched_provider(events)):
+        resp = client.post(f"/api/chat/{sid}/turn", json={"message": "yield?"})
+
+    assert resp.status_code == 200, resp.text
+    assert "error_max_turns" in resp.json()["error"]
+    spend = (await db_session.execute(select(AskSpend).where(AskSpend.user_id == user.id))).scalar_one()
+    await db_session.refresh(spend)
+    assert (spend.tokens, spend.reservations, spend.reserved_tokens) == (1500, 0, 0)
+
+
 async def test_wiki_turn_is_refused_past_the_daily_cap(client, user, db_session, ask_env, wiki):
     _login(client)
     sid = await _wiki_session(client, db_session)

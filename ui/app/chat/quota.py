@@ -8,6 +8,13 @@ and their USD at the model's rates) against the caps, so two turns in flight
 cannot both fit under a cap only one of them would; when it finishes the
 reservation is replaced by what the turn actually used. Spend is recorded
 per user per day in ``ask_spend``.
+
+The cap check and the reservation are one step: on Postgres every reserve
+takes a transaction-scoped advisory lock first (the monthly caps span all
+users, so the lock is global; it is held for one short read-and-update), and
+every change to a row is a single ``UPDATE ... SET x = x + ...`` so
+concurrent settlements cannot overwrite each other. A reservation never
+settled (the process died mid-turn) counts only on its own day.
 """
 
 from __future__ import annotations
@@ -16,7 +23,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
@@ -57,6 +64,18 @@ def next_month(day: date) -> datetime:
     return datetime.combine(first, datetime.min.time(), tzinfo=timezone.utc)
 
 
+# Key of the advisory lock that serializes reservations (any constant unique
+# to this use; "ASKQUOTA" as a 64-bit int).
+_RESERVE_LOCK_KEY = 0x41534B51554F5441
+
+
+async def _lock_reservations(db: AsyncSession) -> None:
+    """Hold the reservation lock until this transaction ends. Postgres only:
+    SQLite (tests) already serializes writers."""
+    if db.get_bind().dialect.name == "postgresql":
+        await db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _RESERVE_LOCK_KEY})
+
+
 async def _row(db: AsyncSession, user_id: str, day: date) -> AskSpend:
     row = (
         await db.execute(select(AskSpend).where(AskSpend.user_id == user_id, AskSpend.day == day))
@@ -69,13 +88,20 @@ async def _row(db: AsyncSession, user_id: str, day: date) -> AskSpend:
 
 
 async def _month_totals(db: AsyncSession, day: date) -> tuple[int, float]:
-    """Tokens and USD, settled plus reserved, across every user this month."""
+    """Tokens and USD across every user this month: everything settled, plus
+    what is reserved today. An earlier day's reservation can only be one that
+    never settled, and must not hold the budget for the rest of the month."""
     first = day.replace(day=1)
+    today = AskSpend.day == day
     row = (
         await db.execute(
             select(
-                func.coalesce(func.sum(AskSpend.tokens + AskSpend.reserved_tokens), 0),
-                func.coalesce(func.sum(AskSpend.usd + AskSpend.reserved_usd), 0.0),
+                func.coalesce(
+                    func.sum(AskSpend.tokens + case((today, AskSpend.reserved_tokens), else_=0)), 0
+                ),
+                func.coalesce(
+                    func.sum(AskSpend.usd + case((today, AskSpend.reserved_usd), else_=0.0)), 0.0
+                ),
             ).where(AskSpend.day >= first, AskSpend.day < next_month(day).date())
         )
     ).one()
@@ -105,6 +131,7 @@ async def reserve(
             f"This conversation has reached its {settings.wiki_ask_max_turns}-turn limit; "
             "start a new one.",
         )
+    await _lock_reservations(db)
     row = await _row(db, user_id, day)
     if row.tokens + row.reserved_tokens + estimate_tokens > settings.wiki_ask_daily_tokens_per_user:
         raise _refusal("daily_tokens", next_day(day), "daily token quota for you")
@@ -115,9 +142,16 @@ async def reserve(
         raise _refusal("monthly_tokens", next_month(day), "monthly token budget")
     if month_usd + estimate_usd > settings.wiki_ask_monthly_usd:
         raise _refusal("monthly_usd", next_month(day), "monthly spending limit")
-    row.reserved_tokens += estimate_tokens
-    row.reserved_usd += estimate_usd
-    row.reservations += 1
+    await db.execute(
+        update(AskSpend)
+        .where(AskSpend.id == row.id)
+        .values(
+            reserved_tokens=AskSpend.reserved_tokens + estimate_tokens,
+            reserved_usd=AskSpend.reserved_usd + estimate_usd,
+            reservations=AskSpend.reservations + 1,
+        )
+        .execution_options(synchronize_session="fetch")
+    )
     await db.commit()
     return Reservation(user_id=user_id, day=day, tokens=estimate_tokens, usd=estimate_usd)
 
@@ -126,13 +160,25 @@ async def settle(db: AsyncSession, reservation: Reservation, *, tokens: int, usd
     """Replace a reservation with what the turn used. A turn that failed
     before using anything settles to zero."""
     row = await _row(db, reservation.user_id, reservation.day)
-    row.reserved_tokens = max(0, row.reserved_tokens - reservation.tokens)
-    row.reserved_usd = max(0.0, row.reserved_usd - reservation.usd)
-    row.reservations = max(0, row.reservations - 1)
-    row.tokens += max(0, tokens)
-    row.usd += max(0.0, usd)
+    await db.execute(
+        update(AskSpend)
+        .where(AskSpend.id == row.id)
+        .values(
+            reserved_tokens=_minus_floor0(AskSpend.reserved_tokens, reservation.tokens, 0),
+            reserved_usd=_minus_floor0(AskSpend.reserved_usd, reservation.usd, 0.0),
+            reservations=_minus_floor0(AskSpend.reservations, 1, 0),
+            tokens=AskSpend.tokens + max(0, tokens),
+            usd=AskSpend.usd + max(0.0, usd),
+        )
+        .execution_options(synchronize_session="fetch")
+    )
     await db.commit()
     logger.info(
-        "Wiki Ask turn settled for %s: %d tokens, $%.4f (day total %d tokens, $%.4f)",
-        reservation.user_id, tokens, usd, row.tokens, row.usd,
+        "Wiki Ask turn settled for %s: %d tokens, $%.4f",
+        reservation.user_id, tokens, usd,
     )
+
+
+def _minus_floor0(column, amount, zero):
+    """``column - amount`` in SQL, never below zero (portable: no GREATEST in SQLite)."""
+    return case((column > amount, column - amount), else_=zero)

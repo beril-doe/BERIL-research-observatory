@@ -299,6 +299,8 @@ class TestTurnTranslation:
             is_error=True,
             num_turns=1,
             session_id="s",
+            usage={"input_tokens": 900, "output_tokens": 40},
+            total_cost_usd=0.02,
         )
         messages = [_assistant([_FakeTextBlock("partial ")]), err_result]
         with patch("app.chat.providers.anthropic_compatible.query", _fake_query(messages)):
@@ -314,6 +316,9 @@ class TestTurnTranslation:
         assert isinstance(events[-1], ErrorEvent)
         assert "error_max_turns" in events[-1].message
         assert not any(isinstance(e, TurnComplete) for e in events)
+        # The work done before the error is still billable.
+        assert events[-1].usage == {"input_tokens": 900, "output_tokens": 40}
+        assert events[-1].cost_usd == 0.02
 
     async def test_exception_surfaces_as_error_event(self):
         provider = _make_provider()

@@ -40,10 +40,23 @@ class AskContext:
     wiki_turn: WikiTurn
     reservation: Reservation
     model: ModelInfo | None
+    settled: bool = False
 
     async def settle(self, db: AsyncSession, result: "TurnResult") -> None:
+        """Replace the reservation with what the turn used. Once only."""
+        if self.settled:
+            return
+        self.settled = True
         tokens, usd = spend_of(result, self.model)
         await settle(db, self.reservation, tokens=tokens, usd=usd)
+
+    async def release(self, db: AsyncSession) -> None:
+        """Give the reservation back if the turn never settled — it ended
+        before reaching the provider. The routes call this on every exit."""
+        if self.settled:
+            return
+        self.settled = True
+        await settle(db, self.reservation, tokens=0, usd=0.0)
 
 
 def ask_credentials(settings: Settings) -> Credentials:

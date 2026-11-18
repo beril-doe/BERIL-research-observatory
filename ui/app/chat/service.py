@@ -300,6 +300,11 @@ def fold_event(event: TurnEvent, text_parts: list[str], result: TurnResult) -> N
         )
     elif isinstance(event, ErrorEvent):
         result.error = event.message
+        # A failed turn may still have done billable work; keep its accounting.
+        if event.usage is not None:
+            result.usage = event.usage
+        if event.cost_usd is not None:
+            result.cost_usd = event.cost_usd
     elif isinstance(event, TurnComplete):
         result.usage = event.usage
         result.cost_usd = event.cost_usd

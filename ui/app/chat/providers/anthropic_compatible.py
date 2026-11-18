@@ -160,7 +160,9 @@ def _translate(message: Any) -> list[TurnEvent]:
         if message.is_error:
             return [
                 ErrorEvent(
-                    message=f"provider reported terminal error: {getattr(message, 'subtype', 'unknown')}"
+                    message=f"provider reported terminal error: {getattr(message, 'subtype', 'unknown')}",
+                    usage=getattr(message, "usage", None),
+                    cost_usd=getattr(message, "total_cost_usd", None),
                 )
             ]
         return [

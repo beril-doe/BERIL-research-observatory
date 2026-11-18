@@ -217,24 +217,29 @@ async def chat_turn(
     if err is not None or session is None:
         return Response(status_code=err)
 
-    prepared = await _prepare_turn(db, session, user, body)
-    if isinstance(prepared, JSONResponse):
-        return prepared
-    credentials, ask = prepared
-
     manager = get_concurrency_manager()
     try:
+        # Admit the turn before preparing it: in wiki mode preparing reserves
+        # quota, which a refused turn would otherwise keep.
         async with manager.acquire(session_id=session.id, user_id=user.id):
             # Refresh after acquiring the lock so we see any sdk_session_id
             # written by a turn that just finished on this same session.
             await db.refresh(session)
-            turn = await run_turn(
-                db,
-                session=session,
-                user_message=body.message,
-                credentials=credentials,
-                ask=ask,
-            )
+            prepared = await _prepare_turn(db, session, user, body)
+            if isinstance(prepared, JSONResponse):
+                return prepared
+            credentials, ask = prepared
+            try:
+                turn = await run_turn(
+                    db,
+                    session=session,
+                    user_message=body.message,
+                    credentials=credentials,
+                    ask=ask,
+                )
+            finally:
+                if ask is not None:
+                    await ask.release(db)
     except UserChatConcurrencyExceeded:
         return JSONResponse(
             {"error": "concurrent-turn cap exceeded for this user"},
@@ -272,15 +277,11 @@ async def chat_stream(
         return Response(status_code=err)
     assert session is not None
 
-    prepared = await _prepare_turn(db, session, user, body)
-    if isinstance(prepared, JSONResponse):
-        return prepared
-    credentials, ask = prepared
-
     manager = get_concurrency_manager()
     # Reserve the user slot and session lock BEFORE returning the response,
     # so a cap-exceeded case surfaces as a plain 429 rather than an opaque
-    # 200 with an embedded error frame.
+    # 200 with an embedded error frame — and before preparing the turn, whose
+    # quota reservation (wiki mode) a refused turn would otherwise keep.
     try:
         turn_guard = manager.acquire(session_id=session.id, user_id=user.id)
         await turn_guard.__aenter__()
@@ -297,9 +298,14 @@ async def chat_stream(
         # Refresh after acquiring the lock so we see any sdk_session_id
         # written by a turn that just finished on this same session.
         await db.refresh(session)
+        prepared = await _prepare_turn(db, session, user, body)
     except BaseException:
         await turn_guard.__aexit__(None, None, None)
         raise
+    if isinstance(prepared, JSONResponse):
+        await turn_guard.__aexit__(None, None, None)
+        return prepared
+    credentials, ask = prepared
 
     async def _event_generator():
         try:
@@ -312,7 +318,11 @@ async def chat_stream(
             ):
                 yield frame
         finally:
-            await turn_guard.__aexit__(None, None, None)
+            try:
+                if ask is not None:
+                    await ask.release(db)
+            finally:
+                await turn_guard.__aexit__(None, None, None)
 
     return EventSourceResponse(_event_generator())
 

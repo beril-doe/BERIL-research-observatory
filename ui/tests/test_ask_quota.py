@@ -105,6 +105,25 @@ async def test_monthly_usd_cap(db_session, alice, bob):
     assert exc.value.cap == "monthly_usd"
 
 
+async def test_a_reservation_never_settled_holds_the_monthly_budget_only_on_its_day(
+    db_session, alice, bob, monkeypatch
+):
+    # A turn whose process died mid-flight never settles. Its reservation
+    # still counts that day, but not for the rest of the month.
+    settings = _settings(wiki_ask_daily_tokens_per_user=4000)
+    db_session.add(AskSpend(user_id=alice.id, day=date(2026, 11, 17), tokens=500, reserved_tokens=4000,
+                            reserved_usd=0.0, reservations=1))
+    await db_session.commit()
+
+    monkeypatch.setattr("app.chat.quota._today", lambda: date(2026, 11, 17))
+    with pytest.raises(QuotaExceeded) as exc:
+        await reserve(db_session, settings, user_id=bob.id, turns_so_far=0, estimate_tokens=1000, estimate_usd=0)
+    assert exc.value.cap == "monthly_tokens"
+
+    monkeypatch.setattr("app.chat.quota._today", lambda: date(2026, 11, 18))
+    await reserve(db_session, settings, user_id=bob.id, turns_so_far=0, estimate_tokens=1000, estimate_usd=0)
+
+
 async def test_max_turns_per_conversation(db_session, alice):
     with pytest.raises(QuotaExceeded) as exc:
         await reserve(db_session, _settings(), user_id=alice.id, turns_so_far=3, estimate_tokens=1, estimate_usd=0)
