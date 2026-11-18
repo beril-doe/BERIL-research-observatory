@@ -1,0 +1,337 @@
+{
+  "schema_version": "2.0",
+  "project": "annotation_coordinate_atlas",
+  "updated_at": "2026-10-22T21:50:51Z",
+  "report_hash": "sha256:a4cfbd343cb232e2be8a4975ee6fc59f8bda6f3ccc2360c6605e5e1ba0403d13",
+  "claims": [
+    {
+      "claim_id": "13-of-23-coordinate-bearing-berdl-annotation-tables-can-",
+      "claim": "13 of 23 coordinate-bearing BERDL annotation tables can be placed against genes by position, but only 4 of the 14 region-annotation tables can, all in kescience.mgnify",
+      "author_assertions": {
+        "status": "supported",
+        "confidence": "high",
+        "source": "REPORT.md"
+      },
+      "computed": {
+        "resolved_artifact_support": "multiple-streams",
+        "confidence_mismatch": false,
+        "evidence_resolution": {
+          "resolved": 4,
+          "unresolved": 0,
+          "invalid": 0,
+          "not-checked": 0
+        }
+      },
+      "supports": [
+        {
+          "kind": "notebook",
+          "locator": "notebooks/04_bgc_region_joinability.ipynb#cell-24",
+          "exact": "\"joinable to genes by position: 13 of 23  (region tables 4 of 14; gene tables 9 of 9)\"",
+          "stream": "joinability-queries",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/04_bgc_region_joinability.ipynb",
+            "cell": 24
+          }
+        },
+        {
+          "kind": "notebook",
+          "locator": "notebooks/04_bgc_region_joinability.ipynb#cell-21",
+          "exact": "\"each bucket feature_id appears once in contig_x_feature and once in feature, and the two id sets are identical: True\"",
+          "stream": "joinability-queries",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/04_bgc_region_joinability.ipynb",
+            "cell": 21
+          }
+        },
+        {
+          "kind": "notebook",
+          "locator": "notebooks/04_bgc_region_joinability.ipynb#cell-23",
+          "exact": "\"verified SemCat edges on these keys: 6\"",
+          "stream": "semcat-verified-edges",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/04_bgc_region_joinability.ipynb",
+            "cell": 23
+          }
+        },
+        {
+          "kind": "notebook",
+          "locator": "notebooks/02_ground_truth_sweep.ipynb#cell-15",
+          "exact": "\"coordinate-bearing (coords yes or packed): 23\"",
+          "stream": "census-coordinate-system",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/02_ground_truth_sweep.ipynb",
+            "cell": 15
+          }
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "claim_id": "bgc-regions-and-gene-coordinates-in-kescience-mgnify-sha",
+      "claim": "BGC regions and gene coordinates in kescience.mgnify share a contig namespace exactly, making \"genes near a BGC\" a single interval join",
+      "author_assertions": {
+        "status": "supported",
+        "confidence": "high",
+        "source": "REPORT.md"
+      },
+      "computed": {
+        "resolved_artifact_support": "multiple-streams",
+        "confidence_mismatch": false,
+        "evidence_resolution": {
+          "resolved": 3,
+          "unresolved": 0,
+          "invalid": 0,
+          "not-checked": 0
+        }
+      },
+      "supports": [
+        {
+          "kind": "notebook",
+          "locator": "notebooks/04_bgc_region_joinability.ipynb#cell-5",
+          "exact": "\"BGC contigs matched to a gene contig: 28494/28494 = 100.0%\"",
+          "stream": "identifier-overlap",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/04_bgc_region_joinability.ipynb",
+            "cell": 5
+          }
+        },
+        {
+          "kind": "notebook",
+          "locator": "notebooks/04_bgc_region_joinability.ipynb#cell-11",
+          "exact": "\"754313            35354        489978           21.3                  13.9\"",
+          "stream": "biological-plausibility",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/04_bgc_region_joinability.ipynb",
+            "cell": 11
+          }
+        },
+        {
+          "kind": "notebook",
+          "locator": "notebooks/04_bgc_region_joinability.ipynb#cell-23",
+          "exact": "\"kescience.mgnify.gene_bgc.contig_id               kescience.mgnify.gene.contig_id   structural_fk  verified                  1.0000\"",
+          "stream": "semcat-verified-edges",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/04_bgc_region_joinability.ipynb",
+            "cell": 23
+          }
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "claim_id": "nmdc-results-pfam-annotation-gff-uses-amino-acid-coordin",
+      "claim": "nmdc.results.pfam_annotation_gff uses amino-acid coordinates despite its _gff name, and additionally carries HMM-model coordinates in the same row",
+      "author_assertions": {
+        "status": "supported",
+        "confidence": "high",
+        "source": "REPORT.md"
+      },
+      "computed": {
+        "resolved_artifact_support": "single-stream",
+        "confidence_mismatch": true,
+        "evidence_resolution": {
+          "resolved": 1,
+          "unresolved": 0,
+          "invalid": 0,
+          "not-checked": 0
+        }
+      },
+      "supports": [
+        {
+          "kind": "notebook",
+          "locator": "notebooks/02_ground_truth_sweep.ipynb#cell-30",
+          "exact": "\"N tested            : 26,779\"",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/02_ground_truth_sweep.ipynb",
+            "cell": 30
+          }
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "claim_id": "semcat-s-content-type-label-lookup-has-low-recall-and-it",
+      "claim": "SemCat's content_type label lookup has low recall, and its precision sits at the 0.80 threshold that separates H2 from H3",
+      "author_assertions": {
+        "status": "supported",
+        "confidence": "medium",
+        "source": "REPORT.md"
+      },
+      "computed": {
+        "resolved_artifact_support": "multiple-streams",
+        "confidence_mismatch": false,
+        "evidence_resolution": {
+          "resolved": 3,
+          "unresolved": 0,
+          "invalid": 0,
+          "not-checked": 1
+        }
+      },
+      "supports": [
+        {
+          "kind": "notebook",
+          "locator": "notebooks/03_semcat_grade.ipynb#cell-19",
+          "exact": "\"strict precision  45/56 = 80.4%\"",
+          "stream": "value-adjudicated-precision",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/03_semcat_grade.ipynb",
+            "cell": 19
+          }
+        },
+        {
+          "kind": "notebook",
+          "locator": "notebooks/03_semcat_grade.ipynb#cell-18",
+          "exact": "\"per schema_sig  : 30/95 = 31.6%\"",
+          "stream": "label-family-recall",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/03_semcat_grade.ipynb",
+            "cell": 18
+          }
+        },
+        {
+          "kind": "notebook",
+          "locator": "notebooks/01_semcat_discovery.ipynb#cell-13",
+          "exact": "\"content_type_null     77,184 / 92,986 = 83.0%\"",
+          "stream": "catalog-completeness",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/01_semcat_discovery.ipynb",
+            "cell": 13
+          }
+        }
+      ],
+      "refutes": [
+        {
+          "kind": "docs",
+          "locator": "scope",
+          "exact": "\"Semantic retrieval over column_embeddings (semcat resolve) was not tested; it could raise recall, so this claim covers literal content_type lookup only.\"",
+          "resolution": {
+            "status": "not-checked",
+            "reason": "not-a-local-computed-artifact"
+          }
+        }
+      ]
+    },
+    {
+      "claim_id": "semcat-s-content-type-coordinate-conflates-geographic-nu",
+      "claim": "SemCat's content_type='coordinate' conflates geographic, nucleotide, amino-acid and HMM-model coordinates under one label",
+      "author_assertions": {
+        "status": "supported",
+        "confidence": "high",
+        "source": "REPORT.md"
+      },
+      "computed": {
+        "resolved_artifact_support": "multiple-streams",
+        "confidence_mismatch": false,
+        "evidence_resolution": {
+          "resolved": 2,
+          "unresolved": 0,
+          "invalid": 0,
+          "not-checked": 0
+        }
+      },
+      "supports": [
+        {
+          "kind": "notebook",
+          "locator": "notebooks/01_semcat_discovery.ipynb#cell-6",
+          "exact": "\"distinct coordinate systems sharing the single label 'coordinate': 4 (['amino_acid', 'geographic', 'hmm_model', 'nucleotide']), plus 20 columns resolved to none of them\"",
+          "stream": "semcat-metadata-typing",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/01_semcat_discovery.ipynb",
+            "cell": 6
+          }
+        },
+        {
+          "kind": "notebook",
+          "locator": "notebooks/02_ground_truth_sweep.ipynb#cell-32",
+          "exact": "\"census-confirmed systems under the one label: ['amino_acid', 'hmm_model', 'nucleotide']\"",
+          "stream": "live-census-crosscheck",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/02_ground_truth_sweep.ipynb",
+            "cell": 32
+          }
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "claim_id": "semcat-s-tables-row-count-is-accurate-where-verifiable-w",
+      "claim": "SemCat's tables.row_count is accurate where verifiable, while its table-level coverage is 81.1% of the account's table listing",
+      "author_assertions": {
+        "status": "supported",
+        "confidence": "high",
+        "source": "REPORT.md"
+      },
+      "computed": {
+        "resolved_artifact_support": "multiple-streams",
+        "confidence_mismatch": false,
+        "evidence_resolution": {
+          "resolved": 2,
+          "unresolved": 0,
+          "invalid": 0,
+          "not-checked": 0
+        }
+      },
+      "supports": [
+        {
+          "kind": "notebook",
+          "locator": "notebooks/02_ground_truth_sweep.ipynb#cell-23",
+          "exact": "\"agreement                       : 701/864 = 81%\"",
+          "stream": "coverage-diff",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/02_ground_truth_sweep.ipynb",
+            "cell": 23
+          }
+        },
+        {
+          "kind": "notebook",
+          "locator": "notebooks/02_ground_truth_sweep.ipynb#cell-27",
+          "exact": "\"ACCURACY : 59/60 = 98.3%\"",
+          "stream": "rowcount-verification",
+          "resolution": {
+            "status": "resolved",
+            "path": "notebooks/02_ground_truth_sweep.ipynb",
+            "cell": 27
+          }
+        }
+      ],
+      "refutes": []
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "author_status": {
+      "open": 0,
+      "supported": 6,
+      "refuted": 0,
+      "needs-replication": 0,
+      "blocked": 0,
+      "needs-evidence": 0
+    },
+    "resolved_artifact_support": {
+      "multiple-streams": 5,
+      "single-stream": 1,
+      "none": 0
+    },
+    "confidence_mismatch": 1,
+    "evidence_resolution": {
+      "resolved": 15,
+      "unresolved": 0,
+      "invalid": 0,
+      "not-checked": 1
+    }
+  }
+}

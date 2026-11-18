@@ -1,0 +1,122 @@
+{
+  "audited_frame_tables": 655,
+  "in_frame_semcat_columns": 66374,
+  "content_type_populated_frac": 0.0822309940639407,
+  "ground_truth_relevant_columns": 723,
+  "audit_precision_sample": 100,
+  "value_sampling": "DISTINCT + ORDER BY xxhash64(value), hash-bucketed where ndv>100000",
+  "audit_checkable": 58,
+  "audit_correct": 47,
+  "audit_wrong_cardinality": 4,
+  "audit_wrong_label": 7,
+  "audit_vacuous": 17,
+  "audit_sentinel_only": 1,
+  "audited_precision_strict": 0.8035714285714286,
+  "audited_precision_lenient": 0.875,
+  "audited_precision_strict_per_column": 0.8103448275862069,
+  "audited_precision_lenient_per_column": 0.8793103448275862,
+  "schema_sig_groups_precision": 56,
+  "audit_recall_sample": 100,
+  "audit_found": 30,
+  "audited_recall": 0.3157894736842105,
+  "audited_recall_per_column": 0.3,
+  "schema_sig_groups_recall": 95,
+  "verdict": "H2 supported",
+  "census_found_by_specific_label": 37,
+  "census_found_by_generic_only": 13,
+  "census_missed_unlabelled": 0,
+  "census_missed_absent": 1,
+  "h0_semcat_only_true_positives": 2,
+  "h0_regex_only_true_positives": 11,
+  "h0_semcat_only_true_positive_tables": [
+    "globalusers.carbon_source_phenotypes.kofam_annotation_table",
+    "kbase.nmdc_arkin.metatranscriptomics_gold"
+  ],
+  "audit_no_data": 5,
+  "audit_no_pattern": 19,
+  "values_query_failed": 0,
+  "values_empty": 19,
+  "precision_strict_sig_ci95_wilson": [
+    0.6816,
+    0.8866
+  ],
+  "precision_lenient_sig_ci95_wilson": [
+    0.7637,
+    0.9381
+  ],
+  "recall_sig_ci95_wilson": [
+    0.231,
+    0.4149
+  ],
+  "precision_strict_sig_correct": 45,
+  "recall_sig_found": 30,
+  "precision_strict_ci95_wilson": [
+    0.6915,
+    0.8907
+  ],
+  "precision_strict_ci95_normal": [
+    0.7095,
+    0.9112
+  ],
+  "precision_lenient_ci95_wilson": [
+    0.7712,
+    0.9403
+  ],
+  "precision_by_family": {
+    "function_id": {
+      "correct": 27,
+      "judged": 36,
+      "rate": 0.75,
+      "ci_low": 0.5893,
+      "ci_high": 0.8625
+    },
+    "seqref": {
+      "correct": 15,
+      "judged": 16,
+      "rate": 0.9375,
+      "ci_low": 0.7167,
+      "ci_high": 0.9889
+    },
+    "span": {
+      "correct": 4,
+      "judged": 5,
+      "rate": 0.8,
+      "ci_low": 0.3755,
+      "ci_high": 0.9638
+    },
+    "strand": {
+      "correct": 1,
+      "judged": 1,
+      "rate": 1.0,
+      "ci_low": 0.2065,
+      "ci_high": 1.0
+    }
+  },
+  "recall_by_facet": {
+    "function_id": {
+      "found": 11,
+      "n": 43,
+      "rate": 0.2558,
+      "ci_low": 0.1493,
+      "ci_high": 0.4024
+    },
+    "span": {
+      "found": 17,
+      "n": 43,
+      "rate": 0.3953,
+      "ci_low": 0.2637,
+      "ci_high": 0.5442
+    },
+    "strand": {
+      "found": 2,
+      "n": 14,
+      "rate": 0.1429,
+      "ci_low": 0.0401,
+      "ci_high": 0.3994
+    }
+  },
+  "recall_found_per_column": 30,
+  "full_frame_function_id_semcat_only_columns": 130,
+  "row_count_clause_from_nb02": true,
+  "notebook_seconds": 394
+}
