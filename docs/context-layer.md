@@ -217,10 +217,10 @@ turn's retrievals plus any earlier ones it cites. Before each turn BERIL reserve
 `BERIL_WIKI_ASK_RESERVE_TOKENS_PER_TURN` (and its USD at the model's rates
 in `chat_providers.yaml`) against the per-user daily token and USD caps, the
 global monthly ones, and the per-conversation turn limit; the reservation is
-settled to actual usage afterwards (`ask_spend`). A turn that reached the
-provider but ended without reported usage (stream closed, connection
-dropped) is charged its whole reservation; one that failed before reaching
-the provider is charged nothing. A refused turn is a 429 whose `error` names
+settled to actual usage afterwards (`ask_spend`). A turn whose provider
+started but which ended without reported usage (stream closed, connection
+dropped) is charged its whole reservation; one that failed in setup, before
+the provider ran, is charged nothing. A refused turn is a 429 whose `error` names
 the cap and when it resets.
 
 ## How projects get in

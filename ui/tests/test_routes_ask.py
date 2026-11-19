@@ -291,3 +291,29 @@ async def test_wiki_turn_that_ends_without_usage_is_charged_its_reservation(
     spend = (await db_session.execute(select(AskSpend).where(AskSpend.user_id == user.id))).scalar_one()
     await db_session.refresh(spend)
     assert (spend.tokens, spend.reservations, spend.reserved_tokens) == (20000, 0, 0)
+
+
+@pytest.mark.parametrize("route", ["turn", "stream"])
+async def test_wiki_turn_that_fails_in_provider_setup_is_charged_nothing(
+    client, user, db_session, ask_env, wiki, route
+):
+    """Setup failing before the provider runs — here the provider cannot be
+    resolved on /turn, and on /stream it reports only a bare error, as it
+    does when the SDK will not launch — does no billable work."""
+    from app.chat.providers.base import ErrorEvent
+
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+
+    if route == "turn":
+        with patch("app.chat.service.get_provider", side_effect=KeyError("no such provider")), \
+                pytest.raises(KeyError):
+            client.post(f"/api/chat/{sid}/turn", json={"message": "yield?"})
+    else:
+        with patch("app.chat.service.run_provider_turn",
+                   _patched_provider([ErrorEvent(message="SDK failed to launch")])):
+            client.post(f"/api/chat/{sid}/stream", json={"message": "yield?"})
+
+    spend = (await db_session.execute(select(AskSpend).where(AskSpend.user_id == user.id))).scalar_one()
+    await db_session.refresh(spend)
+    assert (spend.tokens, spend.reservations, spend.reserved_tokens) == (0, 0, 0)

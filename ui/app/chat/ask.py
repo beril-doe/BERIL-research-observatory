@@ -45,15 +45,16 @@ class AskContext:
     async def settle(self, db: AsyncSession, result: "TurnResult") -> None:
         """Replace the reservation with what the turn used. Once only.
 
-        Called only once the provider has been reached. A turn that ends
-        there without reporting usage (client closed the stream, connection
-        dropped, provider crashed) may still have done billable work, so it
-        keeps the whole reservation as its charge rather than settling to
-        zero."""
+        A turn that ends without reported usage is charged by whether the
+        provider started (``result.provider_started``). One that started and
+        was then cut off (client closed the stream, connection dropped,
+        provider crashed) may still have done billable work, so it keeps the
+        whole reservation as its charge. One that failed in setup, before
+        the provider ran, is charged nothing."""
         if self.settled:
             return
         self.settled = True
-        if result.usage is None and result.cost_usd is None:
+        if result.usage is None and result.cost_usd is None and result.provider_started:
             logger.warning(
                 "Wiki Ask turn for %s ended without usage; charging its reservation",
                 self.reservation.user_id,
