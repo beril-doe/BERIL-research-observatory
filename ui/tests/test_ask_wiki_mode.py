@@ -15,6 +15,7 @@ from app.chat.wiki_mode import (
     WikiTurn,
     build_wiki_tools,
     cited_numbers,
+    earlier_citations,
     filter_citations,
     format_find,
     wiki_tools,
@@ -54,6 +55,25 @@ def test_numbering_is_continuous_across_finds():
     assert "[2] B (wiki/topics/b)" in rendered
     assert cited_numbers(rendered) == {1, 2}
     assert format_find([]) == "No results."
+
+
+def test_a_follow_up_turn_continues_the_sessions_numbering():
+    earlier = earlier_citations([
+        {"text": "Alpha [1].", "sources": [{"n": 1, "address": "wiki/concepts/a", "title": "A"}]},
+        {"text": "no answer"},  # a reply with no sources
+        {"text": "Beta [2].", "sources": [{"n": 2, "address": "wiki/topics/b", "title": "B"}]},
+    ])
+    assert earlier == {1: {"address": "wiki/concepts/a", "title": "A"},
+                       2: {"address": "wiki/topics/b", "title": "B"}}
+
+    turn = WikiTurn(earlier=earlier)
+    numbered = turn.number([{"address": "wiki/topics/c", "title": "C"}])
+
+    assert [n for n, _ in numbered] == [3]  # never reuses an earlier [n]
+    assert turn.allowed == {1, 2, 3}
+    # The reply's sources: this turn's retrievals plus the earlier ones it cites.
+    assert sorted(turn.cited_sources("C [3], as A said [1].")) == [1, 3]
+    assert sorted(turn.cited_sources("Nothing cited.")) == [3]
 
 
 def test_ask_rules_are_in_the_system_prompt():

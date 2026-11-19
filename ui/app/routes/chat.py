@@ -12,7 +12,7 @@ import app.context as ctx
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
@@ -25,6 +25,7 @@ from app.chat.ask import (
     QuotaExceeded,
     prepare_ask_turn,
 )
+from app.chat.wiki_mode import earlier_citations
 from app.config import get_settings
 from app.db.models import BerilUser
 from app.routes.context import get_wiki_manager
@@ -166,16 +167,17 @@ async def _prepare_turn(
             return _validate_credentials(session.provider_id, body.credentials), None
         except (KeyError, ValueError) as exc:
             return JSONResponse({"error": str(exc)}, status_code=400)
-    turns = (
+    replies = (
         await db.execute(
-            select(func.count()).select_from(ChatMessage).where(
-                ChatMessage.session_id == session.id, ChatMessage.role == "assistant"
-            )
+            select(ChatMessage.content)
+            .where(ChatMessage.session_id == session.id, ChatMessage.role == "assistant")
+            .order_by(ChatMessage.created_at.asc())
         )
-    ).scalar_one()
+    ).scalars().all()
     try:
         ask, credentials = await prepare_ask_turn(
-            db, get_settings(), user_id=user.id, turns_so_far=turns, wiki=get_wiki_manager()
+            db, get_settings(), user_id=user.id, turns_so_far=len(replies),
+            wiki=get_wiki_manager(), earlier=earlier_citations(list(replies)),
         )
     except AskNotConfigured:
         return JSONResponse({"error": ASK_NOT_CONFIGURED}, status_code=503)

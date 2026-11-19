@@ -55,14 +55,29 @@ def cited_numbers(tool_result_text: str) -> set[int]:
 @dataclass
 class WikiTurn:
     """What one Ask turn retrieved: the numbers it may cite and the hits
-    behind them, so a reply can be checked and its sources shown."""
+    behind them, so a reply can be checked and its sources shown.
+
+    A session's turns share one numbering: a follow-up resumes the earlier
+    transcript, where the earlier ``[n]`` still stand, so ``earlier`` holds
+    the numbers previous turns handed out (still citable) and this turn's
+    results continue after them rather than reusing them."""
 
     retrieved: dict[int, dict] = field(default_factory=dict)
-    next_number: int = 1
+    earlier: dict[int, dict] = field(default_factory=dict)
+    next_number: int = 0
+
+    def __post_init__(self) -> None:
+        if self.next_number < 1:
+            self.next_number = max(self.earlier, default=0) + 1
 
     @property
     def allowed(self) -> set[int]:
-        return set(self.retrieved)
+        return set(self.retrieved) | set(self.earlier)
+
+    def cited_sources(self, text: str) -> dict[int, dict]:
+        """This turn's retrievals, plus the earlier ones ``text`` cites."""
+        cited = {int(n) for n in _CITATION.findall(text)}
+        return {**{n: h for n, h in self.earlier.items() if n in cited}, **self.retrieved}
 
     def number(self, hits: list[dict]) -> list[tuple[int, dict]]:
         numbered = []
@@ -71,6 +86,18 @@ class WikiTurn:
             numbered.append((self.next_number, hit))
             self.next_number += 1
         return numbered
+
+
+def earlier_citations(assistant_contents: list[dict]) -> dict[int, dict]:
+    """The numbers a session's earlier Ask replies handed out, from the
+    ``sources`` stored on each (oldest first)."""
+    numbered: dict[int, dict] = {}
+    for content in assistant_contents:
+        for source in (content or {}).get("sources") or []:
+            n = source.get("n")
+            if isinstance(n, int):
+                numbered[n] = {k: v for k, v in source.items() if k != "n"}
+    return numbered
 
 
 def format_find(numbered: list[tuple[int, dict]]) -> str:

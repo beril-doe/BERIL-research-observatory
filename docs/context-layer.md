@@ -208,14 +208,20 @@ on the admin-held `BERIL_WIKI_ASK_*` provider, model and key; turns need no
 credentials. The agent has exactly two tools, `find` and `read` with
 `source=wiki`, and the Ask rules as its system prompt (cite `[n]`, numbers
 verbatim, `NO_ANSWER`, no confidence labels, open questions are untested,
-under 220 words). Any `[n]` the reply cites that the turn never retrieved is
-dropped on the server before the reply is stored or streamed; the retrieved
-`sources` come back with the answer. Before each turn BERIL reserves
+under 220 words). A conversation's turns share one numbering: a follow-up's
+`find` results continue after the numbers earlier turns handed out, and
+those earlier numbers stay citable. Any `[n]` the reply cites that the
+conversation never retrieved is dropped on the server before the reply is
+stored or streamed; the `sources` that come back with the answer are this
+turn's retrievals plus any earlier ones it cites. Before each turn BERIL reserves
 `BERIL_WIKI_ASK_RESERVE_TOKENS_PER_TURN` (and its USD at the model's rates
 in `chat_providers.yaml`) against the per-user daily token and USD caps, the
 global monthly ones, and the per-conversation turn limit; the reservation is
-settled to actual usage afterwards (`ask_spend`). A refused turn is a 429
-whose `error` names the cap and when it resets.
+settled to actual usage afterwards (`ask_spend`). A turn that reached the
+provider but ended without reported usage (stream closed, connection
+dropped) is charged its whole reservation; one that failed before reaching
+the provider is charged nothing. A refused turn is a 429 whose `error` names
+the cap and when it resets.
 
 ## How projects get in
 

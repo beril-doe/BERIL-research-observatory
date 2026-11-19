@@ -61,17 +61,23 @@ async def _wiki_session(client, db_session):
     return resp.json()["session_id"]
 
 
-def _record_retrieval(monkeypatch):
+def _hit(letter):
+    return {"address": f"wiki/concepts/{letter}", "title": letter.upper(), "heading": None,
+            "text": f"{letter} text.", "score": 1.0, "link": f"https://w/concepts/{letter}"}
+
+
+def _record_retrieval(monkeypatch, *per_turn):
     """The provider is patched out, so the find tool never runs; stand in
-    for it by numbering one hit when the turn is prepared."""
+    for it by numbering hits when each turn is prepared (default: one hit,
+    ``a``, on every turn)."""
     from app.chat import ask as ask_mod
 
     original = ask_mod.prepare_ask_turn
+    turns = iter(per_turn)
 
     async def prepared(*args, **kwargs):
         ctx, creds = await original(*args, **kwargs)
-        ctx.wiki_turn.number([{"address": "wiki/concepts/a", "title": "A", "heading": None,
-                               "text": "Alpha.", "score": 1.0, "link": "https://w/concepts/a"}])
+        ctx.wiki_turn.number(next(turns, [_hit("a")]))
         return ctx, creds
 
     monkeypatch.setattr("app.routes.chat.prepare_ask_turn", prepared)
@@ -238,3 +244,50 @@ async def test_wiki_turn_is_503_when_the_key_is_unset_later(client, user, db_ses
     get_settings().wiki_ask_api_key = None
     resp = client.post(f"/api/chat/{sid}/turn", json={"message": "x"})
     assert resp.status_code == 503
+
+
+async def test_a_follow_up_turn_keeps_the_earlier_turns_citation_numbers(
+    client, user, db_session, ask_env, wiki, monkeypatch
+):
+    """Turn 2 resumes turn 1's transcript, where [1] already means page a;
+    its own results must not reuse [1], and citing turn 1's [1] stays valid."""
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+    _record_retrieval(monkeypatch, [_hit("a")], [_hit("b")])
+
+    with patch("app.chat.service.run_provider_turn", _patched_provider(_events("A says [1]."))):
+        first = client.post(f"/api/chat/{sid}/turn", json={"message": "a?"}).json()
+    with patch("app.chat.service.run_provider_turn", _patched_provider(_events("B says [2]; A said [1]."))):
+        second = client.post(f"/api/chat/{sid}/turn", json={"message": "and b?"}).json()
+
+    assert [(s["n"], s["address"]) for s in first["sources"]] == [(1, "wiki/concepts/a")]
+    assert second["assistant_text"] == "B says [2]; A said [1]."
+    assert [(s["n"], s["address"]) for s in second["sources"]] == [
+        (1, "wiki/concepts/a"), (2, "wiki/concepts/b"),
+    ]
+
+
+@pytest.mark.parametrize("route", ["turn", "stream"])
+async def test_wiki_turn_that_ends_without_usage_is_charged_its_reservation(
+    client, user, db_session, ask_env, wiki, route
+):
+    """The provider ran but no terminal accounting arrived (stream cut,
+    connection dropped): the turn keeps its reservation as its charge."""
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+
+    async def cut_off(**kwargs):
+        yield TextDelta(text="partial")
+        if route == "turn":
+            raise ConnectionError("provider connection dropped")
+
+    with patch("app.chat.service.run_provider_turn", cut_off):
+        if route == "turn":
+            with pytest.raises(ConnectionError):
+                client.post(f"/api/chat/{sid}/turn", json={"message": "yield?"})
+        else:
+            client.post(f"/api/chat/{sid}/stream", json={"message": "yield?"})
+
+    spend = (await db_session.execute(select(AskSpend).where(AskSpend.user_id == user.id))).scalar_one()
+    await db_session.refresh(spend)
+    assert (spend.tokens, spend.reservations, spend.reserved_tokens) == (20000, 0, 0)

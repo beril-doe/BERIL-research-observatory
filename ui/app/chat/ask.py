@@ -43,11 +43,24 @@ class AskContext:
     settled: bool = False
 
     async def settle(self, db: AsyncSession, result: "TurnResult") -> None:
-        """Replace the reservation with what the turn used. Once only."""
+        """Replace the reservation with what the turn used. Once only.
+
+        Called only once the provider has been reached. A turn that ends
+        there without reporting usage (client closed the stream, connection
+        dropped, provider crashed) may still have done billable work, so it
+        keeps the whole reservation as its charge rather than settling to
+        zero."""
         if self.settled:
             return
         self.settled = True
-        tokens, usd = spend_of(result, self.model)
+        if result.usage is None and result.cost_usd is None:
+            logger.warning(
+                "Wiki Ask turn for %s ended without usage; charging its reservation",
+                self.reservation.user_id,
+            )
+            tokens, usd = self.reservation.tokens, self.reservation.usd
+        else:
+            tokens, usd = spend_of(result, self.model)
         await settle(db, self.reservation, tokens=tokens, usd=usd)
 
     async def release(self, db: AsyncSession) -> None:
@@ -97,10 +110,13 @@ async def prepare_ask_turn(
     user_id: str,
     turns_so_far: int,
     wiki: WikiManager,
+    earlier: dict[int, dict] | None = None,
 ) -> tuple[AskContext, Credentials]:
     """Reserve quota and shape the agent for one wiki turn.
 
-    Raises :class:`AskNotConfigured` without a key and
+    ``earlier`` is the citation numbering the session's previous turns
+    handed out (:func:`~app.chat.wiki_mode.earlier_citations`); this turn
+    continues it. Raises :class:`AskNotConfigured` without a key and
     :class:`QuotaExceeded` when a cap would be passed; nothing is reserved
     in either case.
     """
@@ -114,7 +130,7 @@ async def prepare_ask_turn(
         estimate_tokens=tokens,
         estimate_usd=estimate_usd(model, tokens),
     )
-    wiki_turn = WikiTurn()
+    wiki_turn = WikiTurn(earlier=dict(earlier or {}))
     profile = AgentProfile(
         system_prompt=ASK_SYSTEM_PROMPT,
         allowed_tools=list(ALLOWED_TOOLS),
@@ -125,8 +141,9 @@ async def prepare_ask_turn(
 
 
 def finish_ask_turn(ask: AskContext, result: "TurnResult", text_parts: list[str]) -> None:
-    """Assemble the reply, drop citations the turn never retrieved, and
-    attach the retrieved sources. Idempotent."""
+    """Assemble the reply, drop citations the session never retrieved, and
+    attach this turn's sources plus any earlier ones the reply cites.
+    Idempotent."""
     text = "".join(text_parts)
     allowed = ask.wiki_turn.allowed
     filtered = filter_citations(text, allowed)
@@ -135,6 +152,6 @@ def finish_ask_turn(ask: AskContext, result: "TurnResult", text_parts: list[str]
     result.assistant_text = filtered
     result.sources = [
         {"n": n, **{k: hit.get(k) for k in ("address", "title", "heading", "link")}}
-        for n, hit in sorted(ask.wiki_turn.retrieved.items())
+        for n, hit in sorted(ask.wiki_turn.cited_sources(filtered).items())
     ]
 
