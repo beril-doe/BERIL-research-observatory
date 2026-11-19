@@ -1,6 +1,6 @@
 ---
 name: knowledge-context
-description: Use when searching what the observatory already knows — submitted projects and the central docs — before research, synthesis, or pitfall work. Covers `beril context` find/grep/ls/pitfalls/discoveries and how to follow a hit to its source.
+description: Use when searching what the observatory already knows — submitted projects and the central docs — before research, synthesis, or pitfall work. Covers `beril context` find/grep/ls/pitfalls/discoveries/read/submissions and how to follow a hit to its source.
 allowed-tools: Bash, Read
 user-invocable: true
 ---
@@ -29,7 +29,13 @@ Documents are indexed in fragments, so a hit's address usually continues past th
 
 `PROJECT_METADATA.md` (and `CLAIMS_CONTEXT.md`) are generated when the project is submitted, so they have no file in the checkout.
 
-If the project isn't in the checkout (someone else's, or not yet merged), read the file through the context layer. Pass the source file's address and a query, because `find` needs one, such as the query that found it:
+If the project isn't in the checkout (someone else's, or not yet merged), read the file through the context layer. For `REPORT.md`, `README.md`, `beril.yaml`, `CORRECTIONS.md`, `REFUTATION_<n>.md` and `figures/**`, `read` returns the whole file byte-exact (see § `read`):
+
+```bash
+beril context read <owner>/<project>/REPORT.md
+```
+
+For any other file (`RESEARCH_PLAN.md`, `memories/*.md`, ...), `read` is refused (403); pass the source file's address and a query to `find`, which needs one, such as the query that found it:
 
 ```bash
 beril context find "<query>" --address <owner>/<project>/<source file> --read-content
@@ -49,7 +55,8 @@ Any address can be passed back to scope a read: `--address A`, or as `ls`'s argu
 | Has this gotcha been hit before? | `pitfalls` | Project memories plus the central archive, as documents |
 | What has been found about X? | `discoveries` | Findings, with stale central duplicates already suppressed |
 | What exists ("list every project") | `ls` | A listing question; embeddings can't enumerate |
-| The full text of a hit | `find "<query>" --address <source file address> --read-content` | Or read the local file (see § Addresses) |
+| The full text of a hit | `read <owner>/<project>/<file>` for the allowlisted files; otherwise `find "<query>" --address <source file address> --read-content` | Or read the local file (see § Addresses) |
+| Which projects came in since a date | `submissions --since <ISO>` | The feed of approved and seeded projects, with `next_since` paging |
 
 This is a toolkit, not a single command. Use it like bash: pick a command, look at what comes back, and **follow up**. § Using the toolkit with judgment covers when `find` is the wrong tool and how to refine. The command reference is further down.
 
@@ -57,6 +64,8 @@ This is a toolkit, not a single command. Use it like bash: pick a command, look 
 
 - With no scope, `find` searches **everything**: every owner's projects and the central docs.
 - `ls` and `grep` with no scope look only at the user's own projects.
+
+`find`, `read` and `ls` also take `--source wiki` to look at the **wiki** instead of the context layer, through the same API and login. Wiki addresses are `wiki/<collection>/<slug>[#section]`; `read wiki/<collection>/<slug> --source wiki` returns the page. Without `--source`, nothing changes. This is the one switch a wiki-facing tool (`kb search`, `kb read`) needs.
 
 To narrow or widen:
 
@@ -173,6 +182,28 @@ Each result is a **document**: its address, its origin, its score and the matchi
 - `discoveries` origins: `project_memory`, `central_legacy` or `central_background`.
 
 The header reports how many stale central duplicates were suppressed in favor of a project's own copy.
+
+### `read`: one project file, byte-exact
+
+```bash
+beril context read <owner>/<project>/REPORT.md                       # print the text
+beril context read <owner>/<project>/beril.yaml --json               # the envelope: size, sha256, content_type, ...
+beril context read <owner>/<project>/figures/fig1.png --out fig1.png # raw bytes, for figures
+beril context read <owner>/<project>/REPORT.md --revision <sha256>    # as of one submission record
+beril context read wiki/concepts/<slug> --source wiki                 # a wiki page
+```
+
+`read` verifies the file's sha256 against the digest BERIL reports and fails (exit 1, nothing written) on a mismatch, so what comes back is exactly what was ingested; quote numbers from it, not from a `find` fragment. Text is printed as stored, with no newline added. **Only these project files are readable**: `REPORT.md`, `README.md`, `beril.yaml`, `CORRECTIONS.md`, `REFUTATION_<n>.md` and `figures/**`; any other path is refused with 403 (use `find --address ... --read-content` for those). A figure must be written with `--out`. The address must be a full `owner/project/path`.
+
+### `submissions`: what entered the context layer, and when
+
+```bash
+beril context submissions                                   # oldest first, one page
+beril context submissions --since 2026-11-01T00:00:00Z      # at or after an instant
+beril context submissions --kind approved --limit 20 --json # only /submit approvals
+```
+
+One row per complete submission record: `project`, `owner`, `kind` (`approved` from `/submit`, `seeded` from an admin import of existing projects, `docs` for the central digests), `revision` (first 12 hex digits of the submitted `REPORT.md`'s sha256), `submitted_at` and the file count; with `--json`, also `id`, `address`, the full `revision`, `archive_path` and each file's `path`, `sha256` and `size`. Pass a row's `revision` to `read --revision` to read exactly what was submitted. A page ends with `next_since`, printed on stderr (or in the JSON); pass it back as `--since` until a page comes without one. This is the way to answer "what is new since <date>" exactly, where `find --since` gives a ranked sample.
 
 ### `ls`: listing
 

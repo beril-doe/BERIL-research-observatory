@@ -280,7 +280,25 @@ The script archives all project files to `s3a://cdm-lake/tenant-general-warehous
 mc alias set berdl-minio $S3_ENDPOINT_URL $S3_ACCESS_KEY $S3_SECRET_KEY
 ```
 
-On a successful archive, the upload tool also submits the project files to the BERIL-managed context service so the knowledge layer can see the completed project. That step is handled entirely inside `lakehouse_upload.py` and is **best-effort**: it runs only when BERIL is reachable and the user is logged in, and if it is skipped or fails the lakehouse archive still succeeds (the tool reports it in its JSON but does not fail the upload). `/submit` needs no extra handling for it — the exit-code contract below is unchanged.
+On a successful archive, the upload tool does two more things, in this order, both handled entirely inside `lakehouse_upload.py`, both **best-effort** (a skip or failure of either never changes the exit code, and the lakehouse archive still succeeds), and each independent of the other:
+
+1. **The submission record** (`POST /api/context/submissions`, then one `PUT` per figure the REPORT embeds). This is the record the wiki feed (`beril context submissions`) is built from: a manifest of every archived file with its sha256 and size, the `approval` block, the archive path, and a bundle of `REPORT.md`, `README.md`, `beril.yaml`, `CORRECTIONS.md` and `REFUTATION_*.md`. BERIL verifies each file against the manifest and refuses a mismatch. The record is idempotent on (owner, project, revision), with revision = sha256 of `REPORT.md`. It needs the `beril login` PAT and an `approval` block in `beril.yaml`; without either it is `skipped`. The tool reports it in its JSON as `wiki_submission`:
+
+   ```json
+   {"status": "ok"|"skipped"|"failed", "reason": "...", "id": "<submission id or null>", "revision": "<sha256 or null>", "missing": ["paths BERIL still lacks"]}
+   ```
+
+   Carry it into the `beril.yaml` `submissions[]` entry (Phase 3c). A `skipped` or `failed` record is retried, idempotently, with:
+
+   ```bash
+   uv run knowledge/scripts/ingest_context.py --record --project {project_id}
+   ```
+
+   It re-sends the record the upload tool kept (built from the archived snapshot), so Phase 3c's own edits to `beril.yaml` and `SUBMITTED.md` don't affect it. Run it after the cause is fixed (`beril login`, or the server-side refusal the `reason` names), and update the `submissions[]` entry's `wiki_submission` from its verdict. Do not re-run the whole upload for this. If it reports that no record is kept on this machine, re-run `/submit` instead.
+
+2. **The context mirror** (below), which indexes the project for `beril context find/grep/pitfalls/discoveries`. A skipped mirror (BERIL unreachable, not logged in) does not skip the record, and a failed record does not stop the mirror.
+
+`/submit` needs no extra handling for either beyond recording the two verdicts — the exit-code contract below is unchanged.
 
 The mirror goes through BERIL's own HTTP API. `knowledge/scripts/ingest_context.py --project <id> --json` stages the project (curated files, `memories/*.md`, plus the generated `PROJECT_METADATA.md` and `CLAIMS_CONTEXT.md`), zips that tree, and POSTs it with a manifest to `POST /api/context/ingest_files` using the personal access token from `beril login`. The archive is what preserves relative paths — a flat upload would collapse `memories/pitfalls.md` to `pitfalls.md`. Ingest is asynchronous, so the script then polls `GET /api/context/ingest_status/{batch_id}` every few seconds until every file reaches a terminal state (default cap: 10 minutes). A BERIL credential is the only one involved.
 
@@ -342,7 +360,13 @@ Markers and `beril.yaml.submissions[]` are managed exclusively by this step. `su
        byte_total: {byte_total}
        duration_seconds: {duration_seconds}
        approved_at: "{approval.at}"
+       wiki_submission:                 # from the upload JSON; omit the key only if the tool emitted none
+         status: "{wiki_submission.status}"   # ok | skipped | failed
+         id: "{wiki_submission.id}"           # null when skipped or refused
+         revision: "{wiki_submission.revision}"
+         reason: "{wiki_submission.reason}"   # keep for skipped/failed; drop for ok
    ```
+   A `skipped` or `failed` `wiki_submission` is not a submission failure (the archive succeeded), but tell the user: the project will not reach the wiki until `uv run knowledge/scripts/ingest_context.py --record --project {project_id}` reports `ok`; when it does, update this entry's `wiki_submission`.
 2. **Then**, write `projects/{project_id}/SUBMITTED.md`:
    ```markdown
    # Project Submitted
