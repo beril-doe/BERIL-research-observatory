@@ -13,7 +13,7 @@ process environment.
 from __future__ import annotations
 
 import logging
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
 from claude_agent_sdk import (
     AssistantMessage,
@@ -64,6 +64,7 @@ class AnthropicCompatibleProvider:
         cwd: str,
         sdk_session_id: str | None,
         profile: AgentProfile | None = None,
+        on_dispatch: Callable[[], None] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         dispatched = False
         try:
@@ -113,6 +114,8 @@ class AnthropicCompatibleProvider:
             # From here the SDK may send a model request at any point, so a
             # failure is billable unless it is one known to come first.
             dispatched = True
+            if on_dispatch is not None:
+                on_dispatch()
             async for event in _stream_turn(user_message, options):
                 yield event
         except Exception as exc:  # noqa: BLE001 — top-level stream guard

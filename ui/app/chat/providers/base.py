@@ -8,7 +8,7 @@ message rows, and (later) translate it into SSE frames for the browser.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Literal, Protocol, runtime_checkable
+from typing import Any, AsyncIterator, Callable, Literal, Protocol, runtime_checkable
 
 from app.chat.config import ProviderConfig
 
@@ -167,11 +167,15 @@ class ChatProvider(Protocol):
         cwd: str,
         sdk_session_id: str | None,
         profile: AgentProfile | None = None,
+        on_dispatch: Callable[[], None] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         """Run a single chat turn and yield events as they happen.
 
         Implementations must yield a :class:`SessionInitialized` event once
         the provider reports a session id, and a terminal
-        :class:`TurnComplete` or :class:`ErrorEvent` exactly once.
+        :class:`TurnComplete` or :class:`ErrorEvent` exactly once. They call
+        ``on_dispatch`` the moment a model request may go out, before
+        awaiting anything from the model, so a caller cut off while waiting
+        for the first event still knows the turn may be billable.
         """
         ...

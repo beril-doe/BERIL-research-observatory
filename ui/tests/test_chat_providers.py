@@ -342,6 +342,42 @@ class TestTurnTranslation:
         assert "upstream 500" in events[-1].message
         assert events[-1].dispatched is True
 
+    async def test_dispatch_is_signalled_before_the_sdk_is_awaited(self):
+        """A caller cut off while waiting for the first event must already
+        know a request may have gone out."""
+        provider = _make_provider()
+        order = []
+
+        async def _query(prompt, options):  # noqa: ARG001
+            order.append("sdk")
+            yield _sys_init("sess-x")
+
+        with patch("app.chat.providers.anthropic_compatible.query", _query):
+            await _collect(
+                provider.run_turn(
+                    user_message="x",
+                    credentials=Credentials({"api_key": "k"}),
+                    model="m1",
+                    cwd="/tmp",
+                    sdk_session_id=None,
+                    on_dispatch=lambda: order.append("dispatch"),
+                )
+            )
+        assert order == ["dispatch", "sdk"]
+
+        # Failing in its own setup, the provider never signals dispatch.
+        await _collect(
+            provider.run_turn(
+                user_message="x",
+                credentials=Credentials({}),
+                model="m1",
+                cwd="/tmp",
+                sdk_session_id=None,
+                on_dispatch=lambda: order.append("dispatch"),
+            )
+        )
+        assert order == ["dispatch", "sdk"]
+
     @pytest.mark.parametrize(
         "exc, dispatched",
         [

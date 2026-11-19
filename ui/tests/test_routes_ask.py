@@ -324,3 +324,49 @@ async def test_wiki_turn_that_fails_in_provider_setup_is_charged_nothing(
     spend = (await db_session.execute(select(AskSpend).where(AskSpend.user_id == user.id))).scalar_one()
     await db_session.refresh(spend)
     assert (spend.tokens, spend.reservations, spend.reserved_tokens) == (0, 0, 0)
+
+
+@pytest.mark.parametrize("dispatched", [True, False])
+async def test_wiki_stream_cut_off_before_the_first_event_is_charged_by_dispatch(
+    client, user, db_session, ask_env, dispatched
+):
+    """The client disconnects (the stream task is cancelled) while the turn
+    is still waiting for the provider's first event. If the provider had
+    signalled dispatch, a request may have gone out: charge the
+    reservation. If it had not (still in setup), charge nothing."""
+    import asyncio
+
+    from app.chat.ask import prepare_ask_turn
+    from app.chat.service import stream_turn
+    from app.config import get_settings
+
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+    session = (await db_session.execute(select(ChatSession).where(ChatSession.id == sid))).scalar_one()
+    ask, credentials = await prepare_ask_turn(
+        db_session, get_settings(), user_id=user.id, turns_so_far=0, wiki=MagicMock()
+    )
+    waiting = asyncio.Event()
+
+    async def hangs(*, on_dispatch=None, **kwargs):
+        if dispatched:
+            on_dispatch()
+        waiting.set()
+        await asyncio.Event().wait()  # the model never answers
+        yield  # pragma: no cover
+
+    async def consume():
+        async for _ in stream_turn(db_session, session=session, user_message="q",
+                                   credentials=credentials, ask=ask):
+            pass
+
+    with patch("app.chat.service.run_provider_turn", hangs):
+        task = asyncio.create_task(consume())
+        await waiting.wait()
+        task.cancel()  # what the server does when the client goes away
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    spend = (await db_session.execute(select(AskSpend).where(AskSpend.user_id == user.id))).scalar_one()
+    await db_session.refresh(spend)
+    assert (spend.tokens, spend.reservations, spend.reserved_tokens) == (20000 if dispatched else 0, 0, 0)

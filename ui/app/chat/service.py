@@ -16,7 +16,7 @@ This layer is provider-agnostic and streaming-agnostic.
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -91,8 +91,13 @@ class TurnResult:
     usage: dict[str, Any] | None = None
     cost_usd: float | None = None
     # The provider may have sent a model request, so the turn may have done
-    # billable work. False only until a provider event says otherwise.
+    # billable work. Set by the provider's on_dispatch (before any model
+    # output, so a turn cut off while waiting still has it) or by any event
+    # but an error the provider marks undispatched.
     dispatched: bool = False
+
+    def mark_dispatched(self) -> None:
+        self.dispatched = True
     # Wiki mode: the retrieved hits the reply may cite, numbered.
     sources: list[dict[str, Any]] = field(default_factory=list)
 
@@ -142,6 +147,7 @@ async def stream_turn(
             credentials=credentials,
             skip_message_id=user_row.id,
             profile=ask.profile if ask else None,
+            on_dispatch=result.mark_dispatched,
         ):
             fold_event(event, text_parts, result)
             # Mark complete on the terminal event so a disconnect during the
@@ -209,6 +215,7 @@ async def run_turn(
             credentials=credentials,
             skip_message_id=user_row.id,
             profile=ask.profile if ask else None,
+            on_dispatch=result.mark_dispatched,
         ):
             fold_event(event, text_parts, result)
     finally:
@@ -229,6 +236,7 @@ async def run_provider_turn(
     credentials: Credentials,
     skip_message_id: str | None = None,
     profile: AgentProfile | None = None,
+    on_dispatch: Callable[[], None] | None = None,
 ) -> AsyncIterator[TurnEvent]:
     """Resolve the provider and stream its events. No persistence.
 
@@ -273,16 +281,17 @@ async def run_provider_turn(
         cwd=cwd,
         sdk_session_id=resume_id,
         profile=profile,
+        on_dispatch=on_dispatch,
     ):
         yield event
 
 
 def fold_event(event: TurnEvent, text_parts: list[str], result: TurnResult) -> None:
     """Accumulate a provider event into the in-progress TurnResult."""
-    if not (isinstance(event, ErrorEvent) and not event.dispatched):
-        # Any event but an error the provider marks undispatched means a
-        # model request may have gone out.
-        result.dispatched = True
+    # An error the provider marks undispatched is its word that nothing was
+    # sent (e.g. no CLI to launch, after on_dispatch); any other event means
+    # a model request may have gone out.
+    result.dispatched = not (isinstance(event, ErrorEvent) and not event.dispatched)
     if isinstance(event, SessionInitialized):
         result.sdk_session_id = event.sdk_session_id
     elif isinstance(event, TextDelta):
