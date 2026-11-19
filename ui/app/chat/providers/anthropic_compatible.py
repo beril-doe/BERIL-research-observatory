@@ -13,11 +13,12 @@ process environment.
 from __future__ import annotations
 
 import logging
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
 from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
+    CLINotFoundError,
     ResultMessage,
     SystemMessage,
     UserMessage,
@@ -26,6 +27,7 @@ from claude_agent_sdk import (
 
 from app.chat.config import ProviderConfig
 from app.chat.providers.base import (
+    AgentProfile,
     Credentials,
     ErrorEvent,
     SessionInitialized,
@@ -61,7 +63,10 @@ class AnthropicCompatibleProvider:
         model: str,
         cwd: str,
         sdk_session_id: str | None,
+        profile: AgentProfile | None = None,
+        on_dispatch: Callable[[], None] | None = None,
     ) -> AsyncIterator[TurnEvent]:
+        dispatched = False
         try:
             api_key = credentials.require(_API_KEY_FIELD)
 
@@ -81,19 +86,43 @@ class AnthropicCompatibleProvider:
                 turn_env["ANTHROPIC_API_KEY"] = api_key
                 turn_env["ANTHROPIC_AUTH_TOKEN"] = ""
 
-            options = ClaudeAgentOptions(
-                model=model,
-                cwd=cwd,
-                env=turn_env,
-                resume=sdk_session_id,
-                skills="all",
-            )
+            if profile is None:
+                options = ClaudeAgentOptions(
+                    model=model,
+                    cwd=cwd,
+                    env=turn_env,
+                    resume=sdk_session_id,
+                    skills="all",
+                )
+            else:
+                # A shaped agent: its own system prompt, only its tools (the
+                # built-ins are not allowed, so the agent cannot read files or
+                # run commands), no skills, and a hard cap on the loop.
+                options = ClaudeAgentOptions(
+                    model=model,
+                    cwd=cwd,
+                    env=turn_env,
+                    resume=sdk_session_id,
+                    system_prompt=profile.system_prompt,
+                    mcp_servers=profile.mcp_servers,
+                    allowed_tools=list(profile.allowed_tools),
+                    tools=[],
+                    max_turns=profile.max_turns,
+                    permission_mode="bypassPermissions",
+                )
 
+            # From here the SDK may send a model request at any point, so a
+            # failure is billable unless it is one known to come first.
+            dispatched = True
+            if on_dispatch is not None:
+                on_dispatch()
             async for event in _stream_turn(user_message, options):
                 yield event
         except Exception as exc:  # noqa: BLE001 — top-level stream guard
             logger.exception("chat turn failed for provider=%s", self.provider_id)
-            yield ErrorEvent(message=str(exc))
+            # No CLI found: the SDK had nothing to launch, so sent nothing.
+            sent = dispatched and not isinstance(exc, CLINotFoundError)
+            yield ErrorEvent(message=str(exc), dispatched=sent)
 
 
 async def _stream_turn(
@@ -141,10 +170,18 @@ def _translate(message: Any) -> list[TurnEvent]:
         if message.is_error:
             return [
                 ErrorEvent(
-                    message=f"provider reported terminal error: {getattr(message, 'subtype', 'unknown')}"
+                    message=f"provider reported terminal error: {getattr(message, 'subtype', 'unknown')}",
+                    usage=getattr(message, "usage", None),
+                    cost_usd=getattr(message, "total_cost_usd", None),
                 )
             ]
-        return [TurnComplete(result_subtype=getattr(message, "subtype", None))]
+        return [
+            TurnComplete(
+                result_subtype=getattr(message, "subtype", None),
+                usage=getattr(message, "usage", None),
+                cost_usd=getattr(message, "total_cost_usd", None),
+            )
+        ]
 
     # Partial-message events and anything else we don't recognize: ignore.
     return []

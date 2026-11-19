@@ -8,12 +8,15 @@ OpenViking instance.
 
 from __future__ import annotations
 
+import hashlib
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from app.clients.archive import ArchivedObject
 from app.clients.openviking import (
     ADD_RESOURCE_RETRIES,
     OpenVikingClient,
@@ -22,9 +25,12 @@ from app.clients.openviking import (
 from app.context_manager.base import (
     DEFAULT_GREP_NODE_LIMIT,
     DEFAULT_LS_NODE_LIMIT,
+    ArchiveUnavailableError,
+    ContextFileNotFound,
     ContextIngestFile,
     ContextQuery,
     ContextQueryResults,
+    is_readable_path,
 )
 from app.context_manager.openviking import (
     HOUSE_ACCOUNT_ID,
@@ -40,6 +46,7 @@ from app.context_manager.openviking import (
     get_user_ov_api_key,
     is_synthetic_node,
     listing_uri,
+    parse_address,
     project_tags,
     source_document,
     target_uri,
@@ -2791,3 +2798,201 @@ def test_require_ov_credential_key_refuses_a_malformed_key(bad):
 
     with pytest.raises(ValueError, match="not a valid Fernet key"):
         Settings(ov_credential_key=bad, _env_file=None).require_ov_credential_key()
+
+
+# ---------------------------------------------------------------------------
+# OpenVikingClient.read / stat
+# ---------------------------------------------------------------------------
+
+
+async def test_read_returns_the_stores_text(settings, patched_sdk):
+    patched_sdk.read = AsyncMock(return_value="# Report\n")
+    client = await OpenVikingClient.create("user-key")
+
+    assert await client.read("viking://resources/users/o/p/REPORT.md") == "# Report\n"
+    patched_sdk.read.assert_awaited_once_with("viking://resources/users/o/p/REPORT.md")
+
+
+async def test_read_unwraps_an_enveloped_payload(settings, patched_sdk):
+    patched_sdk.read = AsyncMock(return_value={"content": "text", "uri": "x"})
+    client = await OpenVikingClient.create("user-key")
+
+    assert await client.read("viking://x") == "text"
+
+
+# ---------------------------------------------------------------------------
+# OpenVikingManager.get_file
+# ---------------------------------------------------------------------------
+
+_OWNER = "0000-0001-2345-6789"
+_REPORT = b"# Alpha\n\nExact bytes.\n"
+_REPORT_SHA = hashlib.sha256(_REPORT).hexdigest()
+_FILE_URI = f"viking://resources/users/{_OWNER}/alpha/REPORT.md"
+
+
+class FakeArchive:
+    """A lakehouse archive holding ``{(project, path): bytes}``."""
+
+    def __init__(self, objects=None, *, unavailable=False):
+        self.objects = objects or {}
+        self.unavailable = unavailable
+        self.calls: list[tuple[str, str]] = []
+
+    def get(self, project, path):
+        self.calls.append((project, path))
+        if self.unavailable:
+            raise ArchiveUnavailableError("no credentials")
+        if (project, path) not in self.objects:
+            raise ContextFileNotFound(f"{project}/{path}")
+        return ArchivedObject(
+            data=self.objects[(project, path)],
+            content_type="image/png" if path.endswith(".png") else "text/markdown",
+            last_modified=datetime(2026, 11, 1, tzinfo=timezone.utc),
+        )
+
+
+@pytest.fixture
+def file_manager(settings, patched_sdk):
+    patched_sdk.read = AsyncMock(return_value=_REPORT.decode())
+    patched_sdk.stat = AsyncMock(
+        return_value={"name": "REPORT.md", "size": len(_REPORT), "isDir": False,
+                      "modTime": "2026-10-09T12:00:00Z", "uri": _FILE_URI}
+    )
+    archive = FakeArchive({("alpha", "REPORT.md"): b"archived bytes\n",
+                           ("alpha", "figures/fig1.png"): b"\x89PNG\r\n\x1a\n\x00"})
+    return OpenVikingManager(settings, "user-key", archive=archive), archive
+
+
+async def test_get_file_serves_the_store_when_the_hash_matches(file_manager, patched_sdk):
+    manager, archive = file_manager
+
+    file = await manager.get_file(f"{_OWNER}/alpha/REPORT.md", expected_sha256=_REPORT_SHA)
+
+    assert (file.source, file.encoding, file.content) == ("context", "utf-8", _REPORT.decode())
+    assert (file.sha256, file.size, file.to_bytes()) == (_REPORT_SHA, len(_REPORT), _REPORT)
+    assert (file.owner, file.project, file.path) == (_OWNER, "alpha", "REPORT.md")
+    assert file.content_type == "text/markdown"
+    assert file.modified_at == datetime(2026, 10, 9, 12, tzinfo=timezone.utc)
+    # Asked on the file URI, never a fragment.
+    patched_sdk.read.assert_awaited_once_with(_FILE_URI)
+    assert archive.calls == []
+
+
+async def test_get_file_falls_back_to_the_archive_when_the_hash_differs(file_manager, caplog):
+    """The store normalised the text (or holds a stale copy): the recorded
+    hash does not match, so the archive's bytes answer instead."""
+    manager, archive = file_manager
+
+    file = await manager.get_file(f"{_OWNER}/alpha/REPORT.md", expected_sha256="0" * 64)
+
+    assert (file.source, file.content) == ("archive", "archived bytes\n")
+    assert file.sha256 == hashlib.sha256(b"archived bytes\n").hexdigest()
+    assert archive.calls == [("alpha", "REPORT.md")]
+    assert any("not byte-exact" in r.getMessage() for r in caplog.records)
+
+
+async def test_get_file_reads_an_uningested_path_from_the_archive_only(file_manager, patched_sdk):
+    """Figures are never ingested, so there is no hash to check and the store
+    is not even asked."""
+    manager, archive = file_manager
+
+    file = await manager.get_file(f"{_OWNER}/alpha/figures/fig1.png", expected_sha256=None)
+
+    assert (file.source, file.encoding, file.content_type) == ("archive", "base64", "image/png")
+    assert file.to_bytes() == b"\x89PNG\r\n\x1a\n\x00"
+    assert file.modified_at == datetime(2026, 11, 1, tzinfo=timezone.utc)
+    patched_sdk.read.assert_not_awaited()
+    assert archive.calls == [("alpha", "figures/fig1.png")]
+
+
+async def test_get_file_falls_back_when_the_store_has_no_such_file(file_manager, patched_sdk):
+    manager, archive = file_manager
+    patched_sdk.read = AsyncMock(side_effect=SdkNotFoundError("gone"))
+
+    file = await manager.get_file(f"{_OWNER}/alpha/REPORT.md", expected_sha256=_REPORT_SHA)
+
+    assert file.source == "archive"
+    assert archive.calls == [("alpha", "REPORT.md")]
+
+
+async def test_get_file_raises_not_found_when_no_source_has_it(file_manager):
+    manager, _archive = file_manager
+    with pytest.raises(ContextFileNotFound):
+        await manager.get_file(f"{_OWNER}/alpha/figures/missing.png", expected_sha256=None)
+
+
+async def test_get_file_reports_an_unavailable_archive(settings, patched_sdk):
+    manager = OpenVikingManager(settings, "user-key", archive=FakeArchive(unavailable=True))
+    with pytest.raises(ArchiveUnavailableError):
+        await manager.get_file(f"{_OWNER}/alpha/figures/fig1.png", expected_sha256=None)
+
+
+async def test_get_file_store_errors_other_than_not_found_propagate(file_manager, patched_sdk):
+    """A refused key must still reach SelfHealingContextManager."""
+    from openviking_sdk.errors import UnauthenticatedError as SdkUnauthenticatedError
+
+    manager, archive = file_manager
+    patched_sdk.read = AsyncMock(side_effect=SdkUnauthenticatedError("bad key"))
+    with pytest.raises(SdkUnauthenticatedError):
+        await manager.get_file(f"{_OWNER}/alpha/REPORT.md", expected_sha256=_REPORT_SHA)
+    assert archive.calls == []
+
+
+async def test_get_file_tolerates_a_failed_stat(file_manager, patched_sdk):
+    manager, _archive = file_manager
+    patched_sdk.stat = AsyncMock(side_effect=SdkNotFoundError("no stat"))
+
+    file = await manager.get_file(f"{_OWNER}/alpha/REPORT.md", expected_sha256=_REPORT_SHA)
+
+    assert (file.source, file.modified_at) == ("context", None)
+
+
+async def test_get_file_closes_the_client(file_manager, patched_sdk):
+    manager, _archive = file_manager
+    await manager.get_file(f"{_OWNER}/alpha/REPORT.md", expected_sha256=_REPORT_SHA)
+    # One client for read, one for stat; both closed.
+    assert patched_sdk.close.await_count == 2
+
+
+def test_get_file_uses_the_lakehouse_archive_by_default(settings):
+    from app.clients.archive import LakehouseArchive
+
+    archive = OpenVikingManager(settings, "user-key").archive
+    assert isinstance(archive, LakehouseArchive)
+    assert archive.key_for("alpha", "figures/fig1.png") == (
+        "tenant-general-warehouse/microbialdiscoveryforge/projects/alpha/figures/fig1.png"
+    )
+    assert not archive.configured
+
+
+@pytest.mark.parametrize(
+    "address, expected",
+    [
+        ("o/p/REPORT.md", ("o", "p", "REPORT.md")),
+        ("o/p/figures/a/b.png", ("o", "p", "figures/a/b.png")),
+        ("/o/p//REPORT.md", ("o", "p", "REPORT.md")),
+    ],
+)
+def test_parse_address(address, expected):
+    assert parse_address(address) == expected
+
+
+@pytest.mark.parametrize("bad", ["o/p", "o", "", "o/p/../q/REPORT.md", "o/./p/REPORT.md"])
+def test_parse_address_rejects_short_or_traversing(bad):
+    with pytest.raises(ValueError):
+        parse_address(bad)
+
+
+@pytest.mark.parametrize(
+    "path, ok",
+    [
+        ("REPORT.md", True), ("README.md", True), ("beril.yaml", True),
+        ("CORRECTIONS.md", True), ("REFUTATION_1.md", True), ("REFUTATION_12.md", True),
+        ("figures/fig1.png", True), ("figures/sub/fig.svg", True),
+        ("REFUTATION_0.md", False), ("REVIEW.md", False), ("memories/pitfalls.md", False),
+        ("figures/", False), ("figures", False), ("figures//x.png", False),
+        ("data/x.csv", False), ("notebooks/a.ipynb", False),
+    ],
+)
+def test_is_readable_path(path, ok):
+    assert is_readable_path(path) is ok

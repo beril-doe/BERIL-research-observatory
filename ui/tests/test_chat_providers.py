@@ -9,6 +9,7 @@ import pytest
 
 from claude_agent_sdk import (
     AssistantMessage,
+    CLINotFoundError,
     ResultMessage,
     SystemMessage,
     ToolResultBlock,
@@ -299,6 +300,8 @@ class TestTurnTranslation:
             is_error=True,
             num_turns=1,
             session_id="s",
+            usage={"input_tokens": 900, "output_tokens": 40},
+            total_cost_usd=0.02,
         )
         messages = [_assistant([_FakeTextBlock("partial ")]), err_result]
         with patch("app.chat.providers.anthropic_compatible.query", _fake_query(messages)):
@@ -314,6 +317,9 @@ class TestTurnTranslation:
         assert isinstance(events[-1], ErrorEvent)
         assert "error_max_turns" in events[-1].message
         assert not any(isinstance(e, TurnComplete) for e in events)
+        # The work done before the error is still billable.
+        assert events[-1].usage == {"input_tokens": 900, "output_tokens": 40}
+        assert events[-1].cost_usd == 0.02
 
     async def test_exception_surfaces_as_error_event(self):
         provider = _make_provider()
@@ -334,6 +340,73 @@ class TestTurnTranslation:
             )
         assert isinstance(events[-1], ErrorEvent)
         assert "upstream 500" in events[-1].message
+        assert events[-1].dispatched is True
+
+    async def test_dispatch_is_signalled_before_the_sdk_is_awaited(self):
+        """A caller cut off while waiting for the first event must already
+        know a request may have gone out."""
+        provider = _make_provider()
+        order = []
+
+        async def _query(prompt, options):  # noqa: ARG001
+            order.append("sdk")
+            yield _sys_init("sess-x")
+
+        with patch("app.chat.providers.anthropic_compatible.query", _query):
+            await _collect(
+                provider.run_turn(
+                    user_message="x",
+                    credentials=Credentials({"api_key": "k"}),
+                    model="m1",
+                    cwd="/tmp",
+                    sdk_session_id=None,
+                    on_dispatch=lambda: order.append("dispatch"),
+                )
+            )
+        assert order == ["dispatch", "sdk"]
+
+        # Failing in its own setup, the provider never signals dispatch.
+        await _collect(
+            provider.run_turn(
+                user_message="x",
+                credentials=Credentials({}),
+                model="m1",
+                cwd="/tmp",
+                sdk_session_id=None,
+                on_dispatch=lambda: order.append("dispatch"),
+            )
+        )
+        assert order == ["dispatch", "sdk"]
+
+    @pytest.mark.parametrize(
+        "exc, dispatched",
+        [
+            # The request went out and the connection dropped before the SDK
+            # emitted anything: may be billable, so dispatched.
+            (ConnectionError("connection reset"), True),
+            # No CLI to launch: the SDK cannot have sent a request.
+            (CLINotFoundError("Claude Code not found"), False),
+        ],
+    )
+    async def test_failure_before_any_sdk_message_is_classified(self, exc, dispatched):
+        provider = _make_provider()
+
+        async def _failing_query(prompt, options):  # noqa: ARG001
+            raise exc
+            yield  # pragma: no cover — makes this an async generator
+
+        with patch("app.chat.providers.anthropic_compatible.query", _failing_query):
+            events = await _collect(
+                provider.run_turn(
+                    user_message="x",
+                    credentials=Credentials({"api_key": "k"}),
+                    model="m1",
+                    cwd="/tmp",
+                    sdk_session_id=None,
+                )
+            )
+        assert len(events) == 1 and isinstance(events[0], ErrorEvent)
+        assert events[0].dispatched is dispatched
 
     async def test_turn_complete_synthesized_if_missing(self):
         """If the SDK stream ends without a ResultMessage, we still emit a
@@ -483,6 +556,7 @@ class TestOptionsWiring:
         )
         assert isinstance(events[-1], ErrorEvent)
         assert "api_key" in events[-1].message
+        assert events[-1].dispatched is False  # failed before any request
 
 
 # ---------------------------------------------------------------------------

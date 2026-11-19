@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _settings = None
@@ -100,6 +101,70 @@ class Settings(BaseSettings):
     langfuse_public_key: str | None = None
     langfuse_secret_key: str | None = None
     langfuse_base_url: str = "https://us.cloud.langfuse.com"
+
+    # Lakehouse archive (app/clients/archive.py): the copy of every submitted
+    # project that ``/submit`` writes to object storage, read by
+    # ``GET /api/context/read`` when the context store's copy is not
+    # byte-exact or the path was never ingested (figures). S3-compatible;
+    # MinIO today, Ceph RGW later — the endpoint is config, not code. Leave
+    # the keys unset and the archive is simply unavailable (such reads 502).
+    # Objects live at ``s3://<bucket>/<prefix>/<project>/<path>``.
+    archive_endpoint_url: str = "https://minio.berdl.kbase.us"
+    archive_bucket: str = "cdm-lake"
+    archive_prefix: str = "tenant-general-warehouse/microbialdiscoveryforge/projects"
+    archive_access_key: str | None = None
+    archive_secret_key: SecretStr | None = None
+    archive_timeout_seconds: float = 20.0
+
+    # Submission store (app/submissions/store.py): the bytes /submit hands
+    # BERIL for the wiki — the allowlisted text files and the figures the
+    # report embeds — kept by BERIL itself, since the webapp cannot reach the
+    # lakehouse archive today. Filesystem by default (a persistent volume in
+    # compose and on SPIN); S3 when BERIL_SUBMISSIONS_S3_BUCKET is set.
+    # Layout either way: <owner>/<project>/<revision>/<path>.
+    submissions_dir: Path = Path("/var/lib/beril/submissions")
+    submissions_s3_endpoint_url: str | None = None
+    submissions_s3_bucket: str | None = None
+    submissions_s3_prefix: str = "submissions"
+    submissions_s3_access_key: str | None = None
+    submissions_s3_secret_key: SecretStr | None = None
+    # One figure per PUT; the proxy's body limit on that path must be at
+    # least this (nginx.conf: 64m).
+    submissions_max_file_bytes: int = 64 * 1024 * 1024
+
+    # The wiki container's internal API (app/context_manager/wiki.py): the
+    # second context backend behind ``source=wiki``. In-cluster only, bearer
+    # token shared with the wiki; unset token means the wiki backend is off.
+    wiki_internal_url: str = "http://wiki:8080"
+    wiki_internal_token: SecretStr | None = None
+    wiki_internal_timeout_seconds: float = 20.0
+    # Where readers open a wiki page: the base of the ``link`` every
+    # ``source=wiki`` result carries (``<base>/<collection>/<slug>#<anchor>``).
+    wiki_public_url: str = "https://beril.kbase.us/wiki"
+
+    # Wiki Ask: the conversational agent over the wiki corpus, run on an
+    # admin-held provider key rather than the reader's. Every limit lives here
+    # so it can be tuned per deployment once real usage is known; nothing in
+    # the chat code may hard-code these. The provider names an entry in
+    # ``chat_providers.yaml``; the model is one of that provider's. Quotas
+    # count tokens (input plus output) per calendar day per user, and per
+    # calendar month across every user; ``max_turns`` bounds one
+    # conversation and ``max_tool_calls`` one turn's calls to the wiki's tool
+    # server. The key unset means Ask is off.
+    wiki_ask_provider: str = "anthropic"
+    wiki_ask_model: str = "claude-sonnet-4-6"
+    wiki_ask_api_key: SecretStr | None = None
+    wiki_ask_daily_tokens_per_user: int = 250_000
+    wiki_ask_monthly_tokens: int = 25_000_000
+    wiki_ask_max_turns: int = 20
+    wiki_ask_max_tool_calls: int = 8
+    # USD caps, computed from the per-model rates in chat_providers.yaml so
+    # every provider's spend counts the same way. Quota is reserved before a
+    # turn at ``reserve_tokens_per_turn`` (and its USD at the model's rates),
+    # then settled to what the turn actually used.
+    wiki_ask_daily_usd_per_user: float = 2.0
+    wiki_ask_monthly_usd: float = 200.0
+    wiki_ask_reserve_tokens_per_turn: int = 20_000
 
     # Derived paths
     @property

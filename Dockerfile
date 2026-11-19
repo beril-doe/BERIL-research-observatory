@@ -17,6 +17,12 @@ RUN mkdir -p /tmp/beril_data_cache && \
     chown beril:beril_app /tmp/beril_data_cache && \
     chmod 755 /tmp/beril_data_cache
 
+# The submission store's default directory (BERIL_SUBMISSIONS_DIR). Created
+# here, owned by the app user, so a volume mounted over it inherits that
+# ownership and the first PUT does not fail on a root-owned mount point.
+RUN mkdir -p /var/lib/beril/submissions && \
+    chown beril:beril_app /var/lib/beril/submissions
+
 # Set working directory to the repository root
 WORKDIR /repo
 

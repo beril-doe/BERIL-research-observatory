@@ -17,6 +17,10 @@
 #   models          — list of models exposed to the user. Each item:
 #                       id            — passed to the provider
 #                       display_name  — shown in the UI
+#                       usd_per_million_input / usd_per_million_output
+#                                     — list price, for metering spend in USD
+#                                       (the wiki Ask caps). Optional; a model
+#                                       without rates is metered in tokens only.
 
 providers:
   anthropic:
@@ -31,8 +35,12 @@ providers:
     models:
       - id: claude-opus-4-7
         display_name: "Claude Opus 4.7"
+        usd_per_million_input: 5.00
+        usd_per_million_output: 25.00
       - id: claude-sonnet-4-6
         display_name: "Claude Sonnet 4.6"
+        usd_per_million_input: 3.00
+        usd_per_million_output: 15.00
 
   cborg:
     display_name: "CBORG (LBNL)"
@@ -47,5 +55,9 @@ providers:
       # TODO: replace with real CBORG model IDs
       - id: anthropic/claude-opus
         display_name: "Claude Opus (CBORG placeholder)"
+        usd_per_million_input: 5.00
+        usd_per_million_output: 25.00
       - id: anthropic/claude-sonnet
         display_name: "Claude Sonnet (CBORG placeholder)"
+        usd_per_million_input: 3.00
+        usd_per_million_output: 15.00

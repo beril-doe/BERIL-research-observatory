@@ -1,10 +1,10 @@
 """SQLAlchemy ORM models for BERIL Observatory."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, JSON, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, Enum, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -282,7 +282,8 @@ class OvUserCredential(Base):
 
 
 class ContextIngestBatch(Base):
-    """One ``/api/context/ingest_file`` submission, as the unit users poll.
+    """One ``/api/context/ingest_files`` submission (or admin import), as the
+    unit users poll.
 
     ``user_id`` is the authorization key for the status endpoint: the backing
     context manager's own task records carry no owner, so ownership has to be
@@ -359,6 +360,108 @@ class ContextIngestFileRecord(Base):
     )
 
 
+class Submission(Base):
+    """One ``/submit`` of a project, as the archive step recorded it with BERIL.
+
+    Independent of the ingest tables: those track indexing into the context
+    store, which ``/submit`` treats as best-effort (no login or BERIL down
+    still reports success and writes no row). This is the record the wiki's
+    feed is built from. ``revision`` is the sha256 of the submitted
+    ``REPORT.md``; ``(owner_orcid, project, revision)`` is the identity a
+    re-post is idempotent on. ``kind`` is ``approved`` (posted by ``/submit``,
+    approval-checked), ``seeded`` (an admin import of a repo project that
+    predates ``/submit``) or ``docs`` (the central digests, owner ``beril``,
+    project ``docs``). ``status`` is ``pending`` until every file the wiki
+    needs is stored, then ``complete``; only complete rows are fed.
+    ``feed_seq`` is the row's place in the feed, given when it completes and
+    in commit order, so a feed cursor never passes a row still to come.
+    ``owner_user_id`` is null for the house account.
+    """
+
+    __tablename__ = "submission"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_orcid", "project", "revision", name="uq_submission_owner_project_revision"
+        ),
+        Index("ix_submission_status_submitted", "status", "submitted_at"),
+        Index("ix_submission_feed_seq", "feed_seq", unique=True),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
+    owner_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("beril_user.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    owner_orcid: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    project: Mapped[str] = mapped_column(String(128), nullable=False)
+    revision: Mapped[str] = mapped_column(String(64), nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    archive_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approval_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    approval_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, default="approved")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    feed_seq: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    files: Mapped[list["SubmissionFile"]] = relationship(
+        "SubmissionFile",
+        back_populates="submission",
+        cascade="all, delete-orphan",
+        order_by="SubmissionFile.path",
+    )
+
+
+class SubmissionFile(Base):
+    """One file of a :class:`Submission`'s manifest — every archived file,
+    with ``stored`` saying whether BERIL holds its bytes in the submission
+    store (text files arrive with the record; figures by per-file PUT)."""
+
+    __tablename__ = "submission_file"
+    __table_args__ = (
+        UniqueConstraint("submission_id", "path", name="uq_submission_file_path"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
+    submission_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("submission.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    size: Mapped[int] = mapped_column(Integer, nullable=False)
+    stored: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    submission: Mapped["Submission"] = relationship("Submission", back_populates="files")
+
+
+class AskSpend(Base):
+    """Wiki Ask spend for one user on one UTC day, settled and reserved.
+
+    ``tokens``/``usd`` are what finished turns used; ``reserved_tokens``/
+    ``reserved_usd`` are held by turns in flight (``reservations`` of them).
+    Caps are checked against the sum of both, so two turns cannot both fit
+    under a cap only one of them would. Monthly caps sum the month's rows.
+    """
+
+    __tablename__ = "ask_spend"
+    __table_args__ = (
+        UniqueConstraint("user_id", "day", name="uq_ask_spend_user_day"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("beril_user.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    day: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    reserved_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reserved_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    reservations: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
 class ProjectCollection(Base):
     """Join table: BERDL collections referenced by a user project."""
 
@@ -416,6 +519,12 @@ class ChatSession(Base):
     sdk_session_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     provider_id: Mapped[str] = mapped_column(String(64), nullable=False)
     model: Mapped[str] = mapped_column(String(128), nullable=False)
+    # ``general`` (the user's own provider key and the full toolset) or
+    # ``wiki`` (Ask over the wiki on the admin-held key, find/read only,
+    # quota-metered). Free-form string, like provider_id.
+    mode: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="general", server_default="general"
+    )
     title: Mapped[str] = mapped_column(Text, nullable=False, default="New chat")
     project_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("user_project.id", ondelete="SET NULL"), nullable=True

@@ -449,3 +449,52 @@ class TestSettingsSingleton:
 
     def test_singleton_debug_is_false(self):
         assert get_settings().debug is False
+
+
+# ---------------------------------------------------------------------------
+# Lakehouse archive and Wiki Ask settings
+# ---------------------------------------------------------------------------
+
+
+class TestArchiveSettings:
+    def test_defaults_name_the_lakehouse_archive(self):
+        s = make_settings()
+        assert s.archive_endpoint_url == "https://minio.berdl.kbase.us"
+        assert s.archive_bucket == "cdm-lake"
+        assert s.archive_prefix == "tenant-general-warehouse/microbialdiscoveryforge/projects"
+        assert (s.archive_access_key, s.archive_secret_key) == (None, None)
+
+    def test_secret_key_is_a_secret(self, monkeypatch):
+        monkeypatch.setenv("BERIL_ARCHIVE_ACCESS_KEY", "ak")
+        monkeypatch.setenv("BERIL_ARCHIVE_SECRET_KEY", "sk-very-secret")
+        s = make_settings()
+        assert s.archive_access_key == "ak"
+        assert s.archive_secret_key.get_secret_value() == "sk-very-secret"
+        assert "sk-very-secret" not in repr(s)
+
+
+class TestWikiAskSettings:
+    def test_defaults(self):
+        s = make_settings()
+        assert s.wiki_ask_provider == "anthropic"
+        assert s.wiki_ask_model
+        assert s.wiki_ask_api_key is None
+        assert s.wiki_ask_daily_tokens_per_user > 0
+        assert s.wiki_ask_monthly_tokens >= s.wiki_ask_daily_tokens_per_user
+        assert s.wiki_ask_max_turns > 0
+        assert s.wiki_ask_max_tool_calls > 0
+
+    def test_every_limit_is_env_driven(self, monkeypatch):
+        monkeypatch.setenv("BERIL_WIKI_ASK_PROVIDER", "cborg")
+        monkeypatch.setenv("BERIL_WIKI_ASK_MODEL", "anthropic/claude-sonnet")
+        monkeypatch.setenv("BERIL_WIKI_ASK_API_KEY", "sk-ask")
+        monkeypatch.setenv("BERIL_WIKI_ASK_DAILY_TOKENS_PER_USER", "1000")
+        monkeypatch.setenv("BERIL_WIKI_ASK_MONTHLY_TOKENS", "50000")
+        monkeypatch.setenv("BERIL_WIKI_ASK_MAX_TURNS", "5")
+        monkeypatch.setenv("BERIL_WIKI_ASK_MAX_TOOL_CALLS", "3")
+        s = make_settings()
+        assert (s.wiki_ask_provider, s.wiki_ask_model) == ("cborg", "anthropic/claude-sonnet")
+        assert s.wiki_ask_api_key.get_secret_value() == "sk-ask"
+        assert "sk-ask" not in repr(s)
+        assert (s.wiki_ask_daily_tokens_per_user, s.wiki_ask_monthly_tokens) == (1000, 50000)
+        assert (s.wiki_ask_max_turns, s.wiki_ask_max_tool_calls) == (5, 3)

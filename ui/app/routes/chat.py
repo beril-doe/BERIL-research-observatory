@@ -6,7 +6,7 @@ same service layer.
 """
 
 import logging
-from typing import Any
+from typing import Any, Literal
 
 import app.context as ctx
 from fastapi import APIRouter, Depends, Request
@@ -17,7 +17,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
 from app.auth import require_user_api, require_user_page
+from app.chat.ask import (
+    GENERAL_MODE,
+    WIKI_MODE,
+    AskContext,
+    AskNotConfigured,
+    QuotaExceeded,
+    prepare_ask_turn,
+)
+from app.chat.wiki_mode import earlier_citations
+from app.config import get_settings
 from app.db.models import BerilUser
+from app.routes.context import get_wiki_manager
 from app.chat.concurrency import UserChatConcurrencyExceeded, get_concurrency_manager
 from app.chat.config import get_chat_config
 from app.chat.crud import (
@@ -32,7 +43,7 @@ from app.chat.providers import get_provider
 from app.chat.providers.base import Credentials
 from app.chat.service import run_turn, stream_turn
 from app.context import get_base_context
-from app.db.models import ChatSession
+from app.db.models import ChatMessage, ChatSession
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -138,6 +149,46 @@ def _validate_credentials(provider_id: str, provided: dict[str, str]) -> Credent
     return Credentials(values=provided)
 
 
+ASK_NOT_CONFIGURED = "Wiki Ask is not configured on this server."
+
+
+async def _prepare_turn(
+    db: AsyncSession, session: ChatSession, user: BerilUser, body: "TurnRequest"
+) -> tuple[Credentials, AskContext | None] | JSONResponse:
+    """Credentials and, in wiki mode, the Ask context for one turn.
+
+    General mode validates the user's own credentials. Wiki mode ignores
+    them: the key is the admin's (settings), and the turn is refused with a
+    429 naming the cap and when it resets, or a 503 when Ask is not
+    configured.
+    """
+    if session.mode != WIKI_MODE:
+        try:
+            return _validate_credentials(session.provider_id, body.credentials), None
+        except (KeyError, ValueError) as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+    replies = (
+        await db.execute(
+            select(ChatMessage.content)
+            .where(ChatMessage.session_id == session.id, ChatMessage.role == "assistant")
+            .order_by(ChatMessage.created_at.asc())
+        )
+    ).scalars().all()
+    try:
+        ask, credentials = await prepare_ask_turn(
+            db, get_settings(), user_id=user.id, turns_so_far=len(replies),
+            wiki=get_wiki_manager(), earlier=earlier_citations(list(replies)),
+        )
+    except AskNotConfigured:
+        return JSONResponse({"error": ASK_NOT_CONFIGURED}, status_code=503)
+    except QuotaExceeded as exc:
+        return JSONResponse(
+            {"error": exc.detail, "cap": exc.cap, "resets_at": exc.resets_at.isoformat()},
+            status_code=429,
+        )
+    return credentials, ask
+
+
 async def _load_session_for_user(
     db: AsyncSession, session_id: str, user_id: str
 ) -> tuple[ChatSession | None, int | None]:
@@ -168,23 +219,29 @@ async def chat_turn(
     if err is not None or session is None:
         return Response(status_code=err)
 
-    try:
-        credentials = _validate_credentials(session.provider_id, body.credentials)
-    except (KeyError, ValueError) as exc:
-        return JSONResponse({"error": str(exc)}, status_code=400)
-
     manager = get_concurrency_manager()
     try:
+        # Admit the turn before preparing it: in wiki mode preparing reserves
+        # quota, which a refused turn would otherwise keep.
         async with manager.acquire(session_id=session.id, user_id=user.id):
             # Refresh after acquiring the lock so we see any sdk_session_id
             # written by a turn that just finished on this same session.
             await db.refresh(session)
-            turn = await run_turn(
-                db,
-                session=session,
-                user_message=body.message,
-                credentials=credentials,
-            )
+            prepared = await _prepare_turn(db, session, user, body)
+            if isinstance(prepared, JSONResponse):
+                return prepared
+            credentials, ask = prepared
+            try:
+                turn = await run_turn(
+                    db,
+                    session=session,
+                    user_message=body.message,
+                    credentials=credentials,
+                    ask=ask,
+                )
+            finally:
+                if ask is not None:
+                    await ask.release(db)
     except UserChatConcurrencyExceeded:
         return JSONResponse(
             {"error": "concurrent-turn cap exceeded for this user"},
@@ -196,6 +253,8 @@ async def chat_turn(
         "assistant_text": turn.assistant_text,
         "tool_activity": turn.tool_activity,
     }
+    if ask is not None:
+        payload["sources"] = turn.sources
     if turn.is_error:
         payload["error"] = turn.error
     return JSONResponse(payload)
@@ -220,15 +279,11 @@ async def chat_stream(
         return Response(status_code=err)
     assert session is not None
 
-    try:
-        credentials = _validate_credentials(session.provider_id, body.credentials)
-    except (KeyError, ValueError) as exc:
-        return JSONResponse({"error": str(exc)}, status_code=400)
-
     manager = get_concurrency_manager()
     # Reserve the user slot and session lock BEFORE returning the response,
     # so a cap-exceeded case surfaces as a plain 429 rather than an opaque
-    # 200 with an embedded error frame.
+    # 200 with an embedded error frame — and before preparing the turn, whose
+    # quota reservation (wiki mode) a refused turn would otherwise keep.
     try:
         turn_guard = manager.acquire(session_id=session.id, user_id=user.id)
         await turn_guard.__aenter__()
@@ -245,9 +300,14 @@ async def chat_stream(
         # Refresh after acquiring the lock so we see any sdk_session_id
         # written by a turn that just finished on this same session.
         await db.refresh(session)
+        prepared = await _prepare_turn(db, session, user, body)
     except BaseException:
         await turn_guard.__aexit__(None, None, None)
         raise
+    if isinstance(prepared, JSONResponse):
+        await turn_guard.__aexit__(None, None, None)
+        return prepared
+    credentials, ask = prepared
 
     async def _event_generator():
         try:
@@ -256,10 +316,15 @@ async def chat_stream(
                 session=session,
                 user_message=body.message,
                 credentials=credentials,
+                ask=ask,
             ):
                 yield frame
         finally:
-            await turn_guard.__aexit__(None, None, None)
+            try:
+                if ask is not None:
+                    await ask.release(db)
+            finally:
+                await turn_guard.__aexit__(None, None, None)
 
     return EventSourceResponse(_event_generator())
 
@@ -270,8 +335,11 @@ async def chat_stream(
 
 
 class CreateSessionRequest(BaseModel):
-    provider_id: str = Field(min_length=1)
-    model: str = Field(min_length=1)
+    # ``general`` needs a provider and model of the user's choosing; ``wiki``
+    # (Ask over the wiki, on the admin-held key) takes them from settings.
+    mode: Literal["general", "wiki"] = GENERAL_MODE
+    provider_id: str | None = Field(default=None, min_length=1)
+    model: str | None = Field(default=None, min_length=1)
     title: str | None = Field(default=None, max_length=500)
 
 
@@ -298,19 +366,33 @@ async def chat_create_session(
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    """Create a new chat session. Returns ``{session_id}`` for client redirect."""
-    err = _validate_provider_and_model(body.provider_id, body.model)
+    """Create a new chat session. Returns ``{session_id}`` for client redirect.
+
+    A ``wiki`` session runs on ``BERIL_WIKI_ASK_PROVIDER`` / ``_MODEL``; a
+    provider or model in the body is ignored for it. 503 when Ask has no key.
+    """
+    if body.mode == WIKI_MODE:
+        settings = get_settings()
+        if settings.wiki_ask_api_key is None or not settings.wiki_ask_api_key.get_secret_value():
+            return JSONResponse({"error": ASK_NOT_CONFIGURED}, status_code=503)
+        provider_id, model = settings.wiki_ask_provider, settings.wiki_ask_model
+    else:
+        if not body.provider_id or not body.model:
+            return JSONResponse({"error": "provider_id and model are required"}, status_code=400)
+        provider_id, model = body.provider_id, body.model
+    err = _validate_provider_and_model(provider_id, model)
     if err:
         return JSONResponse({"error": err}, status_code=400)
 
     session = await create_session(
         db,
         owner_id=user.id,
-        provider_id=body.provider_id,
-        model=body.model,
-        title=body.title or "New chat",
+        provider_id=provider_id,
+        model=model,
+        title=body.title or ("Ask the wiki" if body.mode == WIKI_MODE else "New chat"),
+        mode=body.mode,
     )
-    return JSONResponse({"session_id": session.id})
+    return JSONResponse({"session_id": session.id, "mode": session.mode})
 
 
 @ROUTER_CHAT.patch("/{session_id}")

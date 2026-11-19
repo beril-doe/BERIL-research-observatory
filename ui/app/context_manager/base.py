@@ -1,6 +1,8 @@
+import base64
+import hashlib
+import mimetypes
 import re
 from datetime import datetime
-from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -40,18 +42,119 @@ MAX_OWNER_EXPANSION = 256
 MAX_MEMORY_DOCUMENTS = 256
 
 
-class FileMetadata(BaseModel):
-    created: datetime
-    owner: str
-    last_changed: datetime
-    path: Path
+# Where a file's bytes came from. ``context`` is the context store itself,
+# used only when what it returned hashes to the bytes BERIL recorded at
+# ingest; ``archive`` is the lakehouse copy ``/submit`` wrote, used when the
+# store's copy differs, or the path was never ingested (figures never are).
+FILE_SOURCE_CONTEXT = "context"
+FILE_SOURCE_ARCHIVE = "archive"
+# ``submission`` (the bytes /submit handed BERIL, byte-exact by construction)
+# and ``wiki`` (a wiki page, from the wiki backend) are the other two values
+# ``ContextFile.source`` takes; defined where they are produced.
+
+# What ``GET /api/context/read`` will hand out of a project. Narrower than the
+# ingest allowlist on purpose: this is the wiki's contract (report, metadata,
+# errata and the figures the report embeds), and widening it is a decision,
+# not a side effect of ingesting more. Memories, reviews and plans stay
+# reachable through ``find``/``grep``/``ls``.
+READABLE_FILES = frozenset({"REPORT.md", "README.md", "beril.yaml", "CORRECTIONS.md"})
+_READABLE_REFUTATION = re.compile(r"REFUTATION_[1-9][0-9]*\.md")
+READABLE_FIGURES_DIR = "figures/"
+
+
+def is_readable_path(path: str) -> bool:
+    """Whether ``path`` (relative to a project) may be read whole.
+
+    ``figures/**`` is any file below ``figures/``; a bare ``figures/`` or an
+    empty segment is not a file and is refused. Traversal is the caller's to
+    reject before this (``target_uri`` does), so only the shape is checked.
+    """
+    if path in READABLE_FILES or _READABLE_REFUTATION.fullmatch(path):
+        return True
+    if path.startswith(READABLE_FIGURES_DIR):
+        rest = path[len(READABLE_FIGURES_DIR):]
+        return bool(rest) and not rest.startswith("/") and not rest.endswith("/") and "//" not in rest
+    return False
+
 
 class ContextFile(BaseModel):
+    """One project file, whole, as ``GET /api/context/read`` returns it.
+
+    ``content`` is the file's text when it decodes as UTF-8, else its bytes
+    base64-encoded; ``encoding`` says which, so a client can rebuild the exact
+    bytes either way (``to_bytes``). ``sha256`` is of those bytes — the
+    byte-exactness the wiki checks quotes and offsets against — and ``source``
+    says where they came from (see ``FILE_SOURCE_*``). ``modified_at`` is the
+    source's own timestamp when it reports one.
     """
-    A class representing a file stored in the context manager.
-    """
+
+    address: str
+    owner: str
+    project: str
+    path: str
     content: str
-    metadata: FileMetadata
+    encoding: Literal["utf-8", "base64"] = "utf-8"
+    sha256: str
+    size: int
+    content_type: str | None = None
+    source: Literal["submission", "context", "archive", "wiki"]
+    modified_at: datetime | None = None
+    # The submission revision the bytes belong to, when a submission answered.
+    revision: str | None = None
+
+    @classmethod
+    def from_bytes(
+        cls,
+        data: bytes,
+        *,
+        address: str,
+        owner: str,
+        project: str,
+        path: str,
+        source: str,
+        content_type: str | None = None,
+        modified_at: datetime | None = None,
+        revision: str | None = None,
+    ) -> "ContextFile":
+        """Wrap raw bytes, choosing the encoding the bytes allow.
+
+        Text is kept as text when it round-trips: a file that decodes as
+        strict UTF-8 re-encodes to the same bytes, so ``sha256`` holds either
+        way. Anything else is base64.
+        """
+        try:
+            content, encoding = data.decode("utf-8"), "utf-8"
+        except UnicodeDecodeError:
+            content, encoding = base64.b64encode(data).decode("ascii"), "base64"
+        return cls(
+            address=address,
+            owner=owner,
+            project=project,
+            path=path,
+            content=content,
+            encoding=encoding,
+            sha256=hashlib.sha256(data).hexdigest(),
+            size=len(data),
+            content_type=content_type or mimetypes.guess_type(path)[0],
+            source=source,
+            modified_at=modified_at,
+            revision=revision,
+        )
+
+    def to_bytes(self) -> bytes:
+        """The exact bytes ``sha256`` was computed over."""
+        if self.encoding == "base64":
+            return base64.b64decode(self.content)
+        return self.content.encode("utf-8")
+
+
+class ContextFileNotFound(LookupError):
+    """No copy of the file exists anywhere ``get_file`` looks."""
+
+
+class ArchiveUnavailableError(RuntimeError):
+    """The lakehouse archive could not be asked — unconfigured, unreachable,
+    or refusing the credentials. Distinct from a missing file."""
 
 class ContextIngestFile(BaseModel):
     """One file bound for the context manager.
@@ -165,6 +268,9 @@ class ContextImportResults(ContextIngestResults):
     # re-owned): each is marked removal-pending and must be retired, one per
     # call, with ``POST /api/admin/context/retire_file/{record_id}``.
     retire_records: list[str] = Field(default_factory=list)
+    # The ``seeded`` submission this import recorded for the feed; None for
+    # a dry run or an archive with no REPORT.md.
+    submission_id: str | None = None
 
 
 class IngestFileStatus(BaseModel):
@@ -222,6 +328,10 @@ class ContextQuery(BaseModel):
     time_field: Literal["updated_at", "created_at"] | None = None
     node_limit: int | None = Field(default=None, ge=1, le=MAX_FIND_NODE_LIMIT)
     read_content: bool = False
+    # Which backend answers: the context store, or the wiki (then ``path``
+    # is a wiki collection to search within, and the other scoping fields
+    # do not apply).
+    source: Literal["context", "wiki"] = "context"
 
     @field_validator("since", "until")
     @classmethod
@@ -285,6 +395,9 @@ class QueryResult(BaseModel):
     text: str
     match_reason: str | None = None
     content: str | None = None
+    # Wiki hits only: the page title and its public URL with section anchor.
+    title: str | None = None
+    link: str | None = None
 
 
 class PitfallHit(BaseModel):
@@ -393,12 +506,24 @@ class ContextQueryResults(BaseModel):
     query: str
     results: list[QueryResult]
     total: int = 0
+    # Wiki searches only: the site artifact the answer came from.
+    artifact: str | None = None
 
 class ContextManager:
     url: str
     config: dict[str, str]
 
-    async def get_file(self, path: Path) -> ContextFile:
+    async def get_file(
+        self, address: str, *, expected_sha256: str | None
+    ) -> ContextFile:
+        """One project file, whole and byte-exact.
+
+        ``address`` is ``<owner>/<project>/<path>``. ``expected_sha256`` is
+        the hash BERIL recorded when the path last completed an ingest, or
+        ``None`` when it never did; it decides whether the store's copy may
+        be served (see ``OpenVikingManager.get_file``). Raises
+        ``ContextFileNotFound`` when no source has the file.
+        """
         ...
 
     async def insert_file(
@@ -417,7 +542,7 @@ class ContextManager:
         """
         ...
 
-    async def list_files(self) -> list[ContextFile]:
+    async def list_files(self, uri: str | list[str], **options) -> list:
         ...
 
     async def query(

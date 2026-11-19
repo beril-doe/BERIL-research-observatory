@@ -1,8 +1,10 @@
 import asyncio
 import fnmatch
+import hashlib
 import logging
 import re
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -38,6 +40,8 @@ from .addresses import USERS_TARGET_URI
 from .base import (
     DEFAULT_GREP_NODE_LIMIT,
     DEFAULT_LS_NODE_LIMIT,
+    FILE_SOURCE_ARCHIVE,
+    FILE_SOURCE_CONTEXT,
     INGEST_COMPLETED,
     INGEST_EXPIRED,
     INGEST_FAILED,
@@ -542,13 +546,145 @@ class OvProvisioningError(RuntimeError):
     """Raised when a user's OpenViking credential can't be obtained or minted."""
 
 
+def parse_address(address: str) -> tuple[str, str, str]:
+    """Split a file address into ``(owner, project, path)``.
+
+    An address is ``<owner>/<project>/<path>`` with ``path`` possibly nested
+    (``figures/fig1.png``). Checked for traversal the same way every read
+    target is (``target_uri``), so ``..`` cannot climb out of the project.
+    Raises ``ValueError`` for anything shorter than three segments.
+    """
+    # Traversal-checked first; the URI itself is discarded.
+    target_uri(corpus_root(), address)
+    segments = [s for s in address.replace("\\", "/").split("/") if s]
+    if len(segments) < 3:
+        raise ValueError(f"Not a file address (owner/project/path): {address!r}")
+    return segments[0], segments[1], "/".join(segments[2:])
+
+
 class OpenVikingManager(ContextManager):
-    def __init__(self, settings: Settings, api_key: str):
+    def __init__(self, settings: Settings, api_key: str, *, archive=None):
         self.url = settings.ov_url
         self.api_key = api_key
+        # The lakehouse copy of every submitted project — ``get_file``'s
+        # fallback. Built lazily from settings so a manager that never reads
+        # a file never touches the archive's configuration.
+        self._archive = archive
+        self._settings = settings
 
-    async def get_file(self, path: Path) -> ContextFile:
-        ...
+    @property
+    def archive(self):
+        if self._archive is None:
+            # Imported here: clients.archive imports the base models, and
+            # this module is imported by the routes before anything else.
+            from app.clients.archive import LakehouseArchive
+
+            self._archive = LakehouseArchive.from_settings(self._settings)
+        return self._archive
+
+    async def get_file(
+        self, address: str, *, expected_sha256: str | None
+    ) -> ContextFile:
+        """One project file, whole and byte-exact, from whichever source has
+        the bytes BERIL recorded.
+
+        The store decomposes every document it ingests (headings become
+        path segments, content becomes chunks) and its ``read`` reassembles
+        one. Whether that round-trips the file byte for byte is not promised,
+        and the wiki verifies quotes and offsets against source bytes, so the
+        store's answer is served only when it hashes to ``expected_sha256`` —
+        the sha256 BERIL recorded when the path last completed an ingest.
+        Anything else — a differing hash, a path never ingested (``None``;
+        figures never are), a store that has no such file — is served from the
+        lakehouse archive ``/submit`` wrote, which holds the submitted bytes
+        untouched. Which path was taken is logged and reported as ``source``.
+
+        The store is asked on the **file** URI, never a fragment: the address
+        names the uploaded file, and a fragment is a piece of it.
+
+        Raises ``ContextFileNotFound`` when neither source has the file, and
+        ``ArchiveUnavailableError`` when the archive was needed and could not
+        be asked. Store errors other than not-found propagate as they are
+        (``QUERY_FAILURES``), so a refused key is still repaired upstream.
+        """
+        owner, project, path = parse_address(address)
+        file_uri = target_uri(listing_uri(owner, project), path)
+
+        if expected_sha256 is not None:
+            text = await self._read_from_store(file_uri)
+            if text is not None:
+                data = text.encode("utf-8")
+                digest = hashlib.sha256(data).hexdigest()
+                if digest == expected_sha256:
+                    logger.info("Read %s from the context store (sha256 matched)", address)
+                    return ContextFile.from_bytes(
+                        data,
+                        address=address,
+                        owner=owner,
+                        project=project,
+                        path=path,
+                        source=FILE_SOURCE_CONTEXT,
+                        modified_at=await self._store_mod_time(file_uri),
+                    )
+                logger.warning(
+                    "Context store copy of %s is not byte-exact (recorded %s, got %s); "
+                    "serving the archive copy",
+                    address, expected_sha256[:12], digest[:12],
+                )
+            else:
+                logger.warning(
+                    "Context store has no copy of %s though an ingest completed; "
+                    "serving the archive copy",
+                    address,
+                )
+        else:
+            logger.info("%s was never ingested; serving the archive copy", address)
+
+        archived = await asyncio.to_thread(self.archive.get, project, path)
+        logger.info("Read %s from the lakehouse archive", address)
+        return ContextFile.from_bytes(
+            archived.data,
+            address=address,
+            owner=owner,
+            project=project,
+            path=path,
+            source=FILE_SOURCE_ARCHIVE,
+            content_type=archived.content_type,
+            modified_at=archived.last_modified,
+        )
+
+    async def _read_from_store(self, file_uri: str) -> str | None:
+        """The store's text for a file, or ``None`` when it has no such file."""
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        try:
+            return await ov_client.read(file_uri)
+        except SdkNotFoundError:
+            return None
+        finally:
+            await ov_client.close()
+
+    async def _store_mod_time(self, file_uri: str) -> datetime | None:
+        """The store's ``modTime`` for a file, if it reports a readable one.
+
+        Metadata only: a failure here must not fail a read whose content was
+        already verified, so every expected error reads as "unknown".
+        """
+        ov_client = await OpenVikingClient.create(self.api_key, base_url=self.url)
+        try:
+            entry = await ov_client.stat(file_uri)
+        except (*QUERY_FAILURES, SdkNotFoundError):
+            return None
+        finally:
+            await ov_client.close()
+        raw = (entry or {}).get("modTime")
+        if isinstance(raw, datetime):
+            return raw
+        if isinstance(raw, str):
+            try:
+                return datetime.fromisoformat(raw[:-1] + "+00:00" if raw.endswith("Z") else raw)
+            except ValueError:
+                return None
+        return None
 
     async def insert_files(
         self, files: list[ContextIngestFile], *, target_root: str

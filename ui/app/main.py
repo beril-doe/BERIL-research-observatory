@@ -12,7 +12,9 @@ from app.context import generate_base_context, get_base_context, get_repo_data, 
 from app.db.session import init_db, close_db, check_db
 from app.notebook_processors import PlotlyPreprocessor
 from app.context_manager.openviking import ContextUnavailableError
-from app.routes.context import ROUTER_CONTEXT, context_unavailable_handler
+from app.context_manager.wiki import WikiUnavailableError
+from app.routes.context import ROUTER_CONTEXT, context_unavailable_handler, wiki_unavailable_handler
+from app.routes.submissions import ROUTER_SUBMISSIONS
 from app.routes.langfuse import ROUTER_LANGFUSE
 from app.routes.openviking import ROUTER_OV
 import nbformat
@@ -143,6 +145,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(_RedirectToLogin, redirect_to_login_handler)
     # A context-store outage that survived key repair is a 502, on every route.
     app.add_exception_handler(ContextUnavailableError, context_unavailable_handler)
+    app.add_exception_handler(WikiUnavailableError, wiki_unavailable_handler)
 
     # Mount static files
     app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
@@ -175,6 +178,7 @@ def create_app() -> FastAPI:
     app.include_router(ROUTER_ATLAS)
     app.include_router(ROUTER_OV)
     app.include_router(ROUTER_CONTEXT)
+    app.include_router(ROUTER_SUBMISSIONS)
     app.include_router(ROUTER_LANGFUSE)
 
     # Configure templates
