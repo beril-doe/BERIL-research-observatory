@@ -1070,6 +1070,31 @@ def test_record_skipped_without_an_approval_block(lu, approved_repo, mc, monkeyp
     assert result["wiki_submission"]["status"] == "skipped"
     assert "approval" in result["wiki_submission"]["reason"]
     assert server.requests == []
+    assert beril_submit.load_pending(approved_repo / "knowledge" / "state", "demo") is None
+
+
+def test_without_the_beril_cli_environment_the_record_is_skipped_but_kept_for_the_retry(
+    lu, approved_repo, mc, monkeypatch,
+):
+    """The upload tool may run on an interpreter without httpx/yaml. The send
+    is skipped, but the record it names the retry for is still kept."""
+    import observatory_context
+
+    server = FakeRecordServer(monkeypatch)
+    with monkeypatch.context() as m:  # the retry, below, runs in the full environment
+        m.delattr(observatory_context, "beril_submit")
+        m.setitem(sys.modules, "observatory_context.beril_submit", None)
+        result = lu.upload_project("demo", approved_repo, record_submission=True)
+
+    record = result["wiki_submission"]
+    assert result["status"] == "ok" and record["status"] == "skipped"
+    assert "beril-cli environment" in record["reason"]
+    assert "--record --project demo" in record["reason"] and "kept" in record["reason"]
+    assert server.requests == []
+    kept = beril_submit.load_pending(approved_repo / "knowledge" / "state", "demo")
+    assert kept is not None and kept.archive_path == result["s3a_path"]
+    assert (kept.root / "figures" / "fig1.png").read_bytes() == PNG
+    assert beril_submit.kept_approval(kept)["at"] == "2026-11-01T00:00:00Z"
 
 
 def test_record_off_by_default_and_not_on_a_partial_archive(lu, approved_repo, monkeypatch, stub_git):

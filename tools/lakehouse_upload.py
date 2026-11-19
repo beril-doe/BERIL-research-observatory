@@ -256,9 +256,10 @@ def record_wiki_submission(project_id, base_path, archived_files, archive_path, 
          "revision": str|None, "missing": [paths]}
 
     Built from ``snapshot``, the staged copy the archive was uploaded from, so
-    the record describes the archive byte for byte. Before sending, it is kept
-    under ``knowledge/state/`` (``beril_submit.save_pending``) until the server
-    reports it complete; the retry re-sends that, not a rehash of the checkout.
+    the record describes the archive byte for byte. It is kept under
+    ``knowledge/state/`` first (``observatory_context.submission_record``,
+    standard library only, so this works on any interpreter), and dropped
+    once the server reports it complete; the retry re-sends what was kept.
 
     - "ok":      the server holds the record and every file it needs.
     - "skipped": no login, no approval block, or the beril-cli environment is
@@ -267,42 +268,47 @@ def record_wiki_submission(project_id, base_path, archived_files, archive_path, 
     - "failed":  the post or a figure upload was refused (a sha256 mismatch,
                  a server error). Same retry; the archive is unaffected.
     """
-    snapshot = Path(snapshot)
+    def outcome(status, reason):
+        return {"status": status, "reason": reason, "id": None, "revision": None, "missing": []}
+
+    retry = f"`uv run knowledge/scripts/ingest_context.py --record --project {project_id}`"
+    state_dir = Path(base_path).resolve() / "knowledge" / "state"
     try:
         if str(REPO_ROOT) not in sys.path:
             sys.path.insert(0, str(REPO_ROOT))
-        import yaml
+        from observatory_context import submission_record
 
+        pending = submission_record.save_pending(
+            state_dir, project_id, snapshot, files=archived_files, archive_path=archive_path,
+        )
+    except Exception as exc:  # the archive is done; nothing here may undo it
+        return outcome("failed", f"could not keep the submission record ({exc}); re-run /submit "
+                       "to archive and record the project")
+    try:
         from beril_cli import auth_store
         from observatory_context import beril_submit
     except ImportError as exc:
-        return {"status": "skipped", "reason": f"submission record needs the beril-cli environment: {exc}",
-                "id": None, "revision": None, "missing": []}
+        return outcome("skipped", f"submission record needs the beril-cli environment ({exc}); "
+                       f"the record is kept: run {retry}")
     try:
-        meta = yaml.safe_load((snapshot / "beril.yaml").read_text(encoding="utf-8")) or {}
-        approval = meta.get("approval") or {}
+        approval = beril_submit.kept_approval(pending)
         if not approval.get("at"):
-            return {"status": "skipped", "reason": "beril.yaml has no approval block; only approved "
-                    "projects are recorded", "id": None, "revision": None, "missing": []}
-        state_dir = Path(base_path).resolve() / "knowledge" / "state"
-        pending = beril_submit.save_pending(
-            state_dir, project_id, snapshot,
-            files=archived_files, archive_path=archive_path, approval=approval,
-        )
+            submission_record.drop_pending(state_dir, project_id)
+            return outcome("skipped", "beril.yaml has no approval block; only approved projects "
+                           "are recorded")
         record = auth_store.load()
         if record is None:
-            return {"status": "skipped", "reason": "not logged in to BERIL; the record is kept: run "
-                    "`beril login`, then "
-                    f"`uv run knowledge/scripts/ingest_context.py --record --project {project_id}`",
-                    "id": None, "revision": None, "missing": []}
+            return outcome("skipped", f"not logged in to BERIL; the record is kept: run "
+                           f"`beril login`, then {retry}")
         with beril_submit.client_for(record.base_url, record.token) as client:
-            outcome = beril_submit.submit_pending(client, pending, owner_orcid=record.orcid_id)
-        if outcome.status == "ok":
-            beril_submit.drop_pending(state_dir, project_id)
-        return outcome.as_dict()
+            sent = beril_submit.submit_pending(
+                client, pending, owner_orcid=record.orcid_id, approval=approval
+            )
+        if sent.status == "ok":
+            submission_record.drop_pending(state_dir, project_id)
+        return sent.as_dict()
     except Exception as exc:  # the archive is done; nothing here may undo it
-        return {"status": "failed", "reason": f"submission record failed unexpectedly: {exc}",
-                "id": None, "revision": None, "missing": []}
+        return outcome("failed", f"submission record failed unexpectedly: {exc}")
 
 
 def _mc(*args, capture=True):

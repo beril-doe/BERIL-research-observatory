@@ -326,13 +326,13 @@ def test_a_kept_record_round_trips_and_holds_only_what_it_sends(project, tmp_pat
 
     kept = beril_submit.save_pending(
         state, "alpha", project, files=files, archive_path="s3a://b/alpha/",
-        approval=APPROVAL, submitted_at="2026-11-02T00:00:00+00:00",
+        submitted_at="2026-11-02T00:00:00+00:00",
     )
 
     again = beril_submit.load_pending(state, "alpha")
     assert again == kept
-    assert (again.files, again.archive_path, again.approval, again.submitted_at) == (
-        files, "s3a://b/alpha/", APPROVAL, "2026-11-02T00:00:00+00:00"
+    assert (again.files, again.archive_path, again.submitted_at) == (
+        files, "s3a://b/alpha/", "2026-11-02T00:00:00+00:00"
     )
     held = sorted(p.relative_to(again.root).as_posix() for p in again.root.rglob("*") if p.is_file())
     assert held == beril_submit.record_paths(files, (project / "REPORT.md").read_text())
@@ -342,7 +342,7 @@ def test_a_kept_record_round_trips_and_holds_only_what_it_sends(project, tmp_pat
 def test_a_kept_record_ignores_later_edits_to_the_project(project, tmp_path):
     state = tmp_path / "state"
     beril_submit.save_pending(state, "alpha", project, files=_files(project),
-                              archive_path="s3a://b/alpha/", approval=APPROVAL)
+                              archive_path="s3a://b/alpha/")
     (project / "README.md").write_text("edited after archiving\n")
     (project / "figures" / "fig1.png").write_bytes(b"edited")
 
@@ -354,9 +354,9 @@ def test_a_kept_record_ignores_later_edits_to_the_project(project, tmp_path):
 def test_saving_again_replaces_the_kept_record_and_drop_forgets_it(project, tmp_path):
     state = tmp_path / "state"
     beril_submit.save_pending(state, "alpha", project, files=_files(project),
-                              archive_path="s3a://b/old/", approval=APPROVAL)
+                              archive_path="s3a://b/old/")
     beril_submit.save_pending(state, "alpha", project, files=_files(project),
-                              archive_path="s3a://b/new/", approval=APPROVAL)
+                              archive_path="s3a://b/new/")
     assert beril_submit.load_pending(state, "alpha").archive_path == "s3a://b/new/"
     assert sorted(p.name for p in (state / beril_submit.PENDING_DIR).iterdir()) == ["alpha"]
 
@@ -375,12 +375,24 @@ def test_submit_pending_sends_the_kept_record_as_the_owner_given(project, tmp_pa
     state = tmp_path / "state"
     kept = beril_submit.save_pending(
         state, "alpha", project, files=_files(project), archive_path="s3a://b/alpha/",
-        approval=APPROVAL, submitted_at="2026-11-02T00:00:00+00:00",
+        submitted_at="2026-11-02T00:00:00+00:00",
     )
     server = FakeServer()
     with server.client() as client:
-        outcome = beril_submit.submit_pending(client, kept, owner_orcid=OWNER)
+        outcome = beril_submit.submit_pending(client, kept, owner_orcid=OWNER, approval=APPROVAL)
     assert outcome.status == "ok"
     manifest = server.manifest
     assert manifest["owner_orcid"] == OWNER and manifest["files"] == kept.files
     assert manifest["submitted_at"] == "2026-11-02T00:00:00+00:00"
+
+
+def test_the_approval_is_read_from_the_kept_beril_yaml(project, tmp_path):
+    (project / "beril.yaml").write_text(
+        "project_id: alpha\napproval:\n  by: \"x\"\n  at: \"2026-11-01T00:00:00Z\"\n"
+    )
+    kept = beril_submit.save_pending(tmp_path, "alpha", project, files=_files(project),
+                                     archive_path="s3a://b/alpha/")
+    (project / "beril.yaml").write_text("project_id: alpha\n")  # edited after archiving
+    assert beril_submit.kept_approval(kept) == {"by": "x", "at": "2026-11-01T00:00:00Z"}
+    (kept.root / "beril.yaml").write_text("- not a mapping\n")
+    assert beril_submit.kept_approval(kept) == {}

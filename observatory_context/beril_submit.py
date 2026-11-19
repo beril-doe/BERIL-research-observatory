@@ -12,10 +12,11 @@ The record must describe the archive, not the checkout: ``/submit`` edits
 ``beril.yaml`` and writes ``SUBMITTED.md`` after archiving, and the archive
 holds a generated ``project_metadata.json`` the checkout does not. So the
 upload tool archives from a staged snapshot and hashes that, and
-:func:`save_pending` keeps what the record needs from it (the file list, the
-approval, the archive path, ``submitted_at`` and the bytes the record sends)
-under the state dir until the server reports the record complete. A retry
-re-sends exactly that (:func:`load_pending`), never a rehash of the checkout.
+:func:`~observatory_context.submission_record.save_pending` keeps what the
+record needs from it (the file list, the archive path, ``submitted_at`` and the
+bytes the record sends, the archived ``beril.yaml`` among them) under the state
+dir until the server reports the record complete. A retry re-sends exactly
+that, never a rehash of the checkout.
 
 Wire format, both with the BERIL personal access token and never an
 OpenViking key:
@@ -37,12 +38,9 @@ Functions take an ``httpx.Client`` carrying the base URL and bearer header, as
 
 from __future__ import annotations
 
-import fnmatch
 import hashlib
 import io
 import json
-import re
-import shutil
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -50,29 +48,27 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import httpx
+import yaml
+
+from observatory_context.submission_record import (  # noqa: F401  (re-exported)
+    BUNDLE_FILES,
+    PENDING_DIR,
+    PendingRecord,
+    drop_pending,
+    embedded_figures,
+    is_bundle_file,
+    load_pending,
+    record_paths,
+    save_pending,
+)
 
 SUBMISSIONS_PATH = "/api/context/submissions"
-
-# The text files the wiki reads, bundled with the record. Matches the
-# ``read`` allowlist minus figures, which go up one PUT at a time.
-BUNDLE_FILES = ("REPORT.md", "README.md", "beril.yaml", "CORRECTIONS.md", "REFUTATION_*.md")
-
-# Where a record waits for a retry, under the state dir: one per project,
-# replaced by each archive (each archive replaces the last at its path).
-PENDING_DIR = "submission_records"
-_PENDING_META = "record.json"
-_PENDING_FILES = "files"
 
 # Upload timeout: a figure may be tens of MiB.
 UPLOAD_TIMEOUT_SECONDS = 120.0
 
 PENDING = "pending"
 COMPLETE = "complete"
-
-# ``![alt](figures/x.png)`` and ``<img src="figures/x.png">``.
-_MD_IMAGE = re.compile(r"!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
-_HTML_IMAGE = re.compile(r"<img\b[^>]*\bsrc\s*=\s*[\"']([^\"']+)[\"']", re.IGNORECASE)
-
 
 class BerilSubmitError(Exception):
     """A record post or file PUT failed. The message is user-facing;
@@ -152,117 +148,26 @@ def file_entries(root: Path, paths: Iterable[Path]) -> list[dict[str, Any]]:
     return sorted(entries, key=lambda e: e["path"])
 
 
-def is_bundle_file(rel_path: str) -> bool:
-    return "/" not in rel_path and any(fnmatch.fnmatch(rel_path, pat) for pat in BUNDLE_FILES)
+def kept_approval(pending: PendingRecord) -> dict[str, Any]:
+    """The ``approval`` block of the archived ``beril.yaml`` the record kept;
+    empty when there is none (the project is not approved)."""
+    path = pending.root / "beril.yaml"
+    if not path.is_file():
+        return {}
+    meta = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(meta, dict):
+        return {}
+    return meta.get("approval") or {}
 
 
-def embedded_figures(report_text: str) -> list[str]:
-    """Project-relative paths of the images ``REPORT.md`` embeds, in order of
-    first appearance. URLs and absolute paths are left out."""
-    seen: list[str] = []
-    for match in list(_MD_IMAGE.finditer(report_text)) + list(_HTML_IMAGE.finditer(report_text)):
-        target = match.group(1).strip()
-        if "://" in target or target.startswith(("/", "data:")):
-            continue
-        target = target.split("#", 1)[0].split("?", 1)[0]
-        if target.startswith("./"):
-            target = target[2:]
-        if target and target not in seen:
-            seen.append(target)
-    return seen
-
-
-def record_paths(files: list[dict[str, Any]], report_text: str) -> list[str]:
-    """The paths whose bytes the record itself sends: the bundle's text files
-    and the figures ``REPORT.md`` embeds, among ``files``."""
-    listed = {f["path"] for f in files}
-    bundle = [p for p in sorted(listed) if is_bundle_file(p)]
-    return bundle + [f for f in embedded_figures(report_text) if f in listed and f not in bundle]
-
-
-@dataclass(frozen=True)
-class PendingRecord:
-    """A submission record kept for a retry: everything but the owner, which
-    is the login's at send time. ``root`` holds the bytes it sends."""
-
-    project: str
-    archive_path: str
-    submitted_at: str
-    approval: dict[str, Any]
-    files: list[dict[str, Any]]
-    root: Path
-
-
-def _pending_dir(state_dir: Path, project: str) -> Path:
-    if not project or "/" in project or "\\" in project or project in {".", ".."}:
-        raise ValueError(f"not a project id: {project!r}")
-    return Path(state_dir) / PENDING_DIR / project
-
-
-def save_pending(
-    state_dir: Path,
-    project: str,
-    snapshot: Path,
-    *,
-    files: list[dict[str, Any]],
-    archive_path: str,
-    approval: dict[str, Any],
-    submitted_at: str | None = None,
-) -> PendingRecord:
-    """Keep the record for ``project`` as archived from ``snapshot`` (the
-    staged copy the archive was uploaded from), replacing any earlier one.
-    Written aside and swapped in, so a crash leaves the old one or the new
-    one, never half of either."""
-    dest = _pending_dir(state_dir, project)
-    staging = dest.with_name(f".{project}.tmp")
-    shutil.rmtree(staging, ignore_errors=True)
-    (staging / _PENDING_FILES).mkdir(parents=True)
-    snapshot = Path(snapshot)
-    for rel in record_paths(files, (snapshot / "REPORT.md").read_text(encoding="utf-8")):
-        target = staging / _PENDING_FILES / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(snapshot / rel, target)
-    meta = {
-        "project": project,
-        "archive_path": archive_path,
-        "submitted_at": submitted_at or datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "approval": approval,
-        "files": files,
-    }
-    (staging / _PENDING_META).write_text(json.dumps(meta, indent=2, default=str), encoding="utf-8")
-    shutil.rmtree(dest, ignore_errors=True)
-    staging.rename(dest)
-    return load_pending(state_dir, project)
-
-
-def load_pending(state_dir: Path, project: str) -> PendingRecord | None:
-    """The record kept for ``project``, or ``None`` when there is none."""
-    dest = _pending_dir(state_dir, project)
-    try:
-        meta = json.loads((dest / _PENDING_META).read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return None
-    return PendingRecord(
-        project=meta["project"],
-        archive_path=meta["archive_path"],
-        submitted_at=meta["submitted_at"],
-        approval=meta["approval"],
-        files=meta["files"],
-        root=dest / _PENDING_FILES,
-    )
-
-
-def drop_pending(state_dir: Path, project: str) -> None:
-    """Forget the kept record — the server holds it complete."""
-    shutil.rmtree(_pending_dir(state_dir, project), ignore_errors=True)
-
-
-def submit_pending(client: httpx.Client, pending: PendingRecord, *, owner_orcid: str) -> RecordOutcome:
-    """Send a kept record (see :func:`submit_record`); on ``ok`` the caller
-    may :func:`drop_pending` it."""
+def submit_pending(
+    client: httpx.Client, pending: PendingRecord, *, owner_orcid: str, approval: dict[str, Any]
+) -> RecordOutcome:
+    """Send a kept record (see :func:`submit_record`) with ``approval`` (see
+    :func:`kept_approval`); on ``ok`` the caller may :func:`drop_pending` it."""
     return submit_record(
         client, pending.root, project=pending.project, owner_orcid=owner_orcid,
-        archive_path=pending.archive_path, approval=pending.approval, files=pending.files,
+        archive_path=pending.archive_path, approval=approval, files=pending.files,
         submitted_at=pending.submitted_at,
     )
 

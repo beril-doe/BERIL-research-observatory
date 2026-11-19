@@ -290,8 +290,15 @@ def run_record(project_id: str) -> int:
             "complete); re-run /submit to archive and record it",
         )
     try:
+        approval = beril_submit.kept_approval(pending)
+        if not approval.get("at"):
+            beril_submit.drop_pending(state_dir, project_id)
+            return verdict("skipped", "the archived beril.yaml has no approval block; only "
+                           "approved projects are recorded")
         with beril_submit.client_for(record.base_url, record.token) as client:
-            outcome = beril_submit.submit_pending(client, pending, owner_orcid=record.orcid_id)
+            outcome = beril_submit.submit_pending(
+                client, pending, owner_orcid=record.orcid_id, approval=approval
+            )
         if outcome.status == "ok":
             beril_submit.drop_pending(state_dir, project_id)
     except Exception as exc:

@@ -190,7 +190,6 @@ def record_env(tmp_path, monkeypatch):
     state_dir = real_from_env(repo_root=repo).state_dir
     beril_submit.save_pending(
         state_dir, "alpha", snapshot, files=files, archive_path="s3a://b/t/projects/alpha/",
-        approval={"by": "0009-1", "at": "2026-11-01T00:00:00Z", "report_hash": "sha256:" + "ab" * 32},
         submitted_at="2026-11-02T00:00:00+00:00",
     )
     requests: list[httpx.Request] = []
@@ -292,6 +291,18 @@ def test_a_failed_retry_keeps_the_record_for_the_next(record_env, capsys):
 
     assert _verdict(capsys)["status"] == "failed"
     assert beril_submit.load_pending(state_dir, "alpha") is not None
+
+
+def test_a_kept_record_of_an_unapproved_project_is_skipped_and_dropped(record_env, capsys):
+    module, requests, state_dir, _, _ = record_env
+    kept = beril_submit.load_pending(state_dir, "alpha")
+    (kept.root / "beril.yaml").write_text("project_id: alpha\n")
+
+    module.run_record("alpha")
+
+    verdict = _verdict(capsys)
+    assert verdict["status"] == "skipped" and "approval" in verdict["reason"]
+    assert requests == [] and beril_submit.load_pending(state_dir, "alpha") is None
 
 
 def test_record_without_a_login_is_skipped(record_env, capsys):
