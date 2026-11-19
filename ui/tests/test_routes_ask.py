@@ -267,16 +267,23 @@ async def test_a_follow_up_turn_keeps_the_earlier_turns_citation_numbers(
     ]
 
 
-@pytest.mark.parametrize("route", ["turn", "stream"])
+@pytest.mark.parametrize("route", ["turn", "stream", "stream-bare-error"])
 async def test_wiki_turn_that_ends_without_usage_is_charged_its_reservation(
     client, user, db_session, ask_env, wiki, route
 ):
-    """The provider ran but no terminal accounting arrived (stream cut,
-    connection dropped): the turn keeps its reservation as its charge."""
+    """A model request may have gone out but no terminal accounting arrived
+    (stream cut, connection dropped — including before the provider emitted
+    anything, which it reports as a dispatched error): the turn keeps its
+    reservation as its charge."""
+    from app.chat.providers.base import ErrorEvent
+
     _login(client)
     sid = await _wiki_session(client, db_session)
 
     async def cut_off(**kwargs):
+        if route == "stream-bare-error":
+            yield ErrorEvent(message="connection reset")
+            return
         yield TextDelta(text="partial")
         if route == "turn":
             raise ConnectionError("provider connection dropped")
@@ -297,9 +304,9 @@ async def test_wiki_turn_that_ends_without_usage_is_charged_its_reservation(
 async def test_wiki_turn_that_fails_in_provider_setup_is_charged_nothing(
     client, user, db_session, ask_env, wiki, route
 ):
-    """Setup failing before the provider runs — here the provider cannot be
-    resolved on /turn, and on /stream it reports only a bare error, as it
-    does when the SDK will not launch — does no billable work."""
+    """Setup failing before any model request — here the provider cannot be
+    resolved on /turn, and on /stream it reports an undispatched error, as
+    it does with no key or no CLI to launch — does no billable work."""
     from app.chat.providers.base import ErrorEvent
 
     _login(client)
@@ -311,7 +318,7 @@ async def test_wiki_turn_that_fails_in_provider_setup_is_charged_nothing(
             client.post(f"/api/chat/{sid}/turn", json={"message": "yield?"})
     else:
         with patch("app.chat.service.run_provider_turn",
-                   _patched_provider([ErrorEvent(message="SDK failed to launch")])):
+                   _patched_provider([ErrorEvent(message="no CLI to launch", dispatched=False)])):
             client.post(f"/api/chat/{sid}/stream", json={"message": "yield?"})
 
     spend = (await db_session.execute(select(AskSpend).where(AskSpend.user_id == user.id))).scalar_one()

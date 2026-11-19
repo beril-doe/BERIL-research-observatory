@@ -9,6 +9,7 @@ import pytest
 
 from claude_agent_sdk import (
     AssistantMessage,
+    CLINotFoundError,
     ResultMessage,
     SystemMessage,
     ToolResultBlock,
@@ -339,6 +340,37 @@ class TestTurnTranslation:
             )
         assert isinstance(events[-1], ErrorEvent)
         assert "upstream 500" in events[-1].message
+        assert events[-1].dispatched is True
+
+    @pytest.mark.parametrize(
+        "exc, dispatched",
+        [
+            # The request went out and the connection dropped before the SDK
+            # emitted anything: may be billable, so dispatched.
+            (ConnectionError("connection reset"), True),
+            # No CLI to launch: the SDK cannot have sent a request.
+            (CLINotFoundError("Claude Code not found"), False),
+        ],
+    )
+    async def test_failure_before_any_sdk_message_is_classified(self, exc, dispatched):
+        provider = _make_provider()
+
+        async def _failing_query(prompt, options):  # noqa: ARG001
+            raise exc
+            yield  # pragma: no cover — makes this an async generator
+
+        with patch("app.chat.providers.anthropic_compatible.query", _failing_query):
+            events = await _collect(
+                provider.run_turn(
+                    user_message="x",
+                    credentials=Credentials({"api_key": "k"}),
+                    model="m1",
+                    cwd="/tmp",
+                    sdk_session_id=None,
+                )
+            )
+        assert len(events) == 1 and isinstance(events[0], ErrorEvent)
+        assert events[0].dispatched is dispatched
 
     async def test_turn_complete_synthesized_if_missing(self):
         """If the SDK stream ends without a ResultMessage, we still emit a
@@ -488,6 +520,7 @@ class TestOptionsWiring:
         )
         assert isinstance(events[-1], ErrorEvent)
         assert "api_key" in events[-1].message
+        assert events[-1].dispatched is False  # failed before any request
 
 
 # ---------------------------------------------------------------------------

@@ -46,15 +46,15 @@ class AskContext:
         """Replace the reservation with what the turn used. Once only.
 
         A turn that ends without reported usage is charged by whether the
-        provider started (``result.provider_started``). One that started and
-        was then cut off (client closed the stream, connection dropped,
-        provider crashed) may still have done billable work, so it keeps the
-        whole reservation as its charge. One that failed in setup, before
-        the provider ran, is charged nothing."""
+        provider may have sent a model request (``result.dispatched``). One
+        that may have (client closed the stream, connection dropped, provider
+        crashed mid-turn) keeps the whole reservation as its charge. One the
+        provider says failed before sending anything, or that failed before
+        reaching the provider at all, is charged nothing."""
         if self.settled:
             return
         self.settled = True
-        if result.usage is None and result.cost_usd is None and result.provider_started:
+        if result.usage is None and result.cost_usd is None and result.dispatched:
             logger.warning(
                 "Wiki Ask turn for %s ended without usage; charging its reservation",
                 self.reservation.user_id,

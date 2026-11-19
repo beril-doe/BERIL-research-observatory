@@ -84,12 +84,18 @@ class ErrorEvent:
     ``usage`` and ``cost_usd`` are as on :class:`TurnComplete`: a turn can
     fail after billable work (e.g. hitting its agent-loop cap), and the wiki
     Ask quota must count that work too.
+
+    ``dispatched`` is False only when the provider knows it sent no model
+    request: it failed in its own setup (no key, no CLI to launch). Any
+    other failure may have come after billable work, so it counts as
+    dispatched.
     """
 
     message: str
     kind: Literal["error"] = "error"
     usage: dict[str, Any] | None = None
     cost_usd: float | None = None
+    dispatched: bool = True
 
 
 TurnEvent = (

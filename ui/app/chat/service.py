@@ -90,9 +90,9 @@ class TurnResult:
     error: str | None = None
     usage: dict[str, Any] | None = None
     cost_usd: float | None = None
-    # The provider got past setup (the SDK started a session, the model
-    # answered): from here a turn may have done billable work.
-    provider_started: bool = False
+    # The provider may have sent a model request, so the turn may have done
+    # billable work. False only until a provider event says otherwise.
+    dispatched: bool = False
     # Wiki mode: the retrieved hits the reply may cite, numbered.
     sources: list[dict[str, Any]] = field(default_factory=list)
 
@@ -279,10 +279,10 @@ async def run_provider_turn(
 
 def fold_event(event: TurnEvent, text_parts: list[str], result: TurnResult) -> None:
     """Accumulate a provider event into the in-progress TurnResult."""
-    if not isinstance(event, ErrorEvent):
-        # A bare error is how a provider reports failing before it started
-        # (no key, SDK would not launch); anything else means it ran.
-        result.provider_started = True
+    if not (isinstance(event, ErrorEvent) and not event.dispatched):
+        # Any event but an error the provider marks undispatched means a
+        # model request may have gone out.
+        result.dispatched = True
     if isinstance(event, SessionInitialized):
         result.sdk_session_id = event.sdk_session_id
     elif isinstance(event, TextDelta):

@@ -18,6 +18,7 @@ from typing import Any, AsyncIterator
 from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
+    CLINotFoundError,
     ResultMessage,
     SystemMessage,
     UserMessage,
@@ -64,6 +65,7 @@ class AnthropicCompatibleProvider:
         sdk_session_id: str | None,
         profile: AgentProfile | None = None,
     ) -> AsyncIterator[TurnEvent]:
+        dispatched = False
         try:
             api_key = credentials.require(_API_KEY_FIELD)
 
@@ -108,11 +110,16 @@ class AnthropicCompatibleProvider:
                     permission_mode="bypassPermissions",
                 )
 
+            # From here the SDK may send a model request at any point, so a
+            # failure is billable unless it is one known to come first.
+            dispatched = True
             async for event in _stream_turn(user_message, options):
                 yield event
         except Exception as exc:  # noqa: BLE001 — top-level stream guard
             logger.exception("chat turn failed for provider=%s", self.provider_id)
-            yield ErrorEvent(message=str(exc))
+            # No CLI found: the SDK had nothing to launch, so sent nothing.
+            sent = dispatched and not isinstance(exc, CLINotFoundError)
+            yield ErrorEvent(message=str(exc), dispatched=sent)
 
 
 async def _stream_turn(
