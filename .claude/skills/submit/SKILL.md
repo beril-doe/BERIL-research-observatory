@@ -294,7 +294,7 @@ On a successful archive, the upload tool does two more things, in this order, bo
    uv run knowledge/scripts/ingest_context.py --record --project {project_id}
    ```
 
-   Run it after the cause is fixed (`beril login`, or the figure/report that changed between archive and record, which the `reason` names), and update the `submissions[]` entry's `wiki_submission` from its verdict. Do not re-run the whole upload for this.
+   It re-sends the record the upload tool kept (built from the archived snapshot), so Phase 3c's own edits to `beril.yaml` and `SUBMITTED.md` don't affect it. Run it after the cause is fixed (`beril login`, or the server-side refusal the `reason` names), and update the `submissions[]` entry's `wiki_submission` from its verdict. Do not re-run the whole upload for this. If it reports that no record is kept on this machine, re-run `/submit` instead.
 
 2. **The context mirror** (below), which indexes the project for `beril context find/grep/pitfalls/discoveries`. A skipped mirror (BERIL unreachable, not logged in) does not skip the record, and a failed record does not stop the mirror.
 

@@ -52,11 +52,13 @@ mode, since the caller parses the last stdout line.
 
 **Record** (``--record --project <id>``) — re-send the *submission record*
 (``observatory_context.beril_submit``) that ``tools/lakehouse_upload.py`` posts
-after a successful archive and that the wiki feed is built from. Independent
-of the mirror: it needs only the BERIL login, is idempotent on
-``(owner, project, revision)``, and prints the same single-line verdict shape
-plus ``id``, ``revision`` and ``missing``. Use it when the upload tool reported
-``wiki_submission`` as ``skipped`` or ``failed``.
+after a successful archive and that the wiki feed is built from. It sends the
+record the upload tool kept under ``knowledge/state/`` (built from the archived
+snapshot), never a rehash of the checkout, which ``/submit`` edits after
+archiving. Independent of the mirror: it needs only the BERIL login, is
+idempotent on ``(owner, project, revision)``, and prints the same single-line
+verdict shape plus ``id``, ``revision`` and ``missing``. Use it when the upload
+tool reported ``wiki_submission`` as ``skipped`` or ``failed``.
 """
 from __future__ import annotations
 
@@ -122,12 +124,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Re-send the submission record for --project (the wiki feed; "
         "idempotent). Prints a single-line JSON verdict and exits 0. Use after "
         "tools/lakehouse_upload.py reported wiki_submission skipped or failed",
-    )
-    parser.add_argument(
-        "--archive-path",
-        metavar="S3A_URL",
-        help="With --record: the archive the record points at (default: the "
-        "latest successful submissions[].archive_key in beril.yaml)",
     )
     parser.add_argument(
         "--remove",
@@ -264,15 +260,15 @@ def _emit_record(outcome: dict) -> int:
     return 0
 
 
-def run_record(project_id: str, archive_path: str | None = None) -> int:
+def run_record(project_id: str) -> int:
     """Re-send the submission record. Never raises; always returns 0.
 
-    Lists the project's files as the archive did (``beril_submit.ARCHIVE_SKIP``),
-    hashes them, and posts manifest + bundle, then the embedded figures the
-    server still lacks. The owner is the stored login's ORCiD; the approval
-    block comes from ``beril.yaml``.
+    Sends the record ``tools/lakehouse_upload.py`` kept when it archived the
+    project — the archived files' hashes, the approval and archive path, and
+    the bytes of the bundle and embedded figures, all from the uploaded
+    snapshot — then the figures the server still lacks. The owner is the
+    stored login's ORCiD. Dropped once the server reports it complete.
     """
-    import yaml
 
     def verdict(status: str, reason: str) -> int:
         return _emit_record({"status": status, "reason": reason, "id": None,
@@ -281,27 +277,23 @@ def run_record(project_id: str, archive_path: str | None = None) -> int:
     record = auth_store.load()
     if record is None:
         return verdict("skipped", "not logged in to BERIL (no ~/.beril/auth.json); run `beril login`")
+    state_dir = ContextConfig.from_env().state_dir
     try:
-        project_dir = resolve_project_dir(ContextConfig.from_env(), project_id)
-        meta = yaml.safe_load((project_dir / "beril.yaml").read_text(encoding="utf-8")) or {}
+        pending = beril_submit.load_pending(state_dir, project_id)
     except Exception as exc:
-        return verdict("failed", f"could not read {project_id}: {exc}")
-    approval = meta.get("approval") or {}
-    if not approval.get("at"):
-        return verdict("skipped", "beril.yaml has no approval block; only approved projects are recorded")
-    if archive_path is None:
-        successes = [s for s in meta.get("submissions") or [] if s.get("status") == "success"]
-        archive_path = successes[-1].get("archive_key") if successes else None
-    if not archive_path:
-        return verdict("failed", "no archive to point at: beril.yaml has no successful "
-                       "submissions[] entry; pass --archive-path")
+        return verdict("failed", f"could not read the kept record for {project_id}: {exc}")
+    if pending is None:
+        return verdict(
+            "failed",
+            f"no submission record is kept for {project_id} on this machine (it is kept "
+            "when tools/lakehouse_upload.py archives the project, until BERIL has it "
+            "complete); re-run /submit to archive and record it",
+        )
     try:
-        files = beril_submit.file_entries(project_dir, beril_submit.project_files(project_dir))
         with beril_submit.client_for(record.base_url, record.token) as client:
-            outcome = beril_submit.submit_record(
-                client, project_dir, project=project_id, owner_orcid=record.orcid_id,
-                archive_path=str(archive_path), approval=approval, files=files,
-            )
+            outcome = beril_submit.submit_pending(client, pending, owner_orcid=record.orcid_id)
+        if outcome.status == "ok":
+            beril_submit.drop_pending(state_dir, project_id)
     except Exception as exc:
         return verdict("failed", f"submission record failed unexpectedly: {exc}")
     return _emit_record(outcome.as_dict())
@@ -321,13 +313,11 @@ def main() -> None:
         parser.error("--remove can only be used with --json")
     if args.record and args.project is None:
         parser.error("--record requires --project")
-    if args.archive_path and not args.record:
-        parser.error("--archive-path can only be used with --record")
     if args.record and args.json:
         parser.error("--record and --json are separate modes; run one at a time")
 
     if args.record:
-        raise SystemExit(run_record(args.project, args.archive_path))
+        raise SystemExit(run_record(args.project))
 
     if args.json:
         # Verdict mode: gated, advisory, always exit 0. Resolve the project dir

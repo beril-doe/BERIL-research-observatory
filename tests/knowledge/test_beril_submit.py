@@ -24,7 +24,6 @@ from observatory_context.beril_submit import (
     file_entries,
     is_bundle_file,
     post_record,
-    project_files,
     put_file,
     submit_record,
 )
@@ -59,7 +58,9 @@ def project(tmp_path):
 
 
 def _files(root):
-    return file_entries(root, project_files(root, skip={".submit.lock"}))
+    return file_entries(
+        root, [p for p in sorted(root.rglob("*")) if p.is_file() and p.name != ".submit.lock"]
+    )
 
 
 class FakeServer:
@@ -305,3 +306,81 @@ def test_client_for_carries_base_url_and_token():
     with beril_submit.client_for("https://beril.test/", "pat") as client:
         assert str(client.base_url) == "https://beril.test"
         assert client.headers["Authorization"] == "Bearer pat"
+
+
+# --- the record kept for a retry ---------------------------------------------
+
+
+def test_record_paths_are_the_bundle_files_and_the_embedded_figures_listed(project):
+    files = _files(project)
+    report = (project / "REPORT.md").read_text()
+    assert beril_submit.record_paths(files, report) == [
+        "README.md", "REFUTATION_1.md", "REPORT.md", "beril.yaml",
+        "figures/fig1.png", "figures/fig2.png",
+    ]  # not data/, not the unlisted figures/nope.png
+
+
+def test_a_kept_record_round_trips_and_holds_only_what_it_sends(project, tmp_path):
+    files = _files(project)
+    state = tmp_path / "state"
+
+    kept = beril_submit.save_pending(
+        state, "alpha", project, files=files, archive_path="s3a://b/alpha/",
+        approval=APPROVAL, submitted_at="2026-11-02T00:00:00+00:00",
+    )
+
+    again = beril_submit.load_pending(state, "alpha")
+    assert again == kept
+    assert (again.files, again.archive_path, again.approval, again.submitted_at) == (
+        files, "s3a://b/alpha/", APPROVAL, "2026-11-02T00:00:00+00:00"
+    )
+    held = sorted(p.relative_to(again.root).as_posix() for p in again.root.rglob("*") if p.is_file())
+    assert held == beril_submit.record_paths(files, (project / "REPORT.md").read_text())
+    assert (again.root / "figures" / "fig1.png").read_bytes() == PNG
+
+
+def test_a_kept_record_ignores_later_edits_to_the_project(project, tmp_path):
+    state = tmp_path / "state"
+    beril_submit.save_pending(state, "alpha", project, files=_files(project),
+                              archive_path="s3a://b/alpha/", approval=APPROVAL)
+    (project / "README.md").write_text("edited after archiving\n")
+    (project / "figures" / "fig1.png").write_bytes(b"edited")
+
+    kept = beril_submit.load_pending(state, "alpha")
+    assert (kept.root / "README.md").read_text() == "# Alpha\n"
+    assert (kept.root / "figures" / "fig1.png").read_bytes() == PNG
+
+
+def test_saving_again_replaces_the_kept_record_and_drop_forgets_it(project, tmp_path):
+    state = tmp_path / "state"
+    beril_submit.save_pending(state, "alpha", project, files=_files(project),
+                              archive_path="s3a://b/old/", approval=APPROVAL)
+    beril_submit.save_pending(state, "alpha", project, files=_files(project),
+                              archive_path="s3a://b/new/", approval=APPROVAL)
+    assert beril_submit.load_pending(state, "alpha").archive_path == "s3a://b/new/"
+    assert sorted(p.name for p in (state / beril_submit.PENDING_DIR).iterdir()) == ["alpha"]
+
+    beril_submit.drop_pending(state, "alpha")
+    assert beril_submit.load_pending(state, "alpha") is None
+    assert beril_submit.load_pending(state, "never-kept") is None
+
+
+@pytest.mark.parametrize("bad", ["", ".", "..", "a/b", "a\\b"])
+def test_a_kept_record_needs_a_plain_project_id(bad, tmp_path):
+    with pytest.raises(ValueError):
+        beril_submit.load_pending(tmp_path, bad)
+
+
+def test_submit_pending_sends_the_kept_record_as_the_owner_given(project, tmp_path):
+    state = tmp_path / "state"
+    kept = beril_submit.save_pending(
+        state, "alpha", project, files=_files(project), archive_path="s3a://b/alpha/",
+        approval=APPROVAL, submitted_at="2026-11-02T00:00:00+00:00",
+    )
+    server = FakeServer()
+    with server.client() as client:
+        outcome = beril_submit.submit_pending(client, kept, owner_orcid=OWNER)
+    assert outcome.status == "ok"
+    manifest = server.manifest
+    assert manifest["owner_orcid"] == OWNER and manifest["files"] == kept.files
+    assert manifest["submitted_at"] == "2026-11-02T00:00:00+00:00"

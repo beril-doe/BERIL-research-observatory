@@ -119,10 +119,14 @@ uv run knowledge/scripts/ingest_context.py --project <project_id> --json     # t
 ```
 
 Both are safe to re-run: the record is idempotent, and the mirror sends files
-that already landed nothing new. `--record` points the record at the latest
-successful `submissions[].archive_key` in `beril.yaml` (or `--archive-path`).
-Editing files in your checkout changes nothing in the context layer until the
-project is submitted again.
+that already landed nothing new. The record describes the archive, not your
+checkout: the upload tool archives a staged snapshot of the project and builds
+the record from that snapshot, then keeps it under `knowledge/state/` until
+BERIL reports it complete. `--record` re-sends what was kept, so edits made
+after archiving (including `/submit`'s own updates to `beril.yaml` and
+`SUBMITTED.md`) are never sent. With nothing kept on this machine, `--record`
+fails and asks you to re-run `/submit`. Editing files in your checkout changes
+nothing in the context layer until the project is submitted again.
 
 ## What BERIL accepts
 

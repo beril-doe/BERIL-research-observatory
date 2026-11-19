@@ -336,6 +336,7 @@ class FakeMC:
         self.cp_failures = set(cp_failures)
         self.rm_rc = rm_rc
         self.remote = list(prepopulated)
+        self.uploaded = {}  # rel -> the bytes cp read from the local source
 
     def __call__(self, *args, capture=True):
         self.calls.append(list(args))
@@ -360,6 +361,7 @@ class FakeMC:
             if rel in self.cp_failures:
                 return 1, "", "cp failed"
             self.remote.append(rel)
+            self.uploaded[rel] = Path(args[1]).read_bytes()
             return 0, "", ""
 
         raise AssertionError(f"unexpected mc verb: {verb}")
@@ -890,7 +892,8 @@ class FakeRecordServer:
     """BERIL's submissions routes: the post reports the embedded figure as
     missing; a PUT whose bytes match the manifest completes the record."""
 
-    def __init__(self, monkeypatch, *, sid="sub-1", missing=("figures/fig1.png",)):
+    def __init__(self, monkeypatch, *, sid="sub-1", missing=("figures/fig1.png",), refuse_puts=False):
+        self.refuse_puts = refuse_puts
         self.requests: list[httpx.Request] = []
         self.manifest = None
         self.bundle_names = None
@@ -917,6 +920,8 @@ class FakeRecordServer:
             status = "complete" if not self.missing else "pending"
             return httpx.Response(200, json={"id": self.sid, "status": status, "missing": self.missing})
         rel = request.url.path.split("/files/", 1)[1]
+        if self.refuse_puts:
+            return httpx.Response(409, json={"detail": f"sha256 mismatch for {rel}"})
         want = {f["path"]: f["sha256"] for f in self.manifest["files"]}[rel]
         if hashlib.sha256(request.read()).hexdigest() != want:
             return httpx.Response(409, json={"detail": f"sha256 mismatch for {rel}"})
@@ -986,22 +991,40 @@ def test_record_re_post_is_idempotent(lu, approved_repo, mc, monkeypatch):
     assert [r.method for r in server.requests] == ["POST", "POST"]
 
 
-def test_figure_sha_mismatch_records_a_failure_and_the_archive_still_succeeds(
+def test_files_edited_mid_upload_cannot_split_the_record_from_the_archive(
     lu, approved_repo, monkeypatch, stub_git,
 ):
-    """The server refuses a figure whose bytes do not match the manifest. The
-    upload result stays ok — the archive is done — and the record says why."""
+    """Every file is staged before upload; the archive, the manifest's hashes,
+    the bundle and the figure PUT all read the staged copies, so an edit to
+    the checkout mid-upload changes none of them."""
     server = FakeRecordServer(monkeypatch)
     fake_mc = FakeMC()
-    monkeypatch.setattr(lu, "_mc", fake_mc)
-    figure = approved_repo / "projects" / "demo" / "figures" / "fig1.png"
-    original_hash = lu._hash_entries
+    project = approved_repo / "projects" / "demo"
+    real_cp = fake_mc.__call__
 
-    def hash_then_tamper(upload_list, project_path):
-        entries = original_hash(upload_list, project_path)
-        figure.write_bytes(b"changed after archive")
-        return entries
-    monkeypatch.setattr(lu, "_hash_entries", hash_then_tamper)
+    def cp_then_edit(*args, capture=True):
+        out = real_cp(*args, capture=capture)
+        if args[0] == "cp":
+            (project / "figures" / "fig1.png").write_bytes(b"edited mid-upload")
+            (project / "README.md").write_text("edited mid-upload\n")
+        return out
+
+    monkeypatch.setattr(lu, "_mc", cp_then_edit)
+
+    result = lu.upload_project("demo", approved_repo, record_submission=True)
+
+    assert result["status"] == "ok" and result["wiki_submission"]["status"] == "ok"
+    archived = {rel: hashlib.sha256(data).hexdigest() for rel, data in fake_mc.uploaded.items()}
+    assert {f["path"]: f["sha256"] for f in server.manifest["files"]} == archived
+    assert fake_mc.uploaded["figures/fig1.png"] == PNG
+    put = next(r for r in server.requests if r.method == "PUT")
+    assert put.read() == PNG
+
+
+def test_a_refused_figure_is_a_failed_record_the_archive_succeeds_and_the_record_is_kept(
+    lu, approved_repo, mc, monkeypatch,
+):
+    server = FakeRecordServer(monkeypatch, refuse_puts=True)
 
     result = lu.upload_project("demo", approved_repo, record_submission=True)
 
@@ -1010,6 +1033,16 @@ def test_figure_sha_mismatch_records_a_failure_and_the_archive_still_succeeds(
     assert record["status"] == "failed" and record["id"] is None
     assert "409" in record["reason"] and "sha256 mismatch for figures/fig1.png" in record["reason"]
     assert [r.method for r in server.requests] == ["POST", "PUT"]
+    kept = beril_submit.load_pending(approved_repo / "knowledge" / "state", "demo")
+    assert kept is not None and kept.files == server.manifest["files"]
+    assert (kept.root / "figures" / "fig1.png").read_bytes() == PNG
+
+
+def test_a_complete_record_is_not_kept(lu, approved_repo, mc, monkeypatch):
+    FakeRecordServer(monkeypatch)
+    result = lu.upload_project("demo", approved_repo, record_submission=True)
+    assert result["wiki_submission"]["status"] == "ok"
+    assert beril_submit.load_pending(approved_repo / "knowledge" / "state", "demo") is None
 
 
 def test_record_skipped_without_a_login_names_the_retry(lu, approved_repo, mc, monkeypatch):
@@ -1022,6 +1055,10 @@ def test_record_skipped_without_a_login_names_the_retry(lu, approved_repo, mc, m
     record = result["wiki_submission"]
     assert record["status"] == "skipped" and calls == []
     assert "beril login" in record["reason"] and "--record --project demo" in record["reason"]
+    # Kept for that retry, as archived: generated metadata included.
+    kept = beril_submit.load_pending(approved_repo / "knowledge" / "state", "demo")
+    assert kept is not None and kept.archive_path == result["s3a_path"]
+    assert "project_metadata.json" in {f["path"] for f in kept.files}
 
 
 def test_record_skipped_without_an_approval_block(lu, approved_repo, mc, monkeypatch):

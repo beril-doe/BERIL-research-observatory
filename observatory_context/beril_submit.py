@@ -8,6 +8,15 @@ archive succeeds, ``tools/lakehouse_upload.py`` posts one, and
 server is idempotent on ``(owner, project, revision)``, where revision is the
 sha256 of ``REPORT.md``.
 
+The record must describe the archive, not the checkout: ``/submit`` edits
+``beril.yaml`` and writes ``SUBMITTED.md`` after archiving, and the archive
+holds a generated ``project_metadata.json`` the checkout does not. So the
+upload tool archives from a staged snapshot and hashes that, and
+:func:`save_pending` keeps what the record needs from it (the file list, the
+approval, the archive path, ``submitted_at`` and the bytes the record sends)
+under the state dir until the server reports the record complete. A retry
+re-sends exactly that (:func:`load_pending`), never a rehash of the checkout.
+
 Wire format, both with the BERIL personal access token and never an
 OpenViking key:
 
@@ -33,6 +42,7 @@ import hashlib
 import io
 import json
 import re
+import shutil
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -47,12 +57,11 @@ SUBMISSIONS_PATH = "/api/context/submissions"
 # ``read`` allowlist minus figures, which go up one PUT at a time.
 BUNDLE_FILES = ("REPORT.md", "README.md", "beril.yaml", "CORRECTIONS.md", "REFUTATION_*.md")
 
-# Names the lakehouse archive leaves out (tools/lakehouse_upload.py's
-# SKIP_PATTERNS, mirrored so a retried record lists the same files).
-ARCHIVE_SKIP = frozenset({
-    "__pycache__", ".ipynb_checkpoints", ".DS_Store", "Thumbs.db",
-    ".submit.lock", "project_metadata.json",
-})
+# Where a record waits for a retry, under the state dir: one per project,
+# replaced by each archive (each archive replaces the last at its path).
+PENDING_DIR = "submission_records"
+_PENDING_META = "record.json"
+_PENDING_FILES = "files"
 
 # Upload timeout: a figure may be tens of MiB.
 UPLOAD_TIMEOUT_SECONDS = 120.0
@@ -143,21 +152,6 @@ def file_entries(root: Path, paths: Iterable[Path]) -> list[dict[str, Any]]:
     return sorted(entries, key=lambda e: e["path"])
 
 
-def project_files(root: Path, skip: Iterable[str] = ARCHIVE_SKIP) -> list[Path]:
-    """Every file under ``root``, leaving out names in ``skip`` (directories or
-    files). The retry path's stand-in for the archive's own file list; the
-    generated ``project_metadata.json`` is archived but not on disk, so a
-    retried record lists one file fewer than the original."""
-    skip = set(skip)
-    out = []
-    for p in sorted(Path(root).rglob("*")):
-        if any(part in skip for part in p.relative_to(root).parts):
-            continue
-        if p.is_file():
-            out.append(p)
-    return out
-
-
 def is_bundle_file(rel_path: str) -> bool:
     return "/" not in rel_path and any(fnmatch.fnmatch(rel_path, pat) for pat in BUNDLE_FILES)
 
@@ -176,6 +170,101 @@ def embedded_figures(report_text: str) -> list[str]:
         if target and target not in seen:
             seen.append(target)
     return seen
+
+
+def record_paths(files: list[dict[str, Any]], report_text: str) -> list[str]:
+    """The paths whose bytes the record itself sends: the bundle's text files
+    and the figures ``REPORT.md`` embeds, among ``files``."""
+    listed = {f["path"] for f in files}
+    bundle = [p for p in sorted(listed) if is_bundle_file(p)]
+    return bundle + [f for f in embedded_figures(report_text) if f in listed and f not in bundle]
+
+
+@dataclass(frozen=True)
+class PendingRecord:
+    """A submission record kept for a retry: everything but the owner, which
+    is the login's at send time. ``root`` holds the bytes it sends."""
+
+    project: str
+    archive_path: str
+    submitted_at: str
+    approval: dict[str, Any]
+    files: list[dict[str, Any]]
+    root: Path
+
+
+def _pending_dir(state_dir: Path, project: str) -> Path:
+    if not project or "/" in project or "\\" in project or project in {".", ".."}:
+        raise ValueError(f"not a project id: {project!r}")
+    return Path(state_dir) / PENDING_DIR / project
+
+
+def save_pending(
+    state_dir: Path,
+    project: str,
+    snapshot: Path,
+    *,
+    files: list[dict[str, Any]],
+    archive_path: str,
+    approval: dict[str, Any],
+    submitted_at: str | None = None,
+) -> PendingRecord:
+    """Keep the record for ``project`` as archived from ``snapshot`` (the
+    staged copy the archive was uploaded from), replacing any earlier one.
+    Written aside and swapped in, so a crash leaves the old one or the new
+    one, never half of either."""
+    dest = _pending_dir(state_dir, project)
+    staging = dest.with_name(f".{project}.tmp")
+    shutil.rmtree(staging, ignore_errors=True)
+    (staging / _PENDING_FILES).mkdir(parents=True)
+    snapshot = Path(snapshot)
+    for rel in record_paths(files, (snapshot / "REPORT.md").read_text(encoding="utf-8")):
+        target = staging / _PENDING_FILES / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(snapshot / rel, target)
+    meta = {
+        "project": project,
+        "archive_path": archive_path,
+        "submitted_at": submitted_at or datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "approval": approval,
+        "files": files,
+    }
+    (staging / _PENDING_META).write_text(json.dumps(meta, indent=2, default=str), encoding="utf-8")
+    shutil.rmtree(dest, ignore_errors=True)
+    staging.rename(dest)
+    return load_pending(state_dir, project)
+
+
+def load_pending(state_dir: Path, project: str) -> PendingRecord | None:
+    """The record kept for ``project``, or ``None`` when there is none."""
+    dest = _pending_dir(state_dir, project)
+    try:
+        meta = json.loads((dest / _PENDING_META).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    return PendingRecord(
+        project=meta["project"],
+        archive_path=meta["archive_path"],
+        submitted_at=meta["submitted_at"],
+        approval=meta["approval"],
+        files=meta["files"],
+        root=dest / _PENDING_FILES,
+    )
+
+
+def drop_pending(state_dir: Path, project: str) -> None:
+    """Forget the kept record — the server holds it complete."""
+    shutil.rmtree(_pending_dir(state_dir, project), ignore_errors=True)
+
+
+def submit_pending(client: httpx.Client, pending: PendingRecord, *, owner_orcid: str) -> RecordOutcome:
+    """Send a kept record (see :func:`submit_record`); on ``ok`` the caller
+    may :func:`drop_pending` it."""
+    return submit_record(
+        client, pending.root, project=pending.project, owner_orcid=owner_orcid,
+        archive_path=pending.archive_path, approval=pending.approval, files=pending.files,
+        submitted_at=pending.submitted_at,
+    )
 
 
 def build_manifest(

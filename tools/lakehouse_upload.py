@@ -19,8 +19,10 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -109,7 +111,6 @@ def load_dotenv(env_path: Path | None = None) -> dict[str, str]:
 # path twice, and `expected_remote_count = len(manifest) + 1` would
 # expect two when only one lands — turning a successful retry into a
 # false partial-upload failure.
-# Mirrored in observatory_context/beril_submit.py ARCHIVE_SKIP; keep in step.
 SKIP_PATTERNS = {
     "__pycache__", ".ipynb_checkpoints", ".DS_Store", "Thumbs.db",
     ".submit.lock", "project_metadata.json",
@@ -236,11 +237,28 @@ def _hash_entries(upload_list, project_path):
     return sorted(entries, key=lambda e: e["path"])
 
 
-def record_wiki_submission(project_id, base_path, archived_files, archive_path):
+def _stage(upload_list, snapshot):
+    """Copy each ``(local, rel)`` to ``snapshot/rel``; return the list
+    pointing at the copies."""
+    staged = []
+    for local, rel in upload_list:
+        target = Path(snapshot) / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(local, target)
+        staged.append((target, rel))
+    return staged
+
+
+def record_wiki_submission(project_id, base_path, archived_files, archive_path, snapshot):
     """Best-effort submission record for the wiki feed. Never raises; returns
 
         {"status": "ok"|"skipped"|"failed", "reason": str, "id": str|None,
          "revision": str|None, "missing": [paths]}
+
+    Built from ``snapshot``, the staged copy the archive was uploaded from, so
+    the record describes the archive byte for byte. Before sending, it is kept
+    under ``knowledge/state/`` (``beril_submit.save_pending``) until the server
+    reports it complete; the retry re-sends that, not a rehash of the checkout.
 
     - "ok":      the server holds the record and every file it needs.
     - "skipped": no login, no approval block, or the beril-cli environment is
@@ -249,7 +267,7 @@ def record_wiki_submission(project_id, base_path, archived_files, archive_path):
     - "failed":  the post or a figure upload was refused (a sha256 mismatch,
                  a server error). Same retry; the archive is unaffected.
     """
-    project_path = Path(base_path).resolve() / "projects" / project_id
+    snapshot = Path(snapshot)
     try:
         if str(REPO_ROOT) not in sys.path:
             sys.path.insert(0, str(REPO_ROOT))
@@ -261,21 +279,26 @@ def record_wiki_submission(project_id, base_path, archived_files, archive_path):
         return {"status": "skipped", "reason": f"submission record needs the beril-cli environment: {exc}",
                 "id": None, "revision": None, "missing": []}
     try:
-        record = auth_store.load()
-        if record is None:
-            return {"status": "skipped", "reason": "not logged in to BERIL; run `beril login`, then "
-                    f"`uv run knowledge/scripts/ingest_context.py --record --project {project_id}`",
-                    "id": None, "revision": None, "missing": []}
-        meta = yaml.safe_load((project_path / "beril.yaml").read_text(encoding="utf-8")) or {}
+        meta = yaml.safe_load((snapshot / "beril.yaml").read_text(encoding="utf-8")) or {}
         approval = meta.get("approval") or {}
         if not approval.get("at"):
             return {"status": "skipped", "reason": "beril.yaml has no approval block; only approved "
                     "projects are recorded", "id": None, "revision": None, "missing": []}
+        state_dir = Path(base_path).resolve() / "knowledge" / "state"
+        pending = beril_submit.save_pending(
+            state_dir, project_id, snapshot,
+            files=archived_files, archive_path=archive_path, approval=approval,
+        )
+        record = auth_store.load()
+        if record is None:
+            return {"status": "skipped", "reason": "not logged in to BERIL; the record is kept: run "
+                    "`beril login`, then "
+                    f"`uv run knowledge/scripts/ingest_context.py --record --project {project_id}`",
+                    "id": None, "revision": None, "missing": []}
         with beril_submit.client_for(record.base_url, record.token) as client:
-            outcome = beril_submit.submit_record(
-                client, project_path, project=project_id, owner_orcid=record.orcid_id,
-                archive_path=archive_path, approval=approval, files=archived_files,
-            )
+            outcome = beril_submit.submit_pending(client, pending, owner_orcid=record.orcid_id)
+        if outcome.status == "ok":
+            beril_submit.drop_pending(state_dir, project_id)
         return outcome.as_dict()
     except Exception as exc:  # the archive is done; nothing here may undo it
         return {"status": "failed", "reason": f"submission record failed unexpectedly: {exc}",
@@ -479,10 +502,23 @@ def upload_project(project_id, base_path, mirror_to_context=False, record_submis
         record_submission: when True and the lakehouse upload succeeds, post
             the submission record BERIL's wiki feed is built from (see
             `record_wiki_submission`), before the mirror and independently of
-            it. The outcome is recorded under result["wiki_submission"].
+            it. The outcome is recorded under result["wiki_submission"]. The
+            archive is then uploaded from a staged snapshot of the project,
+            and the record is built from that same snapshot, so a file edited
+            mid-upload cannot make the record disagree with the archive.
 
     Returns dict with upload results, or None on failure.
     """
+    if not record_submission:
+        return _upload_project(project_id, base_path, mirror_to_context, snapshot=None)
+    with tempfile.TemporaryDirectory(prefix=f"beril-archive-{project_id}-") as snapshot:
+        return _upload_project(project_id, base_path, mirror_to_context, snapshot=Path(snapshot))
+
+
+def _upload_project(project_id, base_path, mirror_to_context, *, snapshot):
+    """`upload_project`'s body. With a ``snapshot`` dir, every archived file
+    is first copied there; the copies are what is uploaded, hashed and
+    recorded."""
     base_path = Path(base_path)
     project_path = base_path / "projects" / project_id
 
@@ -517,6 +553,32 @@ def upload_project(project_id, base_path, mirror_to_context=False, record_submis
     # file afterwards, regardless of upload outcome — leaving it behind on
     # failure pollutes git status and confuses later retry manifests.
     try:
+        # Upload only the files we explicitly want in the archive: the
+        # SKIP_PATTERNS-filtered manifest, plus the just-written
+        # `project_metadata.json`. Per-file uploads (rather than
+        # `mc cp --recursive`) ensure transient files like `.submit.lock`
+        # — which `/submit` holds in the project directory through
+        # Phase 3 — never enter the canonical lakehouse copy. SKIP_PATTERNS
+        # is honored by the manifest walker; relying on `mc cp`'s
+        # `--exclude` would couple correctness to mc's glob semantics
+        # across versions, which we'd rather not bet the integrity
+        # boundary on.
+        upload_list = [
+            (Path(f["file_path"]), f["relative_path"]) for f in manifest
+        ]
+        upload_list.append((metadata_path, "project_metadata.json"))
+
+        # With a submission record to post, upload from a snapshot: the
+        # archive, the record's hashes, its bundle and its figure uploads all
+        # read the same copies, which nothing edits. Staged before the
+        # remote is cleared, so a failed copy leaves the old archive alone.
+        if snapshot is not None:
+            try:
+                upload_list = _stage(upload_list, snapshot)
+            except OSError as exc:
+                print(f"ERROR: could not stage {project_id} for upload: {exc}", file=sys.stderr)
+                return None
+
         # Re-submission contamination guard: if the remote prefix already has
         # contents from a previous submission, clear them before uploading.
         # `mc cp --recursive` overlays files but does not delete remote files
@@ -538,21 +600,6 @@ def upload_project(project_id, base_path, mirror_to_context=False, record_submis
                     print(rm_err, file=sys.stderr)
                 return None
 
-        # Upload only the files we explicitly want in the archive: the
-        # SKIP_PATTERNS-filtered manifest, plus the just-written
-        # `project_metadata.json`. Per-file uploads (rather than
-        # `mc cp --recursive`) ensure transient files like `.submit.lock`
-        # — which `/submit` holds in the project directory through
-        # Phase 3 — never enter the canonical lakehouse copy. SKIP_PATTERNS
-        # is honored by the manifest walker; relying on `mc cp`'s
-        # `--exclude` would couple correctness to mc's glob semantics
-        # across versions, which we'd rather not bet the integrity
-        # boundary on.
-        upload_list = [
-            (Path(f["file_path"]), f["relative_path"]) for f in manifest
-        ]
-        upload_list.append((metadata_path, "project_metadata.json"))
-
         upload_failures = []
         for local, rel in upload_list:
             target = f"{remote_path}{rel}"
@@ -568,9 +615,9 @@ def upload_project(project_id, base_path, mirror_to_context=False, record_submis
             )
             return None
 
-        # Hash what was archived while the generated metadata file still
-        # exists; the submission record's manifest must cover every file.
-        archived_files = _hash_entries(upload_list, project_path) if record_submission else []
+        # Hash what was archived — the snapshot copies, generated metadata
+        # included; the submission record's manifest must cover every file.
+        archived_files = _hash_entries(upload_list, project_path) if snapshot is not None else []
 
         # Validate upload
         rc, out, _ = _mc("ls", "--recursive", remote_path)
@@ -606,8 +653,10 @@ def upload_project(project_id, base_path, mirror_to_context=False, record_submis
     # archive: the record names the archive path and every archived file's
     # sha256, so a partial upload has nothing true to record. The mirror below
     # is independent — skipping or failing it never skips this.
-    if record_submission and result["status"] == "ok":
-        outcome = record_wiki_submission(project_id, base_path, archived_files, result["s3a_path"])
+    if snapshot is not None and result["status"] == "ok":
+        outcome = record_wiki_submission(
+            project_id, base_path, archived_files, result["s3a_path"], snapshot
+        )
         result["wiki_submission"] = outcome
         label = {"ok": "recorded", "skipped": "skipped", "failed": "FAILED"}.get(
             outcome["status"], outcome["status"]
