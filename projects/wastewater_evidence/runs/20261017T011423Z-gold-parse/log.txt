@@ -1,0 +1,18 @@
+Study: 63,806 rows, 4 cols -> gold_study.parquet (1s)
+  columns: ['study_gold_id', 'study_name', 'study_description', 'study_contacts']
+  Biosample: 200,000 rows (11s)
+Biosample: 245,123 rows, 15 cols -> gold_biosample.parquet (13s)
+  columns: ['biosample_gold_id', 'biosample_name', 'biosample_ncbi_tax_id', 'biosample_ncbi_tax_name', 'biosample_sample_collection_site', 'biosample_sample_collection_date', 'biosample_geographic_location', 'biosample_latitude', 'biosample_longitude', 'biosample_ecosystem_path_id', 'biosample_ecosystem', 'biosample_ecosystem_category', 'biosample_ecosystem_type', 'biosample_ecosystem_subtype', 'biosample_specific_ecosystem']
+  Organism: 200,000 rows (32s)
+  Organism: 400,000 rows (65s)
+Organism: 532,036 rows, 50 cols -> gold_organism.parquet (86s)
+  columns: ['organism_gold_id', 'organism_name', 'organism_ncbi_tax_id', 'organism_type_strain', 'organism_ncbi_superkingdom', 'organism_ncbi_kingdom', 'organism_gold_phylum', 'organism_genus', 'organism_species', 'organism_subspecies', 'organism_strain', 'organism_servoar_cultivar', 'organism_culture_collection_id', 'organism_biotic_relationships', 'organism_oxygen_requirement', 'organism_metabolism', 'organism_energy_sources', 'organism_gram_stain', 'organism_isolation_pubmed_id', 'organism_habitat', 'organism_sample_collection_site', 'organism_sample_collection_date', 'organism_geographic_location', 'organism_latitude', 'organism_longitude', 'organism_ecosystem_path_id', 'organism_ecosystem', 'organism_ecosystem_category', 'organism_ecosystem_type', 'organism_ecosystem_subtype', 'organism_specific_ecosystem', 'organism_isolation_host_name', 'organism_host_taxonomy_id', 'organism_host_body_site', 'organism_host_body_subsite', 'organism_salinity', 'organism_salinity_concentration', 'organism_cell_diameter', 'organism_cell_shape', 'organism_color', 'organism_motility', 'organism_ph', 'organism_pressure', 'organism_sporulation', 'organism_carbon_source', 'organism_growth_temperature_(°c)', 'organism_temperature_range', 'organism_sample_collection_temperature', 'organism_cell_length', 'organism_cultured']
+  Sequencing Project: 200,000 rows (17s)
+  Sequencing Project: 400,000 rows (34s)
+  Sequencing Project: 600,000 rows (51s)
+Sequencing Project: 637,103 rows, 23 cols -> gold_sequencing_project.parquet (54s)
+  columns: ['project_gold_id', 'project_name', 'sequencing_strategy', 'its_proposal_id', 'its_sequencing_project_id', 'its_sample_id', 'pmo_project_id', 'ncbi_bioproject_accession', 'ncbi_biosample_accession', 'sra_experiment_ids', 'project_genome_publication_pubmed_id', 'project_other_publication_pubmed_id', 'project_status', 'sequencing_status', 'sequencing_centers', 'project_funding', 'project_legacy_gold_id', 'study_gold_id', 'organism_gold_id', 'biosample_gold_id', 'project_contacts', 'project_jgi_data_utilization_status\n_(for_projects_sequenced_at_jgi_only)', 'project_jgi_award_dois\n_(for_projects_sequenced_at_jgi_only)']
+  Analysis Project: 200,000 rows (13s)
+  Analysis Project: 400,000 rows (25s)
+Analysis Project: 460,039 rows, 16 cols -> gold_analysis_project.parquet (29s)
+  columns: ['ap_gold_id', 'ap_name', 'ap_type', 'ap_its_ap_id', 'ap_img_taxon_id', 'ap_img_completion_date', 'ap_genbank', 'ap_ncbi_sra_ids', 'ap_study_gold_id', 'ap_organism_gold_id', 'ap_project_gold_ids', 'ap_contacts', 'ap_jgi_data_utilization_status\n_(for_projects_sequenced_at_jgi_only)', 'ap_jgi_award_dois\n_(for_projects_sequenced_at_jgi_only)', 'ap_gene_count', 'ap_estimated_size']

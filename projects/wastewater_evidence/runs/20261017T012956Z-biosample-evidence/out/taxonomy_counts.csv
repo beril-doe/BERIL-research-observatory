@@ -1,0 +1,211 @@
+taxonomy_name,taxonomy_id,n_acc,n_in_ww_pkg
+wastewater metagenome,527639,279051,223077
+sludge metagenome,1592332,38421,5347
+bioreactor metagenome,1076179,36588,3881
+activated sludge metagenome,942017,25755,7101
+anaerobic digester metagenome,1263854,19535,3817
+bioreactor sludge metagenome,412754,6052,1829
+biogas fermenter metagenome,718289,4951,538
+biofilter metagenome,1070537,4241,41
+Bordetella bronchiseptica,518,844,0
+Elizabethkingia meningoseptica,238,265,0
+Bordetella bronchiseptica RB50,257310,207,0
+Mycoplasmoides gallisepticum,2096,158,0
+Pantoea septica,472695,137,0
+biosolids metagenome,1748545,89,15
+Viral hemorrhagic septicemia virus,11287,82,0
+Pectobacterium atrosepticum,29471,74,0
+sludge granule bacterium 1,435623,50,0
+Mycolicibacterium septicum,98668,46,0
+Mycoplasmoides gallisepticum S6,1006581,46,0
+Bacillus bombysepticus,658666,44,0
+Mergibacter septicus,221402,30,0
+Pectobacterium atrosepticum SCRI1043,218491,26,0
+Clostridium septicum,1504,23,0
+Pasteurella multocida subsp. septica,115545,22,0
+Ficus septica,100573,18,0
+Drepanocaryum sewerzowii,392624,18,0
+Bordetella bronchiseptica 253,568707,10,0
+Staphylococcus hominis subsp. novobiosepticus,145393,10,0
+Pseudomonas anguilliseptica,53406,9,0
+Phytophthora erythroseptica,111171,7,0
+Fuligo septica,159720,6,0
+Fritillaria sewerzowii,279689,5,0
+Mycolicibacterium septicum DSM 44393,1341646,4,0
+Mycoplasmoides gallisepticum str. R(high),710128,3,0
+Bordetella bronchiseptica MO211,1331239,3,0
+Cellulomonas septica,285080,2,0
+Acinetobacter septicus,465797,2,0
+Elizabethkingia meningoseptica ATCC 13253 = NBRC 12535,1216967,2,0
+Mycoplasmoides gallisepticum ATCC 19610,1267002,2,0
+Mycoplasmoides gallisepticum str. F,708616,2,0
+Bordetella bronchiseptica NBRC 13691,1216982,2,0
+Bordetella bronchiseptica MBORD849,1331237,2,0
+Bordetella bronchiseptica MBORD698,1331230,2,0
+Bordetella bronchiseptica OSU054,1331254,2,0
+Bordetella bronchiseptica MBORD635,1331223,2,0
+Bordetella bronchiseptica GA96-01,1331215,2,0
+Bordetella bronchiseptica MBORD591,1331219,2,0
+Bordetella bronchiseptica F2,1331213,2,0
+Bordetella bronchiseptica MBORD707,1331231,2,0
+Bordetella bronchiseptica F-1,1331260,2,0
+Bordetella bronchiseptica MBORD675,1331227,2,0
+Bordetella bronchiseptica 7E71,1331201,2,0
+Bordetella bronchiseptica MBORD670,1331226,2,0
+Bordetella bronchiseptica MBORD668,1331225,2,0
+Bordetella bronchiseptica SO10328,1331245,2,0
+Bordetella bronchiseptica OSU553,1331242,2,0
+Bordetella bronchiseptica MBORD678,1331228,2,0
+Bordetella bronchiseptica 00-P-2796,1331199,2,0
+Bordetella bronchiseptica 00-P-2730,1331198,2,0
+Bordetella bronchiseptica M435/02/3,1331217,2,0
+activated sludge bacterium GC_R2A_S_1,689310,2,0
+Bordetella bronchiseptica 99-R-0433,1331202,2,0
+Bordetella bronchiseptica SBL-F6116,1331244,2,0
+Bordetella bronchiseptica MBORD665,1331224,2,0
+Bordetella bronchiseptica MBORD595,1331220,2,0
+Bordetella bronchiseptica MBORD624,1331221,2,0
+Bordetella bronchiseptica F4563,1331214,2,0
+Bordetella bronchiseptica MBORD839,1331236,2,0
+Bordetella bronchiseptica MBORD681,1331229,2,0
+Bordetella bronchiseptica MBORD782,1331234,2,0
+Bordetella bronchiseptica OSU095,1331241,2,0
+Bordetella bronchiseptica M85/00/2,1331218,2,0
+Bordetella bronchiseptica MBORD762,1331233,2,0
+Bordetella bronchiseptica MBORD731,1331232,2,0
+Bordetella bronchiseptica MBORD901,1331238,2,0
+Bordetella bronchiseptica MBORD785,1331235,2,0
+Bordetella bronchiseptica MO275,1331240,2,0
+Bordetella bronchiseptica MBORD632,1331222,2,0
+Bordetella bronchiseptica 3E44,1331200,2,0
+Bordetella bronchiseptica RB630,1331243,2,0
+Tetrastes sewerzowi,1344035,1,0
+Rotavirus A wastewater/0108/JPN/2014,1784943,1,1
+Rotavirus A wastewater/0507/JPN/2014,1784944,1,1
+Rotavirus A wastewater/0501/JPN/2013,1784942,1,1
+Rotavirus A wastewater/0306/JPN/2013,1784941,1,1
+Rotavirus A wastewater/0502/JPN/2012,1784940,1,1
+Bordetella bronchiseptica KM22,1427985,1,0
+Bordetella bronchiseptica E014,1458262,1,0
+Norovirus wastewater/GI/Miyagi/Mar6/2013/JPN,1564243,1,1
+Norovirus wastewater/GII/Miyagi/Nov28/2012/JPN,1564236,1,1
+Norovirus wastewater/GI/Miyagi/Dec12/2012/JPN,1564213,1,1
+Mycoplasmoides gallisepticum NC95_13295-2-2P,1159198,1,0
+Norovirus wastewater/GI/Miyagi/Feb27/2013/JPN,1564231,1,1
+Norovirus wastewater/GII/Miyagi/Feb6/2013/JPN,1564242,1,1
+Norovirus wastewater/GI/Miyagi/Nov28/2012/JPN,1564235,1,1
+Bordetella bronchiseptica B20-10725633,1458263,1,0
+Mycoplasmoides gallisepticum NC96_1596-4-2P,1159199,1,0
+Norovirus wastewater/GI/Miyagi/Feb20/2013/JPN,1564225,1,1
+Norovirus wastewater/GII/Miyagi/Jan23/2013/JPN,1564230,1,1
+Bacillus bombysepticus str. Wang,1330043,1,0
+Norovirus wastewater/GI/Miyagi/Nov21/2012/JPN,1564227,1,1
+Bordetella bronchiseptica B18-5 (C3),1458258,1,0
+Norovirus wastewater/GI/Miyagi/Jan16/2013/JPN,1564221,1,1
+Norovirus wastewater/GII/Miyagi/Feb20/2013/JPN,1564226,1,1
+Bordetella bronchiseptica D989,1458259,1,0
+Bordetella bronchiseptica 1289,1208657,1,0
+Pectobacterium atrosepticum CFBP 6276,1289594,1,0
+Mycoplasmoides gallisepticum NC08_2008.031-4-3P,1159204,1,0
+Bordetella bronchiseptica 980,1458256,1,0
+Bordetella bronchiseptica E012,1458261,1,0
+Mycoplasmoides gallisepticum WI01_2001.043-13-2P,1159201,1,0
+Bordetella bronchiseptica MBORD626,1460384,1,0
+Norovirus wastewater/GII/Miyagi/Dec12/2012/JPN,1564214,1,1
+Norovirus wastewater/GI/Miyagi/Dec19/2012/JPN,1564223,1,1
+Norovirus wastewater/GI/Miyagi/Dec5/2012/JPN,1564239,1,1
+Norovirus wastewater/GII/Miyagi/Jan16/2013/JPN,1564222,1,1
+Norovirus wastewater/GII/Miyagi/Dec28/2012/JPN,1564234,1,1
+Norovirus wastewater/GI/Miyagi/Jan23/2013/JPN,1564229,1,1
+Norovirus wastewater/GII/Miyagi/Jan9/2013/JPN,1564246,1,1
+Bordetella bronchiseptica E013,1458266,1,0
+Norovirus wastewater/GII/Miyagi/Feb13/2013/JPN,1564216,1,1
+Bordetella bronchiseptica 980-2,1458264,1,0
+Pectobacterium atrosepticum ICMP 1526,1076138,1,0
+Mycoplasmoides gallisepticum NC06_2006.080-5-2P,1159202,1,0
+Bordetella bronchiseptica E006,1460383,1,0
+Bordetella bronchiseptica Bbr77,1208659,1,0
+Mycoplasmoides gallisepticum NY01_2001.047-5-1P,1159200,1,0
+Norovirus wastewater/GII/Miyagi/Mar13/2013/JPN,1564218,1,1
+Norovirus wastewater/GI/Miyagi/Jan9/2013/JPN,1564245,1,1
+Norovirus wastewater/GI/Miyagi/Feb13/2013/JPN,1564215,1,1
+Norovirus wastewater/GI/Miyagi/Mar13/2013/JPN,1564217,1,1
+Norovirus wastewater/GI/Miyagi/Feb6/2013/JPN,1564241,1,1
+Norovirus wastewater/GII/Miyagi/Dec5/2012/JPN,1564240,1,1
+Norovirus wastewater/GI/Miyagi/Nov14/2012/JPN,1564219,1,1
+Mycoplasmoides gallisepticum str. R(low),710127,1,0
+Bordetella bronchiseptica E010,1458265,1,0
+Norovirus wastewater/GI/Miyagi/Dec28/2012/JPN,1564233,1,1
+Bordetella bronchiseptica MO149,1208658,1,0
+Bordetella bronchiseptica A1-7,1458257,1,0
+Norovirus wastewater/GI/Miyagi/Jan30/2013/JPN,1564237,1,1
+Mycoplasmoides gallisepticum VA94_7994-1-7P,1159197,1,0
+Norovirus wastewater/GII/Miyagi/Mar6/2013/JPN,1564244,1,1
+Bordetella bronchiseptica D756,1458269,1,0
+Norovirus wastewater/GII/Miyagi/Nov14/2012/JPN,1564220,1,1
+Bordetella bronchiseptica D993,1458260,1,0
+Mycoplasmoides gallisepticum CA06_2006.052-5-2P,1159203,1,0
+Norovirus wastewater/GII/Miyagi/Feb27/2013/JPN,1564232,1,1
+Norovirus wastewater/GII/Miyagi/Jan30/2013/JPN,1564238,1,1
+Norovirus sewage/GII/Miyagi/Jan07/2015/JPN,1892008,1,1
+Norovirus sewage/GII/Miyagi/Jan08/2014/JPN,1891992,1,1
+Norovirus sewage/GII/Miyagi/Dec02/2015/JPN,1892022,1,1
+Norovirus sewage/GII/Miyagi/Jun04/2014/JPN,1892000,1,1
+Norovirus sewage/GII/Miyagi/Feb03/2016/JPN,1892026,1,1
+Norovirus sewage/GI/Miyagi/Aug06/2014/JPN,1892001,1,1
+Norovirus sewage/GI/Miyagi/Aug12/2015/JPN,1892017,1,1
+Candidatus Caenarcanum bioreactoricola,1906166,1,0
+Norovirus sewage/GII/Miyagi/Oct02/2013/JPN,1891988,1,1
+Norovirus sewage/GI/Miyagi/Mar05/2014/JPN,1891995,1,1
+Norovirus sewage/GII/Miyagi/Apr08/2015/JPN,1892014,1,1
+Norovirus sewage/GI/Miyagi/Jan08/2014/JPN,1891991,1,1
+Norovirus sewage/GII/Miyagi/Mar05/2014/JPN,1891996,1,1
+Norovirus sewage/GII/Miyagi/Feb04/2015/JPN,1892010,1,1
+Norovirus sewage/GII/Miyagi/Feb05/2014/JPN,1891994,1,1
+Norovirus sewage/GII/Miyagi/Jan06/2016/JPN,1892024,1,1
+Norovirus sewage/GII/Miyagi/Aug07/2013/JPN,1891986,1,1
+Norovirus sewage/GII/Miyagi/Oct28/2015/JPN,1892020,1,1
+Norovirus sewage/GI/Miyagi/Dec10/2014/JPN,1892005,1,1
+Norovirus sewage/GI/Miyagi/Aug07/2013/JPN,1891985,1,1
+Norovirus sewage/GI/Miyagi/Oct08/2014/JPN,1892003,1,1
+Norovirus sewage/GII/Miyagi/Dec11/2013/JPN,1891990,1,1
+Norovirus sewage/GI/Miyagi/Jan07/2015/JPN,1892007,1,1
+Norovirus sewage/GI/Miyagi/Mar04/2015/JPN,1892011,1,1
+Norovirus sewage/GII/Miyagi/Aug12/2015/JPN,1892018,1,1
+Norovirus sewage/GI/Miyagi/Oct02/2013/JPN,1891987,1,1
+Norovirus sewage/GII/Miyagi/Apr02/2014/JPN,1891998,1,1
+Norovirus sewage/GI/Miyagi/Jun10/2015/JPN,1892015,1,1
+Norovirus sewage/GI/Miyagi/Apr08/2015/JPN,1892013,1,1
+Norovirus sewage/GI/Miyagi/Apr02/2014/JPN,1891997,1,1
+Norovirus sewage/GI/Miyagi/Feb05/2014/JPN,1891993,1,1
+Norovirus sewage/GI/Miyagi/Mar02/2016/JPN,1892027,1,1
+Norovirus sewage/GII/Miyagi/May22/2013/JPN,1891984,1,1
+Norovirus sewage/GII/Miyagi/Jun10/2015/JPN,1892016,1,1
+Norovirus sewage/GII/Miyagi/Mar04/2015/JPN,1892012,1,1
+Norovirus sewage/GII/Miyagi/Aug06/2014/JPN,1892002,1,1
+Norovirus sewage/GI/Miyagi/Feb04/2015/JPN,1892009,1,1
+Norovirus sewage/GII/Miyagi/Dec10/2014/JPN,1892006,1,1
+Norovirus sewage/GI/Miyagi/Jan06/2016/JPN,1892023,1,1
+Norovirus sewage/GII/Miyagi/Oct08/2014/JPN,1892004,1,1
+Norovirus sewage/GI/Miyagi/Dec02/2015/JPN,1892021,1,1
+Norovirus sewage/GI/Miyagi/Dec11/2013/JPN,1891989,1,1
+Norovirus sewage/GI/Miyagi/Oct28/2015/JPN,1892019,1,1
+Norovirus sewage/GI/Miyagi/Feb03/2016/JPN,1892025,1,1
+Norovirus sewage/GI/Miyagi/Jun04/2014/JPN,1891999,1,1
+Norovirus sewage/GII/Miyagi/Mar02/2016/JPN,1892028,1,1
+Norovirus sewage/GI/Miyagi/May22/2013/JPN,1891983,1,1
+Bordetella bronchiseptica 2230997,1331246,1,0
+uncultured sludge bacterium A12b,117427,1,0
+Bordetella bronchiseptica CARE970018BB,1331204,1,0
+Bordetella bronchiseptica 345,1331250,1,0
+Elizabethkingia meningoseptica KuYH,1379264,1,0
+Bordetella bronchiseptica CA90 BB02,1331216,1,0
+Bordetella bronchiseptica CA90 BB1334,1331203,1,0
+Syzygium antisepticum,1042136,1,0
+Astragalus sewertzowii,3084354,1,0
+uncultured sludge bacterium A34,117459,1,0
+uncultured sludge bacterium S6,117479,1,0
+uncultured sludge bacterium A22,117429,1,0
+uncultured sludge bacterium H3,117423,1,0
+uncultured sludge bacterium H44,117471,1,0
+Mogoltavia sewerzowii,2807120,1,0

@@ -1,0 +1,7 @@
+[    0s] v22_duck_fields.csv: 5 rows
+[    0s] v22_industrial_share.csv: 2 rows
+[    0s] v22_finding8_terms.csv: 9 rows
+[   19s] v22_amplification.csv: 1 rows
+largest_source_bioproject  source_records  biosample_records_matched  amplification
+               PRJEB11269             338                      16920           50.1
+done

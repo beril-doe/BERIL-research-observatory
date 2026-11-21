@@ -1,0 +1,18 @@
+[beril run] 20261017T011424Z-mgnify-fetch: exit 0, 3 outputs, 1 other files changed
+491 biomes
+14 target biomes, 4460 samples expected
+root:Engineered:Bioremediation:Terephthalate:Wastewater: 96 samples (expected 92); total unique 96
+root:Engineered:Bioremediation:Terephthalate:Wastewater:Bioreactor: 4 samples (expected 4); total unique 96
+root:Engineered:Wastewater: 4256 samples (expected 615); total unique 4352
+root:Engineered:Wastewater:Activated Sludge: 1252 samples (expected 1252); total unique 4352
+root:Engineered:Wastewater:Industrial wastewater: 774 samples (expected 306); total unique 4352
+root:Engineered:Wastewater:Industrial wastewater:Agricultural wastewater: 373 samples (expected 373); total unique 4352
+root:Engineered:Wastewater:Industrial wastewater:Mine water: 79 samples (expected 79); total unique 4352
+root:Engineered:Wastewater:Industrial wastewater:Petrochemical: 16 samples (expected 16); total unique 4352
+root:Engineered:Wastewater:Nutrient removal:Biological phosphorus removal:Activated sludge: 8 samples (expected 17); total unique 4352
+root:Engineered:Wastewater:Nutrient removal:Biological phosphorus removal:Bioreactor: 414 samples (expected 414); total unique 4352
+root:Engineered:Wastewater:Nutrient removal:Dissolved organics (aerobic): 48 samples (expected 48); total unique 4352
+root:Engineered:Wastewater:Nutrient removal:Dissolved organics (anaerobic): 285 samples (expected 285); total unique 4352
+root:Engineered:Wastewater:Nutrient removal:Nitrogen removal: 1 samples (expected 1); total unique 4352
+root:Engineered:Wastewater:Water and sludge: 859 samples (expected 958); total unique 4352
+wrote 4352 samples, 39073 metadata rows

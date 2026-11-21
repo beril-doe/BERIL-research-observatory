@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "id": "20261023T150640Z-v24-checks",
+  "name": "v24-checks",
+  "command": [
+    "/opt/conda/bin/python",
+    "src/10_v24_checks.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792768000.459307,
+  "ended_at": 1792768082.4348068,
+  "exit_code": 0,
+  "scripts": {
+    "src/10_v24_checks.py": "407ad09876cd66d214ab635001de6796ca9d6655b7d33ba21f364b58146363b8"
+  },
+  "inputs": [
+    {
+      "path": "REVIEW_3.md",
+      "sha256": "7cbec9badd2c20ab9276f0d9a12e3d56d44cfeb844da8483fa82e1660fdddb4e"
+    },
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/term_table.csv",
+      "sha256": "4588d1a345e8a1810ecb76034dd238a102f6532fab32f4822ea1bf5b0b79ed19"
+    },
+    {
+      "path": "runs/20261017T014428Z-term-screen/out/term_screen.csv",
+      "sha256": "2b6889daff9eeb4e0970bcb9a87556f35db33311b51c672ac5a9319c26ebf912"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261023T150640Z-v24-checks/out/v24_gain_class_totals.csv",
+      "sha256": "a73269546fcfa4e46ada2f481ea14fa02dd4c08862ba8e42d13278b63a7ef6bf"
+    },
+    {
+      "path": "runs/20261023T150640Z-v24-checks/out/v24_gain_classes.csv",
+      "sha256": "0b8f49ee24272b946ea49ae6855e410d55bf8451da3541a10d88898982a83618"
+    },
+    {
+      "path": "runs/20261023T150640Z-v24-checks/out/v24_gallus_carrier.csv",
+      "sha256": "d368a9cdb106cd2af79e94916f51152613094b4788e307f627596688597e422c"
+    },
+    {
+      "path": "runs/20261023T150640Z-v24-checks/out/v24_mgnify_composition.csv",
+      "sha256": "222e9ace58334d4261e91b9639ab1c6d184fac5422475d496a85530a4d080eb2"
+    },
+    {
+      "path": "runs/20261023T150640Z-v24-checks/out/v24_overlap_residual.csv",
+      "sha256": "3f1517f2a336143f8e748f6b0a7428bfd13ecf51e79be5d1436c2ab78ad99924"
+    }
+  ],
+  "changed": []
+}

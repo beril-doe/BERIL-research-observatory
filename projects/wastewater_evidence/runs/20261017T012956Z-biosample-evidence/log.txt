@@ -1,0 +1,10 @@
+[     5s] envo_terms.csv: 24 rows
+[    12s] envo_evidence_by_term.csv: 58 rows
+[    13s] package_counts.csv: 11 rows
+[    18s] taxonomy_counts.csv: 210 rows
+[    56s] evidence_crosstab.csv: 15 rows
+[    62s] keyword_by_field.csv: 17 rows
+[   183s] subtype_by_field.csv: 238 rows
+[   194s] kw_only_examples.csv: 294 rows
+[   205s] structured_only_examples.csv: 238 rows
+done

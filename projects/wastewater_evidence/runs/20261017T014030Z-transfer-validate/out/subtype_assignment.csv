@@ -1,0 +1,15 @@
+subtype,term,n_acc
+unspecified,0,378302
+unspecified,1,96345
+sludge_generic,0,55004
+activated_sludge,0,40670
+digester,0,32684
+activated_sludge,1,26841
+digester,1,17655
+influent,0,15647
+effluent,0,9807
+sludge_generic,1,5296
+sewer,0,5289
+effluent,1,1144
+influent,1,787
+sewer,1,221

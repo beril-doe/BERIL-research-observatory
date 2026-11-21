@@ -1,0 +1,6 @@
+[    2s] atb_context_label_counts.csv: 24 rows
+[    4s] atb_ww_field_values.csv: 133 rows
+[    8s] atb_totals.csv: 2 rows
+[   31s] ena_checklist_counts.csv: 46 rows
+[   39s] ena_ww_field_hits.csv: 13 rows
+done

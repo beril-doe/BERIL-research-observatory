@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "id": "20261017T011110Z-envtest",
+  "name": "envtest",
+  "command": [
+    "/home/mamillerpa/beril-workbench-v2/core/.venv-berdl/bin/python",
+    "-I",
+    "-c",
+    "import sys; print(sys.executable, sys.prefix); import pyspark; print('ok')"
+  ],
+  "cwd": ".",
+  "started_at": 1792199470.382635,
+  "ended_at": 1792199470.4085622,
+  "exit_code": 1,
+  "scripts": {},
+  "inputs": [],
+  "outputs": [],
+  "changed": []
+}

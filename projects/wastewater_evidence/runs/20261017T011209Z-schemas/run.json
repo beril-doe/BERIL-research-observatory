@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "id": "20261017T011209Z-schemas",
+  "name": "schemas",
+  "command": [
+    "/opt/conda/bin/python",
+    "-I",
+    "src/00_schemas.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792199529.4446557,
+  "ended_at": 1792199539.0377133,
+  "exit_code": 0,
+  "scripts": {
+    "src/00_schemas.py": "b30f1536b5d8aecb44c461d1b23c7347238f5871d59f867b37519d7a51430f9c"
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "runs/20261017T011209Z-schemas/out/schemas.json",
+      "sha256": "abfadfedbd7c44ee04716257b57e79ea9b128d338a513594601d8ebc26b42b7e"
+    },
+    {
+      "path": "runs/20261017T011209Z-schemas/out/schemas.md",
+      "sha256": "37c1e81dce4b1cfa503ab99feacb392bb3f3d3a71965848cc0c822e9b7e984a0"
+    }
+  ],
+  "changed": []
+}

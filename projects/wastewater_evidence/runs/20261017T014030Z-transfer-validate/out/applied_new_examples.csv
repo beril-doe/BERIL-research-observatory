@@ -1,0 +1,151 @@
+field,value,n
+isolation_source,,50467
+isolation_source,not applicable,2673
+isolation_source,missing,1446
+isolation_source,bioreactor,1347
+isolation_source,sand,1149
+isolation_source,bioreactor sample,839
+isolation_source,river water,808
+isolation_source,"groundwater and sediments from an industrial site exposed to chlorinated and nitroaromatic compounds, brazil, camaari",703
+isolation_source,reactor sample,582
+isolation_source,stool,553
+isolation_source,culture,523
+isolation_source,water,515
+isolation_source,water from urban biogas,453
+isolation_source,not collected,442
+isolation_source,enrichment from bioreactor,379
+isolation_source,river,373
+isolation_source,feces,369
+isolation_source,lawson health research institute,335
+isolation_source,acid mine drainage,318
+isolation_source,anaerobic bioreactor,278
+isolation_source,biofilm,278
+isolation_source,river sediment,264
+isolation_source,tray,256
+isolation_source,sediment,225
+isolation_source,cecal contents,219
+env_medium,,50523
+env_medium,water,5728
+env_medium,cecal contents,1967
+env_medium,cecal content,1607
+env_medium,stream water,1228
+env_medium,fresh water [envo:00002011],1190
+env_medium,culture medium,1004
+env_medium,decomposing leaf,901
+env_medium,river water,683
+env_medium,missing,591
+env_medium,food waste,586
+env_medium,urban biogas,453
+env_medium,pond water [envo:00002228],443
+env_medium,organic material,436
+env_medium,hypereutrophic water [envo:01001018],419
+env_medium,waste material,407
+env_medium,feces,402
+env_medium,animal-associated environment,382
+env_medium,river water [envo:01000599],370
+env_medium,basal medium,361
+env_medium,fecal sample,335
+env_medium,h2-producing bioreactor metagenome,288
+env_medium,pig manure,280
+env_medium,not applicable,261
+env_medium,mucus material [envo:02000040],251
+env_broad_scale,,49466
+env_broad_scale,freshwater biome [envo:00000873],3921
+env_broad_scale,freshwater biome [envo_00000873],3306
+env_broad_scale,chicken gut,1421
+env_broad_scale,water,1298
+env_broad_scale,not collected,1083
+env_broad_scale,urban biome,984
+env_broad_scale,human fecal,950
+env_broad_scale,bioreactor,816
+env_broad_scale,environmental system,642
+env_broad_scale,small river biome,627
+env_broad_scale,biogas reactor,585
+env_broad_scale,chicken biome,518
+env_broad_scale,missing,491
+env_broad_scale,human gut,407
+env_broad_scale,anaerobic bioreactor,387
+env_broad_scale,enrichment cultures,361
+env_broad_scale,temperate stream,348
+env_broad_scale,sub-boreal,327
+env_broad_scale,terrestrial,318
+env_broad_scale,anthropogenic,309
+env_broad_scale,h2-producing bioreactor metagenome,288
+env_broad_scale,not applicable,284
+env_broad_scale,broiler chicken barn,280
+env_broad_scale,envo:bioreactor,276
+taxonomy_name,bioreactor metagenome,25859
+taxonomy_name,anas platyrhynchos,16920
+taxonomy_name,riverine metagenome,10343
+taxonomy_name,biofilter metagenome,4170
+taxonomy_name,freshwater metagenome,2237
+taxonomy_name,mine drainage metagenome,1775
+taxonomy_name,gut metagenome,1648
+taxonomy_name,metagenome,1325
+taxonomy_name,mixed culture,1295
+taxonomy_name,gallus gallus,1283
+taxonomy_name,industrial waste metagenome,924
+taxonomy_name,indoor metagenome,891
+taxonomy_name,aquatic metagenome,856
+taxonomy_name,chicken gut metagenome,761
+taxonomy_name,uncultured bacterium,626
+taxonomy_name,siphateles bicolor,621
+taxonomy_name,fish metagenome,619
+taxonomy_name,sand metagenome,584
+taxonomy_name,gammarus fossarum,542
+taxonomy_name,escherichia coli,421
+taxonomy_name,mouse gut metagenome,419
+taxonomy_name,mollusc metagenome,393
+taxonomy_name,mouse metagenome,386
+taxonomy_name,beetle metagenome,382
+taxonomy_name,gammarus pulex,364
+package_content,metagenome.environmental.1.0,27405
+package_content,generic.1.0,16824
+package_content,model.organism.animal.1.0,14455
+package_content,mimarks.survey.water.6.0,3794
+package_content,mimarks.survey.host-associated.6.0,2862
+package_content,mims.me.water.6.0,2497
+package_content,mimarks.survey.miscellaneous.6.0,2353
+package_content,mimarks.specimen.water.6.0,2043
+package_content,mims.me.host-associated.6.0,1575
+package_content,mims.me.miscellaneous.6.0,1164
+package_content,microbe.1.0,902
+package_content,migs.eu.water.6.0,656
+package_content,mims.me.sediment.6.0,639
+package_content,mimarks.survey.microbial.6.0,602
+package_content,mimarks.specimen.human-gut.6.0,564
+package_content,migs.ba.water.6.0,552
+package_content,mimag.6.0,540
+package_content,mims.me.microbial.6.0,466
+package_content,mimarks.survey.sediment.6.0,449
+package_content,mimarks.survey.human-associated.6.0,449
+package_content,mimarks.survey.soil.6.0,373
+package_content,misag.human-gut.6.0,335
+package_content,mimarks.specimen.miscellaneous.6.0,269
+package_content,mimarks.survey.human-gut.6.0,267
+package_content,mimarks.specimen.host-associated.6.0,216
+description_title,metagenome or environmental sample from bioreactor metagenome,11624
+description_title,model organism or animal sample from anas platyrhynchos,9572
+description_title,metagenome or environmental sample from biofilter metagenome,2273
+description_title,metagenome or environmental sample from riverine metagenome,1930
+description_title,mimarks survey related sample from riverine metagenome,1263
+description_title,edna from rivers,975
+description_title,mims environmental/metagenome sample from bioreactor metagenome,727
+description_title,mimarks survey related sample from bioreactor metagenome,641
+description_title,migs eukaryotic sample from siphateles bicolor,621
+description_title,mag,586
+description_title,metagenome or environmental sample from sand metagenome,574
+description_title,metagenome or environmental sample from mine drainage metagenome,539
+description_title,mimarks survey related sample from freshwater metagenome,487
+description_title,na,453
+description_title,microbe sample from mixed culture,424
+description_title,migs cultured bacterial/archaeal sample from escherichia coli,419
+description_title,mimarks survey related sample from beetle metagenome,382
+description_title,water,375
+description_title,mimarks specimen sample from gammarus pulex,364
+description_title,mimarks specimen sample from dugesia gonocephala,344
+description_title,pekin duck water sources,338
+description_title,usafa - longitudinal stability and random forest identification,337
+description_title,misag single amplified genome sample from mixed culture,335
+description_title,nudrem,334
+description_title,vallon de nant,321

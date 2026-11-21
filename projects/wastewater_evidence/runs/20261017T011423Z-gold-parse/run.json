@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "id": "20261017T011423Z-gold-parse",
+  "name": "gold-parse",
+  "command": [
+    "/opt/conda/bin/python",
+    "-I",
+    "src/01_gold_xlsx_to_parquet.py",
+    "data/gold_raw/goldData_download_20261017.bin"
+  ],
+  "cwd": ".",
+  "started_at": 1792199663.459001,
+  "ended_at": 1792199847.189514,
+  "exit_code": 0,
+  "scripts": {
+    "src/01_gold_xlsx_to_parquet.py": "d08bae7eb40ac1392980f3001c13c87f7d0292ef8c86c3cf1f357be2a1b9e864"
+  },
+  "inputs": [
+    {
+      "path": "data/gold_raw/goldData_download_20261017.bin",
+      "sha256": "76e4b08ce40c5aaeddd538ec1a3d03021ab22703f44a69e67098b39913c5b4a3"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261017T011423Z-gold-parse/out/gold_analysis_project.parquet",
+      "sha256": "e63da065dba60b778544a3873a92766ca56a6f7f886c468a7f73914fecf0a2dc"
+    },
+    {
+      "path": "runs/20261017T011423Z-gold-parse/out/gold_biosample.parquet",
+      "sha256": "1f47a9ef721b9b94e833510a5c3a74d9f8b1d5b76e08cb08ff7709d9b61c5c28"
+    },
+    {
+      "path": "runs/20261017T011423Z-gold-parse/out/gold_organism.parquet",
+      "sha256": "20deda64db7a039a6dbedb8af9ea2d960a47186741191d6a08efb4e0ab9ca27c"
+    },
+    {
+      "path": "runs/20261017T011423Z-gold-parse/out/gold_sequencing_project.parquet",
+      "sha256": "51501c7af88d531a0187e163135d71a90e97882fb7116ba8d180d44a25739344"
+    },
+    {
+      "path": "runs/20261017T011423Z-gold-parse/out/gold_study.parquet",
+      "sha256": "e5afe29f2b1f80c04a55b20383ffb3366465c3e25e21b683bf4ddfa052e27d08"
+    }
+  ],
+  "changed": [
+    {
+      "path": "data/mgnify_raw/fetch_nohup.log",
+      "sha256": "2642adee22fadaa3d925c6a1f76cebcdb2d791fe363cc4ebb18c330326424837"
+    },
+    {
+      "path": "src/02a_biosample_evidence.py",
+      "sha256": "6f44527a1456f0545ed5eb5c70755cbb19c39b2aef271cf86633f3ac5ae47876"
+    }
+  ]
+}

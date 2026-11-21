@@ -1,0 +1,65 @@
+project_id: wastewater_evidence
+status: complete
+created_at: "2026-10-17T01:05:46Z"
+last_session_at: "2026-10-23T17:11:01Z"
+engine:
+  name: claude-code
+authors:
+  - name: "Mark Andrew Miller"
+    affiliation: "LBL"
+    orcid: "0000-0001-9076-6066"
+artifacts:
+  readme: true
+  research_plan: false
+  report: true
+  review: true
+agent_cost:
+  observed_by: claude-code
+  note: "Agent cost observed by Claude Code only. Work done by a human or by another agent is not counted, so this is a floor, not a project total."
+  stages:
+    - stage: open
+      ended_at: "2026-10-23T17:10:26Z"
+      sessions_observed: 0
+approval:
+  by: "0000-0001-9076-6066"
+  at: "2026-10-23T17:11:01Z"
+  report_hash: "sha256:3335eedb49ceb9e6f9622e0541cf293aace5e37b7bfeffe79000a328e756245c"
+  review: "REVIEW_5.md"
+  review_hash: "sha256:dd2dd6fe80c6f632abe1fa30de5e00db9331851f4205f3c2b2f27f6ffd51569d"
+  notebook_hashes: {}
+  run_hashes:
+    "runs/20261017T011042Z-schemas/run.json": "sha256:8cdb4a73fbb1ebb676303fe917f4dbd8e82bd9152fbc25d81d557994a4d9e2fd"
+    "runs/20261017T011110Z-envtest/run.json": "sha256:6840933360459528868cb9d7840ddadc7749e34fe4edc05c21d82221d8844b93"
+    "runs/20261017T011209Z-schemas/run.json": "sha256:c93b2b18e5477a4bf806a076e6b02a434277047f048acaa40ad58c5fc2babcf1"
+    "runs/20261017T011423Z-gold-parse/run.json": "sha256:21c911bfe09d54c1590def468bfdc7e87d95fe8af6b8f3d53c21f1056a27156a"
+    "runs/20261017T011424Z-mgnify-fetch/run.json": "sha256:885bb0fead08e430317c3facceaca9df75dda74590be3e55edda37ca9d395b49"
+    "runs/20261017T011707Z-biosample-evidence/run.json": "sha256:e146f3d848276ff522b57f968918621df095a23d60952f510952eef654154630"
+    "runs/20261017T012325Z-external-vs-biosample/run.json": "sha256:f27939b8075ae4610f4e44bab320cd20c6621f9bdd019e66f384901d9d5ec92d"
+    "runs/20261017T012405Z-atb-ena-probe/run.json": "sha256:7bef1b94441df95f8c26abb69a6ad3d49cdbe31ba4fd1b693206c4605d5b5f86"
+    "runs/20261017T012444Z-external-vs-biosample/run.json": "sha256:030ab58304b648c80adcd3b510dc38ffd71f1a313267c951d5080b9023562e8b"
+    "runs/20261017T012643Z-external-vs-biosample/run.json": "sha256:0b16381b28840a0255244edc82316e2fc1bcb089022d135787cad8a6a0e271c4"
+    "runs/20261017T012724Z-atb-ena-probe/run.json": "sha256:63c5ad2ae2cf28da177cf6d70a5682a05f9b10ac82f82128c68497c92299fcb4"
+    "runs/20261017T012853Z-external-vs-biosample/run.json": "sha256:3da8c8778c8ba686cf95db9b1fdc0078822210bcd66387397e1ebda375619ab7"
+    "runs/20261017T012956Z-biosample-evidence/run.json": "sha256:5b4d6046ca9b995d96f361e62fdc1d2be42ac07437630e7d2e8d296b915be17a"
+    "runs/20261017T013332Z-external-vs-biosample/run.json": "sha256:0679b630d6021c4dbbd8123aa21d31f2c3639e7e98bcde6d244d477df749531a"
+    "runs/20261017T013547Z-figures/run.json": "sha256:98a164d38c7ce771d88b61e6a97ead2d64d1233fcadde3cec2a9d5bc9b90f670"
+    "runs/20261017T014030Z-transfer-validate/run.json": "sha256:b55268634bc25cccaa56b141f82b6264605b0a8eb422a5c3291a0fc6d012a594"
+    "runs/20261017T014428Z-term-screen/run.json": "sha256:4de29054645317e6434f77eed8740002840867267d8ea36c3e33ed7fa4fba0e0"
+    "runs/20261017T014647Z-figures/run.json": "sha256:f238520e0e9f9dc330065d3d2f91f9ea3db2f2abbf2244ae4638a769996837a6"
+    "runs/20261017T015040Z-figures/run.json": "sha256:bdf8eb0d032ddf59fe2c761109dbddcaddda9a4ca4884c84e871674678d55974"
+    "runs/20261017T020823Z-review-checks/run.json": "sha256:544a9406b20bdd31ad5ed23981b8c53bf562c06a227077ff620a5c5f2bac5970"
+    "runs/20261023T142719Z-v22-checks/run.json": "sha256:f8f18a86d40f1bf2c4f84734af81cb670bb6ae9dd37bbbb4eee2465f685b8ac8"
+    "runs/20261023T142859Z-figures/run.json": "sha256:fff14389b9a9bb285e4e473837c979f4a03ed0ad090b21d34af10a31570ffa02"
+    "runs/20261023T142939Z-figures/run.json": "sha256:1b0a9a4bbc8760d2bf93901ac7d36ca51eca993d42c42d02bf276f9d54336bf6"
+    "runs/20261023T145016Z-v23-checks/run.json": "sha256:f669e2225f88d27e9901d873bb702dac4e88f615b69f41e4a9669323d068db34"
+    "runs/20261023T150640Z-v24-checks/run.json": "sha256:82ba8c6e13870de6438db62337ec12340ca97a01532f125025c6219065518b7a"
+    "runs/20261023T155021Z-figures/run.json": "sha256:920a5053f2ea0f5d81ade0026a97569390307cffb0b57d9ecba226818ce54400"
+submissions:
+  - status: success
+    attempted_at: "2026-10-23T17:15:25Z"
+    archive_key: "s3a://cdm-lake/tenant-general-warehouse/microbialdiscoveryforge/projects/wastewater_evidence/"
+    file_count: 234
+    byte_total: 296238454
+    duration_seconds: 71.32
+    approved_at: "2026-10-23T17:11:01Z"
+    context_submission: "failed: HTTP 504 from context service (best-effort mirror; archive unaffected)"

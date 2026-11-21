@@ -1,0 +1,6 @@
+measure,n
+"MGnify, as first reported (includes doubly-labelled)",840
+"GOLD, as first reported (includes doubly-labelled)",835
+MGnify test accessions sharing a BioProject with a GOLD-only accession,31
+GOLD test accessions sharing a BioProject with an MGnify-only accession,1
+doubly-labelled accessions with any BioProject link,589

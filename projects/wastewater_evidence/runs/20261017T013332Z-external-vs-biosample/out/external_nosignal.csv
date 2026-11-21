@@ -1,0 +1,162 @@
+field,value,n
+source,mgnify,729
+source,gold,388
+ext_label,root:engineered:wastewater:industrial wastewater:agricultural wastewater,372
+ext_label,root:engineered:wastewater:industrial wastewater,200
+ext_label,engineered > wastewater > industrial wastewater > unclassified > unclassified,146
+ext_label,root:engineered:wastewater:industrial wastewater:mine water,79
+ext_label,engineered > bioreactor > dhs reactor > anaerobic > sludge,54
+ext_label,root:engineered:wastewater:nutrient removal:dissolved organics (aerobic),48
+ext_label,engineered > wwtp > wastewater > unclassified > unclassified,36
+ext_label,engineered > wastewater > industrial wastewater > mine water > unclassified,35
+ext_label,engineered > wastewater > reclaimed/recycled wastewater > unclassified > unclassified,34
+ext_label,engineered > wastewater > industrial wastewater > hospital wastewater > unclassified,30
+ext_label,root:engineered:wastewater,19
+ext_label,engineered > wastewater > industrial wastewater > meat/poultry processing plant > poultry processing wastewater,15
+ext_label,engineered > wastewater > anaerobic digestor > unclassified > unclassified,11
+ext_label,engineered > wastewater > industrial wastewater > acid mine drainage > unclassified,9
+ext_label,root:engineered:wastewater:industrial wastewater:petrochemical,8
+ext_label,engineered > bioreactor > anaerobic > sludge > unclassified,6
+ext_label,root:engineered:wastewater:activated sludge,3
+ext_label,engineered > bioreactor > anaerobic > digestate > unclassified,3
+ext_label,engineered > wastewater > activated sludge > unclassified > unclassified,3
+ext_label,engineered > wastewater > nutrient removal > nitrogen removal > anammox,2
+ext_label,engineered > wastewater > sludge > unclassified > unclassified,1
+ext_label,engineered > wastewater > municipal landfill > leachate > unclassified,1
+ext_label,engineered > wwtp > aerobic digester > unclassified > unclassified,1
+ext_label,engineered > bioreactor > wastewater > cyanide/thiocyanate > unclassified,1
+isolation_source,,724
+isolation_source,rice wash waste,86
+isolation_source,water,69
+isolation_source,enriched biomass from anaerobic dhs bioreactor,48
+isolation_source,sand,26
+isolation_source,mixed culture bioreactor,18
+isolation_source,natural feedlot,8
+isolation_source,organic dairy farm,8
+isolation_source,conventional feedlot,8
+isolation_source,conventional dairy farm,8
+isolation_source,biomass from anaerobic dhs bioreactor,6
+isolation_source,swh,6
+isolation_source,gz,5
+isolation_source,"iron mountain mine, redding, ca, usa",4
+isolation_source,incubations of mixture of vsg and powdermill amd under room temperature,3
+isolation_source,sediment from c1,2
+isolation_source,sediment from c2,2
+isolation_source,anaob enrichment reactor (r4),2
+isolation_source,"reclaimed water, site ma01",2
+isolation_source,"reclaimed water, site ma06",2
+isolation_source,sediment from d3,2
+isolation_source,sediment from b4,2
+isolation_source,sediment from d1,2
+isolation_source,sediment from b3,2
+isolation_source,production_water_from_well_w15-5_jiangsu_oilfield,2
+env_broad_scale,,425
+env_broad_scale,water trough,150
+env_broad_scale,temperate stream,144
+env_broad_scale,water line,117
+env_broad_scale,acid mine drainage,79
+env_broad_scale,duck cecum,70
+env_broad_scale,freshwater biome [envo_00000873],54
+env_broad_scale,reclaimed water facility,26
+env_broad_scale,terrestrial biome,15
+env_broad_scale,marine,8
+env_broad_scale,oil well,7
+env_broad_scale,mine tailing pool,5
+env_broad_scale,oligotrophic freshwater,4
+env_broad_scale,grassland,4
+env_broad_scale,anthropogenic environment,2
+env_broad_scale,not applicable,2
+env_broad_scale,water well,2
+env_broad_scale,aquatic biome[envo_00002030],1
+env_broad_scale,envo:02500044,1
+env_broad_scale,"water sources, duck cecum",1
+env_local_scale,,425
+env_local_scale,barn,198
+env_local_scale,lotic environments,144
+env_local_scale,aviary,140
+env_local_scale,field-scale pilot,78
+env_local_scale,lagoon [envo_00000038],54
+env_local_scale,facility,26
+env_local_scale,animal house,15
+env_local_scale,constructed feature,8
+env_local_scale,oil well,7
+env_local_scale,mine tailing pool,5
+env_local_scale,secondary cooling water system of nuclear reactor,4
+env_local_scale,wastes,4
+env_local_scale,organic feature,2
+env_local_scale,bioreactor,2
+env_local_scale,water well,2
+env_local_scale,acid mine drainage[envo_00001997],1
+env_local_scale,envo:00000020,1
+env_local_scale,creek,1
+env_medium,,424
+env_medium,water,299
+env_medium,stream water,144
+env_medium,cecal contents,69
+env_medium,bioprecipitate,61
+env_medium,sediment [envo_00002007],54
+env_medium,reclaimed water,26
+env_medium,water of meat washing,15
+env_medium,biofilm material,9
+env_medium,sediment,7
+env_medium,soil,4
+env_medium,fish food product,2
+env_medium,acidic water[envo_01000358],1
+env_medium,envo:00002006,1
+env_medium,biofilm,1
+taxonomy_name,anas platyrhynchos,338
+taxonomy_name,riverine metagenome,144
+taxonomy_name,metagenome,131
+taxonomy_name,aquatic metagenome,109
+taxonomy_name,bioreactor metagenome,87
+taxonomy_name,food production metagenome,86
+taxonomy_name,sediment metagenome,85
+taxonomy_name,biofilter metagenome,48
+taxonomy_name,terrestrial metagenome,32
+taxonomy_name,mixed culture metagenome,12
+taxonomy_name,industrial waste metagenome,10
+taxonomy_name,mine drainage metagenome,9
+taxonomy_name,marine metagenome,8
+taxonomy_name,nitrifying bacterium enrichment culture,7
+taxonomy_name,freshwater metagenome,4
+taxonomy_name,compost metagenome,2
+taxonomy_name,groundwater metagenome,2
+taxonomy_name,candidatus amarolinea aalborgensis,1
+taxonomy_name,prokaryote enrichment culture,1
+taxonomy_name,biofilm metagenome,1
+package_content,generic.1.0,681
+package_content,metagenome.environmental.1.0,342
+package_content,mimarks.survey.sediment.6.0,54
+package_content,mimarks.survey.water.6.0,34
+package_content,mims.me.water.6.0,4
+package_content,mims.me.miscellaneous.6.0,2
+description_title,pekin duck water sources,338
+description_title,dynamics of bacterial communities mediating the treatment of an as-rich acid mine drainage in a field-scale pilot,79
+description_title,metagenome or environmental sample from aquatic metagenome,42
+description_title,metagenome or environmental sample from terrestrial metagenome,32
+description_title,metagenome or environmental sample from sediment metagenome,26
+description_title,phd_metagenome_,19
+description_title,mimarks survey related sample from 7742,8
+description_title,d3 anode sample 1,8
+description_title,metatranscriptome_,8
+description_title,d4 plankton 1,6
+description_title,d1 plankton 1,5
+description_title,d5 anode sample 1,5
+description_title,metagenome or environmental sample from bioreactor metagenome,5
+description_title,microsome metagenomic,5
+description_title,d2 anode sample 1,5
+description_title,group1,5
+description_title,1 year old 'fluida',5
+description_title,group3,5
+description_title,d6 plankton 1,5
+description_title,d1 anode sample 1,5
+description_title,group2,5
+description_title,d3 plankton 1,5
+description_title,d2 plankton 1,5
+description_title,d6 anode sample 1,5
+description_title,metagenomics of freshwater microbial community in secondary cooling water system,4
+sample_type,,1117
+host,,964
+host,not applicable,118
+host,wastewater_type,32
+host,bioreactor,3

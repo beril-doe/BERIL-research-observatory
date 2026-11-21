@@ -1,0 +1,238 @@
+field,value,n
+isolation_source,,9014
+isolation_source,environmental,4855
+isolation_source,bioreactor,463
+isolation_source,seawater,325
+isolation_source,control,252
+isolation_source,river,220
+isolation_source,not applicable,122
+isolation_source,missing,86
+isolation_source,soil,83
+isolation_source,seawater; sequencing batch reactor,80
+isolation_source,pigmanure,72
+isolation_source,laboratory-scale bioreactor denitrification and anammox communities,68
+isolation_source,restricted access,59
+isolation_source,stp,59
+isolation_source,marine sediment,54
+isolation_source,laboratory-scale anammox bioreactor,54
+isolation_source,thiocyanate ramp bioreactor,53
+isolation_source,laboratory-scale bioreactor,52
+isolation_source,ammonium sulfate bioreactor,51
+isolation_source,enriched bioreactor,50
+isolation_source,seawater; membrane bioreactor,49
+isolation_source,sulfur-metabolism biofilm,39
+isolation_source,sad reactor,39
+isolation_source,na,36
+isolation_source,n2o respiring enrichment,27
+isolation_source,sediment,23
+isolation_source,thiocyanate stock bioreactor,23
+isolation_source,gold mine tailings,20
+isolation_source,"mock community containing aeromonas sp., escherichia sp., and pseudomonas sp.",19
+isolation_source,uasb,18
+isolation_source,landfill,18
+isolation_source,not collected,18
+isolation_source,thiocyanate stock biobioreactor,17
+isolation_source,biofilm,15
+isolation_source,anammox bioreactor,14
+isolation_source,bubble aeration reactor,12
+isolation_source,mabr-biofilm,12
+isolation_source,mabr-flocs,12
+isolation_source,lab,11
+isolation_source,soil sample,9
+env_medium,,5557
+env_medium,not applicable,1087
+env_medium,missing,978
+env_medium,water,722
+env_medium,none,635
+env_medium,seawater,531
+env_medium,not collected,287
+env_medium,biofilm,276
+env_medium,compost,267
+env_medium,production water,265
+env_medium,envo:00002001,197
+env_medium,acid whey,184
+env_medium,livestock waste composting,180
+env_medium,envo:00002129,172
+env_medium,planktonic,160
+env_medium,fresh water lake [envo:00000021],158
+env_medium,envo:00002018,130
+env_medium,soil,125
+env_medium,silage,108
+env_medium,biofilm material,107
+env_medium,[envo:01001405],103
+env_medium,pig manure [envo:00003860]|manure pit [envo:01001872],101
+env_medium,envo00002123,98
+env_medium,fermented acid whey (lactic acid),90
+env_medium,growth medium,88
+env_medium,carbonate buffer,88
+env_medium,crude oil,85
+env_medium,envo:00001998,84
+env_medium,envo:00002213,83
+env_medium,envo:00002006,83
+env_medium,biomass reactor,79
+env_medium,refuse,79
+env_medium,synthetic growth medium (envo:02000008),76
+env_medium,envo:01000156,71
+env_medium,soil [envo:00001998],63
+env_medium,vermicomposting reactor,60
+env_medium,sediment,59
+env_medium,cattle manure,59
+env_medium,injection water,57
+env_medium,horse manure,57
+env_local_scale,,5578
+env_local_scale,not applicable,1365
+env_local_scale,bioreactor,1190
+env_local_scale,missing,1056
+env_local_scale,offshore,325
+env_local_scale,not collected,308
+env_local_scale,artificial system,223
+env_local_scale,envo_00003965,196
+env_local_scale,"gyungsangbuk-do, south korea",180
+env_local_scale,aerobic bioreactor [envo:00002126],158
+env_local_scale,seawater,154
+env_local_scale,envo:00002043,142
+env_local_scale,envo:00002044,133
+env_local_scale,landfill,116
+env_local_scale,anaerobic bioreactor,109
+env_local_scale,ensiling silo,108
+env_local_scale,[envo:01000313],103
+env_local_scale,manure storage space[envo:01001115],101
+env_local_scale,anaerobic upflow filter reactor,99
+env_local_scale,envo00002123,98
+env_local_scale,uasb reactor,91
+env_local_scale,production water before field test,89
+env_local_scale,growth medium,88
+env_local_scale,electroactive biofilms,88
+env_local_scale,envo:00002001,87
+env_local_scale,envo:01000254,84
+env_local_scale,cropland ecosystem,81
+env_local_scale,river shore,81
+env_local_scale,farm,81
+env_local_scale,stream,80
+env_local_scale,anaerobic bottles (envo:00002124),72
+env_local_scale,bacterial culture,67
+env_local_scale,anaerobic reactor,66
+env_local_scale,envo:00003965,63
+env_local_scale,envo_00002170,60
+env_local_scale,soil [envo:00001998],60
+env_local_scale,vermicomposting reactor,60
+env_local_scale,envo:00002007,55
+env_local_scale,pn/a,54
+env_local_scale,thiocyanate ramp bioreactor,53
+env_broad_scale,,5557
+env_broad_scale,not applicable,1183
+env_broad_scale,missing,903
+env_broad_scale,benzothiazole-degrading consortia,461
+env_broad_scale,bioreactor,329
+env_broad_scale,seawater,325
+env_broad_scale,oil field,322
+env_broad_scale,envo:00002043,278
+env_broad_scale,laboratory environment,274
+env_broad_scale,compost biome,223
+env_broad_scale,not collected,220
+env_broad_scale,pigfarm,180
+env_broad_scale,aquatic biome [envo:00002030],158
+env_broad_scale,[envo:00000428],134
+env_broad_scale,envo:0010001,131
+env_broad_scale,denitrification and anammox communities,120
+env_broad_scale,sequencing batch reactor,112
+env_broad_scale,envo:00002129,109
+env_broad_scale,silage,109
+env_broad_scale,soil,107
+env_broad_scale,envo:00010483,105
+env_broad_scale,pig manure [envo:00003860]|manure pit [envo:01001872],101
+env_broad_scale,membrane bioreactor,98
+env_broad_scale,envo00002123,97
+env_broad_scale,envo:01000254,95
+env_broad_scale,growth medium,88
+env_broad_scale,eabs biome,88
+env_broad_scale,river,85
+env_broad_scale,envo:00000428,84
+env_broad_scale,urine,84
+env_broad_scale,envo:00002030,82
+env_broad_scale,terrestrial ecosystem,81
+env_broad_scale,envo:00001998,79
+env_broad_scale,laboratory environment (envo:01001405),77
+env_broad_scale,[envo:00002001],76
+env_broad_scale,enrichment in lab with crude oil and exogenous bacteria,75
+env_broad_scale,biome [envo:00000428],71
+env_broad_scale,mock community microbiome,67
+env_broad_scale,fermentation reactor,66
+env_broad_scale,blackwater_bioreactor,63
+sample_type,,15243
+sample_type,metagenomic assembly,1309
+sample_type,soil_sample,60
+sample_type,biological sample,56
+sample_type,soil_blank,20
+sample_type,mixed culture,16
+sample_type,pcr 2 out-of-plate ntc2,3
+sample_type,pcr 1 out-of-plate ntc,3
+sample_type,pcr 1 positive control,3
+sample_type,pcr 2 in-plate ntc,3
+sample_type,pcr 2 out-of-plate ntc1,3
+sample_type,pcr 2 positive control,3
+sample_type,extraction 1 kit control,1
+sample_type,extraction 3 kit control,1
+sample_type,water sample of liquid radioactive waste,1
+sample_type,extraction 4 kit control,1
+sample_type,16s rna,1
+sample_type,environment,1
+sample_type,pcr 1 in-plate ntc,1
+sample_type,genomic dna,1
+sample_type,extraction 2 kit control,1
+sample_type,extraction 5 kit control,1
+taxonomy_name,wastewater metagenome,6582
+taxonomy_name,bioreactor metagenome,1516
+taxonomy_name,metagenome,817
+taxonomy_name,compost metagenome,732
+taxonomy_name,aquatic metagenome,393
+taxonomy_name,anaerobic digester metagenome,348
+taxonomy_name,soil metagenome,327
+taxonomy_name,oil production facility metagenome,322
+taxonomy_name,freshwater metagenome,314
+taxonomy_name,escherichia coli,305
+taxonomy_name,fermentation metagenome,287
+taxonomy_name,biofilm metagenome,236
+taxonomy_name,pseudomonadota bacterium,218
+taxonomy_name,sludge metagenome,164
+taxonomy_name,bioreactor sludge metagenome,156
+taxonomy_name,biogas fermenter metagenome,147
+taxonomy_name,viral metagenome,141
+taxonomy_name,bacterium,136
+taxonomy_name,aquaculture metagenome,135
+taxonomy_name,mine drainage metagenome,106
+taxonomy_name,pig gut metagenome,96
+taxonomy_name,microbial fuel cell metagenome,91
+taxonomy_name,synthetic metagenome,90
+taxonomy_name,microbiota,88
+taxonomy_name,crude oil metagenome,85
+taxonomy_name,activated sludge metagenome,84
+taxonomy_name,enterovirus,82
+taxonomy_name,oil metagenome,65
+taxonomy_name,citrobacter freundii,64
+taxonomy_name,serratia marcescens,63
+taxonomy_name,planctomycetota bacterium,59
+taxonomy_name,manure metagenome,56
+taxonomy_name,terrestrial metagenome,55
+taxonomy_name,landfill metagenome,48
+taxonomy_name,bacteroidota bacterium,46
+taxonomy_name,fungus metagenome,45
+taxonomy_name,aeromonas caviae,44
+taxonomy_name,feces metagenome,42
+taxonomy_name,photosynthetic picoeukaryotic metagenome,35
+taxonomy_name,biofilter metagenome,35
+package_content,sars-cov-2.wwsurv.1.0,5554
+package_content,mimarks.survey.wastewater.6.0,4530
+package_content,mims.me.wastewater.6.0,3104
+package_content,mimag.wastewater.6.0,1424
+package_content,mimarks.specimen.wastewater.6.0,1072
+package_content,migs.ba.wastewater.6.0,872
+package_content,migs.vi.wastewater.6.0,50
+package_content,migs.eu.wastewater.6.0,39
+package_content,migs.eu.6.0,24
+package_content,generic.1.0,24
+package_content,misag.wastewater.6.0,20
+package_content,mimarks.survey.food-farm_env.6.0,12
+package_content,pha4ge.wwsurv.1.0,3
+package_content,mimarks.survey.host-associated.6.0,2
+package_content,mimarks.survey.human-gut.6.0,2

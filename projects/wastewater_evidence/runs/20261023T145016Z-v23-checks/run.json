@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "id": "20261023T145016Z-v23-checks",
+  "name": "v23-checks",
+  "command": [
+    "/opt/conda/bin/python",
+    "src/09_v23_checks.py"
+  ],
+  "cwd": ".",
+  "started_at": 1792767016.982878,
+  "ended_at": 1792767133.0172913,
+  "exit_code": 0,
+  "scripts": {
+    "src/09_v23_checks.py": "24c80108fc9182cb38c4d649d9a49f72b686d28a8ce5a55e747e09ec7ee7ef98"
+  },
+  "inputs": [
+    {
+      "path": "REVIEW_2.md",
+      "sha256": "cef2c2b706fd9bc58b4e890a94d2ec0c9be45c613a697ad2cf037eeafd8e7811"
+    },
+    {
+      "path": "runs/20261017T014030Z-transfer-validate/out/term_table.csv",
+      "sha256": "4588d1a345e8a1810ecb76034dd238a102f6532fab32f4822ea1bf5b0b79ed19"
+    },
+    {
+      "path": "runs/20261017T013332Z-external-vs-biosample/out/labelled_samples.parquet",
+      "sha256": "12ec54e752594cb27a2613771c0befddaa686349f3cadff0db141fd3d6cd1246"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runs/20261023T145016Z-v23-checks/out/v23_coherence_base.csv",
+      "sha256": "4ac062d046059c1e0ec9d803217648d75cbd174234bfa6e7ac052cc5e8b22887"
+    },
+    {
+      "path": "runs/20261023T145016Z-v23-checks/out/v23_coherence_flagged.csv",
+      "sha256": "ed1da9d0558a9101219c60dd5846a3f391a91aaf4d7f12360cdb030de6f36d2d"
+    },
+    {
+      "path": "runs/20261023T145016Z-v23-checks/out/v23_lift_recheck.csv",
+      "sha256": "b6eddaf0d2581bf770e3fbbaadf63f3b778cb86de03c88316f873efc6efca53b"
+    },
+    {
+      "path": "runs/20261023T145016Z-v23-checks/out/v23_lift_unresolved.csv",
+      "sha256": "f986c16c64e3d4a23fcae9f190ce8c33ea24d52ce3dd03730f7b4e63370da506"
+    },
+    {
+      "path": "runs/20261023T145016Z-v23-checks/out/v23_study_overlap.csv",
+      "sha256": "a03203370e394cd19e1f3eff23440607a54818324f8a33582d277304b474848f"
+    }
+  ],
+  "changed": []
+}
