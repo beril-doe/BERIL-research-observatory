@@ -232,8 +232,30 @@ async def test_wiki_stream_holds_text_until_filtered(client, user, db_session, a
     texts = [f["data"]["text"] for f in frames if f["event"] == "text_delta"]
     assert texts == ["Yield rises [1] but see ."]
     events = [f["event"] for f in frames]
-    # The filtered text arrives before completion; persistence closes the stream.
-    assert events.index("text_delta") < events.index("turn_complete") < events.index("turn_persisted")
+    # The filtered text, then its sources, arrive before completion;
+    # persistence closes the stream.
+    assert (events.index("text_delta") < events.index("sources")
+            < events.index("turn_complete") < events.index("turn_persisted"))
+    (sources,) = [f["data"]["sources"] for f in frames if f["event"] == "sources"]
+    assert sources == [{"n": 1, "address": "wiki/concepts/a", "title": "A", "heading": None,
+                        "link": "https://w/concepts/a"}]
+
+
+async def test_wiki_stream_sends_earlier_sources_a_follow_up_cites(
+    client, user, db_session, ask_env, wiki, monkeypatch
+):
+    """A follow-up citing turn 1's [1] gets its mapping in the stream too —
+    the tool frames of this turn alone could not supply it."""
+    _login(client)
+    sid = await _wiki_session(client, db_session)
+    _record_retrieval(monkeypatch, [_hit("a")], [_hit("b")])
+    with patch("app.chat.service.run_provider_turn", _patched_provider(_events("A says [1]."))):
+        client.post(f"/api/chat/{sid}/stream", json={"message": "a?"})
+    with patch("app.chat.service.run_provider_turn", _patched_provider(_events("B [2]; A [1]."))):
+        resp = client.post(f"/api/chat/{sid}/stream", json={"message": "and b?"})
+
+    (sources,) = [f["data"]["sources"] for f in _parse_sse(resp.text) if f["event"] == "sources"]
+    assert [(s["n"], s["address"]) for s in sources] == [(1, "wiki/concepts/a"), (2, "wiki/concepts/b")]
 
 
 async def test_wiki_turn_is_503_when_the_key_is_unset_later(client, user, db_session, ask_env, wiki):

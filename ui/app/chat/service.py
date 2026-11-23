@@ -117,8 +117,9 @@ async def stream_turn(
     """Run one chat turn and yield SSE-ready frames as events arrive.
 
     In wiki mode (``ask``) the text is held back and emitted once, filtered
-    of citations the turn never retrieved, just before completion; the
-    quota reservation is settled whatever happens.
+    of citations the conversation never retrieved, just before completion,
+    followed by a ``sources`` frame mapping its ``[n]`` to pages; the quota
+    reservation is settled whatever happens.
 
     Persistence semantics match :func:`run_turn`:
       * user message saved before the provider is invoked,
@@ -129,7 +130,7 @@ async def stream_turn(
     whatever assistant content accumulated so far is still persisted so a
     resumed session doesn't lose partial work.
     """
-    from app.chat.sse import event_to_frame, turn_complete_frame
+    from app.chat.sse import event_to_frame, sources_frame, turn_complete_frame
 
     user_row = await persist_user_message(
         db, session=session, user_message=user_message
@@ -160,6 +161,7 @@ async def stream_turn(
                 if isinstance(event, (TurnComplete, ErrorEvent)):
                     finish_ask_turn(ask, result, text_parts)
                     yield event_to_frame(TextDelta(text=result.assistant_text))
+                    yield sources_frame(result.sources)
             yield event_to_frame(event)
     finally:
         # Persist exactly once. If the DB write itself fails the trace is

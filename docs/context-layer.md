@@ -213,7 +213,8 @@ under 220 words). A conversation's turns share one numbering: a follow-up's
 those earlier numbers stay citable. Any `[n]` the reply cites that the
 conversation never retrieved is dropped on the server before the reply is
 stored or streamed; the `sources` that come back with the answer are this
-turn's retrievals plus any earlier ones it cites. Before each turn BERIL reserves
+turn's retrievals plus any earlier ones it cites (`/stream` sends them as one
+`sources` frame after the answer text, before `turn_complete`). Before each turn BERIL reserves
 `BERIL_WIKI_ASK_RESERVE_TOKENS_PER_TURN` (and its USD at the model's rates
 in `chat_providers.yaml`) against the per-user daily token and USD caps, the
 global monthly ones, and the per-conversation turn limit; the reservation is
