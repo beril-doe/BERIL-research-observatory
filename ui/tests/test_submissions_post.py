@@ -119,6 +119,27 @@ async def test_post_refuses_a_manifest_that_does_not_check_out(client, user, cha
     assert needle in resp.json()["detail"]
 
 
+def test_file_sizes_are_stored_as_64_bit():
+    """The manifest lists every archived file, datasets included; a 32-bit
+    column cannot hold a size past 2 GiB on Postgres."""
+    from sqlalchemy import BigInteger
+
+    from app.db.models import SubmissionFile
+
+    assert isinstance(SubmissionFile.__table__.c.size.type, BigInteger)
+
+
+@pytest.mark.parametrize("size, code", [(3 * 2**30, 200), (2**63, 422)])
+async def test_post_takes_a_large_archived_file_and_refuses_one_past_bigint(client, user, size, code):
+    _login(client)
+    body = manifest()
+    body["files"].append({"path": "data/big.parquet", "sha256": "ab" * 32, "size": size})
+
+    resp = post(client, manifest_body=body)
+
+    assert resp.status_code == code, resp.text
+
+
 async def test_post_refuses_a_bundled_file_that_does_not_match_the_manifest(client, user):
     _login(client)
     bundle = {p: FILES[p] for p in TEXT_FILES}

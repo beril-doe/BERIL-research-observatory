@@ -93,7 +93,7 @@ def upgrade() -> None:
             ),
             sa.Column("path", sa.Text(), nullable=False),
             sa.Column("sha256", sa.String(64), nullable=False),
-            sa.Column("size", sa.Integer(), nullable=False),
+            sa.Column("size", sa.BigInteger(), nullable=False),
             sa.Column("stored", sa.Boolean(), nullable=False, server_default=sa.false()),
             sa.Column("content_type", sa.String(128), nullable=True),
             sa.UniqueConstraint("submission_id", "path", name="uq_submission_file_path"),

@@ -68,10 +68,15 @@ def embedded_figures(report: str) -> set[str]:
     return found
 
 
+# submission_file.size is a BIGINT; a larger size is refused at validation
+# (422) rather than failing the insert.
+MAX_FILE_SIZE = 2**63 - 1
+
+
 class ManifestFile(BaseModel):
     path: str = Field(min_length=1)
     sha256: str
-    size: int = Field(ge=0)
+    size: int = Field(ge=0, le=MAX_FILE_SIZE)
 
     @field_validator("sha256")
     @classmethod

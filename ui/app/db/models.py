@@ -428,7 +428,8 @@ class SubmissionFile(Base):
     )
     path: Mapped[str] = mapped_column(Text, nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    size: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Every archived file is listed, datasets included, so sizes pass 2 GiB.
+    size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     stored: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
