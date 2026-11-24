@@ -113,7 +113,8 @@ async def prepare_ask_turn(
     wiki: WikiManager,
     earlier: dict[int, dict] | None = None,
 ) -> tuple[AskContext, Credentials]:
-    """Reserve quota and shape the agent for one wiki turn.
+    """Reserve quota and shape the agent for one wiki turn, its spend held
+    to the USD it reserved (``AgentProfile.max_budget_usd``).
 
     ``earlier`` is the citation numbering the session's previous turns
     handed out (:func:`~app.chat.wiki_mode.earlier_citations`); this turn
@@ -124,12 +125,13 @@ async def prepare_ask_turn(
     credentials = ask_credentials(settings)
     model = find_model(settings.wiki_ask_provider, settings.wiki_ask_model)
     tokens = settings.wiki_ask_reserve_tokens_per_turn
+    reserved_usd = estimate_usd(model, tokens)
     reservation = await reserve(
         db, settings,
         user_id=user_id,
         turns_so_far=turns_so_far,
         estimate_tokens=tokens,
-        estimate_usd=estimate_usd(model, tokens),
+        estimate_usd=reserved_usd,
     )
     wiki_turn = WikiTurn(earlier=dict(earlier or {}))
     profile = AgentProfile(
@@ -137,6 +139,10 @@ async def prepare_ask_turn(
         allowed_tools=list(ALLOWED_TOOLS),
         mcp_servers={"wiki": build_wiki_tools(wiki, wiki_turn)},
         max_turns=settings.wiki_ask_max_tool_calls,
+        # The caps admitted this turn on its reservation, so its spend is
+        # held to it: the turn stops once it passes the reserved USD. A
+        # model with no rates reserves no USD and has no budget to enforce.
+        max_budget_usd=reserved_usd if reserved_usd > 0 else None,
     )
     return AskContext(profile=profile, wiki_turn=wiki_turn, reservation=reservation, model=model), credentials
 

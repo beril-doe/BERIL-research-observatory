@@ -108,7 +108,13 @@ size}]}` and lists **every** archived file, figures and data included.
 `beril.yaml`, `CORRECTIONS.md`, `REFUTATION_<n>.md`). BERIL checks each
 bundled file against its manifest sha256, that `revision` and
 `approval.report_hash` are the sha256 of `REPORT.md`, and that `approval.by`
-and `owner_orcid` are the caller (403 otherwise). The post is idempotent on
+and `owner_orcid` are the caller (403 otherwise). The bundle must carry
+`beril.yaml`, and it must pass the same approval rule as the ingest gate
+(below): this project, `status: complete`, approved by the caller, with
+`report_hash` matching the bundled `REPORT.md` and `review_hash` matching the
+`REVIEW.md` the manifest lists (archived, never bundled). As with the gate,
+that ties each record to a named approver who is the caller; it is not proof
+of review. The post is idempotent on
 `(owner, project, revision)`: re-posting returns the existing record
 (`created: false`) and stores whatever it still lacked. A re-post must carry
 the manifest the revision was first recorded with; one that lists any file
@@ -218,7 +224,12 @@ turn's retrievals plus any earlier ones it cites (`/stream` sends them as one
 `BERIL_WIKI_ASK_RESERVE_TOKENS_PER_TURN` (and its USD at the model's rates
 in `chat_providers.yaml`) against the per-user daily token and USD caps, the
 global monthly ones, and the per-conversation turn limit; the reservation is
-settled to actual usage afterwards (`ask_spend`). A turn that ends without
+settled to actual usage afterwards (`ask_spend`). The turn is also held to
+its reservation: its reserved USD is the provider's `max_budget_usd`, so it
+stops once it spends past it (checked after each model call, so it can pass
+it by at most one call). The token caps rest on the reservation as an
+estimate. A model without rates reserves no USD and has no budget. A turn
+that ends without
 reported usage (stream closed, connection dropped) is charged its whole
 reservation, unless it failed before any model request could have been sent
 (no provider, no key, no CLI to launch), which is charged nothing. A refused turn is a 429 whose `error` names

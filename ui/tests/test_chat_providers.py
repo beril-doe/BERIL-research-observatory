@@ -444,6 +444,21 @@ class TestOptionsWiring:
             await _collect(provider.run_turn(**turn_kwargs))
         return captured
 
+    async def test_profile_budget_reaches_the_sdk(self):
+        from app.chat.providers.base import AgentProfile
+
+        provider = _make_provider()
+        captured = await self._capture_options(
+            provider,
+            user_message="hi",
+            credentials=Credentials({"api_key": "k"}),
+            model="m1",
+            cwd="/tmp/repo",
+            sdk_session_id=None,
+            profile=AgentProfile(system_prompt="s", max_turns=8, max_budget_usd=0.11),
+        )
+        assert (captured["options"].max_turns, captured["options"].max_budget_usd) == (8, 0.11)
+
     async def test_api_key_auth_uses_x_api_key_env(self):
         """auth_style=api_key → key in ANTHROPIC_API_KEY (x-api-key header)."""
         provider = _make_provider(auth_style="api_key")

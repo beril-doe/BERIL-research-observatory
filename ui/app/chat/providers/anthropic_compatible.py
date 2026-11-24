@@ -108,6 +108,7 @@ class AnthropicCompatibleProvider:
                     allowed_tools=list(profile.allowed_tools),
                     tools=[],
                     max_turns=profile.max_turns,
+                    max_budget_usd=profile.max_budget_usd,
                     permission_mode="bypassPermissions",
                 )
 

@@ -138,12 +138,16 @@ class AgentProfile:
     prompt, restricts the tools to ``allowed_tools`` (built-ins off), mounts
     the in-process MCP servers in ``mcp_servers`` and bounds the agent loop at
     ``max_turns`` — one turn per tool call, so this is the tool-call cap.
+    ``max_budget_usd`` stops the turn once its spend passes that many dollars;
+    the provider checks after each model call, so a turn can pass it by at
+    most one call.
     """
 
     system_prompt: str
     allowed_tools: list[str] = field(default_factory=list)
     mcp_servers: dict[str, Any] = field(default_factory=dict)
     max_turns: int | None = None
+    max_budget_usd: float | None = None
 
 
 # ---------------------------------------------------------------------------

@@ -127,6 +127,8 @@ async def test_wiki_turn_runs_on_the_admin_key_filters_citations_and_settles(
     assert seen["key"] == "sk-admin-held"
     assert seen["profile"].allowed_tools == ["mcp__wiki__find", "mcp__wiki__read"]
     assert seen["profile"].max_turns == 8
+    # Held to its reservation: 20000 tokens at the Sonnet rates, 80/20 in/out.
+    assert seen["profile"].max_budget_usd == pytest.approx((16000 * 3.0 + 4000 * 15.0) / 1e6)
     assert "NO_ANSWER" in seen["profile"].system_prompt
     spend = (await db_session.execute(select(AskSpend).where(AskSpend.user_id == user.id))).scalar_one()
     assert (spend.tokens, spend.reservations, spend.reserved_tokens) == (1500, 0, 0)

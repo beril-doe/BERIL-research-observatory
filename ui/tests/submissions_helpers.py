@@ -13,17 +13,33 @@ from tests.test_routes_context import USER_TOKEN, _login  # noqa: F401  (re-expo
 OWNER = USER_TOKEN["orcid"]
 REPORT = b"# Alpha\n\n![Fig 1](figures/fig1.png)\n\nExact bytes.\n"
 README = b"# Alpha\n"
-BERIL_YAML = b"project_id: alpha\nstatus: complete\n"
+REVIEW = b"# Review\n\nApproved.\n"
+
+
+def beril_yaml(*, project="alpha", report=REPORT, review=REVIEW, approver=OWNER, status="complete") -> bytes:
+    """The ``beril.yaml`` /submit writes: an approval by ``approver`` of
+    exactly these REPORT.md and REVIEW.md bytes."""
+    return (
+        f"project_id: {project}\nstatus: {status}\napproval:\n  by: '{approver}'\n"
+        f"  at: '2026-11-10T11:00:00Z'\n"
+        f"  report_hash: sha256:{hashlib.sha256(report).hexdigest()}\n"
+        f"  review_hash: sha256:{hashlib.sha256(review).hexdigest()}\n"
+    ).encode()
+
+
+BERIL_YAML = beril_yaml()
 FIG1 = b"\x89PNG\r\n\x1a\n\x00fig1"
 FIG2 = b"\x89PNG\r\n\x1a\n\x00fig2"
 SUBMITTED_AT = datetime(2026, 11, 10, 12, 0, tzinfo=timezone.utc)
 
-# What the archive step uploads for the alpha project: text files, two
-# figures (one embedded, one not), and a data file the wiki never reads.
+# What the archive step uploads for the alpha project: text files, the
+# review (archived, not bundled), two figures (one embedded, one not), and a
+# data file the wiki never reads.
 FILES = {
     "REPORT.md": REPORT,
     "README.md": README,
     "beril.yaml": BERIL_YAML,
+    "REVIEW.md": REVIEW,
     "figures/fig1.png": FIG1,
     "figures/fig2.png": FIG2,
     "data/table.csv": b"a,b\n1,2\n",
@@ -96,6 +112,7 @@ def submit_complete(client, *, project="alpha", report=REPORT, files=None, submi
     files = dict(FILES, REPORT=report) if files is None else files
     files = {k: v for k, v in files.items() if k != "REPORT"}
     files["REPORT.md"] = report
+    files["beril.yaml"] = beril_yaml(project=project, report=report, review=files.get("REVIEW.md", REVIEW))
     body = manifest(project=project, revision=sha(report), report_hash=sha(report), files=files,
                     submitted_at=submitted_at)
     resp = post(client, manifest_body=body, bundle={p: files[p] for p in TEXT_FILES if p in files})

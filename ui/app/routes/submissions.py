@@ -33,7 +33,7 @@ from app.context_manager.openviking import context_slugify
 from app.db.models import Submission, SubmissionFile
 from app.db.session import get_db
 from app.routes.data import _safe_relative_path
-from app.routes.ingest_gate import archive_entry_count, read_capped
+from app.routes.ingest_gate import archive_entry_count, check_approval_of, parse_beril_yaml, read_capped
 from app.submissions.service import (
     KIND_APPROVED,
     SUBMISSION_COMPLETE,
@@ -270,6 +270,26 @@ async def record_submission(
     return submission, created
 
 
+def _check_bundled_approval(manifest_model, members: dict[str, bytes], *, caller_orcid: str) -> None:
+    """The ingest gate's approval rule, on the bundled ``beril.yaml``.
+    ``REVIEW.md`` is archived but never bundled, so it is checked by the hash
+    the manifest lists for it."""
+    if "beril.yaml" not in members:
+        raise _reject("The bundle must carry beril.yaml; the record rests on its approval.")
+    listed = {entry.path: entry.sha256 for entry in manifest_model.files}
+
+    def actual_sha256(name: str) -> str | None:
+        return sha256_hex(members[name]) if name in members else listed.get(name)
+
+    check_approval_of(
+        parse_beril_yaml(members["beril.yaml"]),
+        caller_orcid=caller_orcid,
+        project_slug=manifest_model.project,
+        slugify=context_slugify,
+        actual_sha256=actual_sha256,
+    )
+
+
 @ROUTER_SUBMISSIONS.post("/api/context/submissions")
 async def post_submission(
     request: Request,
@@ -287,7 +307,13 @@ async def post_submission(
     ``beril.yaml``, ``CORRECTIONS.md``, ``REFUTATION_<n>.md``). Each bundled
     file must hash to its manifest entry, ``revision`` and
     ``approval.report_hash`` must be the sha256 of ``REPORT.md``, and
-    ``approval.by`` and ``owner_orcid`` must be the caller.
+    ``approval.by`` and ``owner_orcid`` must be the caller. The bundled
+    ``beril.yaml`` must pass the ingest gate's approval rule: this project,
+    ``status: complete``, approved by the caller, its ``report_hash`` and
+    ``review_hash`` matching the bundled ``REPORT.md`` and the ``REVIEW.md``
+    the manifest lists (archived, never bundled). Like the gate, this ties
+    the record to a named approver who is the caller; it is not proof of
+    review.
 
     Idempotent on ``(owner, project, revision)``: posting the same revision
     again returns the existing record (``created: false``) and stores any
@@ -314,6 +340,7 @@ async def post_submission(
     members = _read_bundle(
         await read_capped(bundle, settings.context_max_archive_bytes, what="bundle")
     )
+    _check_bundled_approval(manifest_model, members, caller_orcid=user.orcid_id)
     submission, created = await record_submission(
         db, get_submission_store(), manifest=manifest_model, bundle=members, owner=user,
         kind=KIND_APPROVED,

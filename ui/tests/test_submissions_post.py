@@ -13,6 +13,7 @@ from tests.submissions_helpers import (
     REVISION,
     TEXT_FILES,
     _login,
+    beril_yaml,
     manifest,
     post,
     sha,
@@ -93,10 +94,10 @@ async def test_repost_with_the_recorded_manifest_stores_what_was_missing(client,
 async def test_post_completes_at_once_when_no_figure_is_embedded(client, user):
     _login(client)
     report = b"# Alpha\n\nNo figures here.\n"
-    files = {**FILES, "REPORT.md": report}
+    files = {**FILES, "REPORT.md": report, "beril.yaml": beril_yaml(report=report)}
     body = manifest(revision=sha(report), report_hash=sha(report), files=files)
 
-    resp = post(client, manifest_body=body, bundle={**{p: FILES[p] for p in TEXT_FILES}, "REPORT.md": report})
+    resp = post(client, manifest_body=body, bundle={p: files[p] for p in TEXT_FILES})
 
     assert resp.status_code == 200, resp.text
     assert (resp.json()["status"], resp.json()["missing"]) == ("complete", [])
@@ -167,9 +168,43 @@ async def test_post_refuses_figures_and_other_files_in_the_bundle(client, user):
 
 async def test_post_requires_report_in_the_bundle(client, user):
     _login(client)
-    resp = post(client, bundle={"README.md": FILES["README.md"]})
+    resp = post(client, bundle={"README.md": FILES["README.md"], "beril.yaml": FILES["beril.yaml"]})
     assert resp.status_code == 422
     assert "REPORT.md" in resp.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "bundle_yaml, code, needle",
+    [
+        (None, 422, "must carry beril.yaml"),
+        (beril_yaml(status="in_review"), 422, "not approved"),
+        (beril_yaml(approver="0000-0009-9999-9999"), 403, "approved by someone else"),
+        (beril_yaml(project="beta"), 422, "names project"),
+        (beril_yaml(report=b"# An earlier report\n"), 422, "REPORT.md does not match"),
+        (beril_yaml(review=b"# A different review\n"), 422, "REVIEW.md does not match"),
+        (b"project_id: alpha\nstatus: complete\n", 422, "no approval block"),
+        (b"- not\n- a mapping\n", 422, "not a mapping"),
+    ],
+)
+async def test_post_refuses_a_submission_its_beril_yaml_does_not_approve(
+    client, user, db_session, submission_store, bundle_yaml, code, needle
+):
+    """The ingest gate's approval rule: without a beril.yaml approving this
+    REPORT.md and REVIEW.md by the caller, nothing is recorded."""
+    _login(client)
+    files = dict(FILES) if bundle_yaml is None else {**FILES, "beril.yaml": bundle_yaml}
+    files = {p: c for p, c in files.items() if not (bundle_yaml is None and p == "beril.yaml")}
+    bundle = {p: files[p] for p in TEXT_FILES if p in files}
+
+    resp = post(client, manifest_body=manifest(files=files), bundle=bundle)
+
+    assert resp.status_code == code, resp.text
+    assert needle in resp.json()["detail"]
+    from sqlalchemy import func, select
+
+    assert (await db_session.execute(select(func.count()).select_from(Submission))).scalar_one() == 0
+    assert not submission_store.exists(OWNER, "alpha", REVISION, "REPORT.md")
+
 
 
 async def test_post_rejects_a_manifest_without_report(client, user):

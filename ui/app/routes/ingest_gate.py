@@ -263,19 +263,39 @@ def check_approval(root: Path, *, caller_orcid: str, project_slug: str, slugify)
     ``root`` holds the extracted members; the approval files are guaranteed to
     be among them (the route requires them in the manifest).
     """
+    check_approval_of(
+        parse_beril_yaml((root / "beril.yaml").read_bytes()),
+        caller_orcid=caller_orcid,
+        project_slug=project_slug,
+        slugify=slugify,
+        actual_sha256=lambda name: hashlib.sha256((root / name).read_bytes()).hexdigest(),
+    )
 
-    def reject(detail: str, code: int = status.HTTP_422_UNPROCESSABLE_CONTENT):
-        raise HTTPException(status_code=code, detail=detail)
 
+def _reject_approval(detail: str, code: int = status.HTTP_422_UNPROCESSABLE_CONTENT):
+    raise HTTPException(status_code=code, detail=detail)
+
+
+def parse_beril_yaml(data: bytes) -> dict:
+    """A project's ``beril.yaml`` as a mapping, or a 422."""
     try:
-        manifest = yaml.safe_load((root / "beril.yaml").read_text(encoding="utf-8"))
+        manifest = yaml.safe_load(data.decode("utf-8"))
     except (yaml.YAMLError, UnicodeDecodeError, RecursionError):
         # RecursionError: nesting a few hundred levels deep (about 1 KB of
         # brackets) exhausts the parser's recursion.
-        reject("beril.yaml could not be parsed.")
+        _reject_approval("beril.yaml could not be parsed.")
     if not isinstance(manifest, dict):
-        reject("beril.yaml is not a mapping.")
+        _reject_approval("beril.yaml is not a mapping.")
+    return manifest
 
+
+def check_approval_of(
+    manifest: dict, *, caller_orcid: str, project_slug: str, slugify, actual_sha256
+) -> None:
+    """The approval rule, wherever the files live: ``manifest`` is the parsed
+    ``beril.yaml`` and ``actual_sha256(name)`` the hex sha256 of ``REPORT.md``
+    or ``REVIEW.md`` as submitted (``None`` if it was not)."""
+    reject = _reject_approval
     project_id = manifest.get("project_id")
     if not isinstance(project_id, str) or slugify(project_id) != project_slug:
         reject(
@@ -302,7 +322,9 @@ def check_approval(root: Path, *, caller_orcid: str, project_slug: str, slugify)
         stored = approval.get(key)
         if not isinstance(stored, str) or not stored.startswith(_HASH_PREFIX):
             reject(f"approval.{key} is missing or not a sha256 hash.")
-        actual = hashlib.sha256((root / name).read_bytes()).hexdigest()
+        actual = actual_sha256(name)
+        if actual is None:
+            reject(f"{name} is not in the submission; approval.{key} cannot be checked.")
         if stored.removeprefix(_HASH_PREFIX) != actual:
             reject(
                 f"{name} does not match approval.{key}; it changed after the "
