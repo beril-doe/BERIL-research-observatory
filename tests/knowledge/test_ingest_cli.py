@@ -226,9 +226,9 @@ def _posted(request):
     for part in body.split(b"--" + boundary):
         head, _, data = part.partition(b"\r\n\r\n")
         data = data.rstrip(b"\r\n").removesuffix(b"--")
-        if b'name="manifest.json"' in head:
+        if b' name="manifest";' in head:
             manifest = json.loads(data)
-        elif b'name="bundle.zip"' in head:
+        elif b' name="bundle";' in head:
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
                 bundle = {n: zf.read(n) for n in zf.namelist()}
     return manifest, bundle

@@ -877,6 +877,7 @@ def approved_repo(repo, monkeypatch):
     (project / "REPORT.md").write_text("# Report\n\n![fig](figures/fig1.png)\n")
     (project / "figures").mkdir()
     (project / "figures" / "fig1.png").write_bytes(PNG)
+    (project / "REVIEW.md").write_text("# Review\n")
     (project / "beril.yaml").write_text(
         "project_id: demo\nstatus: complete\napproval:\n  by: \"0009-1\"\n"
         "  at: \"2026-11-01T00:00:00Z\"\n  report_hash: \"sha256:" + "ab" * 32 + "\"\n"
@@ -913,9 +914,9 @@ class FakeRecordServer:
             for part in body.split(b"--" + boundary):
                 head, _, data = part.partition(b"\r\n\r\n")
                 data = data.rstrip(b"\r\n").removesuffix(b"--")
-                if b'name="manifest.json"' in head:
+                if b' name="manifest";' in head:
                     self.manifest = json.loads(data)
-                elif b'name="bundle.zip"' in head:
+                elif b' name="bundle";' in head:
                     self.bundle_names = sorted(zipfile.ZipFile(io.BytesIO(data)).namelist())
             status = "complete" if not self.missing else "pending"
             return httpx.Response(200, json={"id": self.sid, "status": status, "missing": self.missing})
@@ -975,7 +976,7 @@ def test_record_manifest_covers_every_archived_file_including_generated_metadata
     assert manifest["archive_path"] == result["s3a_path"]
     assert manifest["approval"] == {"by": "0009-1", "at": "2026-11-01T00:00:00Z",
                                     "report_hash": "ab" * 32}
-    assert server.bundle_names == ["README.md", "REPORT.md", "beril.yaml"]
+    assert server.bundle_names == ["README.md", "REPORT.md", "REVIEW.md", "beril.yaml"]
     for entry in manifest["files"]:
         assert set(entry) == {"path", "sha256", "size"}
 

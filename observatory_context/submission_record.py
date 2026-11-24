@@ -19,9 +19,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-# The text files the wiki reads, bundled with the record. Matches the
-# ``read`` allowlist minus figures, which go up one PUT at a time.
-BUNDLE_FILES = ("REPORT.md", "README.md", "beril.yaml", "CORRECTIONS.md", "REFUTATION_*.md")
+# The text files the wiki reads, bundled with the record — the ``read``
+# allowlist minus figures, which go up one PUT at a time — plus REVIEW.md:
+# BERIL checks the approval's review_hash against its bytes, keeps it with
+# the record, and never serves it.
+BUNDLE_FILES = ("REPORT.md", "README.md", "beril.yaml", "REVIEW.md", "CORRECTIONS.md", "REFUTATION_*.md")
 
 # Where a record waits for a retry, under the state dir: one per project,
 # replaced by each archive (each archive replaces the last at its path).

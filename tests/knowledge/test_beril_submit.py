@@ -109,9 +109,9 @@ def _parse_multipart(body: bytes, content_type: str):
             continue
         head, _, data = part.partition(b"\r\n\r\n")
         data = data.rstrip(b"\r\n").removesuffix(b"--")
-        if b'name="manifest.json"' in head:
+        if b' name="manifest";' in head:
             manifest = json.loads(data)
-        elif b'name="bundle.zip"' in head:
+        elif b' name="bundle";' in head:
             names = sorted(zipfile.ZipFile(io.BytesIO(data)).namelist())
     return manifest, names
 
@@ -129,7 +129,8 @@ def test_embedded_figures_finds_markdown_and_html_images_once_each():
 
 @pytest.mark.parametrize(
     ("path", "bundled"),
-    [("REPORT.md", True), ("README.md", True), ("beril.yaml", True), ("CORRECTIONS.md", True),
+    [("REPORT.md", True), ("README.md", True), ("beril.yaml", True), ("REVIEW.md", True),
+     ("CORRECTIONS.md", True), ("REVIEW_2.md", False),
      ("REFUTATION_2.md", True), ("RESEARCH_PLAN.md", False), ("figures/x.png", False),
      ("memories/REPORT.md", False)],
 )

@@ -24,7 +24,8 @@ OpenViking key:
   * ``POST /api/context/submissions`` multipart: ``manifest.json`` (project,
     owner_orcid, revision, submitted_at, archive_path, approval, and
     ``files: [{path, sha256, size}]`` for every archived file) plus
-    ``bundle.zip`` holding the wiki's text files (:data:`BUNDLE_FILES`).
+    ``bundle.zip`` holding the wiki's text files and ``REVIEW.md``
+    (:data:`BUNDLE_FILES`).
     Returns ``{id, status: pending|complete, missing: [paths]}``.
   * ``PUT /api/context/submissions/{id}/files/{path}`` with raw bytes, one per
     figure the REPORT embeds (:func:`embedded_figures`). Returns
@@ -215,9 +216,11 @@ def post_record(client: httpx.Client, manifest: dict[str, Any], bundle: bytes) -
     """``POST /api/context/submissions``. Idempotent on (owner, project, revision)."""
     response = client.post(
         SUBMISSIONS_PATH,
+        # The route's form fields are ``manifest`` and ``bundle``; the
+        # filenames only label the parts.
         files={
-            "manifest.json": ("manifest.json", json.dumps(manifest).encode("utf-8"), "application/json"),
-            "bundle.zip": ("bundle.zip", bundle, "application/zip"),
+            "manifest": ("manifest.json", json.dumps(manifest).encode("utf-8"), "application/json"),
+            "bundle": ("bundle.zip", bundle, "application/zip"),
         },
         timeout=UPLOAD_TIMEOUT_SECONDS,
     )

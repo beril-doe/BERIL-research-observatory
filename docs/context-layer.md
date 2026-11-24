@@ -96,7 +96,8 @@ things, in this order, neither of which can fail the archive:
    posts a manifest of every archived file (path, sha256, size), the approval
    block, and the archive path, with a bundle of the wiki's text files
    (`REPORT.md`, `README.md`, `beril.yaml`, `CORRECTIONS.md`,
-   `REFUTATION_*.md`); then it uploads each figure the report embeds, one
+   `REFUTATION_*.md`) and `REVIEW.md` (BERIL checks the approval's
+   `review_hash` against it and never serves it); then it uploads each figure the report embeds, one
    request each. BERIL verifies every byte against the manifest. The record is
    what `beril context submissions` lists and what `read` serves byte-exact,
    so it is the wiki's feed. It is idempotent on (owner, project, revision),
