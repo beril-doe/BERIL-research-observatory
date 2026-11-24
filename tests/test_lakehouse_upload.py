@@ -17,7 +17,6 @@ from pathlib import Path
 
 import pytest
 
-
 TOOL = Path(__file__).parents[1] / "tools" / "lakehouse_upload.py"
 
 
@@ -337,6 +336,7 @@ class FakeMC:
         self.cp_failures = set(cp_failures)
         self.rm_rc = rm_rc
         self.remote = list(prepopulated)
+        self.uploaded = {}  # rel -> the bytes cp read from the local source
 
     def __call__(self, *args, capture=True):
         self.calls.append(list(args))
@@ -361,6 +361,7 @@ class FakeMC:
             if rel in self.cp_failures:
                 return 1, "", "cp failed"
             self.remote.append(rel)
+            self.uploaded[rel] = Path(args[1]).read_bytes()
             return 0, "", ""
 
         raise AssertionError(f"unexpected mc verb: {verb}")
@@ -632,7 +633,7 @@ def _run_main(lu, monkeypatch, argv):
 def test_main_success_emits_json_and_exits_zero(lu, repo, monkeypatch, capsys):
     monkeypatch.setattr(
         lu, "upload_project",
-        lambda pid, base, mirror_to_context=False: {
+        lambda pid, base, mirror_to_context=False, record_submission=False: {
             "project_id": pid, "s3a_path": "s3a://cdm-lake/t/projects/demo/",
             "remote_files": 4, "total_size_bytes": 123, "local_files": 3,
             "duration_seconds": 1.5, "status": "ok",
@@ -656,7 +657,7 @@ def test_main_partial_upload_exits_two_with_error_field(lu, repo, monkeypatch, c
     project_metadata.json so it reflects local manifest files that landed."""
     monkeypatch.setattr(
         lu, "upload_project",
-        lambda pid, base, mirror_to_context=False: {
+        lambda pid, base, mirror_to_context=False, record_submission=False: {
             "project_id": pid, "s3a_path": "s3a://cdm-lake/t/projects/demo/",
             "remote_files": 3, "total_size_bytes": 123, "local_files": 3,
             "duration_seconds": 1.5, "status": "warning",
@@ -681,7 +682,7 @@ def test_main_mirror_on_by_default_and_off_with_flag(lu, repo, monkeypatch, caps
     seen = {}
     monkeypatch.setattr(
         lu, "upload_project",
-        lambda pid, base, mirror_to_context=False: seen.update(mirror=mirror_to_context) or {
+        lambda pid, base, mirror_to_context=False, record_submission=False: seen.update(mirror=mirror_to_context) or {
             "project_id": pid, "s3a_path": "s3a://x/", "remote_files": 1,
             "total_size_bytes": 1, "local_files": 0, "duration_seconds": 0.1,
             "status": "ok",
@@ -700,7 +701,7 @@ def test_main_context_submission_is_advisory_only(lu, repo, monkeypatch, capsys)
     context index, is the source of truth for 'submitted'."""
     monkeypatch.setattr(
         lu, "upload_project",
-        lambda pid, base, mirror_to_context=False: {
+        lambda pid, base, mirror_to_context=False, record_submission=False: {
             "project_id": pid, "s3a_path": "s3a://x/", "remote_files": 1,
             "total_size_bytes": 1, "local_files": 0, "duration_seconds": 0.1,
             "status": "ok",
@@ -719,7 +720,7 @@ def test_main_tenant_override_retargets_paths(lu, repo, monkeypatch, capsys):
     override must be visible to upload_project by the time it runs."""
     captured = {}
 
-    def fake_upload(pid, base, mirror_to_context=False):
+    def fake_upload(pid, base, mirror_to_context=False, record_submission=False):
         captured["s3a_base"] = lu.S3A_BASE
         captured["lakehouse_base"] = lu.LAKEHOUSE_BASE
         return {"project_id": pid, "s3a_path": f"{lu.S3A_BASE}/{pid}/",
@@ -850,3 +851,286 @@ def test_load_dotenv_strips_inline_comments(lu, tmp_path, monkeypatch):
     assert applied["HASH_IN_VALUE"] == "abc#def"
     # inside quotes it is always literal
     assert applied["QUOTED_HASH"] == "abc # def"
+
+
+# --- upload_project: submission record (the wiki feed) ---------------------
+#
+# The record is independent of the mirror: it is posted before the mirror runs,
+# a skipped mirror never skips it, and a failed record never fails the archive.
+
+import hashlib
+import io
+import zipfile
+
+import httpx
+
+from beril_cli import auth_store
+from observatory_context import beril_submit
+
+PNG = b"\x89PNG\r\n\x1a\n" + bytes(range(16))
+
+
+@pytest.fixture()
+def approved_repo(repo, monkeypatch):
+    """`repo` with an approval block, an embedded figure, and a stored login."""
+    project = repo / "projects" / "demo"
+    (project / "REPORT.md").write_text("# Report\n\n![fig](figures/fig1.png)\n")
+    (project / "figures").mkdir()
+    (project / "figures" / "fig1.png").write_bytes(PNG)
+    (project / "REVIEW.md").write_text("# Review\n")
+    (project / "beril.yaml").write_text(
+        "project_id: demo\nstatus: complete\napproval:\n  by: \"0009-1\"\n"
+        "  at: \"2026-11-01T00:00:00Z\"\n  report_hash: \"sha256:" + "ab" * 32 + "\"\n"
+    )
+    monkeypatch.setattr(auth_store, "AUTH_DIR", repo / ".beril")
+    monkeypatch.setattr(auth_store, "AUTH_PATH", repo / ".beril" / "auth.json")
+    auth_store.save(token="beril_abc", base_url="https://srv.test", orcid_id="0009-1",
+                    display_name=None)
+    return repo
+
+
+class FakeRecordServer:
+    """BERIL's submissions routes: the post reports the embedded figure as
+    missing; a PUT whose bytes match the manifest completes the record."""
+
+    def __init__(self, monkeypatch, *, sid="sub-1", missing=("figures/fig1.png",), refuse_puts=False):
+        self.refuse_puts = refuse_puts
+        self.requests: list[httpx.Request] = []
+        self.manifest = None
+        self.bundle_names = None
+        self.sid = sid
+        self.missing = list(missing)
+        real_client = httpx.Client
+        monkeypatch.setattr(
+            beril_submit.httpx, "Client",
+            lambda *a, **kw: real_client(*a, **{**kw, "transport": httpx.MockTransport(self)}),
+        )
+
+    def __call__(self, request):
+        self.requests.append(request)
+        if request.method == "POST":
+            body = request.read()
+            boundary = request.headers["Content-Type"].split("boundary=", 1)[1].encode()
+            for part in body.split(b"--" + boundary):
+                head, _, data = part.partition(b"\r\n\r\n")
+                data = data.rstrip(b"\r\n").removesuffix(b"--")
+                if b' name="manifest";' in head:
+                    self.manifest = json.loads(data)
+                elif b' name="bundle";' in head:
+                    self.bundle_names = sorted(zipfile.ZipFile(io.BytesIO(data)).namelist())
+            status = "complete" if not self.missing else "pending"
+            return httpx.Response(200, json={"id": self.sid, "status": status, "missing": self.missing})
+        rel = request.url.path.split("/files/", 1)[1]
+        if self.refuse_puts:
+            return httpx.Response(409, json={"detail": f"sha256 mismatch for {rel}"})
+        want = {f["path"]: f["sha256"] for f in self.manifest["files"]}[rel]
+        if hashlib.sha256(request.read()).hexdigest() != want:
+            return httpx.Response(409, json={"detail": f"sha256 mismatch for {rel}"})
+        self.missing = [m for m in self.missing if m != rel]
+        return httpx.Response(200, json={"status": "complete" if not self.missing else "pending",
+                                         "missing": self.missing})
+
+
+def test_record_is_posted_before_the_mirror_and_even_when_the_mirror_is_skipped(
+    lu, approved_repo, mc, monkeypatch,
+):
+    server = FakeRecordServer(monkeypatch)
+    order = []
+    monkeypatch.setattr(
+        lu, "submit_to_context_service",
+        lambda pid, base: order.append("mirror") or {"status": "skipped", "reason": "not logged in"},
+    )
+    real_record = lu.record_wiki_submission
+    monkeypatch.setattr(
+        lu, "record_wiki_submission",
+        lambda *a: order.append("record") or real_record(*a),
+    )
+
+    result = lu.upload_project("demo", approved_repo, mirror_to_context=True, record_submission=True)
+
+    assert result["status"] == "ok"
+    assert order == ["record", "mirror"]
+    assert result["context_submission"]["status"] == "skipped"
+    assert result["wiki_submission"]["status"] == "ok"
+    assert result["wiki_submission"]["id"] == "sub-1"
+    assert result["wiki_submission"]["missing"] == []
+    assert [r.method for r in server.requests] == ["POST", "PUT"]
+    assert server.requests[0].headers["Authorization"] == "Bearer beril_abc"
+    assert str(server.requests[0].url).startswith("https://srv.test/api/context/submissions")
+
+
+def test_record_manifest_covers_every_archived_file_including_generated_metadata(
+    lu, approved_repo, mc, monkeypatch,
+):
+    server = FakeRecordServer(monkeypatch)
+    result = lu.upload_project("demo", approved_repo, record_submission=True)
+
+    manifest = server.manifest
+    paths = [f["path"] for f in manifest["files"]]
+    assert paths == sorted(mc.cp_targets())
+    assert "project_metadata.json" in paths and "figures/fig1.png" in paths
+    report = (approved_repo / "projects" / "demo" / "REPORT.md").read_bytes()
+    assert manifest["revision"] == hashlib.sha256(report).hexdigest()
+    assert result["wiki_submission"]["revision"] == manifest["revision"]
+    assert manifest["project"] == "demo" and manifest["owner_orcid"] == "0009-1"
+    assert manifest["archive_path"] == result["s3a_path"]
+    assert manifest["approval"] == {"by": "0009-1", "at": "2026-11-01T00:00:00Z",
+                                    "report_hash": "ab" * 32}
+    assert server.bundle_names == ["README.md", "REPORT.md", "REVIEW.md", "beril.yaml"]
+    for entry in manifest["files"]:
+        assert set(entry) == {"path", "sha256", "size"}
+
+
+def test_record_re_post_is_idempotent(lu, approved_repo, mc, monkeypatch):
+    server = FakeRecordServer(monkeypatch, missing=())
+    first = lu.upload_project("demo", approved_repo, record_submission=True)
+    second = lu.upload_project("demo", approved_repo, record_submission=True)
+
+    assert first["wiki_submission"]["status"] == second["wiki_submission"]["status"] == "ok"
+    assert first["wiki_submission"]["id"] == second["wiki_submission"]["id"] == "sub-1"
+    assert first["wiki_submission"]["revision"] == second["wiki_submission"]["revision"]
+    assert [r.method for r in server.requests] == ["POST", "POST"]
+
+
+def test_files_edited_mid_upload_cannot_split_the_record_from_the_archive(
+    lu, approved_repo, monkeypatch, stub_git,
+):
+    """Every file is staged before upload; the archive, the manifest's hashes,
+    the bundle and the figure PUT all read the staged copies, so an edit to
+    the checkout mid-upload changes none of them."""
+    server = FakeRecordServer(monkeypatch)
+    fake_mc = FakeMC()
+    project = approved_repo / "projects" / "demo"
+    real_cp = fake_mc.__call__
+
+    def cp_then_edit(*args, capture=True):
+        out = real_cp(*args, capture=capture)
+        if args[0] == "cp":
+            (project / "figures" / "fig1.png").write_bytes(b"edited mid-upload")
+            (project / "README.md").write_text("edited mid-upload\n")
+        return out
+
+    monkeypatch.setattr(lu, "_mc", cp_then_edit)
+
+    result = lu.upload_project("demo", approved_repo, record_submission=True)
+
+    assert result["status"] == "ok" and result["wiki_submission"]["status"] == "ok"
+    archived = {rel: hashlib.sha256(data).hexdigest() for rel, data in fake_mc.uploaded.items()}
+    assert {f["path"]: f["sha256"] for f in server.manifest["files"]} == archived
+    assert fake_mc.uploaded["figures/fig1.png"] == PNG
+    put = next(r for r in server.requests if r.method == "PUT")
+    assert put.read() == PNG
+
+
+def test_a_refused_figure_is_a_failed_record_the_archive_succeeds_and_the_record_is_kept(
+    lu, approved_repo, mc, monkeypatch,
+):
+    server = FakeRecordServer(monkeypatch, refuse_puts=True)
+
+    result = lu.upload_project("demo", approved_repo, record_submission=True)
+
+    assert result["status"] == "ok"
+    record = result["wiki_submission"]
+    assert record["status"] == "failed" and record["id"] is None
+    assert "409" in record["reason"] and "sha256 mismatch for figures/fig1.png" in record["reason"]
+    assert [r.method for r in server.requests] == ["POST", "PUT"]
+    kept = beril_submit.load_pending(approved_repo / "knowledge" / "state", "demo")
+    assert kept is not None and kept.files == server.manifest["files"]
+    assert (kept.root / "figures" / "fig1.png").read_bytes() == PNG
+
+
+def test_a_complete_record_is_not_kept(lu, approved_repo, mc, monkeypatch):
+    FakeRecordServer(monkeypatch)
+    result = lu.upload_project("demo", approved_repo, record_submission=True)
+    assert result["wiki_submission"]["status"] == "ok"
+    assert beril_submit.load_pending(approved_repo / "knowledge" / "state", "demo") is None
+
+
+def test_record_skipped_without_a_login_names_the_retry(lu, approved_repo, mc, monkeypatch):
+    monkeypatch.setattr(auth_store, "AUTH_PATH", approved_repo / "nowhere.json")
+    calls = []
+    monkeypatch.setattr(beril_submit.httpx, "Client", lambda *a, **kw: calls.append(1))
+
+    result = lu.upload_project("demo", approved_repo, record_submission=True)
+
+    record = result["wiki_submission"]
+    assert record["status"] == "skipped" and calls == []
+    assert "beril login" in record["reason"] and "--record --project demo" in record["reason"]
+    # Kept for that retry, as archived: generated metadata included.
+    kept = beril_submit.load_pending(approved_repo / "knowledge" / "state", "demo")
+    assert kept is not None and kept.archive_path == result["s3a_path"]
+    assert "project_metadata.json" in {f["path"] for f in kept.files}
+
+
+def test_record_skipped_without_an_approval_block(lu, approved_repo, mc, monkeypatch):
+    (approved_repo / "projects" / "demo" / "beril.yaml").write_text("project_id: demo\n")
+    server = FakeRecordServer(monkeypatch)
+
+    result = lu.upload_project("demo", approved_repo, record_submission=True)
+
+    assert result["wiki_submission"]["status"] == "skipped"
+    assert "approval" in result["wiki_submission"]["reason"]
+    assert server.requests == []
+    assert beril_submit.load_pending(approved_repo / "knowledge" / "state", "demo") is None
+
+
+def test_without_the_beril_cli_environment_the_record_is_skipped_but_kept_for_the_retry(
+    lu, approved_repo, mc, monkeypatch,
+):
+    """The upload tool may run on an interpreter without httpx/yaml. The send
+    is skipped, but the record it names the retry for is still kept."""
+    import observatory_context
+
+    server = FakeRecordServer(monkeypatch)
+    with monkeypatch.context() as m:  # the retry, below, runs in the full environment
+        m.delattr(observatory_context, "beril_submit")
+        m.setitem(sys.modules, "observatory_context.beril_submit", None)
+        result = lu.upload_project("demo", approved_repo, record_submission=True)
+
+    record = result["wiki_submission"]
+    assert result["status"] == "ok" and record["status"] == "skipped"
+    assert "beril-cli environment" in record["reason"]
+    assert "--record --project demo" in record["reason"] and "kept" in record["reason"]
+    assert server.requests == []
+    kept = beril_submit.load_pending(approved_repo / "knowledge" / "state", "demo")
+    assert kept is not None and kept.archive_path == result["s3a_path"]
+    assert (kept.root / "figures" / "fig1.png").read_bytes() == PNG
+    assert beril_submit.kept_approval(kept)["at"] == "2026-11-01T00:00:00Z"
+
+
+def test_record_off_by_default_and_not_on_a_partial_archive(lu, approved_repo, monkeypatch, stub_git):
+    server = FakeRecordServer(monkeypatch)
+    monkeypatch.setattr(lu, "_mc", FakeMC())
+    assert "wiki_submission" not in lu.upload_project("demo", approved_repo)
+
+    monkeypatch.setattr(lu, "_mc", LosesAFile())
+    result = lu.upload_project("demo", approved_repo, record_submission=True)
+    assert result["status"] == "warning" and "wiki_submission" not in result
+    assert server.requests == []
+
+
+def test_main_posts_the_record_by_default_and_not_with_no_wiki_record(lu, repo, monkeypatch, capsys):
+    seen = {}
+    monkeypatch.setattr(
+        lu, "upload_project",
+        lambda pid, base, mirror_to_context=False, record_submission=False:
+            seen.update(record=record_submission) or {
+                "project_id": pid, "local_files": 1, "remote_files": 2, "total_size_bytes": 1,
+                "remote_path": "r", "s3a_path": "s", "duration_seconds": 0.1, "status": "ok",
+                "wiki_submission": {"status": "failed", "reason": "boom", "id": None,
+                                    "revision": None, "missing": []},
+            },
+    )
+    monkeypatch.setattr(sys, "argv", ["lakehouse_upload.py", "demo", "--base-path", str(repo)])
+    with pytest.raises(SystemExit) as exc:
+        lu.main()
+    assert exc.value.code == 0, "a failed record is advisory"
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["wiki_submission"]["status"] == "failed"
+    assert seen["record"] is True
+
+    monkeypatch.setattr(sys, "argv", ["lakehouse_upload.py", "demo", "--base-path", str(repo),
+                                      "--no-wiki-record"])
+    with pytest.raises(SystemExit):
+        lu.main()
+    assert seen["record"] is False

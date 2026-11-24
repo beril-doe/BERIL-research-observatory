@@ -5,7 +5,12 @@
   beril context grep PATTERN     exact-pattern search
   beril context pitfalls [Q]     known gotchas: project memories + central archive
   beril context discoveries [Q]  findings, with stale duplicates suppressed
+  beril context read ADDRESS     one project file, byte-exact (sha256 verified)
+  beril context submissions      complete submission records, by submission time
   beril context doctor           check the login, BERIL, and the context layer
+
+``find``, ``read`` and ``ls`` take ``--source wiki`` to look at the wiki
+instead of the context layer; wiki addresses are ``wiki/<collection>/<slug>``.
 
 Every result names a resource by **address**: ``<owner>/<project>/<path>``
 (central docs live under ``beril/docs/``). Pass one back with ``--address`` —
@@ -20,12 +25,15 @@ when BERIL is unreachable these commands fail and say so.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import sys
+from dataclasses import asdict
 from typing import Any, Callable
 
 from beril_cli import auth_store
 from beril_cli.context_client import ContextClient, ContextError, Scope
+from observatory_context.beril_read import KINDS, READABLE, SOURCES
 
 # Central docs (pitfalls, discoveries, performance, research ideas) live under
 # the house account.
@@ -72,6 +80,7 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
         "--read-content", action="store_true",
         help="Print each hit's full text, not just its abstract",
     )
+    _add_source(find)
     _add_json(find)
 
     ls = actions.add_parser("ls", help="List what is stored at an address")
@@ -90,6 +99,7 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
         "--depth", type=int,
         help="With -r: how many levels below the address to list (default: all)",
     )
+    _add_source(ls)
     _add_json(ls)
 
     grep = actions.add_parser("grep", help="Exact-pattern search")
@@ -127,6 +137,55 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
         p.add_argument("--limit", type=int, help="Maximum documents (default 10)")
         _add_json(p)
 
+    read = actions.add_parser(
+        "read",
+        help="Read one project file, byte-exact",
+        description=(
+            "Read one project file through BERIL and verify its sha256 against "
+            "what the server reports. Only these project files are readable: "
+            + ", ".join(READABLE) + "."
+        ),
+    )
+    read.add_argument(
+        "address", metavar="ADDRESS",
+        help="The file (owner/project/path; with --source wiki, wiki/<collection>/<slug>)",
+    )
+    read.add_argument(
+        "--revision", metavar="SHA256",
+        help="Read the file as of one submission, named by its revision (the REPORT.md sha256)",
+    )
+    _add_source(read)
+    read_out = read.add_mutually_exclusive_group()
+    read_out.add_argument(
+        "--out", metavar="PATH",
+        help="Write the file's bytes here instead of printing (required for figures)",
+    )
+    read_out.add_argument(
+        "--json", action="store_true",
+        help="Print the JSON envelope (address, size, sha256, content_type, encoding, "
+        "content, source, modified_at)",
+    )
+
+    submissions = actions.add_parser(
+        "submissions",
+        help="List complete submission records, oldest first",
+        description=(
+            "The submissions feed: which projects were submitted, at which revision "
+            "(the REPORT.md sha256), and when. One page per call; the page's "
+            "next_since is printed on stderr (or in the JSON) to pass back as "
+            "--since for the following page."
+        ),
+    )
+    submissions.add_argument(
+        "--since", metavar="ISO", help="Only submissions at or after this ISO-8601 instant",
+    )
+    submissions.add_argument(
+        "--kind", metavar="KIND[,KIND]",
+        help=f"Only these kinds, comma-separated: {', '.join(KINDS)} (default: all)",
+    )
+    submissions.add_argument("--limit", type=int, help="Maximum rows in this page")
+    _add_json(submissions)
+
     doctor = actions.add_parser(
         "doctor", help="Check the login, BERIL, and the context layer"
     )
@@ -154,6 +213,14 @@ def _add_json(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--json", action="store_true", help="Print the raw JSON response")
 
 
+def _add_source(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--source", choices=list(SOURCES), default=None,
+        help="Where to look: the context layer (default) or the wiki "
+        "(addresses wiki/<collection>/<slug>)",
+    )
+
+
 def run_context(args: argparse.Namespace) -> int:
     action = args.context_action
     if action == "doctor":
@@ -161,7 +228,7 @@ def run_context(args: argparse.Namespace) -> int:
     handler = _HANDLERS.get(action)
     if handler is None:
         print(
-            "Usage: beril context {find|ls|grep|pitfalls|discoveries|doctor}",
+            "Usage: beril context {find|ls|grep|pitfalls|discoveries|read|submissions|doctor}",
             file=sys.stderr,
         )
         return 1
@@ -222,6 +289,7 @@ def _find(client: ContextClient, args: argparse.Namespace) -> None:
         until=args.until,
         time_field=args.time_field,
         read_content=args.read_content,
+        source=args.source,
     )
     print(_dump(result) if args.json else format_find(result))
     # On stderr, so the output — text or JSON — stays parseable. A ranked page
@@ -253,7 +321,7 @@ def _ls(client: ContextClient, args: argparse.Namespace) -> None:
     simple_from_full = args.simple and args.depth is not None
     listed = client.ls(
         _scope(args), recursive=args.recursive, simple=args.simple and not simple_from_full,
-        node_limit=args.node_limit, depth=args.depth,
+        node_limit=args.node_limit, depth=args.depth, source=args.source,
     )
     shown = (
         [e.get("address") or e.get("name") or "" for e in listed if isinstance(e, dict)]
@@ -315,12 +383,81 @@ def _documents(kind: str) -> Callable[[ContextClient, argparse.Namespace], None]
     return run
 
 
+def _read(client: ContextClient, args: argparse.Namespace) -> None:
+    scope = Scope.from_address(args.address)
+    if not (scope.owner and scope.project and scope.path):
+        shape = "wiki/<collection>/<slug>" if args.source == "wiki" else "owner/project/path"
+        raise ValueError(f"a read names one file as {shape}; {args.address!r} does not")
+    options = {"source": args.source, "revision": args.revision}
+    if args.out:
+        # Raw bytes, so a figure or a report lands exactly as ingested. The
+        # client has already matched the body against X-Content-SHA256; a
+        # mismatch raised before anything here ran, so nothing is written.
+        file = client.read_file(args.address, as_bytes=True, **options)
+        with open(args.out, "wb") as fh:
+            fh.write(file.as_bytes())
+        print(
+            f"wrote {file.size} byte(s) to {args.out} (sha256 {file.sha256} verified)",
+            file=sys.stderr,
+        )
+        return
+    file = client.read_file(args.address, **options)
+    if args.json:
+        print(_dump(_envelope(file)))
+        return
+    if not file.is_text:
+        raise ValueError(
+            f"{args.address} is binary ({file.content_type or 'unknown type'}, "
+            f"{file.size} bytes); write it with --out PATH"
+        )
+    # The file's own bytes, unmodified: print() would append a newline the
+    # file may not have, and the whole point is byte-exactness.
+    sys.stdout.write(file.content)
+    sys.stdout.flush()
+
+
+def _envelope(file) -> dict[str, Any]:
+    """The JSON shape ``read`` returns, from a parsed :class:`ContextFile`."""
+    text = file.is_text
+    return {
+        "address": file.address,
+        "path": file.path,
+        "size": file.size,
+        "sha256": file.sha256,
+        "content_type": file.content_type,
+        "encoding": "utf-8" if text else "base64",
+        "content": file.content if text else base64.b64encode(file.content).decode("ascii"),
+        "source": file.source,
+        "modified_at": file.modified_at,
+    }
+
+
+def _submissions(client: ContextClient, args: argparse.Namespace) -> None:
+    kinds = args.kind.split(",") if args.kind else None
+    page = client.submissions(since=args.since, kinds=kinds, limit=args.limit)
+    if args.json:
+        print(_dump({
+            "submissions": [asdict(s) for s in page.submissions],
+            "next_since": page.next_since,
+        }))
+    else:
+        print(format_submissions(page.submissions))
+    if page.next_since:
+        # On stderr, so the output — table or JSON — stays parseable.
+        print(
+            f"next_since: {page.next_since}  (pass as --since to continue)",
+            file=sys.stderr,
+        )
+
+
 _HANDLERS: dict[str, Callable[[ContextClient, argparse.Namespace], None]] = {
     "find": _find,
     "ls": _ls,
     "grep": _grep,
     "pitfalls": _documents("pitfalls"),
     "discoveries": _documents("discoveries"),
+    "read": _read,
+    "submissions": _submissions,
 }
 
 
@@ -468,6 +605,26 @@ def format_documents(result: dict, kind: str) -> str:
             f"origin: {origin}" + (f"  score: {float(score):.3f}" if score is not None else ""),
         ]
         lines += [f"  > {_one_line(x)}" for x in doc.get("excerpts") or []]
+    return "\n".join(lines)
+
+
+def format_submissions(rows: list) -> str:
+    """One line per submission: project, owner, kind, revision (first 12 hex
+    digits), submitted_at, file count, under a header — columns padded to the
+    widest value in each."""
+    if not rows:
+        return "(no submissions)"
+    header = ("project", "owner", "kind", "revision", "submitted_at", "files")
+    table = [header] + [
+        (r.project, r.owner_orcid, r.kind, r.revision[:12], r.submitted_at, str(len(r.files)))
+        for r in rows
+    ]
+    widths = [max(len(row[i]) for row in table) for i in range(len(header))]
+    lines = [
+        "  ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)).rstrip()
+        for row in table
+    ]
+    lines.append(f"{len(rows)} submission(s)")
     return "\n".join(lines)
 
 
