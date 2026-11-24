@@ -16,13 +16,15 @@ This layer is provider-agnostic and streaming-agnostic.
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chat.ask import AskContext, finish_ask_turn
 from app.chat.crud import list_messages_for_session
 from app.chat.providers import get_provider
 from app.chat.providers.base import (
+    AgentProfile,
     Credentials,
     ErrorEvent,
     SessionInitialized,
@@ -66,6 +68,7 @@ async def persist_assistant_message(
             "text": result.assistant_text,
             "tool_activity": result.tool_activity,
             "error": result.error,
+            **({"sources": result.sources} if result.sources else {}),
         },
     )
     db.add(row)
@@ -85,6 +88,18 @@ class TurnResult:
     tool_activity: list[dict[str, Any]] = field(default_factory=list)
     sdk_session_id: str | None = None
     error: str | None = None
+    usage: dict[str, Any] | None = None
+    cost_usd: float | None = None
+    # The provider may have sent a model request, so the turn may have done
+    # billable work. Set by the provider's on_dispatch (before any model
+    # output, so a turn cut off while waiting still has it) or by any event
+    # but an error the provider marks undispatched.
+    dispatched: bool = False
+
+    def mark_dispatched(self) -> None:
+        self.dispatched = True
+    # Wiki mode: the retrieved hits the reply may cite, numbered.
+    sources: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def is_error(self) -> bool:
@@ -97,8 +112,14 @@ async def stream_turn(
     session: ChatSession,
     user_message: str,
     credentials: Credentials,
+    ask: AskContext | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Run one chat turn and yield SSE-ready frames as events arrive.
+
+    In wiki mode (``ask``) the text is held back and emitted once, filtered
+    of citations the conversation never retrieved, just before completion,
+    followed by a ``sources`` frame mapping its ``[n]`` to pages; the quota
+    reservation is settled whatever happens.
 
     Persistence semantics match :func:`run_turn`:
       * user message saved before the provider is invoked,
@@ -109,7 +130,7 @@ async def stream_turn(
     whatever assistant content accumulated so far is still persisted so a
     resumed session doesn't lose partial work.
     """
-    from app.chat.sse import event_to_frame, turn_complete_frame
+    from app.chat.sse import event_to_frame, sources_frame, turn_complete_frame
 
     user_row = await persist_user_message(
         db, session=session, user_message=user_message
@@ -126,18 +147,31 @@ async def stream_turn(
             user_message=user_message,
             credentials=credentials,
             skip_message_id=user_row.id,
+            profile=ask.profile if ask else None,
+            on_dispatch=result.mark_dispatched,
         ):
             fold_event(event, text_parts, result)
             # Mark complete on the terminal event so a disconnect during the
             # final yield doesn't get tagged as interrupted on persist.
             if isinstance(event, (TurnComplete, ErrorEvent)):
                 stream_completed = True
+            if ask is not None:
+                if isinstance(event, TextDelta):
+                    continue  # held back until the citation filter has run
+                if isinstance(event, (TurnComplete, ErrorEvent)):
+                    finish_ask_turn(ask, result, text_parts)
+                    yield event_to_frame(TextDelta(text=result.assistant_text))
+                    yield sources_frame(result.sources)
             yield event_to_frame(event)
     finally:
         # Persist exactly once. If the DB write itself fails the trace is
         # lost, but a broken DB connection would also break any retry, so
         # we accept that and keep the path simple.
-        result.assistant_text = "".join(text_parts)
+        if ask is not None:
+            finish_ask_turn(ask, result, text_parts)
+            await ask.settle(db, result)
+        else:
+            result.assistant_text = "".join(text_parts)
         if not stream_completed:
             # Interrupted before a terminal event: don't promote a partial
             # provider session handle so the next turn rebuilds from the
@@ -159,11 +193,14 @@ async def run_turn(
     session: ChatSession,
     user_message: str,
     credentials: Credentials,
+    ask: AskContext | None = None,
 ) -> TurnResult:
     """Run one chat turn to completion and persist messages.
 
     The session row is expected to be owned by the caller; auth happens at
-    the route layer. This function does not validate ownership.
+    the route layer. This function does not validate ownership. In wiki
+    mode (``ask``) the reply is filtered of unretrieved citations and the
+    quota reservation settled before anything is persisted.
     """
     user_row = await persist_user_message(
         db, session=session, user_message=user_message
@@ -172,16 +209,23 @@ async def run_turn(
     result = TurnResult()
     text_parts: list[str] = []
 
-    async for event in run_provider_turn(
-        db=db,
-        session=session,
-        user_message=user_message,
-        credentials=credentials,
-        skip_message_id=user_row.id,
-    ):
-        fold_event(event, text_parts, result)
-
-    result.assistant_text = "".join(text_parts)
+    try:
+        async for event in run_provider_turn(
+            db=db,
+            session=session,
+            user_message=user_message,
+            credentials=credentials,
+            skip_message_id=user_row.id,
+            profile=ask.profile if ask else None,
+            on_dispatch=result.mark_dispatched,
+        ):
+            fold_event(event, text_parts, result)
+    finally:
+        if ask is not None:
+            finish_ask_turn(ask, result, text_parts)
+            await ask.settle(db, result)
+        else:
+            result.assistant_text = "".join(text_parts)
     await persist_assistant_message(db, session=session, result=result)
     return result
 
@@ -193,6 +237,8 @@ async def run_provider_turn(
     user_message: str,
     credentials: Credentials,
     skip_message_id: str | None = None,
+    profile: AgentProfile | None = None,
+    on_dispatch: Callable[[], None] | None = None,
 ) -> AsyncIterator[TurnEvent]:
     """Resolve the provider and stream its events. No persistence.
 
@@ -236,12 +282,18 @@ async def run_provider_turn(
         model=session.model,
         cwd=cwd,
         sdk_session_id=resume_id,
+        profile=profile,
+        on_dispatch=on_dispatch,
     ):
         yield event
 
 
 def fold_event(event: TurnEvent, text_parts: list[str], result: TurnResult) -> None:
     """Accumulate a provider event into the in-progress TurnResult."""
+    # An error the provider marks undispatched is its word that nothing was
+    # sent (e.g. no CLI to launch, after on_dispatch); any other event means
+    # a model request may have gone out.
+    result.dispatched = not (isinstance(event, ErrorEvent) and not event.dispatched)
     if isinstance(event, SessionInitialized):
         result.sdk_session_id = event.sdk_session_id
     elif isinstance(event, TextDelta):
@@ -266,5 +318,11 @@ def fold_event(event: TurnEvent, text_parts: list[str], result: TurnResult) -> N
         )
     elif isinstance(event, ErrorEvent):
         result.error = event.message
+        # A failed turn may still have done billable work; keep its accounting.
+        if event.usage is not None:
+            result.usage = event.usage
+        if event.cost_usd is not None:
+            result.cost_usd = event.cost_usd
     elif isinstance(event, TurnComplete):
-        pass  # terminal sentinel; nothing to fold
+        result.usage = event.usage
+        result.cost_usd = event.cost_usd

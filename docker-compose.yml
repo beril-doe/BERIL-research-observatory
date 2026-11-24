@@ -31,6 +31,11 @@ services:
       BERIL_WIKI_INTERNAL_URL: http://wiki:8080
       BERIL_WIKI_INTERNAL_TOKEN: ${BERIL_WIKI_INTERNAL_TOKEN:-dev-wiki-internal-token}
       BERIL_WIKI_PUBLIC_URL: http://localhost:8000/wiki
+    volumes:
+      # The submission store (BERIL_SUBMISSIONS_DIR): the bytes /submit hands
+      # BERIL for the wiki. Persistent, like SPIN's volume for the same path;
+      # without it every submission's files vanish with the container.
+      - submissions:/var/lib/beril/submissions
     restart: unless-stopped
     depends_on:
       postgres:
@@ -136,4 +141,5 @@ services:
 volumes:
   pgdata:
   ovworkspace:
+  submissions:
   wikiartifacts:

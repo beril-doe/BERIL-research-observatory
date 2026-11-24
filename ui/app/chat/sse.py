@@ -54,6 +54,13 @@ def event_to_frame(event: TurnEvent) -> dict[str, str]:
     return {"event": event.kind, "data": json.dumps(payload)}
 
 
+def sources_frame(sources: list[dict[str, Any]]) -> dict[str, str]:
+    """Wiki mode: the numbered sources the reply's ``[n]`` refer to, sent
+    once, after the filtered answer text and before ``turn_complete`` —
+    the same list ``/turn`` returns as ``sources``."""
+    return {"event": "sources", "data": json.dumps({"sources": sources})}
+
+
 def turn_complete_frame(*, assistant_message_id: str) -> dict[str, str]:
     """Emit the final frame with the newly-persisted assistant message id.
 

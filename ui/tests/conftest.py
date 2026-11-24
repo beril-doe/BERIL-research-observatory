@@ -446,3 +446,15 @@ def test_client(repository_data, db_session):
         app.state.repo_data = repository_data
         yield client
     app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture(autouse=True)
+def submission_store(tmp_path):
+    """Every test writes submissions to its own temp directory, never to the
+    configured BERIL_SUBMISSIONS_DIR."""
+    from app.submissions.store import FilesystemSubmissionStore, reset_submission_store
+
+    store = FilesystemSubmissionStore(tmp_path / "submissions")
+    reset_submission_store(store)
+    yield store
+    reset_submission_store(None)

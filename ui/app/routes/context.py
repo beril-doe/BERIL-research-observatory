@@ -16,6 +16,7 @@ import re
 import tempfile
 from collections import Counter
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from glob import escape as glob_escape
 from pathlib import Path
 from typing import NamedTuple
@@ -31,7 +32,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,7 +56,11 @@ from app.context_manager.base import (
     MAX_LS_NODE_LIMIT,
     MAX_OWNER_EXPANSION,
     MAX_PITFALL_LIMIT,
+    READABLE_FILES,
     TERMINAL_INGEST_STATUSES,
+    ArchiveUnavailableError,
+    ContextFile,
+    ContextFileNotFound,
     ContextImportResults,
     ContextIngestResults,
     ContextQueryResults,
@@ -66,6 +71,8 @@ from app.context_manager.base import (
     IngestResult,
     PitfallHit,
     PitfallResults,
+    QueryResult,
+    is_readable_path,
 )
 from app.clients.openviking import store_version_report
 from app.context_manager.addresses import to_address
@@ -78,6 +85,7 @@ from app.context_manager.openviking import (
     ContextUnavailableError,
     OpenVikingManager,
     OvProvisioningError,
+    ReservedNamespaceError,
     SelfHealingContextManager,
     UnauthenticatedError,
     apply_discovery_precedence,
@@ -86,10 +94,12 @@ from app.context_manager.openviking import (
     corpus_root,
     get_user_ov_api_key,
     listing_uri,
+    parse_address,
     regenerate_user_ov_api_key,
     target_uri,
     user_target_root,
 )
+from app.context_manager.wiki import WikiManager, WikiUnavailableError, is_excluded
 from app.crypto import CredentialEncryptionError
 from app.db.crud import (
     completed_file_hashes,
@@ -107,6 +117,20 @@ from app.db.models import ContextIngestFileRecord, UserProject
 from app.importer import SENTINEL_ORCID
 from app.db.session import get_db
 from app.routes.data import _safe_relative_path
+from app.routes.submissions import STORE_UNAVAILABLE_DETAIL, record_submission
+from app.submissions.service import (
+    DOCS_FILES,
+    DOCS_OWNER,
+    DOCS_PROJECT,
+    KIND_DOCS,
+    KIND_SEEDED,
+    ManifestApproval,
+    ManifestFile,
+    SubmissionManifest,
+    read_submission_file,
+    sha256_hex,
+)
+from app.submissions.store import get_submission_store
 from app.routes.ingest_gate import (
     APPROVAL_FILES,
     check_approval,
@@ -178,6 +202,45 @@ async def context_unavailable_handler(
         content={"detail": CONTEXT_UNAVAILABLE_DETAIL},
     )
 
+WIKI_UNAVAILABLE_DETAIL = "wiki unavailable"
+
+
+async def wiki_unavailable_handler(request: Request, exc: WikiUnavailableError) -> JSONResponse:
+    """The wiki container could not be asked: 503, never a 500. App-wide,
+    like the context-store handler."""
+    logger.warning("Wiki backend unavailable for %s: %s", request.url.path, exc)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": WIKI_UNAVAILABLE_DETAIL},
+    )
+
+
+def get_wiki_manager() -> WikiManager:
+    return WikiManager(get_settings())
+
+
+def _wiki_find_payload(found: dict, query: str) -> ContextQueryResults:
+    """Wiki hits in the ``find`` shape, each carrying its public ``link``."""
+    return ContextQueryResults(
+        query=query,
+        results=[
+            QueryResult(
+                uri=hit["address"],
+                context_type="wiki_page",
+                score=hit["score"],
+                text=hit["text"],
+                match_reason=hit.get("heading"),
+                content=None,
+                title=hit.get("title"),
+                link=hit.get("link"),
+            )
+            for hit in found["results"]
+        ],
+        total=len(found["results"]),
+        artifact=found.get("artifact"),
+    )
+
+
 @ROUTER_CONTEXT.post("/api/context/find")
 async def post_context_find(
     query: ContextQuery,
@@ -203,11 +266,15 @@ async def post_context_find(
     so its error text is logged rather than returned.
     """
     logger.info(
-        "Context query %r (limit=%d) for user %s",
+        "Context query %r (limit=%d, source=%s) for user %s",
         query.query,
         query.limit,
+        query.source,
         user.orcid_id,
     )
+    if query.source == "wiki":
+        found = await get_wiki_manager().find(query.query, scope=query.path, limit=query.limit)
+        return _wiki_find_payload(found, query.query)
     unaddressed = query.project is None and query.owner is None
     target = _read_uri(
         user,
@@ -406,10 +473,17 @@ async def get_context_files(
             f"(default {MAX_LS_DEPTH}). Listings are bounded by node_limit too."
         ),
     ),
+    source: str = Query(
+        default="context",
+        pattern="^(context|wiki)$",
+        description="`context` (the store) or `wiki`; with `wiki`, `path` is `wiki/<collection>`.",
+    ),
     user: BerilUser = Depends(require_user_api),
     db: AsyncSession = Depends(get_db)
 ) -> list:
-    """List ingested content.
+    """List ingested content, or — with ``source=wiki`` — the wiki's
+    collections and pages (``path=wiki/<collection>``; ``authors`` is never
+    listed).
 
     Every submitted project is readable by everyone — owned by one user, like a
     public repository — so a listing is not restricted to the caller. ``owner``
@@ -432,6 +506,8 @@ async def get_context_files(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="`depth` applies to a recursive listing; add `recursive`.",
         )
+    if source == "wiki":
+        return await get_wiki_manager().ls(path)
     target = _read_uri(user, project, path, owner=owner, all_owners=all_owners)
 
     manager = await resolve_context_manager(db, user)
@@ -759,6 +835,195 @@ async def get_context_grep(
         **payload,
         "matches": [_addressed(match) for match in payload.get("matches") or []],
     }
+
+READABLE_FILES_DETAIL = (
+    "Only a project's "
+    + ", ".join(sorted(READABLE_FILES))
+    + ", REFUTATION_<n>.md and figures/** can be read whole."
+)
+ARCHIVE_UNAVAILABLE_DETAIL = "The project archive is currently unavailable."
+
+
+async def _visible_project(
+    db: AsyncSession, user: BerilUser, owner_orcid: str, slug: str
+) -> UserProject | None:
+    """``owner``'s project ``slug`` if the caller may see it, else ``None``.
+
+    Reads are global for public projects, as ``ls`` and ``find`` are. A
+    private project is visible only to its owner and to admins; to anyone
+    else it does not exist, so a probe cannot confirm a private slug.
+    """
+    row = (
+        await db.execute(
+            select(UserProject)
+            .join(BerilUser, UserProject.owner_id == BerilUser.id)
+            .where(BerilUser.orcid_id == owner_orcid, UserProject.slug == slug)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+    if row.is_public or row.owner_id == user.id or await _is_admin(db, user):
+        return row
+    return None
+
+
+@ROUTER_CONTEXT.get("/api/context/read")
+async def get_context_read(
+    request: Request,
+    address: str = Query(
+        description=(
+            "`<owner>/<project>/<path>` — the address `ls`, `find` and the "
+            "submissions feed name a file by."
+        ),
+    ),
+    revision: str | None = Query(
+        default=None,
+        description="A submission revision (sha256 of REPORT.md); default is the newest complete one.",
+    ),
+    source: str = Query(
+        default="context",
+        pattern="^(context|wiki)$",
+        description="`context` (a project file) or `wiki` (a page, `address=wiki/<collection>/<slug>[#section]`).",
+    ),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """One project file, whole and byte-exact — or, with ``source=wiki``, one
+    wiki page (``source: wiki``, plus ``artifact``, ``title``, ``link`` and
+    ``sources``).
+
+    Returns the file as JSON (``content`` plus ``encoding``, ``sha256``,
+    ``size``, ``content_type``, ``source``, ``modified_at``, ``revision``),
+    or the raw bytes when the request accepts ``application/octet-stream`` —
+    then ``sha256``, ``source`` and ``modified_at`` travel as the
+    ``X-Content-SHA256``, ``X-Content-Source`` and (when known)
+    ``X-Content-Modified-At`` headers.
+
+    **Byte-exactness.** The bytes are the ones the project submitted. The
+    submission store answers first (``source: submission``): the bytes
+    ``/submit`` handed BERIL, byte-exact by construction, from the newest
+    complete submission or the ``revision`` named. For legacy projects that
+    never posted a submission, the context store's copy is served
+    (``source: context``) only when it hashes to what BERIL recorded at
+    ingest; otherwise, and for files the store never ingests (figures), the
+    lakehouse archive answers (``source: archive``). A client that verifies
+    quotes or offsets against ``sha256`` can trust them from any source.
+
+    Only ``REPORT.md``, ``README.md``, ``beril.yaml``, ``CORRECTIONS.md``,
+    ``REFUTATION_<n>.md`` and ``figures/**`` may be read whole (403 for
+    anything else); the rest of a project is reachable through ``find``,
+    ``grep`` and ``ls``. Reads are global for public projects, like the other
+    read routes; an unknown file, or a project the caller may not see, is 404.
+    """
+    if source == "wiki":
+        if is_excluded(address):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such page.")
+        try:
+            file, extra = await get_wiki_manager().read(address)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="`address` must be `wiki/<collection>/<slug>[#section]`.",
+            ) from exc
+        except ContextFileNotFound:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such page.") from None
+        if "application/octet-stream" in request.headers.get("accept", ""):
+            return _file_response(request, file)
+        return {**file.model_dump(mode="json"), **extra}
+    try:
+        owner, project_slug, path = parse_address(address)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="`address` must be `<owner>/<project>/<path>`.",
+        ) from exc
+    # The central digests are readable too, under the house account.
+    is_docs = owner == DOCS_OWNER and project_slug == DOCS_PROJECT and path in DOCS_FILES
+    if not is_readable_path(path) and not is_docs:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=READABLE_FILES_DETAIL
+        )
+    if revision is not None and not re.fullmatch(r"[0-9a-f]{64}", revision.lower()):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="`revision` must be a sha256 hex digest.",
+        )
+
+    # A submission is of an approved project, so it is readable by anyone
+    # who may call this; no project row is needed — the context-store mirror
+    # (which creates one) may never have run.
+    try:
+        file = await read_submission_file(
+            db, get_submission_store(), owner=owner, project=project_slug, path=path,
+            revision=revision.lower() if revision else None,
+        )
+    except ContextFileNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such file.") from None
+    except ArchiveUnavailableError as exc:
+        logger.warning("Submission store read of %s failed: %s", address, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=STORE_UNAVAILABLE_DETAIL
+        ) from exc
+    if file is not None:
+        logger.info("Read %s from the submission store (revision %s)", address, file.revision[:12])
+        return _file_response(request, file)
+
+    db_project = await _visible_project(db, user, owner, project_slug)
+    try:
+        target_root = user_target_root(owner, project_slug)
+    except ReservedNamespaceError:
+        # The house account has no projects to read this way.
+        db_project = None
+    if db_project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such file.")
+
+    # What this exact path hashed to when it last completed an ingest here —
+    # the store's copy is served only when it still hashes to this. ``None``
+    # (never ingested, or hashed before hashing existed) means the archive.
+    expected = (
+        await completed_file_hashes(db, db_project.id, target_root=target_root)
+    ).get(path)
+
+    manager = await resolve_context_manager(db, user)
+    try:
+        file = await manager.get_file(address, expected_sha256=expected)
+    except ContextFileNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No such file."
+        ) from exc
+    except ArchiveUnavailableError as exc:
+        logger.warning("Archive read of %s failed for user %s: %s", address, user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=ARCHIVE_UNAVAILABLE_DETAIL
+        ) from exc
+    except QUERY_FAILURES as exc:
+        logger.warning("Context read of %s failed for user %s: %s", address, user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The context manager could not read that file.",
+        ) from exc
+
+    return _file_response(request, file)
+
+
+def _file_response(request: Request, file: ContextFile):
+    """The file as JSON, or as raw bytes when the caller accepts an octet
+    stream — then the envelope's facts travel as headers."""
+    if "application/octet-stream" in request.headers.get("accept", ""):
+        headers = {"X-Content-SHA256": file.sha256, "X-Content-Source": file.source}
+        # Same value as the JSON envelope's ``modified_at``; omitted, not
+        # empty, when the source reported none.
+        if file.modified_at is not None:
+            headers["X-Content-Modified-At"] = file.modified_at.isoformat()
+        if file.revision is not None:
+            headers["X-Content-Revision"] = file.revision
+        return Response(
+            content=file.to_bytes(),
+            media_type=file.content_type or "application/octet-stream",
+            headers=headers,
+        )
+    return file
+
 
 async def _is_admin(db: AsyncSession, user: BerilUser) -> bool:
     """Whether ``user`` holds the admin role (the check ``require_admin`` makes)."""
@@ -1425,6 +1690,10 @@ async def post_admin_context_import(
             removals=removals,
             force=force,
         )
+        # The feed's record of this project: a ``seeded`` submission under
+        # the repo owner, carrying the wiki's text files from the same
+        # archive. Independent of the ingest above, like /submit's own post.
+        submission_id = await _record_seeded(db, root, relative_paths, owner=owner, slug=db_project.slug)
     # Planned only after this import has recorded its files: retire_file
     # treats a path with *no* record in the current namespace as one the
     # project no longer has, so the records must exist before any retirement
@@ -1435,7 +1704,105 @@ async def post_admin_context_import(
         project=db_project.slug,
         owner_orcid=owner.orcid_id,
         retire_records=retire_records,
+        submission_id=submission_id,
     )
+
+
+async def _record_seeded(
+    db: AsyncSession, root: Path, relative_paths: list[str], *, owner: BerilUser, slug: str
+) -> str | None:
+    """Record the imported project as a ``seeded`` submission.
+
+    Built from the archive's wiki-readable text files; the revision is the
+    sha256 of its REPORT.md, so re-importing the same report is idempotent.
+    An import without a REPORT.md records nothing — there is no report for
+    the wiki to build from. Figures are not in an import archive, so a seeded
+    submission is complete as soon as its text files are stored; a seeded
+    project's figures (if any) come from the lakehouse archive on read.
+    """
+    bundle: dict[str, bytes] = {}
+    for relative_path in relative_paths:
+        if is_readable_path(relative_path):
+            bundle[relative_path] = await asyncio.to_thread((root / relative_path).read_bytes)
+    report = bundle.get("REPORT.md")
+    if report is None:
+        return None
+    settings = get_settings()
+    manifest = SubmissionManifest(
+        project=slug,
+        owner_orcid=owner.orcid_id,
+        revision=sha256_hex(report),
+        submitted_at=datetime.now(timezone.utc),
+        archive_path=f"s3a://{settings.archive_bucket}/{settings.archive_prefix}/{slug}",
+        approval=ManifestApproval(by=owner.orcid_id, report_hash=sha256_hex(report)),
+        files=[
+            ManifestFile(path=p, sha256=sha256_hex(data), size=len(data))
+            for p, data in bundle.items()
+        ],
+    )
+    submission, created = await record_submission(
+        db, get_submission_store(), manifest=manifest, bundle=bundle, owner=owner, kind=KIND_SEEDED,
+        # A re-import of the same report with other files edited keeps the
+        # first import's files rather than failing the whole import.
+        reject_changed_manifest=False,
+    )
+    logger.info(
+        "Seeded submission %s for %s/%s (%s)", submission.id, owner.orcid_id, slug,
+        "created" if created else "existing",
+    )
+    return submission.id
+
+
+# The central digests the admin may feed as ``kind: docs``.
+_DOCS_DETAIL = "Only the central digests can be imported as docs: " + ", ".join(sorted(DOCS_FILES)) + "."
+
+
+@ROUTER_CONTEXT.post("/api/admin/context/import_docs")
+async def post_admin_context_import_docs(
+    request: Request,
+    archive: UploadFile = File(...),
+    manifest: UploadFile = File(...),
+    user: BerilUser = Depends(require_user_api),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Record the central digests (``docs/discoveries.md``, ``pitfalls.md``,
+    ...) as a ``kind: docs`` submission under owner ``beril``, project
+    ``docs``, so the wiki's feed carries them until the central docs get a
+    record of their own. Admins only. Same zip + manifest shape as the
+    import; the revision is the sha256 over the files' hashes, so re-posting
+    unchanged digests is a no-op. Not indexed into the context store here —
+    that is the knowledge tools' ``--docs`` job.
+    """
+    await _require_admin(db, user)
+    settings = get_settings()
+    archive_bytes = await read_capped(archive, settings.context_max_archive_bytes, what="archive")
+    relative_paths, removals = _parse_manifest(
+        await read_capped(manifest, settings.context_max_manifest_bytes, what="manifest")
+    )
+    bad = [p for p in relative_paths if p not in DOCS_FILES]
+    if bad or removals:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=_DOCS_DETAIL)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        root = Path(tmp_dir).resolve()
+        await _extract(archive_bytes, root, relative_paths)
+        bundle = {p: await asyncio.to_thread((root / p).read_bytes) for p in relative_paths}
+    hashes = {p: sha256_hex(d) for p, d in bundle.items()}
+    revision = sha256_hex("\n".join(f"{p} {h}" for p, h in sorted(hashes.items())).encode())
+    manifest_model = SubmissionManifest.model_construct(
+        project=DOCS_PROJECT,
+        owner_orcid=DOCS_OWNER,
+        revision=revision,
+        submitted_at=datetime.now(timezone.utc),
+        archive_path=None,
+        approval=ManifestApproval(by=user.orcid_id),
+        files=[ManifestFile(path=p, sha256=hashes[p], size=len(bundle[p])) for p in relative_paths],
+    )
+    submission, created = await record_submission(
+        db, get_submission_store(), manifest=manifest_model, bundle=bundle, owner=None, kind=KIND_DOCS,
+        require_report=False,
+    )
+    return {"id": submission.id, "created": created, "revision": revision, "status": submission.status,
+            "files": sorted(bundle)}
 
 
 # Marks a file in a previous owner's namespace whose removal has been planned

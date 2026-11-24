@@ -8,7 +8,7 @@ message rows, and (later) translate it into SSE frames for the browser.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Literal, Protocol, runtime_checkable
+from typing import Any, AsyncIterator, Callable, Literal, Protocol, runtime_checkable
 
 from app.chat.config import ProviderConfig
 
@@ -64,18 +64,38 @@ class ToolResult:
 
 @dataclass
 class TurnComplete:
-    """Final event of a successful turn."""
+    """Final event of a successful turn.
+
+    ``usage`` is the provider's token accounting for the turn (``input_tokens``,
+    ``output_tokens``, cache fields) and ``cost_usd`` its own cost figure,
+    when it reports them — what the wiki Ask quota settles against.
+    """
 
     kind: Literal["turn_complete"] = "turn_complete"
     result_subtype: str | None = None
+    usage: dict[str, Any] | None = None
+    cost_usd: float | None = None
 
 
 @dataclass
 class ErrorEvent:
-    """Terminal event for a failed turn."""
+    """Terminal event for a failed turn.
+
+    ``usage`` and ``cost_usd`` are as on :class:`TurnComplete`: a turn can
+    fail after billable work (e.g. hitting its agent-loop cap), and the wiki
+    Ask quota must count that work too.
+
+    ``dispatched`` is False only when the provider knows it sent no model
+    request: it failed in its own setup (no key, no CLI to launch). Any
+    other failure may have come after billable work, so it counts as
+    dispatched.
+    """
 
     message: str
     kind: Literal["error"] = "error"
+    usage: dict[str, Any] | None = None
+    cost_usd: float | None = None
+    dispatched: bool = True
 
 
 TurnEvent = (
@@ -105,6 +125,32 @@ class Credentials:
 
 
 # ---------------------------------------------------------------------------
+# Agent profile
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class AgentProfile:
+    """How a turn's agent is shaped, beyond the user's prompt.
+
+    ``None`` (the default profile) is the general chat: the SDK's own system
+    prompt, every built-in tool and skill. A profile replaces the system
+    prompt, restricts the tools to ``allowed_tools`` (built-ins off), mounts
+    the in-process MCP servers in ``mcp_servers`` and bounds the agent loop at
+    ``max_turns`` — one turn per tool call, so this is the tool-call cap.
+    ``max_budget_usd`` stops the turn once its spend passes that many dollars;
+    the provider checks after each model call, so a turn can pass it by at
+    most one call.
+    """
+
+    system_prompt: str
+    allowed_tools: list[str] = field(default_factory=list)
+    mcp_servers: dict[str, Any] = field(default_factory=dict)
+    max_turns: int | None = None
+    max_budget_usd: float | None = None
+
+
+# ---------------------------------------------------------------------------
 # Provider protocol
 # ---------------------------------------------------------------------------
 
@@ -124,11 +170,16 @@ class ChatProvider(Protocol):
         model: str,
         cwd: str,
         sdk_session_id: str | None,
+        profile: AgentProfile | None = None,
+        on_dispatch: Callable[[], None] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         """Run a single chat turn and yield events as they happen.
 
         Implementations must yield a :class:`SessionInitialized` event once
         the provider reports a session id, and a terminal
-        :class:`TurnComplete` or :class:`ErrorEvent` exactly once.
+        :class:`TurnComplete` or :class:`ErrorEvent` exactly once. They call
+        ``on_dispatch`` the moment a model request may go out, before
+        awaiting anything from the model, so a caller cut off while waiting
+        for the first event still knows the turn may be billable.
         """
         ...

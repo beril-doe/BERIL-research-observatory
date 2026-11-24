@@ -42,6 +42,20 @@ class CredentialField(BaseModel):
 class ModelInfo(BaseModel):
     id: str
     display_name: str
+    # List price per million tokens, for metering spend in USD (the wiki
+    # Ask quota). Optional: a model without rates meters tokens only, and its
+    # USD spend counts as whatever the provider reported, or zero.
+    usd_per_million_input: float | None = None
+    usd_per_million_output: float | None = None
+
+    def usd_for(self, input_tokens: int, output_tokens: int) -> float | None:
+        """Cost of a turn at this model's rates, or None without rates."""
+        if self.usd_per_million_input is None or self.usd_per_million_output is None:
+            return None
+        return (
+            input_tokens * self.usd_per_million_input
+            + output_tokens * self.usd_per_million_output
+        ) / 1_000_000
 
 
 class ProviderConfig(BaseModel):
@@ -112,3 +126,11 @@ def reset_chat_config_cache() -> None:
     """Drop the cached config. Tests only."""
     global _chat_config
     _chat_config = None
+
+
+def find_model(provider_id: str, model_id: str) -> ModelInfo | None:
+    """The configured model, or None when the provider or model is unknown."""
+    provider = get_chat_config().providers.get(provider_id)
+    if provider is None:
+        return None
+    return next((m for m in provider.models if m.id == model_id), None)

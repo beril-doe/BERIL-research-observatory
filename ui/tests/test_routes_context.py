@@ -194,6 +194,9 @@ async def test_find_returns_mapped_results(client, credentialed_user, manager):
             # than being omitted — clients can index them unconditionally.
             "match_reason": None,
             "content": None,
+            # Wiki hits only (source=wiki); null for the context store.
+            "title": None,
+            "link": None,
         }
     ]
 
@@ -4484,3 +4487,230 @@ async def test_startup_logs_an_old_store_loudly(caplog):
     with patch("app.clients.openviking.ov_health", AsyncMock(return_value={"version": "0.4.22"})):
         await _check_store_version()
     assert not any(r.levelname == "ERROR" for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/context/read
+# ---------------------------------------------------------------------------
+
+from datetime import datetime, timezone
+
+from app.context_manager.base import (
+    ArchiveUnavailableError,
+    ContextFile,
+    ContextFileNotFound,
+)
+
+_READ_REPORT = b"# Alpha\n\nExact bytes.\n"
+_READ_SHA = hashlib.sha256(_READ_REPORT).hexdigest()
+
+
+def _context_file(data=_READ_REPORT, *, address=None, source="context", modified_at=None):
+    owner, project, path = (address or f"{USER_TOKEN['orcid']}/alpha/REPORT.md").split("/", 2)
+    return ContextFile.from_bytes(
+        data, address=address or f"{owner}/{project}/{path}", owner=owner, project=project,
+        path=path, source=source, modified_at=modified_at,
+    )
+
+
+@pytest.fixture
+def read_manager():
+    inst = MagicMock()
+    inst.get_file = AsyncMock(return_value=_context_file())
+    with patch("app.routes.context.OpenVikingManager", return_value=inst):
+        yield inst
+
+
+async def _own_project(db_session, user, slug="alpha", *, public=True):
+    project = await create_user_project(db_session, user.id, title=slug, slug=slug)
+    project.is_public = public
+    await db_session.commit()
+    return project
+
+
+async def _landed(db_session, user, project, files, *, created_at=None, statuses=None):
+    """A completed batch of ``{path: bytes}`` for ``project``."""
+    root = f"viking://resources/users/{user.orcid_id}/{project.slug}"
+    batch = await create_ingest_batch(
+        db_session, user_id=user.id, project_id=project.id, target_root=root,
+        files=[
+            {"relative_path": p, "uri": f"{root}/{p}", "ov_task_id": f"t-{p}",
+             "status": (statuses or {}).get(p, "completed"),
+             "content_sha256": hashlib.sha256(c).hexdigest()}
+            for p, c in files.items()
+        ],
+    )
+    if created_at is not None:
+        batch.created_at = created_at
+        await db_session.commit()
+    return batch
+
+
+def _read(client, address, **headers):
+    return client.get("/api/context/read", params={"address": address}, headers=headers)
+
+
+def test_read_unauthenticated_returns_401(client):
+    assert _read(client, "o/p/REPORT.md").status_code == 401
+
+
+async def test_read_returns_the_file_as_json(client, credentialed_user, db_session, read_manager):
+    project = await _own_project(db_session, credentialed_user)
+    await _landed(db_session, credentialed_user, project, {"REPORT.md": _READ_REPORT})
+    _login(client)
+
+    resp = _read(client, f"{USER_TOKEN['orcid']}/alpha/REPORT.md")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["content"] == _READ_REPORT.decode()
+    assert (body["encoding"], body["sha256"], body["size"]) == ("utf-8", _READ_SHA, len(_READ_REPORT))
+    assert (body["source"], body["content_type"]) == ("context", "text/markdown")
+    assert body["address"] == f"{USER_TOKEN['orcid']}/alpha/REPORT.md"
+    assert body["modified_at"] is None
+    assert "viking" not in resp.text
+
+
+async def test_read_hands_the_recorded_hash_to_the_manager(
+    client, credentialed_user, db_session, read_manager
+):
+    """The hash of the path's last *completed* ingest decides whether the
+    store's copy may be served; the manager gets exactly that."""
+    project = await _own_project(db_session, credentialed_user)
+    await _landed(db_session, credentialed_user, project, {"REPORT.md": _READ_REPORT})
+    _login(client)
+
+    _read(client, f"{USER_TOKEN['orcid']}/alpha/REPORT.md")
+
+    read_manager.get_file.assert_awaited_once_with(
+        f"{USER_TOKEN['orcid']}/alpha/REPORT.md", expected_sha256=_READ_SHA
+    )
+
+
+async def test_read_of_an_uningested_path_passes_no_hash(
+    client, credentialed_user, db_session, read_manager
+):
+    """Figures are never ingested: no hash, so the manager serves the archive."""
+    png = b"\x89PNG\r\n\x1a\n\x00"
+    address = f"{USER_TOKEN['orcid']}/alpha/figures/fig1.png"
+    read_manager.get_file.return_value = _context_file(png, address=address, source="archive")
+    await _own_project(db_session, credentialed_user)
+    _login(client)
+
+    resp = _read(client, address)
+
+    assert resp.status_code == 200
+    read_manager.get_file.assert_awaited_once_with(address, expected_sha256=None)
+    body = resp.json()
+    assert (body["source"], body["encoding"], body["content_type"]) == ("archive", "base64", "image/png")
+    import base64
+    assert base64.b64decode(body["content"]) == png
+
+
+async def test_read_as_octet_stream_returns_raw_bytes_with_headers(
+    client, credentialed_user, db_session, read_manager
+):
+    when = datetime(2026, 10, 9, 12, tzinfo=timezone.utc)
+    read_manager.get_file.return_value = _context_file(source="archive", modified_at=when)
+    await _own_project(db_session, credentialed_user)
+    _login(client)
+
+    resp = _read(client, f"{USER_TOKEN['orcid']}/alpha/REPORT.md", Accept="application/octet-stream")
+
+    assert resp.status_code == 200
+    assert resp.content == _READ_REPORT
+    assert resp.headers["x-content-sha256"] == _READ_SHA
+    assert resp.headers["x-content-source"] == "archive"
+    assert resp.headers["x-content-modified-at"] == "2026-10-09T12:00:00+00:00"
+    assert resp.headers["content-type"].startswith("text/markdown")
+
+
+async def test_read_as_octet_stream_omits_an_unknown_modified_at(
+    client, credentialed_user, db_session, read_manager
+):
+    await _own_project(db_session, credentialed_user)
+    _login(client)
+    resp = _read(client, f"{USER_TOKEN['orcid']}/alpha/REPORT.md", Accept="application/octet-stream")
+    assert resp.status_code == 200
+    assert "x-content-modified-at" not in resp.headers
+
+
+@pytest.mark.parametrize("path", ["REVIEW.md", "memories/pitfalls.md", "data/x.csv", "figures/"])
+async def test_read_refuses_a_path_outside_the_allowlist(
+    client, credentialed_user, db_session, read_manager, path
+):
+    await _own_project(db_session, credentialed_user)
+    _login(client)
+
+    resp = _read(client, f"{USER_TOKEN['orcid']}/alpha/{path}")
+
+    assert resp.status_code == 403
+    assert "REPORT.md" in resp.json()["detail"]
+    read_manager.get_file.assert_not_awaited()
+
+
+@pytest.mark.parametrize("address", ["alpha/REPORT.md", "o/alpha/../b/REPORT.md", ""])
+async def test_read_rejects_a_malformed_address(client, credentialed_user, read_manager, address):
+    _login(client)
+    assert _read(client, address).status_code == 422
+    read_manager.get_file.assert_not_awaited()
+
+
+async def test_read_of_an_unknown_project_is_404(client, credentialed_user, read_manager):
+    _login(client)
+    resp = _read(client, f"{USER_TOKEN['orcid']}/nope/REPORT.md")
+    assert resp.status_code == 404
+    read_manager.get_file.assert_not_awaited()
+
+
+async def test_read_of_someone_elses_public_project_is_global(
+    client, credentialed_user, db_session, read_manager
+):
+    owner, _project = await _repo_project(db_session, "theirs")
+    read_manager.get_file.return_value = _context_file(address=f"{owner.orcid_id}/theirs/REPORT.md")
+    _login(client)
+
+    assert _read(client, f"{owner.orcid_id}/theirs/REPORT.md").status_code == 200
+
+
+async def test_read_of_someone_elses_private_project_is_404(
+    client, credentialed_user, db_session, read_manager
+):
+    other = BerilUser(orcid_id="0000-0009-9999-9999", display_name="Other")
+    db_session.add(other)
+    await db_session.commit()
+    await _own_project(db_session, other, "secret", public=False)
+    _login(client)
+
+    assert _read(client, "0000-0009-9999-9999/secret/REPORT.md").status_code == 404
+    read_manager.get_file.assert_not_awaited()
+
+
+async def test_read_of_the_house_account_is_404(client, credentialed_user, read_manager):
+    _login(client)
+    assert _read(client, "beril/docs/REPORT.md").status_code == 404
+
+
+async def test_read_maps_a_missing_file_to_404(client, credentialed_user, db_session, read_manager):
+    read_manager.get_file.side_effect = ContextFileNotFound("nowhere")
+    await _own_project(db_session, credentialed_user)
+    _login(client)
+    assert _read(client, f"{USER_TOKEN['orcid']}/alpha/figures/x.png").status_code == 404
+
+
+async def test_read_maps_an_unavailable_archive_to_502(
+    client, credentialed_user, db_session, read_manager
+):
+    read_manager.get_file.side_effect = ArchiveUnavailableError("no creds")
+    await _own_project(db_session, credentialed_user)
+    _login(client)
+    resp = _read(client, f"{USER_TOKEN['orcid']}/alpha/figures/x.png")
+    assert resp.status_code == 502
+    assert "archive" in resp.json()["detail"]
+
+
+async def test_read_maps_a_store_failure_to_502(client, credentialed_user, db_session, read_manager):
+    read_manager.get_file.side_effect = UnavailableError("down")
+    await _own_project(db_session, credentialed_user)
+    _login(client)
+    assert _read(client, f"{USER_TOKEN['orcid']}/alpha/REPORT.md").status_code == 502

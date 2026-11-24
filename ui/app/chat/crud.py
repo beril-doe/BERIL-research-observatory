@@ -57,12 +57,14 @@ async def create_session(
     provider_id: str,
     model: str,
     title: str = "New chat",
+    mode: str = "general",
 ) -> ChatSession:
     session = ChatSession(
         owner_id=owner_id,
         provider_id=provider_id,
         model=model,
         title=title,
+        mode=mode,
     )
     db.add(session)
     await db.commit()
