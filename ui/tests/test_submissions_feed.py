@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+
 from tests.submissions_helpers import (
     FIG1,
     FILES,
@@ -201,3 +203,27 @@ async def test_an_import_without_a_report_records_no_submission(
     resp = _import(client, members={"README.md": b"# Readme\n"})
     assert resp.status_code == 200
     assert resp.json()["submission_id"] is None
+
+
+@pytest.mark.parametrize(
+    "kind, review_stored, status, missing",
+    [
+        ("approved", True, "complete", []),
+        # However it was recorded, an approved submission without its stored
+        # review is never complete, so never in the feed.
+        ("approved", False, "pending", ["REVIEW.md"]),
+        ("approved", None, "pending", ["REVIEW.md"]),  # not even listed
+        ("seeded", None, "complete", []),  # predates /submit: no review asked
+    ],
+)
+def test_an_approved_submission_is_complete_only_with_its_review(kind, review_stored, status, missing):
+    from app.db.models import Submission, SubmissionFile
+    from app.submissions.service import compute_status, missing_paths
+
+    files = [SubmissionFile(path="REPORT.md", sha256="a" * 64, size=1, stored=True)]
+    if review_stored is not None:
+        files.append(SubmissionFile(path="REVIEW.md", sha256="b" * 64, size=1, stored=review_stored))
+    submission = Submission(kind=kind, files=files)
+
+    assert compute_status(submission, "# R\n") == status
+    assert missing_paths(submission, "# R\n") == missing

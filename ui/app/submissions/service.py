@@ -43,6 +43,12 @@ DOCS_OWNER = "beril"
 DOCS_PROJECT = "docs"
 DOCS_FILES = frozenset({"discoveries.md", "pitfalls.md", "performance.md", "research_ideas.md"})
 
+# What an approved submission's approval rests on beyond the wiki's files:
+# bundled and kept with the record, never served, and required before the
+# record is complete — an approved record without its review never reaches
+# the feed, however it was created.
+APPROVAL_FILES = frozenset({"REVIEW.md"})
+
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 # A figure the report embeds: markdown ``![alt](figures/x.png)`` or an HTML
 # ``<img src="figures/x.png">``; a query string or fragment after the path is
@@ -138,16 +144,19 @@ class SubmissionManifest(BaseModel):
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
-def required_paths(manifest_paths: list[str], report: str | None) -> set[str]:
-    """The manifest paths the wiki needs stored before a submission is
-    complete: every readable text file the manifest lists, plus the figures
-    the report embeds. A figure the report does not embed may still be
-    stored, but is not waited for. Without the report's text (not stored
-    yet) no figure is required yet."""
+def required_paths(manifest_paths: list[str], report: str | None, *, kind: str | None = None) -> set[str]:
+    """The paths that must be stored before a submission is complete: every
+    readable text file the manifest lists, plus the figures the report
+    embeds, plus — for an ``approved`` submission — :data:`APPROVAL_FILES`,
+    listed or not. A figure the report does not embed may still be stored,
+    but is not waited for. Without the report's text (not stored yet) no
+    figure is required yet."""
     text = {
         p for p in manifest_paths
         if (is_readable_path(p) and not p.startswith(READABLE_FIGURES_DIR)) or p in DOCS_FILES
     }
+    if kind == KIND_APPROVED:
+        text |= APPROVAL_FILES
     if report is None:
         return text
     figures = embedded_figures(report) & set(manifest_paths)
@@ -156,13 +165,13 @@ def required_paths(manifest_paths: list[str], report: str | None) -> set[str]:
 
 def compute_status(submission: Submission, report: str | None) -> str:
     stored = {f.path for f in submission.files if f.stored}
-    needed = required_paths([f.path for f in submission.files], report)
+    needed = required_paths([f.path for f in submission.files], report, kind=submission.kind)
     return SUBMISSION_COMPLETE if needed <= stored else SUBMISSION_PENDING
 
 
 def missing_paths(submission: Submission, report: str | None) -> list[str]:
     stored = {f.path for f in submission.files if f.stored}
-    return sorted(required_paths([f.path for f in submission.files], report) - stored)
+    return sorted(required_paths([f.path for f in submission.files], report, kind=submission.kind) - stored)
 
 
 def aware(value: datetime | None) -> datetime | None:

@@ -35,6 +35,7 @@ from app.db.session import get_db
 from app.routes.data import _safe_relative_path
 from app.routes.ingest_gate import archive_entry_count, check_approval_of, parse_beril_yaml, read_capped
 from app.submissions.service import (
+    APPROVAL_FILES,
     KIND_APPROVED,
     SUBMISSION_COMPLETE,
     SUBMISSION_KINDS,
@@ -67,11 +68,6 @@ def _reject(detail: str, code: int = status.HTTP_422_UNPROCESSABLE_CONTENT) -> H
     return HTTPException(status_code=code, detail=detail)
 
 
-# Bundled for the approval check and kept with the record, but never served
-# (not a readable path): the review the approval's review_hash names.
-APPROVAL_ONLY_FILES = frozenset({"REVIEW.md"})
-
-
 def _read_bundle(data: bytes) -> dict[str, bytes]:
     """The bundle's members as ``{path: bytes}``.
 
@@ -95,7 +91,7 @@ def _read_bundle(data: bytes) -> dict[str, bytes]:
                 path = _safe_relative_path(info.filename)
                 if path is None or path != info.filename.lstrip("./"):
                     raise _reject(f"Bundle entry has an unsafe name: {info.filename!r}", status.HTTP_400_BAD_REQUEST)
-                if path not in APPROVAL_ONLY_FILES and (
+                if path not in APPROVAL_FILES and (
                     path.startswith(READABLE_FIGURES_DIR) or not is_readable_path(path)
                 ):
                     raise _reject(
