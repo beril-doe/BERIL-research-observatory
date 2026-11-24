@@ -237,3 +237,48 @@ async def test_post_rejects_malformed_json(client, user):
                "bundle": ("bundle.zip", b"PK", "application/zip")},
     )
     assert resp.status_code == 400
+
+
+async def _retire_review(db_session, submission_id):
+    """Make the record look like one made before REVIEW.md was required, as
+    migration e4f5a6b7c8d9 leaves it: no REVIEW.md row, pending, unfed."""
+    from sqlalchemy import select
+
+    from app.db.models import SubmissionFile
+
+    row = (await db_session.execute(
+        select(SubmissionFile).where(SubmissionFile.submission_id == submission_id,
+                                     SubmissionFile.path == "REVIEW.md")
+    )).scalar_one()
+    await db_session.delete(row)
+    sub = await db_session.get(Submission, submission_id)
+    sub.status, sub.feed_seq = "pending", None
+    await db_session.commit()
+
+
+async def test_a_retired_record_returns_through_a_repost_that_adds_its_review(client, user, db_session):
+    _login(client)
+    no_figures = b"# Alpha\n\nNo figures.\n"
+    files = {**FILES, "REPORT.md": no_figures, "beril.yaml": beril_yaml(report=no_figures)}
+    body = manifest(revision=sha(no_figures), report_hash=sha(no_figures), files=files)
+    sid = post(client, manifest_body=body, bundle={p: files[p] for p in TEXT_FILES}).json()["id"]
+    await _retire_review(db_session, sid)
+    assert client.get("/api/context/submissions?after=0").json()["submissions"] == []
+
+    # Any other addition is still refused, even a bundled one.
+    extra = {**files, "CORRECTIONS.md": b"# New\n"}
+    changed = manifest(revision=sha(no_figures), report_hash=sha(no_figures), files=extra)
+    bundle = {**{p: files[p] for p in TEXT_FILES}, "CORRECTIONS.md": extra["CORRECTIONS.md"]}
+    assert post(client, manifest_body=changed, bundle=bundle).status_code == 409
+
+    # A review other than the one the recorded approval names is refused.
+    forged = {**files, "REVIEW.md": b"# Some other review\n"}
+    forged_body = manifest(revision=sha(no_figures), report_hash=sha(no_figures), files=forged)
+    resp = post(client, manifest_body=forged_body, bundle={p: forged[p] for p in TEXT_FILES})
+    assert resp.status_code == 422 and "REVIEW.md does not match" in resp.json()["detail"]
+
+    resp = post(client, manifest_body=body, bundle={p: files[p] for p in TEXT_FILES})
+
+    assert resp.status_code == 200, resp.text
+    assert (resp.json()["created"], resp.json()["status"], resp.json()["missing"]) == (False, "complete", [])
+    assert [s["id"] for s in client.get("/api/context/submissions?after=0").json()["submissions"]] == [sid]

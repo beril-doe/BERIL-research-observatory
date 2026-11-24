@@ -121,13 +121,16 @@ of review. The post is idempotent on
 (`created: false`) and stores whatever it still lacked. A re-post must carry
 the manifest the revision was first recorded with; one that lists any file
 with a different sha256 or size is refused with 409 (the revision names only
-`REPORT.md`, so change the report to submit new files). Figures the report
+`REPORT.md`, so change the report to submit new files). The one exception is
+`REVIEW.md` on an approved record that lacks it: a re-post that bundles it and
+passes the approval check adds it. Figures the report
 embeds (`![](figures/…)`, `<img src="figures/…">`) are PUT one per request,
 hash-checked, owner only; the response's `missing` lists what is still
 needed. A submission is `pending` until every readable text file and every
 embedded figure is stored, then `complete`; an `approved` one also needs its
 `REVIEW.md` stored, so one recorded without it never enters the feed
-(migration `e4f5a6b7c8d9` retires any recorded before this rule). Proxy body limits: 40 MiB on the
+(migration `e4f5a6b7c8d9` retires any recorded before this rule; re-running
+`/submit` on the same report re-posts with `REVIEW.md` and brings it back). Proxy body limits: 40 MiB on the
 post, 64 MiB per figure (`nginx.conf`; the SPIN ingress needs the same
 annotations). Bytes live in the submission store: a filesystem volume at
 `BERIL_SUBMISSIONS_DIR` by default, or S3 when `BERIL_SUBMISSIONS_S3_*` is

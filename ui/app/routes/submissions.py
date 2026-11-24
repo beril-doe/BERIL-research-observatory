@@ -250,12 +250,25 @@ async def record_submission(
         submission = await get_submission(db, existing.id, for_update=True)
 
     records = {f.path: f for f in submission.files}
+    # An approved record made before its approval files were required may
+    # lack them (migration e4f5a6b7c8d9 retired those); a re-post may add one
+    # it bundles. The post route has just checked the approval against those
+    # bytes, and the re-post's beril.yaml must be the recorded one, so only
+    # the review that record's approval names can be added.
+    additions = (
+        {
+            f.path: f for f in manifest.files
+            if f.path in APPROVAL_FILES and f.path not in records and f.path in bundle
+        }
+        if not created and submission.kind == KIND_APPROVED
+        else {}
+    )
     if not created and reject_changed_manifest:
         # The revision names REPORT.md only, so a re-post can carry other
         # files that changed since the first. Storing those would serve bytes
         # whose hash the feed does not advertise; refuse the whole re-post.
         persisted = {p: (r.sha256, r.size) for p, r in records.items()}
-        incoming = {f.path: (f.sha256, f.size) for f in manifest.files}
+        incoming = {f.path: (f.sha256, f.size) for f in manifest.files if f.path not in additions}
         if incoming != persisted:
             changed = sorted(p for p in persisted.keys() | incoming.keys() if persisted.get(p) != incoming.get(p))
             raise _reject(
@@ -263,6 +276,12 @@ async def record_submission(
                 "Change REPORT.md to submit new files.",
                 status.HTTP_409_CONFLICT,
             )
+    for path, entry in additions.items():
+        added = SubmissionFile(
+            path=entry.path, sha256=entry.sha256, size=entry.size, content_type=content_type_for(entry.path)
+        )
+        submission.files.append(added)
+        records[path] = added
     for path, data in bundle.items():
         record = records.get(path)
         if record is not None and not record.stored:

@@ -5,8 +5,11 @@ review its approval's review_hash names, checked against the bundled
 bytes). Records made before that rule may be complete without one; this
 puts them back to pending and takes them out of the feed (``feed_seq``
 cleared — the feed pages by position, so a gap is harmless). They return
-only through a post that passes the approval check. A consumer that read
-one before the upgrade keeps what it read: the feed has no retraction.
+only through a re-post that passes the approval check: the post route lets
+a re-post of an approved record add the REVIEW.md it lacks, checked
+against the recorded beril.yaml's review_hash, and the record then
+completes with a new feed position. A consumer that read one before the
+upgrade keeps what it read: the feed has no retraction.
 
 Revision ID: e4f5a6b7c8d9
 Revises: d2e3f4a5b6c7
