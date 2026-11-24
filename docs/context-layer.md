@@ -105,14 +105,16 @@ GET  /api/context/submissions/{id}                  status, stored flags, what i
 archive_path, approval: {by, at, report_hash}, files: [{path, sha256,
 size}]}` and lists **every** archived file, figures and data included.
 `bundle.zip` carries the wiki's text files (`REPORT.md`, `README.md`,
-`beril.yaml`, `CORRECTIONS.md`, `REFUTATION_<n>.md`). BERIL checks each
+`beril.yaml`, `CORRECTIONS.md`, `REFUTATION_<n>.md`) and `REVIEW.md`, which
+is kept with the record for its approval but never served or listed in the
+feed. BERIL checks each
 bundled file against its manifest sha256, that `revision` and
 `approval.report_hash` are the sha256 of `REPORT.md`, and that `approval.by`
 and `owner_orcid` are the caller (403 otherwise). The bundle must carry
 `beril.yaml`, and it must pass the same approval rule as the ingest gate
 (below): this project, `status: complete`, approved by the caller, with
-`report_hash` matching the bundled `REPORT.md` and `review_hash` matching the
-`REVIEW.md` the manifest lists (archived, never bundled). As with the gate,
+`report_hash` and `review_hash` matching the bundled `REPORT.md` and
+`REVIEW.md` bytes (a hash the manifest only lists is not enough). As with the gate,
 that ties each record to a named approver who is the caller; it is not proof
 of review. The post is idempotent on
 `(owner, project, revision)`: re-posting returns the existing record

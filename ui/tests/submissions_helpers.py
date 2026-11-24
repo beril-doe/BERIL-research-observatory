@@ -33,8 +33,8 @@ FIG2 = b"\x89PNG\r\n\x1a\n\x00fig2"
 SUBMITTED_AT = datetime(2026, 11, 10, 12, 0, tzinfo=timezone.utc)
 
 # What the archive step uploads for the alpha project: text files, the
-# review (archived, not bundled), two figures (one embedded, one not), and a
-# data file the wiki never reads.
+# review (bundled for the approval, never served), two figures (one
+# embedded, one not), and a data file the wiki never reads.
 FILES = {
     "REPORT.md": REPORT,
     "README.md": README,
@@ -44,7 +44,8 @@ FILES = {
     "figures/fig2.png": FIG2,
     "data/table.csv": b"a,b\n1,2\n",
 }
-TEXT_FILES = ("REPORT.md", "README.md", "beril.yaml")
+# What /submit bundles: the wiki's text files plus REVIEW.md.
+TEXT_FILES = ("REPORT.md", "README.md", "beril.yaml", "REVIEW.md")
 
 
 def sha(data: bytes) -> str:

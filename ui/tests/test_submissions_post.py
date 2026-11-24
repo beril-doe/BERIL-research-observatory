@@ -63,7 +63,7 @@ async def test_repost_with_a_changed_file_is_refused_and_stores_nothing(client, 
     # revision carries a different README. Storing it would serve bytes the
     # feed's hash does not describe.
     _login(client)
-    first = post(client, bundle={"REPORT.md": REPORT, "beril.yaml": FILES["beril.yaml"]}).json()
+    first = post(client, bundle={"REPORT.md": REPORT, "beril.yaml": FILES["beril.yaml"], "REVIEW.md": FILES["REVIEW.md"]}).json()
     changed = {**FILES, "README.md": b"# Alpha, edited\n"}
 
     again = post(
@@ -82,7 +82,7 @@ async def test_repost_with_a_changed_file_is_refused_and_stores_nothing(client, 
 
 async def test_repost_with_the_recorded_manifest_stores_what_was_missing(client, user, submission_store):
     _login(client)
-    first = post(client, bundle={"REPORT.md": REPORT, "beril.yaml": FILES["beril.yaml"]}).json()
+    first = post(client, bundle={"REPORT.md": REPORT, "beril.yaml": FILES["beril.yaml"], "REVIEW.md": FILES["REVIEW.md"]}).json()
 
     again = post(client)
 
@@ -168,7 +168,7 @@ async def test_post_refuses_figures_and_other_files_in_the_bundle(client, user):
 
 async def test_post_requires_report_in_the_bundle(client, user):
     _login(client)
-    resp = post(client, bundle={"README.md": FILES["README.md"], "beril.yaml": FILES["beril.yaml"]})
+    resp = post(client, bundle={p: FILES[p] for p in TEXT_FILES if p != "REPORT.md"})
     assert resp.status_code == 422
     assert "REPORT.md" in resp.json()["detail"]
 
@@ -182,6 +182,9 @@ async def test_post_requires_report_in_the_bundle(client, user):
         (beril_yaml(project="beta"), 422, "names project"),
         (beril_yaml(report=b"# An earlier report\n"), 422, "REPORT.md does not match"),
         (beril_yaml(review=b"# A different review\n"), 422, "REVIEW.md does not match"),
+        # The manifest lists a REVIEW.md whose hash the approval names, but
+        # its bytes are not bundled: a listed hash alone proves nothing.
+        ("no-review", 422, "REVIEW.md is not in the submission"),
         (b"project_id: alpha\nstatus: complete\n", 422, "no approval block"),
         (b"- not\n- a mapping\n", 422, "not a mapping"),
     ],
@@ -192,9 +195,13 @@ async def test_post_refuses_a_submission_its_beril_yaml_does_not_approve(
     """The ingest gate's approval rule: without a beril.yaml approving this
     REPORT.md and REVIEW.md by the caller, nothing is recorded."""
     _login(client)
-    files = dict(FILES) if bundle_yaml is None else {**FILES, "beril.yaml": bundle_yaml}
-    files = {p: c for p, c in files.items() if not (bundle_yaml is None and p == "beril.yaml")}
-    bundle = {p: files[p] for p in TEXT_FILES if p in files}
+    if bundle_yaml == "no-review":
+        files, omit = dict(FILES), "REVIEW.md"
+    elif bundle_yaml is None:
+        files, omit = dict(FILES), "beril.yaml"
+    else:
+        files, omit = {**FILES, "beril.yaml": bundle_yaml}, None
+    bundle = {p: files[p] for p in TEXT_FILES if p != omit}
 
     resp = post(client, manifest_body=manifest(files=files), bundle=bundle)
 

@@ -67,6 +67,11 @@ def _reject(detail: str, code: int = status.HTTP_422_UNPROCESSABLE_CONTENT) -> H
     return HTTPException(status_code=code, detail=detail)
 
 
+# Bundled for the approval check and kept with the record, but never served
+# (not a readable path): the review the approval's review_hash names.
+APPROVAL_ONLY_FILES = frozenset({"REVIEW.md"})
+
+
 def _read_bundle(data: bytes) -> dict[str, bytes]:
     """The bundle's members as ``{path: bytes}``.
 
@@ -90,10 +95,12 @@ def _read_bundle(data: bytes) -> dict[str, bytes]:
                 path = _safe_relative_path(info.filename)
                 if path is None or path != info.filename.lstrip("./"):
                     raise _reject(f"Bundle entry has an unsafe name: {info.filename!r}", status.HTTP_400_BAD_REQUEST)
-                if path.startswith(READABLE_FIGURES_DIR) or not is_readable_path(path):
+                if path not in APPROVAL_ONLY_FILES and (
+                    path.startswith(READABLE_FIGURES_DIR) or not is_readable_path(path)
+                ):
                     raise _reject(
-                        f"Only the wiki's text files may be bundled; {path!r} is not one "
-                        "(figures are sent one per PUT)."
+                        f"Only the wiki's text files and REVIEW.md may be bundled; {path!r} "
+                        "is not one (figures are sent one per PUT)."
                     )
                 if info.compress_type not in _ALLOWED_COMPRESSION or info.flag_bits & 0x1:
                     raise _reject(f"{path} is encrypted or uses an unsupported compression.", status.HTTP_400_BAD_REQUEST)
@@ -153,10 +160,12 @@ def _feed_entry(submission: Submission) -> dict:
         "archive_path": submission.archive_path,
         "approval_by": submission.approval_by,
         "approval_at": aware(submission.approval_at).isoformat() if submission.approval_at else None,
+        # What a reader can fetch: REVIEW.md is stored for the approval but
+        # not served, so it is not listed.
         "files": [
             {"path": f.path, "sha256": f.sha256, "size": f.size}
             for f in submission.files
-            if f.stored
+            if f.stored and is_readable_path(f.path)
         ],
     }
 
@@ -271,15 +280,14 @@ async def record_submission(
 
 
 def _check_bundled_approval(manifest_model, members: dict[str, bytes], *, caller_orcid: str) -> None:
-    """The ingest gate's approval rule, on the bundled ``beril.yaml``.
-    ``REVIEW.md`` is archived but never bundled, so it is checked by the hash
-    the manifest lists for it."""
+    """The ingest gate's approval rule, on the bundled ``beril.yaml``, against
+    the bundled ``REPORT.md`` and ``REVIEW.md`` bytes — never a hash the
+    caller only lists, which nothing would check."""
     if "beril.yaml" not in members:
         raise _reject("The bundle must carry beril.yaml; the record rests on its approval.")
-    listed = {entry.path: entry.sha256 for entry in manifest_model.files}
 
     def actual_sha256(name: str) -> str | None:
-        return sha256_hex(members[name]) if name in members else listed.get(name)
+        return sha256_hex(members[name]) if name in members else None
 
     check_approval_of(
         parse_beril_yaml(members["beril.yaml"]),
@@ -304,14 +312,15 @@ async def post_submission(
     archive_path, approval: {by, at, report_hash}, files: [{path, sha256,
     size}]}`` and covers every archived file, figures included; ``bundle.zip``
     carries the wiki-readable text files (``REPORT.md``, ``README.md``,
-    ``beril.yaml``, ``CORRECTIONS.md``, ``REFUTATION_<n>.md``). Each bundled
+    ``beril.yaml``, ``CORRECTIONS.md``, ``REFUTATION_<n>.md``) and
+    ``REVIEW.md``. Each bundled
     file must hash to its manifest entry, ``revision`` and
     ``approval.report_hash`` must be the sha256 of ``REPORT.md``, and
     ``approval.by`` and ``owner_orcid`` must be the caller. The bundled
     ``beril.yaml`` must pass the ingest gate's approval rule: this project,
     ``status: complete``, approved by the caller, its ``report_hash`` and
-    ``review_hash`` matching the bundled ``REPORT.md`` and the ``REVIEW.md``
-    the manifest lists (archived, never bundled). Like the gate, this ties
+    ``review_hash`` matching the bundled ``REPORT.md`` and ``REVIEW.md``.
+    ``REVIEW.md`` is kept with the record but never served. Like the gate, this ties
     the record to a named approver who is the caller; it is not proof of
     review.
 
